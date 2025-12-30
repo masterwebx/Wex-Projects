@@ -21,7 +21,7 @@ No accounts. No tracking. No data leaves your device.
 
 ## How to Use
 
-1. Open the app: [Click here to launch](projects/offline-journal/index.html)
+1. Open the app: [Click here to launch](https://masterwebx.github.io/Wex-Projects/projects/offline-journal/index.html)
 
 2. On first launch, you'll see a welcome screen:
 

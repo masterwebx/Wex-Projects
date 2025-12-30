@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JustWex</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- THIS SCRIPT FIXES THE FLASH ON RELOAD -->
+    <script>
+        if (localStorage.getItem('dark') === 'true') {
+            document.documentElement.classList.add('dark'); // Use documentElement (<html>) for earliest application
+        }
+    </script>
+    
+    <style>
+        :root {
+            --bg-color: #f9f9f9;
+            --text-color: #333;
+            --accent-color: #007bff;
+            --accent-soft: #d4e0f4;
+            --card-bg: #fff;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        html.dark, body.dark { /* Target both for safety */
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --card-bg: #1e1e1e;
+            --accent-color: #4da6ff;
+            --accent-soft: #2a3a5f;
+        }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        /* ... rest of your styles unchanged ... */
+        header {
+            text-align: center;
+            padding: 100px 20px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.1), var(--bg-color));
+        }
+        h1 {
+            font-size: 3.5rem;
+            margin: 0;
+        }
+        p.tagline {
+            font-size: 1.2rem;
+            max-width: 600px;
+            margin: 20px auto;
+        }
+        .projects {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+        .project-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        .project-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        }
+        .project-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .coming-soon-svg {
+            width: 100%;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--card-bg);
+            border-radius: 12px 12px 0 0;
+            overflow: hidden;
+        }
+        .coming-soon-svg svg {
+            width: 100%;
+            height: 100%;
+        }
+        .project-info {
+            padding: 20px;
+            text-align: center;
+        }
+        .project-info h3 {
+            margin: 0 0 10px;
+        }
+        .project-info p {
+            font-size: 0.95rem;
+            margin: 0 0 15px;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            background: var(--accent-color);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background 0.3s;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        footer {
+            text-align: center;
+            padding: 60px 20px 40px;
+            background: rgba(0,0,0,0.05);
+        }
+        .support-section {
+            margin-bottom: 30px;
+        }
+        .support-section p {
+            margin: 10px 0 20px;
+            font-size: 1rem;
+        }
+        .kofi-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 24px;
+            background: #ff5e5b;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .kofi-btn i {
+            font-size: 1.4rem;
+        }
+        .kofi-btn:hover {
+            background: #e54e4b;
+        }
+        .social-links a {
+            margin: 0 15px;
+            color: var(--text-color);
+            font-size: 1.5rem;
+            transition: color 0.3s;
+        }
+        .social-links a:hover {
+            color: var(--accent-color);
+        }
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: var(--card-bg);
+            border: none;
+            padding: 10px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            box-shadow: var(--shadow);
+            z-index: 100;
+        }
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <button class="theme-toggle">
+        <i class="fas fa-moon"></i>
+    </button>
+
+    <!-- Your existing content unchanged -->
+    <header>
+        <h1>JustWex</h1>
+        <p class="tagline">Welcome to my projects hub – a collection of my experiments, tools, and creations.</p>
+    </header>
+
+    <section class="projects">
+        <!-- Offline Journal Project -->
+        <div class="project-card">
+            <img src="projects/offline-journal/splash.png" alt="Offline Journal Preview">
+            <div class="project-info">
+                <h3>Offline Journal</h3>
+                <p>A private, fully offline journaling app that works entirely in your browser. No accounts, no data leaves your device.</p>
+                <a href="projects/offline-journal/index.html" class="btn">Open Journal</a>
+            </div>
+        </div>
+        <!-- Pixel Art Recolor Tool -->
+        <div class="project-card">
+            <img src="projects/pixelartrecoloronline.png" alt="Pixel Art Recolor Tool Preview">
+            <div class="project-info">
+                <h3>Pixel Art Recolor Tool</h3>
+                <p>A tool for recoloring pixel art images in your browser. Integrates with the Super Smash Flash 2 Color Vault discord server.</p>
+                <a href="https://color-vault.github.io/Color-Vault/dist/index.html" class="btn">Open Tool</a>
+            </div>
+        </div>
+
+        <!-- Pressor SSF2 Modding Tool -->
+        <div class="project-card">
+            <img src="projects/pressor.png" alt="Pressor SSF2 Modding Tool Preview">
+            <div class="project-info">
+                <h3>Pressor - SSF2 Modding Tool</h3>
+                <p>An application for modding Super Smash Flash 2 sprites and animations.</p>
+                <a href="https://github.com/masterwebx/Pressor/releases" class="btn">Download Latest Release</a>
+            </div>
+        </div>
+
+        <!-- Coming Soon Card -->
+        <div class="project-card" style="opacity: 0.5;">
+            <div class="coming-soon-svg" aria-hidden="true">
+                <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:var(--accent-soft);stop-opacity:0.4" />
+                            <stop offset="100%" style="stop-color:var(--accent-soft);stop-opacity:0.1" />
+                        </linearGradient>
+                    </defs>
+                    <rect width="400" height="200" fill="url(#grad1)" rx="12"/>
+                    <!-- Folder & Lightbulb icons unchanged -->
+                    <g transform="translate(100,60)">
+                        <path d="M10 20 L50 20 L60 30 L90 30 L90 80 L10 80 Z" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M60 30 L60 40 L80 40 L80 30" fill="none" stroke="var(--accent)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </g>
+                    <g transform="translate(200,70)">
+                        <circle cx="0" cy="0" r="30" fill="none" stroke="var(--accent)" stroke-width="7"/>
+                        <path d="M-15 -35 L15 -35" stroke="var(--accent)" stroke-width="6" stroke-linecap="round"/>
+                        <path d="M-10 -45 L10 -45" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/>
+                        <path d="M-5 -55 L5 -55" stroke="var(--accent)" stroke-width="4" stroke-linecap="round"/>
+                        <path d="M0 -15 L0 10" stroke="var(--accent)" stroke-width="6"/>
+                        <path d="M-15 15 L15 15" stroke="var(--accent)" stroke-width="6" stroke-linecap="round"/>
+                        <path d="M-10 25 L10 25" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"/>
+                    </g>
+                    <text x="200" y="160" font-family="system-ui, sans-serif" font-size="28" font-weight="600" text-anchor="middle" fill="var(--accent)" opacity="0.8">
+                        Coming Soon
+                    </text>
+                </svg>
+            </div>
+            <div class="project-info">
+                <h3>More Projects Coming</h3>
+                <p>Stay tuned for new experiments and tools!</p>
+            </div>
+        </div>
+    </section>
+
+    <footer>
+        <div class="support-section">
+            <p>If you enjoy my projects and want to support future development:</p>
+            <a href="https://ko-fi.com/justwex" target="_blank" class="btn kofi-btn">
+                <i class="fas fa-mug-hot"></i> Buy me a coffee on Ko-fi
+            </a>
+        </div>
+
+        <div class="social-links">
+            <a href="https://github.com/masterwebx" target="_blank"><i class="fab fa-github"></i></a>
+        </div>
+        <p>&copy; 2025 JustWex. All rights reserved.</p>
+    </footer>
+
+    <script>
+        const toggleButton = document.querySelector('.theme-toggle i');
+        // Initial icon based on current state (after inline script)
+        if (document.documentElement.classList.contains('dark')) {
+            toggleButton.classList.replace('fa-moon', 'fa-sun');
+        }
+        document.querySelector('.theme-toggle').addEventListener('click', () => {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('dark', isDark);
+            toggleButton.classList.toggle('fa-moon');
+            toggleButton.classList.toggle('fa-sun');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📓</text></svg>">
+<meta charset="UTF-8" />
+<title id="page-title">Offline Journal</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+<style>
+  :root {
+    --bg: #f4f4f9;
+    --card: #ffffff;
+    --accent: #4a6fa5;
+    --accent-soft: #d4e0f4;
+    --text-main: #222222;
+    --text-muted: #666666;
+    --border: #dddddd;
+    --danger: #b91c1c;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    font-family: system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text-main);
+  }
+
+  .app {
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 16px 24px;
+  }
+
+  header { margin-bottom: 16px; }
+  header h1 { margin: 0; font-size: 1.6rem; }
+  header .subtitle { font-size: 0.85rem; color: var(--text-muted); }
+
+  main.vertical-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid #e4e4ee;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .fullwidth-editor,
+  .entries-bottom {
+    width: 100%;
+  }
+
+  h2 { margin: 0 0 8px; font-size: 1.1rem; }
+
+  label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  textarea {
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+    resize: vertical;
+    line-height: 1.5;
+    min-height: 440px;
+  }
+
+  button {
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 0.9rem;
+    border: 1px solid transparent;
+    background: var(--accent);
+    color: white;
+  }
+
+  button.secondary {
+    background: transparent;
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  button.danger {
+    background: transparent;
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .status {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 0.75rem;
+  }
+
+  .pill small {
+    font-size: 0.7rem;
+    opacity: 0.7;
+  }
+
+  .danger-text {
+    color: var(--danger);
+    font-size: 0.75rem;
+  }
+ 
+  .entries-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border-top: 1px solid var(--border);
+    margin-top: 8px;
+  }
+
+  .entry-item {
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+  }
+
+  .entry-item:hover { background: #f0f3fc; }
+
+  .entry-title-bold {
+    font-weight: bold;
+    font-size: 0.9rem;
+  }
+
+  .entry-sub {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+  }
+
+  .file-status {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 6px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+  }
+
+  .footer-note {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 6px;
+  }
+
+  /* Editor + Preview side by side */
+  .editor-preview-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: stretch;
+  }
+
+  .editor-preview-container.view-only {
+    grid-template-columns: 1fr;
+  }
+
+  .editor-preview-container.view-only #entry-text,
+  .editor-preview-container.view-only #markdown-chips {
+    display: none !important;
+  }
+
+  .editor-preview-container.view-only #markdown-preview {
+    grid-column: 1 / -1;
+  }
+
+  /* Wrapper for moving button bar above preview */
+  #editor-wrapper {
+    display: flex;
+    flex-direction: column;
+  }
+  #editor-wrapper.view-only #editor-inputs {
+  display: none;
+  }
+
+  #editor-wrapper.view-only #button-bar {
+    order: -1;
+    margin-bottom: 12px;
+  }
+
+  #editor-wrapper.view-only #entry-title {
+    display: none;
+  }
+  #editor-wrapper.view-only #save-btn {
+  display: none;
+}
+/* Hide Base64 image data inside textarea */
+textarea {
+  font-family: monospace;
+  white-space: pre-wrap;
+}
+
+textarea::-webkit-scrollbar {
+  width: 10px;
+}
+
+/* Collapse Base64 visually */
+textarea::after {
+  content: "";
+}
+
+textarea {
+  /* Hide long Base64 lines */
+  text-rendering: optimizeSpeed;
+}
+
+/* This hides long Base64 lines but keeps them in the value */
+textarea {
+  overflow-wrap: break-word;
+}
+
+
+  #markdown-preview {
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: #fafafa;
+  min-height: 440px;
+  max-height: 440px;
+  overflow-y: auto;
+  line-height: 1.55;
+  font-size: 0.9rem;
+  overflow-wrap: break-word;
+  white-space: normal;
+  word-spacing: normal;
+}
+body.dark {
+  --bg: #1e1e1e;
+  --card: #2a2a2a;
+  --accent: #6ea8ff;
+  --accent-soft: #3a3f4b;
+  --text-main: #e6e6e6;
+  --text-muted: #aaaaaa;
+  --border: #444444;
+  --danger: #ff6b6b;
+}
+.resizable-img.resizing {
+  outline: 2px solid var(--accent);
+}
+.resizable-img {
+  cursor: default;
+}
+
+.resizable-img:hover::after {
+  cursor: ew-resize;
+}
+  body.dark input[type="text"],
+body.dark textarea {
+  background: #2a2a2a;
+  color: #e6e6e6;
+  border-color: #555;
+}
+.resizable-img {
+  position: relative;
+}
+
+.resizable-img:hover {
+  outline: 1px dashed #4a6fa5;
+}
+
+.resizable-img::after {
+  content: "";
+  position: absolute;
+  right: -6px;
+  top: 0;
+  width: 40px;
+  height: 100%;
+  cursor: ew-resize;
+  background: transparent;
+}
+/* Dark overlay background */
+body.dark #overlay {
+  background: rgba(0,0,0,0.75);
+}
+
+/* Dark modal box */
+body.dark #overlay .overlay-content {
+  background: #2a2a2a;
+  color: #e6e6e6;
+  border: 1px solid #444;
+}
+
+/* Dark buttons inside modal */
+body.dark #overlay .primary {
+  background: #6ea8ff;
+  color: #000;
+}
+
+body.dark #overlay .secondary-btn {
+  border-color: #6ea8ff;
+  color: #6ea8ff;
+}
+
+body.dark #overlay .secondary-btn:hover {
+  background: rgba(110,168,255,0.15);
+}
+body.dark #overlay h2 {
+  color: #ffffff;
+}
+
+body.dark input[type="text"]::placeholder,
+body.dark textarea::placeholder {
+  color: #888;
+}
+
+  .editor-preview-container.view-only #markdown-preview {
+    max-height: none;
+    overflow-y: visible;
+  }
+#save-btn {
+  padding: 10px 18px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+body.dark #markdown-preview {
+  background: #1e1e1e;
+  color: #e6e6e6;
+  border-color: #444;
+}
+
+body.dark #markdown-preview h1,
+body.dark #markdown-preview h2,
+body.dark #markdown-preview h3 {
+  color: #ffffff;
+}
+
+body.dark #markdown-preview code,
+body.dark #markdown-preview pre {
+  background: #333;
+  color: #f0f0f0;
+}
+
+body.dark #markdown-preview a {
+  color: #8ab4ff;
+}
+body.dark .chip {
+  background: #3a3f4b;
+  color: #e6e6e6;
+}
+
+body.dark .chip:hover {
+  filter: brightness(1.15);
+}
+body.dark .card {
+  background: #2a2a2a;
+  border-color: #444;
+}
+
+body.dark .entries-list {
+  border-color: #444;
+}
+body.dark .entry-item {
+  border-color: #444;
+}
+
+body.dark .entry-item:hover {
+  background: #333;
+}
+  #markdown-preview h1,
+  #markdown-preview h2,
+  #markdown-preview h3 {
+    margin-top: 0.6em;
+    margin-bottom: 0.3em;
+    font-weight: bold;
+  }
+
+  #markdown-preview pre {
+    background: #eee;
+    padding: 8px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 0.4em 0;
+  }
+
+  #markdown-preview code {
+    background: #eee;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-family: monospace;
+  }
+
+  #markdown-preview ul {
+    padding-left: 20px;
+    margin: 0.4em 0;
+  }
+
+  #markdown-preview p {
+    margin: 0.4em 0;
+  }
+
+  #markdown-chips {
+    margin: 4px 0 6px 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  #journal-header {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#journal-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  min-width: 140px;
+  z-index: 9999;
+}
+#markdown-preview {
+  scroll-padding-top: 8px;
+}
+body.dark #save-btn {
+  background: transparent;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+body.dark #search-input {
+  background: #2a2a2a;
+  color: #e6e6e6;
+  border-color: #555;
+}
+
+body.dark #search-input::placeholder {
+  color: #888;
+}
+body.dark #journal-menu {
+  background: #2a2a2a;
+  border-color: #444;
+}
+
+#journal-header:hover #journal-menu {
+  display: block;
+}
+
+.journal-menu-item {
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.journal-menu-item:hover {
+  background: var(--accent-soft);
+}
+
+  .chip {
+    background: var(--accent);
+    color: #ffffff;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+  }
+
+  .chip span.shortcut {
+    margin-left: 6px;
+    font-size: 0.7rem;
+    opacity: 0.9;
+  }
+
+  .chip:hover { filter: brightness(0.92); }
+  .chip:active { transform: translateY(1px); }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.55);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+  }
+
+  .overlay-content {
+    background: white;
+    padding: 24px 32px;
+    border-radius: 8px;
+    text-align: center;
+    max-width: 400px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+  }
+
+  .primary {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+  }
+
+  .secondary-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 10px 16px;
+    border-radius: 4px;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  .dimmed { opacity: 0.25; pointer-events: none; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<!-- Overlay -->
+<div id="overlay" class="overlay">
+  <div class="overlay-content">
+    <h2>Welcome to Your Journal</h2>
+    <button id="overlay-choose-btn" class="primary">Choose Existing JSON File</button>
+    <button id="overlay-fresh-btn" class="secondary-btn">Start Fresh (Create New Journal)</button>
+  </div>
+</div>
+
+<div id="app-container" class="app dimmed">
+  <header>
+    <h1 id="journal-header">
+  <span id="journal-name" style="cursor: pointer;">Offline Journal</span>
+  <input id="journal-name-input" class="hidden"
+         style="font-size:1.2rem; padding:2px 4px; border:1px solid var(--border); border-radius:4px;" />
+
+  <div id="journal-menu">
+    <div class="journal-menu-item" id="rename-journal">Rename</div>
+    <div class="journal-menu-item" id="switch-journal">Switch</div>
+    <div class="journal-menu-item" id="new-journal">New</div>
+    <div class="journal-menu-item" id="toggle-theme">Theme</div>
+  </div>
+</h1>
+   
+  </header>
+
+  <main class="vertical-layout">
+    <section class="card fullwidth-editor">
+ 
+
+<div id="editor-wrapper">
+
+  <!-- Title input (hidden in view mode) -->
+  <div id="editor-inputs">
+    <input id="entry-title" type="text" placeholder="Optional title..." />
+  </div>
+
+  <!-- Two‑column editor layout -->
+  <div id="editor-preview-container" class="editor-preview-container">
+
+    <!-- LEFT COLUMN: textarea + chips (hidden in view mode) -->
+    <div id="editor-left">
+      
+      <textarea id="entry-text" placeholder="Write your thoughts..."></textarea>
+
+      <div id="markdown-chips">
+        <button class="chip" data-action="h1"># Heading 1 <span class="shortcut">(Ctrl+H)</span></button>
+        <button class="chip" data-action="h2">## Heading 2 <span class="shortcut">(Ctrl+H×2)</span></button>
+        <button class="chip" data-action="bold">**Bold** <span class="shortcut">(Ctrl+B)</span></button>
+        <button class="chip" data-action="italic">*Italic* <span class="shortcut">(Ctrl+I)</span></button>
+        <button class="chip" data-action="code">`Code` <span class="shortcut">(Ctrl+`)</span></button>
+        <button class="chip" data-action="codeblock">```Block``` <span class="shortcut">(Ctrl+Shift+C)</span></button>
+        <button class="chip" data-action="list">- List <span class="shortcut">(Ctrl+L)</span></button>
+        <button class="chip" data-action="link">Link [ ]( ) <span class="shortcut">(Ctrl+K)</span></button>
+        <button class="chip" id="insert-image">Image</button>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: preview -->
+    <div id="markdown-preview"></div>
+
+  </div>
+
+  <!-- Buttons -->
+  <div class="row" id="button-bar">
+  <div class="row" style="gap: 8px;">
+    <button id="save-btn">Save</button>
+
+    <span id="saved-pill" class="pill hidden">
+      <small>Saved</small>
+      <span id="saved-time"></span>
+    </span>
+
+    <span id="unsaved-indicator" class="danger-text hidden">Unsaved changes</span>
+  </div>
+
+  <div class="row">
+    <button id="close-btn" class="secondary hidden">Close</button>
+    <button id="delete-btn" class="danger hidden">Delete</button>
+  </div>
+</div>
+
+</div></div>
+      <div id="file-status" class="file-status">No file selected.</div>
+    </section>
+    <!-- Entries bottom -->
+    <section class="card entries-bottom">
+      
+
+      <input id="search-input" class="search-input" placeholder="Search..." />
+
+      <div id="entries-list" class="entries-list"></div>
+
+      <div class="footer-note">
+        All data stored in your chosen JSON file.
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+/* ============================================================
+   STATE
+============================================================ */
+let entries = [];
+let currentEntryId = null;
+let unsavedChanges = false;
+let fileHandle = null;
+let lastCtrlHTime = 0;
+let shiftPending = false;
+let shiftDownTime = 0;
+let journalName = "Offline Journal";
+let realTextCache = "";
+
+/* ============================================================
+   DOM
+============================================================ */
+const overlay = document.getElementById("overlay");
+const overlayChooseBtn = document.getElementById("overlay-choose-btn");
+const overlayFreshBtn = document.getElementById("overlay-fresh-btn");
+const appContainer = document.getElementById("app-container");
+
+const editorWrapper = document.getElementById("editor-wrapper");
+const editorPreviewContainer = document.getElementById("editor-preview-container");
+const titleInput = document.getElementById("entry-title");
+const textArea = document.getElementById("entry-text");
+const markdownPreview = document.getElementById("markdown-preview");
+const chipBar = document.getElementById("markdown-chips");
+
+const saveBtn = document.getElementById("save-btn");
+const closeBtn = document.getElementById("close-btn");
+const deleteBtn = document.getElementById("delete-btn");
+
+const savedPill = document.getElementById("saved-pill");
+const savedTime = document.getElementById("saved-time");
+const unsavedIndicator = document.getElementById("unsaved-indicator");
+
+const entriesList = document.getElementById("entries-list");
+const searchInput = document.getElementById("search-input");
+
+const fileStatus = document.getElementById("file-status");
+
+/* ============================================================
+   UTILITIES
+============================================================ */
+function collapseBase64ForEditor(text) {
+  // Find existing placeholders like {{img:0}}, {{img:1}}, etc.
+  const existing = text.match(/\{\{img:(\d+)\}\}/g) || [];
+  let maxIndex = -1;
+
+  existing.forEach(tag => {
+    const n = parseInt(tag.match(/\d+/)[0]);
+    if (n > maxIndex) maxIndex = n;
+  });
+
+  // Start new images AFTER the highest existing index
+  let counter = maxIndex + 1;
+
+  return text.replace(
+    /!\[[^\]]*\]\(data:image\/[^;]+;base64,[^)]+\)(\{.*?\})?/g,
+    () => `{{img:${counter++}}}`
+  );
+}
+function expandBase64ForSaving(text, originalText) {
+  const collapsed = collapseBase64ForEditor(originalText);
+
+  const realMatches = originalText.match(/!\[[^\]]*\]\(data:image\/[^;]+;base64,[^)]+\)(\{.*?\})?/g) || [];
+  const collapsedMatches = collapsed.match(/\{\{img:\d+\}\}/g) || [];
+
+  const map = {};
+  realMatches.forEach((real, i) => {
+    map[collapsedMatches[i]] = real;   // ⭐ preserves width metadata
+  });
+
+  return text.replace(/\{\{img:\d+\}\}/g, m => map[m] || m);
+}
+function nowISO() {
+  return new Date().toISOString();
+}
+
+function formatDateTime(dateStr) {
+  const d = new Date(dateStr);
+  return d.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    weekday: "short"
+  });
+}
+
+function setUnsaved(flag) {
+  unsavedChanges = flag;
+  unsavedIndicator.classList.toggle("hidden", !flag);
+  if (flag) savedPill.classList.add("hidden");
+}
+
+function generateId() {
+  return crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now();
+}
+
+/* ============================================================
+   TEXT INSERT HELPERS
+============================================================ */
+function insertAroundSelection(before, after) {
+  const el = textArea;
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const value = el.value;
+
+  const selected = end > start ? value.slice(start, end) : "";
+  const newText = before + selected + after;
+
+  el.value = value.slice(0, start) + newText + value.slice(end);
+  el.focus();
+  el.selectionStart = el.selectionEnd = start + before.length + selected.length;
+
+  setUnsaved(true);
+  updatePreview();
+}
+
+function getLineInfo(pos) {
+  const value = textArea.value;
+  const lineStart = value.lastIndexOf("\n", pos - 1) + 1;
+  const lineEndIdx = value.indexOf("\n", pos);
+  const endPos = lineEndIdx === -1 ? value.length : lineEndIdx;
+  const line = value.slice(lineStart, endPos);
+  return { value, lineStart, endPos, line };
+}
+
+function insertLinePrefix(prefix) {
+  const el = textArea;
+  const pos = el.selectionStart;
+  const { value, lineStart, endPos, line } = getLineInfo(pos);
+
+  const newLine = prefix + line.replace(/^(\s*#*\s*)?/, "");
+  el.value = value.slice(0, lineStart) + newLine + value.slice(endPos);
+
+  el.focus();
+  el.selectionStart = el.selectionEnd = lineStart + prefix.length;
+
+  setUnsaved(true);
+  updatePreview();
+}
+
+function upgradeLineToH2() {
+  const el = textArea;
+  const pos = el.selectionStart;
+  const { value, lineStart, endPos, line } = getLineInfo(pos);
+
+  let newLine;
+  if (line.startsWith("# ")) newLine = "## " + line.slice(2);
+  else if (line.startsWith("## ")) newLine = "## " + line.slice(3);
+  else newLine = "## " + line.replace(/^(\s*#*\s*)?/, "");
+
+  el.value = value.slice(0, lineStart) + newLine + value.slice(endPos);
+
+  el.focus();
+  el.selectionStart = el.selectionEnd = lineStart + 3;
+
+  setUnsaved(true);
+  updatePreview();
+}
+
+function insertCodeBlock() {
+  const el = textArea;
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const value = el.value;
+
+  const selected = value.slice(start, end) || "";
+  const block = "```\n" + selected + "\n```";
+
+  el.value = value.slice(0, start) + block + value.slice(end);
+
+  el.focus();
+  el.selectionStart = el.selectionEnd = start + 4;
+
+  setUnsaved(true);
+  updatePreview();
+}
+
+function insertLink() {
+  const el = textArea;
+  const start = el.selectionStart;
+  const end = el.selectionEnd;
+  const value = el.value;
+
+  const selected = value.slice(start, end) || "text";
+  const template = "[" + selected + "](url)";
+
+  el.value = value.slice(0, start) + template + value.slice(end);
+
+  el.focus();
+  el.selectionStart = start + 1;
+  el.selectionEnd = start + 1 + selected.length;
+
+  setUnsaved(true);
+  updatePreview();
+}
+
+/* ============================================================
+   MARKDOWN PARSER
+============================================================ */
+function renderMarkdown(md) {
+  if (!md) return "";
+
+  let html = md.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  html = html.replace(/```([\s\S]*?)```/g, (m, p1) =>
+    "<pre><code>" + p1.replace(/\n+$/, "") + "</code></pre>"
+  );
+
+  html = html.replace(/^### (.*)$/gim, "<h3>$1</h3>");
+  html = html.replace(/^## (.*)$/gim, "<h2>$1</h2>");
+  html = html.replace(/^# (.*)$/gim, "<h1>$1</h1>");
+
+  html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*(.*?)\*/g, "<em>$1</em>");
+
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  let imgIndex = -1;
+
+html = html.replace(/!\[(.*?)\]\((.*?)\)(\{.*?\})?/g, (m, alt, src, opts) => {
+  imgIndex++;
+
+  let style = "max-width:100%; border-radius:4px;";
+
+  // Support {width=###}
+  if (opts && /width=(\d+)/.test(opts)) {
+    const w = opts.match(/width=(\d+)/)[1];
+    style = `width:${w}px; border-radius:4px;`;
+  }
+
+  return `<img class="resizable-img" data-img-index="${imgIndex}" src="${src}" alt="${alt}" style="${style}">`;
+});
+  
+  html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+  const lines = html.split("\n");
+let out = [];
+let inList = false;
+let listType = null;   // "ul", "ol", "ol-a"
+let lastWasNumeric = false;
+
+for (let line of lines) {
+  const trimmed = line.trim();
+
+  // -----------------------------
+  // UNORDERED LIST: "- item"
+  // -----------------------------
+  if (trimmed.startsWith("- ")) {
+    if (!inList || listType !== "ul") {
+      if (inList) out.push(listType === "ul" ? "</ul>" : "</ol>");
+      out.push("<ul>");
+      inList = true;
+      listType = "ul";
+    }
+    out.push("<li>" + trimmed.slice(2) + "</li>");
+    lastWasNumeric = false;
+    continue;
+  }
+
+  // -----------------------------
+  // NUMERIC LIST: "1. Step"
+  // -----------------------------
+  if (/^\d+\.\s+/.test(trimmed)) {
+    if (!inList || listType !== "ol") {
+      if (inList) out.push(listType === "ul" ? "</ul>" : "</ol>");
+      out.push("<ol>");
+      inList = true;
+      listType = "ol";
+    }
+    out.push("<li>" + trimmed.replace(/^\d+\.\s+/, "") + "</li>");
+    lastWasNumeric = true;
+    continue;
+  }
+
+  // -----------------------------
+  // ALPHA LIST: "a. Step"
+  // ALWAYS INDENT UNDER NUMERIC
+  // -----------------------------
+  if (/^[a-z]\.\s+/.test(trimmed)) {
+    // If previous line was numeric → indent alpha list
+    if (lastWasNumeric) {
+      // open nested alpha list
+      out.push("<ol type='a' style='margin-left: 24px;'>");
+      out.push("<li>" + trimmed.replace(/^[a-z]\.\s+/, "") + "</li>");
+      out.push("</ol>");
+      continue;
+    }
+
+    // Otherwise treat as standalone alpha list
+    if (!inList || listType !== "ol-a") {
+      if (inList) out.push(listType === "ul" ? "</ul>" : "</ol>");
+      out.push("<ol type='a'>");
+      inList = true;
+      listType = "ol-a";
+    }
+    out.push("<li>" + trimmed.replace(/^[a-z]\.\s+/, "") + "</li>");
+    lastWasNumeric = false;
+    continue;
+  }
+
+  // -----------------------------
+  // CLOSE ANY OPEN LIST
+  // -----------------------------
+  if (inList) {
+    out.push(listType === "ul" ? "</ul>" : "</ol>");
+    inList = false;
+    listType = null;
+  }
+
+  lastWasNumeric = false;
+
+  // -----------------------------
+  // BLANK LINE
+  // -----------------------------
+  if (trimmed === "") {
+    out.push("<br>");
+    continue;
+  }
+
+  // -----------------------------
+  // BLOCK ELEMENTS
+  // -----------------------------
+  if (
+    trimmed.startsWith("<h1>") ||
+    trimmed.startsWith("<h2>") ||
+    trimmed.startsWith("<h3>") ||
+    trimmed.startsWith("<pre>") ||
+    trimmed.startsWith("<ul>") ||
+    trimmed.startsWith("<ol>") ||
+    trimmed.startsWith("<li>")
+  ) {
+    out.push(line);
+  } else {
+    out.push("<p>" + line + "</p>");
+  }
+}
+
+// Close list at end
+if (inList) {
+  out.push(listType === "ul" ? "</ul>" : "</ol>");
+}
+  return out.join("");
+}
+function updatePreview() {
+  // ⭐ Always render REAL text, not textarea text
+  markdownPreview.innerHTML = renderMarkdown(realTextCache);
+}
+/* ============================================================
+   FILE PICKERS
+============================================================ */
+async function chooseExistingFile() {
+  const [handle] = await window.showOpenFilePicker({
+    multiple: false,
+    types: [{ accept: { "application/json": [".json"] } }]
+  });
+  return handle;
+}
+
+async function createFreshFile() {
+  const handle = await window.showSaveFilePicker({
+    suggestedName: "journal.json",
+    types: [{ accept: { "application/json": [".json"] } }]
+  });
+
+  // Do not write anything here; startFreshFlow + saveToFile will create the structure.
+  return handle;
+}
+
+async function loadFromFile(handle) {
+  const file = await handle.getFile();
+  const text = await file.text();
+  const data = JSON.parse(text);
+
+  // Support old format (array only)
+  if (Array.isArray(data)) {
+    journalName = "Offline Journal";
+    return data;
+  }
+
+  // New format
+  journalName = data.journalName || "Offline Journal";
+  return data.entries || [];
+}
+
+async function saveToFile(handle, entries) {
+  const writable = await handle.createWritable();
+  await writable.write(JSON.stringify({
+    journalName,
+    entries
+  }, null, 2));
+  await writable.close();
+}
+/* ============================================================
+   SCROLL SYNC
+============================================================ */
+function syncScroll() {
+  const text = textArea.value;
+  if (!text) {
+    markdownPreview.scrollTop = 0;
+    return;
+  }
+
+  const totalLines = text.split("\n").length;
+  const currentLine = text.substring(0, textArea.selectionStart).split("\n").length;
+
+  // Fix: prevent tiny scroll jump at the top
+  if (currentLine <= 1) {
+    markdownPreview.scrollTop = 0;
+    return;
+  }
+
+  const ratio = currentLine / totalLines;
+  const maxScroll = markdownPreview.scrollHeight - markdownPreview.clientHeight;
+  markdownPreview.scrollTop = maxScroll * ratio;
+}
+textArea.addEventListener("paste", async (event) => {
+  const items = event.clipboardData.items;
+
+  for (const item of items) {
+    if (item.type.startsWith("image/")) {
+      event.preventDefault();
+
+      const file = item.getAsFile();
+      const base64 = await imageToBase64(file);
+
+      insertAroundSelection(`![pasted image](${base64})`, "");
+      realTextCache = expandBase64ForSaving(textArea.value, realTextCache);
+updatePreview();
+
+// Immediately collapse the Base64 inside the textarea
+textArea.value = collapseBase64ForEditor(textArea.value);
+      return;
+    }
+  }
+});
+textArea.addEventListener("scroll", syncScroll);
+textArea.addEventListener("keyup", syncScroll);
+textArea.addEventListener("click", syncScroll);
+const renameOption = document.getElementById("rename-journal");
+const switchOption = document.getElementById("switch-journal");
+const journalNameEl = document.getElementById("journal-name");
+
+document.getElementById("insert-image").onclick = async () => {
+  const [file] = await window.showOpenFilePicker({
+    types: [{ accept: { "image/*": [".png", ".jpg", ".jpeg", ".gif", ".webp"] } }]
+  });
+
+  const imgFile = await file.getFile();
+  const base64 = await imageToBase64(imgFile);
+
+  // Insert collapsed placeholder into textarea
+  insertAroundSelection(`![image](${base64})`, "");
+
+  // Update real text with full Base64
+  realTextCache = expandBase64ForSaving(textArea.value, realTextCache);
+
+  // Collapse textarea again
+  textArea.value = collapseBase64ForEditor(textArea.value);
+
+  updatePreview();
+  setUnsaved(true);
+};
+const themeOption = document.getElementById("toggle-theme");
+
+themeOption.onclick = () => {
+  document.body.classList.toggle("dark");
+
+  // Save preference
+  const isDark = document.body.classList.contains("dark");
+  localStorage.setItem("journal-theme", isDark ? "dark" : "light");
+};
+
+const newOption = document.getElementById("new-journal");
+
+newOption.onclick = async () => {
+  try {
+    fileHandle = await createFreshFile();
+    entries = [];
+    journalName = "Offline Journal";
+
+    renderEntriesList();
+    fileStatus.textContent = "New journal created.";
+
+    document.getElementById("journal-name").textContent = journalName;
+    document.getElementById("page-title").textContent = journalName;
+
+    await saveToFile(fileHandle, entries);
+  } catch (e) {
+    console.warn("New journal creation canceled:", e);
+  }
+};
+
+renameOption.onclick = () => {
+  if (!fileHandle) {
+    alert("Open a journal file before renaming.");
+    return;
+  }
+
+  const nameSpan = document.getElementById("journal-name");
+  const nameInput = document.getElementById("journal-name-input");
+
+  nameInput.value = journalName;
+  nameSpan.classList.add("hidden");
+  nameInput.classList.remove("hidden");
+  nameInput.focus();
+
+  nameInput.onblur = async () => {
+    const newName = nameInput.value.trim();
+    if (newName) {
+      journalName = newName;
+      nameSpan.textContent = journalName;
+      document.title = journalName;
+      await saveToFile(fileHandle, entries);
+    }
+
+    nameInput.classList.add("hidden");
+    nameSpan.classList.remove("hidden");
+  };
+};
+switchOption.onclick = async () => {
+  try {
+    const newHandle = await chooseExistingFile();
+    fileHandle = newHandle;
+    entries = await loadFromFile(fileHandle);
+
+    renderEntriesList();
+    fileStatus.textContent = " File loaded.";
+
+    document.getElementById("journal-name").textContent = journalName;
+    document.getElementById("page-title").textContent = journalName;
+  } catch (e) {
+    console.warn("Switch canceled:", e);
+  }
+};
+/* ============================================================
+   ENTRY LIST
+============================================================ */
+function renderEntriesList(filter = "") {
+  entriesList.innerHTML = "";
+  const f = filter.toLowerCase();
+
+  const filtered = entries
+    .slice()
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .filter(e =>
+      (e.title && e.title.toLowerCase().includes(f)) ||
+      e.text.toLowerCase().includes(f)
+    );
+
+  if (filtered.length === 0) {
+    entriesList.innerHTML =
+      `<div style="padding:8px;color:#777;font-size:0.8rem;">No entries</div>`;
+    return;
+  }
+
+  filtered.forEach(entry => {
+    const div = document.createElement("div");
+    div.className = "entry-item";
+
+    const dateTime = formatDateTime(entry.updatedAt);
+
+    if (entry.title.trim() !== "") {
+      div.innerHTML = `
+        <div class="entry-title-bold">${entry.title}</div>
+        <div class="entry-sub">${dateTime}</div>
+      `;
+    } else {
+      div.innerHTML = `<div class="entry-title-bold">${dateTime}</div>`;
+    }
+
+    div.onclick = () => {
+      if (unsavedChanges && !confirm("Discard unsaved changes?")) return;
+      loadEntry(entry.id);
+    };
+
+    entriesList.appendChild(div);
+  });
+}
+function enterViewMode() {
+  editorPreviewContainer.classList.add("view-only");
+  editorWrapper.classList.add("view-only");
+
+  closeBtn.classList.remove("hidden");
+  deleteBtn.classList.remove("hidden");
+
+  const title = titleInput.value.trim();
+  const bodyHTML = renderMarkdown(realTextCache);
+
+  if (title) {
+    markdownPreview.innerHTML = `<h1>${title}</h1>` + bodyHTML;
+  } else {
+    markdownPreview.innerHTML = bodyHTML;
+  }
+} // ✅ Properly closes enterViewMode()
+
+
+function enterEditMode() {
+  editorPreviewContainer.classList.remove("view-only");
+  editorWrapper.classList.remove("view-only");
+
+  // Re-render preview WITHOUT injected title
+  markdownPreview.innerHTML = renderMarkdown(realTextCache);
+
+  titleInput.style.display = "";
+
+  if (!currentEntryId) {
+    closeBtn.classList.add("hidden");
+    deleteBtn.classList.add("hidden");
+  }
+} // ✅ Properly closes enterEditMode()
+/* ============================================================
+   LOAD / CLEAR ENTRY
+============================================================ */
+function clearEditor() {
+  currentEntryId = null;
+
+  titleInput.value = "";
+  textArea.value = "";
+  realTextCache = "";
+  markdownPreview.innerHTML = "";
+
+  closeBtn.classList.add("hidden");
+  deleteBtn.classList.add("hidden");
+
+  // ⭐ Return to edit mode
+  editorPreviewContainer.classList.remove("view-only");
+  editorWrapper.classList.remove("view-only");
+
+  titleInput.style.display = "";
+  saveBtn.style.display = "";
+
+  setUnsaved(false);
+}
+function loadEntry(id) {
+  const e = entries.find(x => x.id === id);
+  if (!e) return;
+
+  currentEntryId = id;
+
+  // Store real text
+  realTextCache = e.text || "";
+
+  // Title
+  titleInput.value = e.title || "";
+
+  // Textarea gets collapsed version
+  textArea.value = collapseBase64ForEditor(realTextCache);
+
+  // Preview uses real text
+  markdownPreview.innerHTML = renderMarkdown(realTextCache);
+
+  // Switch to view mode
+  enterViewMode();
+
+  // Saved pill
+  savedTime.textContent = new Date(e.updatedAt).toLocaleString();
+  savedPill.classList.remove("hidden");
+  setUnsaved(false);
+}/* ============================================================
+   SAVE / DELETE
+============================================================ */
+async function imageToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+function saveEntry() {
+  if (!fileHandle) {
+    alert("No journal file selected.");
+    return;
+  }
+
+  const title = titleInput.value.trim();
+
+  // Expand collapsed placeholders into real Base64
+  realTextCache = expandBase64ForSaving(textArea.value, realTextCache);
+
+  const now = nowISO();
+
+  if (currentEntryId) {
+    const e = entries.find(x => x.id === currentEntryId);
+    if (!e) return;
+
+    e.title = title;
+    e.text = realTextCache;
+    e.updatedAt = now;
+
+  } else {
+    const newEntry = {
+      id: generateId(),
+      title,
+      text: realTextCache,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    entries.push(newEntry);
+    currentEntryId = newEntry.id;
+  }
+
+  // Save to file
+  saveToFile(fileHandle, entries);
+
+  // ⭐ Refresh list so newest entry appears immediately
+  renderEntriesList();
+
+  // ⭐ Update realTextCache from saved entry
+  const savedEntry = entries.find(e => e.id === currentEntryId);
+  realTextCache = savedEntry.text;
+
+  // Switch to view mode
+  enterViewMode();
+
+  savedTime.textContent = new Date(now).toLocaleString();
+  savedPill.classList.remove("hidden");
+  setUnsaved(false);
+}
+async function deleteEntry() {
+  if (!currentEntryId) return;
+  if (!confirm("Delete this entry permanently?")) return;
+
+  entries = entries.filter(e => e.id !== currentEntryId);
+  await saveToFile(fileHandle, entries);
+
+  clearEditor();
+  renderEntriesList(searchInput.value);
+}
+
+/* ============================================================
+   FILE SELECTION
+============================================================ */
+async function startExistingFlow() {
+  try {
+    fileHandle = await chooseExistingFile();
+    entries = await loadFromFile(fileHandle);
+
+    renderEntriesList();
+    fileStatus.textContent = "File loaded.";
+
+    overlay.style.display = "none";
+    appContainer.classList.remove("dimmed");
+    document.getElementById("journal-name").textContent = journalName;
+    document.title = journalName;
+  } catch (e) {
+    console.warn("Existing file selection canceled:", e);
+  }
+}
+
+async function startFreshFlow() {
+  try {
+    fileHandle = await createFreshFile();
+    entries = [];
+    journalName = "Offline Journal"; // or prompt here if you want
+
+    renderEntriesList();
+    fileStatus.textContent = "New journal created.";
+
+    overlay.style.display = "none";
+    appContainer.classList.remove("dimmed");
+
+    document.getElementById("journal-name").textContent = journalName;
+    document.title = journalName + " — Offline Journal";
+
+    // Immediately persist the new-format structure instead of bare []
+    await saveToFile(fileHandle, entries);
+  } catch (e) {
+    console.warn("Fresh file creation canceled:", e);
+  }
+}
+/* ============================================================
+   EVENT LISTENERS
+============================================================ */
+let currentResizeImg = null;
+let startX = 0;
+let startWidth = 0;
+
+markdownPreview.addEventListener("mousedown", (e) => {
+  const img = e.target.closest(".resizable-img");
+  if (!img) return;
+
+  const rect = img.getBoundingClientRect();
+  const offsetX = e.clientX - rect.left;
+
+  // Only activate if clicking near the right edge
+  if (offsetX < rect.width - 100) return;
+
+  currentResizeImg = img;
+  startX = e.clientX;
+  startWidth = rect.width;
+  currentResizeImg.classList.add("resizing");
+
+
+  e.preventDefault();
+});
+
+window.addEventListener("mousemove", (e) => {
+  if (!currentResizeImg) return;
+
+  const delta = e.clientX - startX;
+  const newWidth = Math.max(50, startWidth + delta);
+
+  currentResizeImg.style.width = newWidth + "px";
+});
+
+window.addEventListener("mouseup", () => {
+  if (!currentResizeImg) return;
+
+  const finalWidth = parseInt(currentResizeImg.style.width);
+
+  // ⭐ NEW: update the correct image using its index
+  const index = parseInt(currentResizeImg.dataset.imgIndex);
+  let currentIndex = 0;
+
+  realTextCache = realTextCache.replace(
+    /!\[(.*?)\]\((.*?)\)(\{.*?\})?/g,
+    (match, alt, src, opts) => {
+      if (currentIndex === index) {
+        return `![${alt}](${src}){width=${finalWidth}}`;
+      }
+      currentIndex++;
+      return match;
+    }
+  );
+
+  updatePreview();
+  setUnsaved(true);
+
+  currentResizeImg.classList.remove("resizing");
+  currentResizeImg = null;
+});
+overlayChooseBtn.onclick = startExistingFlow;
+overlayFreshBtn.onclick = startFreshFlow;
+closeBtn.onclick = () => {
+  if (unsavedChanges && !confirm("Discard unsaved changes?")) return;
+  clearEditor();
+  enterEditMode();   // ⭐ THIS IS THE MISSING PIECE
+};
+
+titleInput.oninput = () => setUnsaved(true);
+textArea.oninput = () => {
+  setUnsaved(true);
+
+  // ⭐ Update REAL text from collapsed textarea
+  realTextCache = expandBase64ForSaving(textArea.value, realTextCache);
+
+  updatePreview();
+  syncScroll();
+};
+
+textArea.addEventListener("keydown", (e) => {
+  const usingCtrl = e.ctrlKey || e.metaKey;
+
+  // Track potential "solo Shift" press (decision happens on keyup)
+if (e.key === "Shift" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+  shiftPending = true;
+  shiftDownTime = Date.now();
+  return; // don't jump yet; we decide on keyup
+}
+textArea.addEventListener("keyup", (e) => {
+  // Only act on Shift key release
+  if (e.key === "Shift" && shiftPending) {
+    shiftPending = false;
+
+    // Optional: ignore very long holds (e.g., > 800ms)
+    const heldMs = Date.now() - shiftDownTime;
+    if (heldMs > 800) return;
+
+    e.preventDefault();
+
+    const el = textArea;
+    const pos = el.selectionStart;
+    const value = el.value;
+
+    const lineEnd = value.indexOf("\n", pos);
+    const endPos = lineEnd === -1 ? value.length : lineEnd;
+
+    el.selectionStart = el.selectionEnd = endPos;
+    return;
+  }
+});
+
+// Any non-Shift key while Shift is down cancels the "solo Shift" idea
+if (shiftPending && e.key !== "Shift") {
+  shiftPending = false;
+}
+
+  if (!usingCtrl) return;
+
+  const key = e.key.toLowerCase();
+
+  if (key === "b") {
+    e.preventDefault();
+    insertAroundSelection("**", "**");
+    return;
+  }
+
+  if (key === "i") {
+    e.preventDefault();
+    insertAroundSelection("*", "*");
+    return;
+  }
+
+  if (key === "h") {
+    e.preventDefault();
+    const now = Date.now();
+    if (now - lastCtrlHTime < 400) upgradeLineToH2();
+    else insertLinePrefix("# ");
+    lastCtrlHTime = now;
+    return;
+  }
+
+  if (e.key === "`") {
+    e.preventDefault();
+    insertAroundSelection("`", "`");
+    return;
+  }
+
+  if (key === "c" && e.shiftKey) {
+    e.preventDefault();
+    insertCodeBlock();
+    return;
+  }
+
+  if (key === "l") {
+    e.preventDefault();
+    insertLinePrefix("- ");
+    return;
+  }
+
+  if (key === "k") {
+    e.preventDefault();
+    insertLink();
+    return;
+  }
+});
+
+chipBar.addEventListener("click", (e) => {
+  const chip = e.target.closest(".chip");
+  if (!chip) return;
+
+  const action = chip.getAttribute("data-action");
+
+  switch (action) {
+    case "h1": insertLinePrefix("# "); break;
+    case "h2": upgradeLineToH2(); break;
+    case "bold": insertAroundSelection("**", "**"); break;
+    case "italic": insertAroundSelection("*", "*"); break;
+    case "code": insertAroundSelection("`", "`"); break;
+    case "codeblock": insertCodeBlock(); break;
+    case "list": insertLinePrefix("- "); break;
+    case "link": insertLink(); break;
+  }
+});
+
+saveBtn.onclick = saveEntry;
+closeBtn.onclick = clearEditor;
+deleteBtn.onclick = deleteEntry;
+
+searchInput.oninput = () => renderEntriesList(searchInput.value);
+
+markdownPreview.ondblclick = () => enterEditMode();
+
+/* ============================================================
+   STARTUP
+============================================================ */
+(async function init() {
+  const savedTheme = localStorage.getItem("journal-theme");
+if (savedTheme === "dark") {
+  document.body.classList.add("dark");
+}
+  overlay.style.display = "flex";
+  appContainer.classList.add("dimmed");
+  updatePreview();
+})();
+</script>
+
+</body>
+</html>

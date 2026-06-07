@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Palette Compactor</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        textarea { width: 100%; height: 400px; font-family: monospace; font-size: 14px; }
+        pre { width: 100%; height: 400px; overflow: auto; background: #f8f8f8; padding: 10px; border: 1px solid #ddd; font-family: monospace; font-size: 14px; white-space: pre-wrap; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px 10px 10px 0; cursor: pointer; }
+        .buttons { margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <h1>JSON Palette Compactor</h1>
+    <p>Paste your JSON below and click "Compact Arrays". It will output valid JSON with the number arrays ("colors" and "replacements") on single lines (comma + space separated) and the overall object nicely indented. No more quoted string arrays!</p>
+    
+    <textarea id="input" placeholder="Paste your JSON here..."></textarea>
+    
+    <div class="buttons">
+        <button onclick="compact()">Compact Arrays</button>
+        <button onclick="copyOutput()">Copy Output</button>
+    </div>
+    
+    <h2>Output:</h2>
+    <pre id="output">Click "Compact Arrays" to process your JSON.</pre>
+
+    <script>
+        function compact() {
+            const inputText = document.getElementById('input').value.trim();
+            const outputEl = document.getElementById('output');
+            
+            if (!inputText) {
+                outputEl.textContent = 'Please paste JSON first.';
+                return;
+            }
+            
+            try {
+                const obj = JSON.parse(inputText);
+
+                const parts = [];
+
+                if ('info' in obj) {
+                    parts.push('  "info": ' + JSON.stringify(obj.info));
+                }
+
+                if ('paletteSwap' in obj && obj.paletteSwap && typeof obj.paletteSwap === 'object') {
+                    const colors = Array.isArray(obj.paletteSwap.colors) ? obj.paletteSwap.colors.join(', ') : '';
+                    const replacements = Array.isArray(obj.paletteSwap.replacements) ? obj.paletteSwap.replacements.join(', ') : '';
+                    let s = '  "paletteSwap": {\n';
+                    s += '    "colors": [' + colors + '],\n';
+                    s += '    "replacements": [' + replacements + ']\n';
+                    s += '  }';
+                    parts.push(s);
+                }
+
+                if ('paletteSwapPA' in obj && obj.paletteSwapPA && typeof obj.paletteSwapPA === 'object') {
+                    const colors = Array.isArray(obj.paletteSwapPA.colors) ? obj.paletteSwapPA.colors.join(', ') : '';
+                    const replacements = Array.isArray(obj.paletteSwapPA.replacements) ? obj.paletteSwapPA.replacements.join(', ') : '';
+                    let s = '  "paletteSwapPA": {\n';
+                    s += '    "colors": [' + colors + '],\n';
+                    s += '    "replacements": [' + replacements + ']\n';
+                    s += '  }';
+                    parts.push(s);
+                }
+
+                if ('display_name' in obj) {
+                    parts.push('  "display_name": ' + JSON.stringify(obj.display_name));
+                }
+
+                const compacted = '{\n' + parts.join(',\n') + '\n}';
+                outputEl.textContent = compacted;
+            } catch (e) {
+                outputEl.textContent = 'Invalid JSON: ' + e.message;
+            }
+        }
+
+        function copyOutput() {
+            const outputEl = document.getElementById('output');
+            const text = outputEl.textContent;
+
+            if (!text || text.includes('Please paste') || text.includes('Invalid JSON')) {
+                alert('Nothing to copy yet — compact the JSON first!');
+                return;
+            }
+
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied to clipboard!');
+            }).catch(() => {
+                alert('Copy failed (maybe browser permission issue)');
+            });
+        }
+    </script>
+</body>
+</html>

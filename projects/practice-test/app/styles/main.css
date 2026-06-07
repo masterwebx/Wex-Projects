@@ -3446,7 +3446,11 @@ body.session-active .app-footer {
   }
 }
 
-/* --- AMT Answer Key --- */
+/* --- Answer Key & Print Exam --- */
+
+.print-only {
+  display: none !important;
+}
 
 .answer-key-page-wrap {
   max-width: 1200px;
@@ -3500,6 +3504,93 @@ body.session-active .app-footer {
   font-weight: 600;
 }
 
+.answer-key-status.is-saved {
+  color: var(--success, #2d8a4e);
+}
+
+.answer-key-save-banner {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--success-soft, #e8f5ec);
+  border: 1px solid var(--success, #2d8a4e);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.answer-key-save-banner.is-visible {
+  display: flex;
+}
+
+.answer-key-save-banner-dismiss {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.answer-key-save-banner-dismiss:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.answer-key-needs-panel {
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--warning-soft, #fff8e6);
+  border: 1px solid var(--warning, #c9a227);
+  border-radius: var(--radius);
+}
+
+.answer-key-needs-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.answer-key-needs-desc {
+  margin: 0 0 0.65rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.answer-key-needs-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.answer-key-needs-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+  font-size: 0.88rem;
+}
+
+.answer-key-needs-answer {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.answer-key-needs-empty {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 .answer-key-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -3523,6 +3614,8 @@ body.session-active .app-footer {
   align-items: center;
   gap: 0.35rem;
   font-size: 0.8rem;
+  min-height: 1.85rem;
+  flex-shrink: 0;
 }
 
 .answer-key-num {
@@ -3552,6 +3645,8 @@ body.session-active .app-footer {
   font-size: 0.72rem;
   font-weight: 700;
   cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
@@ -3578,6 +3673,55 @@ body.session-active .app-footer {
   color: var(--text-muted);
 }
 
+.answer-key-changes-host {
+  margin-bottom: 1rem;
+}
+
+.answer-key-changes-empty {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.answer-key-changes-panel {
+  padding: 0.75rem 1rem;
+  background: var(--primary-soft);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+}
+
+.answer-key-changes-panel summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.answer-key-change-list {
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.answer-key-change-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+}
+
+.answer-key-change-arrow {
+  font-weight: 700;
+  color: var(--warning);
+}
+
+.answer-key-change-preview {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
 @media (max-width: 900px) {
   .answer-key-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -3600,6 +3744,323 @@ body.session-active .app-footer {
   }
 }
 
+/* Shared printable exam layout */
+.print-sheet-document {
+  /* One continuous exam — let the browser paginate naturally */
+}
+
+.print-sheet-page.print-sheet-compact {
+  break-after: page;
+  page-break-after: always;
+}
+
+.print-sheet-page.print-sheet-compact:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+
+.print-answer-key-appendix-wrap > .print-sheet-page:first-child {
+  break-before: page;
+  page-break-before: always;
+}
+
+.print-sheet-header {
+  margin-bottom: 0.5rem;
+  text-align: center;
+}
+
+.print-sheet-title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.print-sheet-subtitle {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+  color: #444;
+}
+
+/* Compact letter-grid print (answer key default) */
+.print-key-grid {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.print-key-column {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.print-key-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  min-height: 1.4rem;
+}
+
+.print-sheet-compact .print-key-row {
+  gap: 0.2rem;
+  font-size: 0.62rem;
+  min-height: 1.05rem;
+}
+
+.print-key-num {
+  flex: 0 0 1.75rem;
+  font-weight: 700;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.print-key-choices {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+}
+
+.print-key-choice {
+  flex: 1;
+  max-width: 1.5rem;
+  height: 1.35rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #999;
+  border-radius: 3px;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.print-sheet-compact .print-key-choice {
+  max-width: 1.2rem;
+  height: 1.05rem;
+  font-size: 0.58rem;
+  border-radius: 2px;
+}
+
+.print-sheet-compact .print-key-num {
+  flex: 0 0 1.5rem;
+  font-size: 0.62rem;
+}
+
+.print-sheet-compact .print-key-grid {
+  gap: 0.35rem;
+}
+
+.print-sheet-compact .print-key-column {
+  gap: 0.08rem;
+}
+
+.print-key-choice.is-selected {
+  background: #000;
+  border-color: #000;
+  color: #fff;
+}
+
+.print-exam-launching {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+/* Full-width exam print */
+.print-sheet-fullwidth .print-sheet-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.print-sheet-fullwidth .print-exam-item {
+  width: 100%;
+}
+
+.print-sheet-fullwidth .print-exam-question {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.print-sheet-fullwidth .print-exam-option {
+  margin: 0 0 0.25rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.print-exam-question {
+  margin: 0 0 0.2rem;
+  font-size: 0.68rem;
+  line-height: 1.25;
+}
+
+.print-exam-number {
+  font-weight: 700;
+  margin-right: 0.15rem;
+}
+
+.print-exam-options {
+  margin: 0;
+  padding: 0 0 0 0.9rem;
+  list-style: none;
+}
+
+.print-exam-option {
+  margin: 0 0 0.12rem;
+  font-size: 0.62rem;
+  line-height: 1.2;
+}
+
+.print-exam-option-letter {
+  font-weight: 700;
+  margin-right: 0.1rem;
+}
+
+.print-exam-option.is-correct {
+  font-weight: 700;
+}
+
+.print-exam-option.is-correct .print-exam-option-letter {
+  text-decoration: underline;
+}
+
+.print-exam-page-wrap {
+  max-width: 1200px;
+}
+
+.print-exam-desc {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.print-exam-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.print-exam-toolbar-left {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.print-exam-page-label {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.print-exam-range {
+  margin-left: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.print-exam-preview {
+  padding: 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.print-exam-preview .print-sheet-fullwidth .print-exam-question {
+  font-size: 1rem;
+}
+
+.print-exam-preview .print-sheet-fullwidth .print-exam-option {
+  font-size: 0.92rem;
+}
+
+/* Print options dialog */
+.print-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.print-dialog {
+  width: min(100%, 28rem);
+  padding: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.print-dialog-title {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.print-dialog-fieldset {
+  margin: 0 0 1.25rem;
+  padding: 0;
+  border: none;
+}
+
+.print-dialog-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 0.65rem;
+  cursor: pointer;
+}
+
+.print-dialog-option:last-child {
+  margin-bottom: 0;
+}
+
+.print-dialog-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.print-dialog-option-label {
+  font-weight: 600;
+}
+
+.print-dialog-option-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.print-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media print {
   .main-nav,
   .app-footer,
@@ -3614,30 +4075,40 @@ body.session-active .app-footer {
     color: #000;
   }
 
-  .answer-key-page-wrap {
+  .print-only {
+    display: block !important;
+  }
+
+  .answer-key-page-wrap,
+  .print-exam-page-wrap {
     max-width: none;
   }
 
-  .answer-key-grid {
-    box-shadow: none;
-    border: none;
-    padding: 0;
-    gap: 0.35rem 0.5rem;
+  .answer-key-print-root,
+  .print-exam-print-root {
+    display: block !important;
   }
 
-  .answer-key-choice {
-    border-color: #999;
+  .print-key-grid {
+    display: flex !important;
+    flex-direction: row !important;
   }
 
-  .answer-key-choice.is-selected {
-    background: #000;
-    border-color: #000;
-    color: #fff;
+  .print-key-choice.is-selected {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
 
-  .answer-key-header h1 {
-    font-size: 1.1rem;
+  .print-exam-option.is-correct {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-sheet-fullwidth .print-exam-question {
+    font-size: 10pt;
+  }
+
+  .print-sheet-fullwidth .print-exam-option {
+    font-size: 9.5pt;
   }
 }

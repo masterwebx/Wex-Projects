@@ -15,6 +15,7 @@ import { renderSettings } from './ui/settings.js';
 import { renderTests } from './ui/tests.js';
 import { renderTestSelector } from './ui/test-selector.js';
 import { renderAnswerKey } from './ui/answer-key.js';
+import { renderPrintExam } from './ui/print-exam.js';
 import { getQuestion, seedBundledExams } from './db.js';
 import { resetSessionChrome } from './ui/session-chrome.js';
 
@@ -89,7 +90,9 @@ async function render() {
     } else if (path === 'help') {
       await renderHelp(app);
     } else if (path === 'answer-key') {
-      await renderAnswerKey(app, t);
+      await renderAnswerKey(app, params);
+    } else if (path === 'print-exam') {
+      await renderPrintExam(app, params);
     } else if (path === 'backup' || path === 'settings') {
       await renderSettings(app);
     } else {

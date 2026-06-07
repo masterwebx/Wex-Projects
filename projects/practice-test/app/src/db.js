@@ -5,7 +5,7 @@ import { isDuplicateQuestion } from './question-meta.js';
 
 export const AMT_RPT_MOCK_EXAM_ID = 'amt-rpt-mock-exam';
 /** Bump when bundled exam content changes — triggers explanation sync into IndexedDB. */
-export const AMT_BUNDLE_DATA_VERSION = 3;
+export const AMT_BUNDLE_DATA_VERSION = 4;
 
 const DB_NAME = 'practice-test-db';
 const DB_VERSION = 2;
@@ -226,6 +226,7 @@ function buildBundleByNumber(rawItems) {
     byNumber.set(key, {
       category: String(raw.category ?? '').trim(),
       explanation: String(raw.explanation ?? raw.rationale ?? '').trim(),
+      correctIndex: raw.correctIndex,
     });
   }
   return byNumber;
@@ -260,6 +261,16 @@ async function syncAmtRptBundle() {
     }
     if (bundle.explanation && (forceExplanations || q.explanation !== bundle.explanation)) {
       next.explanation = bundle.explanation;
+      changed = true;
+    }
+    if (
+      forceExplanations &&
+      typeof bundle.correctIndex === 'number' &&
+      bundle.correctIndex >= 0 &&
+      bundle.correctIndex <= 3 &&
+      q.correctIndex !== bundle.correctIndex
+    ) {
+      next.correctIndex = bundle.correctIndex;
       changed = true;
     }
     if (changed) updates.push(next);

@@ -112,9 +112,9 @@
       "Preventing glycolysis.",
       "None, plasma requires blood to clot."
     ],
-    "correctIndex": 2,
+    "correctIndex": 1,
     "category": "Vial Info",
-    "explanation": "Heparin is an anticoagulant used in green-top tubes to yield plasma for chemistry testing. Per this exam key, heparin is associated with preventing glycolysis in certain plasma specimens; in clinical practice, sodium fluoride is the additive specifically used to inhibit glycolysis."
+    "explanation": "Heparin prevents clotting by inactivating thrombin (via antithrombin III), blocking the coagulation cascade so plasma can be obtained without fibrin formation. Heparinized plasma is preferred for some chemistry tests that require anticoagulated whole blood separated from cells."
   },
   {
     "number": 10,
@@ -398,9 +398,9 @@
       "Directly before a meal is consumed.",
       "While the patient is fasting."
     ],
-    "correctIndex": 1,
+    "correctIndex": 0,
     "category": "Vial Info",
-    "explanation": "A postprandial specimen is collected two hours after a meal to assess how the body metabolizes glucose and other nutrients. This standardized timing is used for glucose tolerance testing and evaluating post-meal metabolic responses."
+    "explanation": "A postprandial specimen is collected directly after a meal is consumed. This timing captures the body's immediate response to nutrient intake for tests that evaluate metabolism in the fed state."
   },
   {
     "number": 32,
@@ -437,9 +437,9 @@
       "Explain the procedure.",
       "Apply the tourniquet"
     ],
-    "correctIndex": 0,
+    "correctIndex": 1,
     "category": "Procedure",
-    "explanation": "Patient identification is the mandatory first step before any venipuncture procedure. Collecting blood from the wrong patient is the most serious preanalytical error and must be prevented before equipment setup or site preparation."
+    "explanation": "The very first step in routine venipuncture is to identify yourself to the patient—introducing who you are and your role establishes trust and professionalism before patient identification, explanation of the procedure, and site preparation."
   },
   {
     "number": 35,
@@ -580,9 +580,9 @@
       "Prevent lysis of red blood cells.",
       "Allow formation of a round drop of blood."
     ],
-    "correctIndex": 1,
+    "correctIndex": 2,
     "category": "Procedure",
-    "explanation": "Alcohol must air-dry completely before puncture because residual alcohol on the skin can mix with the blood sample and dilute analytes. Wet alcohol also causes a stinging sensation and may hemolyze red blood cells at the puncture site."
+    "explanation": "Alcohol must air-dry completely before skin puncture to prevent lysis of red blood cells. Residual alcohol on the puncture site can hemolyze RBCs as blood is collected, falsely altering potassium, LDH, and other analytes."
   },
   {
     "number": 46,
@@ -606,9 +606,9 @@
       "The tube is only partially filled.",
       "The tube is overfilled."
     ],
-    "correctIndex": 1,
+    "correctIndex": 2,
     "category": "Vial Info",
-    "explanation": "Benzalkonium chloride (Zephiran) is an antiseptic that can destroy or alter ethanol in the blood sample, producing a falsely decreased blood alcohol level. Isopropyl alcohol is the standard antiseptic for legal alcohol specimen collection."
+    "explanation": "A falsely decreased blood alcohol level may result if the collection tube is only partially filled. Underfilling disrupts the proper blood-to-additive ratio and can allow alcohol loss or inadequate preservation, lowering the measured concentration."
   },
   {
     "number": 48,
@@ -684,9 +684,9 @@
       "Patients must be tested 2 hours before meals.",
       "To determine blood levels of medications prior to next dose."
     ],
-    "correctIndex": 0,
+    "correctIndex": 2,
     "category": "Vial Info",
-    "explanation": "Timed specimen collection is driven by factors such as diurnal variation, post-meal intervals, and medication trough levels. Measuring how the body metabolizes a substance is an analytical goal of the test itself, not a reason for scheduling collection at a specific clock time."
+    "explanation": "Specimens are timed for reasons such as diurnal variation, post-meal chemistry, and pre-dose drug levels. \"Patients must be tested 2 hours before meals\" is not a standard scheduling factor—collections are typically timed after meals or at set intervals, not two hours before eating."
   },
   {
     "number": 54,
@@ -996,9 +996,9 @@
       "Gauze is placed over the needle.",
       "Pressure is applied to the site."
     ],
-    "correctIndex": 2,
+    "correctIndex": 0,
     "category": "Procedure",
-    "explanation": "After the final tube fills, gauze should be placed over the puncture site while the needle is still in the vein so that firm pressure can be applied immediately upon needle withdrawal. This sequence minimizes bleeding and hematoma formation."
+    "explanation": "After the last tube is filled, the filled tube is removed from the holder first. This completes the draw sequence in the tube holder system before gauze placement, needle withdrawal, and site pressure are performed."
   },
   {
     "number": 78,
@@ -1009,9 +1009,9 @@
       "Chilling specimens speeds up the metabolic process and destroys analytes.",
       "An EDTA specimen for erythrocyte sedimentation rate must be analyzed within the first hour of collection."
     ],
-    "correctIndex": 0,
+    "correctIndex": 1,
     "category": "Vial Info",
-    "explanation": "Bilirubin is highly photosensitive; exposure to light causes rapid photodegradation, with concentrations dropping substantially within hours. Specimens for bilirubin testing must be protected from light to prevent falsely decreased results."
+    "explanation": "Blood smears made from EDTA specimens must be prepared within 1 hour of collection. Delayed smear preparation allows cellular changes in anticoagulated blood that distort morphology on the slide."
   },
   {
     "number": 79,
@@ -1048,9 +1048,9 @@
       "The patient will develop a hematoma.",
       "You will complete the draw more quickly."
     ],
-    "correctIndex": 2,
+    "correctIndex": 1,
     "category": "Blood issue",
-    "explanation": "Pulling the syringe plunger back too rapidly creates excessive negative pressure that can damage the vein wall and allow blood to extravasate into surrounding tissue. Controlled, steady aspiration reduces the risk of hematoma formation during syringe draws."
+    "explanation": "If the syringe plunger is pulled back too fast, the specimen may be hemolyzed. Rapid aspiration creates excessive negative pressure that shears red blood cells, releasing intracellular contents and invalidating many chemistry results."
   },
   {
     "number": 82,
@@ -1204,9 +1204,9 @@
       "One hour after meals.",
       "8 hours after eating."
     ],
-    "correctIndex": 1,
+    "correctIndex": 3,
     "category": "Specimen collection",
-    "explanation": "A fasting urine specimen is collected in the morning before the patient eats, ensuring that dietary intake has not altered urine chemistry. This is important for tests such as glucose, ketones, and certain drug screens where post-meal values would be misleading."
+    "explanation": "A quality fasting urine specimen is collected 8 hours after eating, when recent food intake has been metabolized and analytes such as glucose and ketones reflect a true fasted state rather than immediate post-meal values."
   },
   {
     "number": 94,
@@ -1282,9 +1282,9 @@
       "Arterial Blood Gases",
       "Bleeding Time"
     ],
-    "correctIndex": 0,
+    "correctIndex": 3,
     "category": "Vial Info",
-    "explanation": "Prothrombin time (PT) and its standardized ratio (INR) are point-of-care tests used to monitor patients on warfarin and assess the extrinsic coagulation pathway. They provide rapid hemostasis information at the bedside or clinic."
+    "explanation": "Bleeding time is a point-of-care test used in evaluating hemostasis problems, particularly platelet function and vascular integrity. It measures how long bleeding from a standardized skin incision takes to stop."
   },
   {
     "number": 100,
@@ -1529,9 +1529,9 @@
       "48-72 hours",
       "No discontinuation is recommended"
     ],
-    "correctIndex": 2,
+    "correctIndex": 1,
     "category": "Communication",
-    "explanation": "The College of American Pathologists (CAP) recommends discontinuing drugs that interfere with laboratory tests for 48–72 hours before collection when clinically feasible. This window allows most interfering substances to clear sufficiently for accurate results."
+    "explanation": "The College of American Pathologists (CAP) recommends discontinuing drugs that interfere with blood tests for 4–24 hours prior to a procedure when clinically appropriate. Shorter windows apply to many common interfering agents before laboratory collection."
   },
   {
     "number": 119,
@@ -1750,9 +1750,9 @@
       "Ignore the situation and proceed with the task.",
       "Instruct the family member regarding the proper isolation protocol that must be observed."
     ],
-    "correctIndex": 0,
+    "correctIndex": 3,
     "category": "Communication",
-    "explanation": "A family member entering an isolation room without proper precautions is an infection control breach. The phlebotomist should report the incident to the charge nurse, who coordinates isolation enforcement and exposure assessment."
+    "explanation": "When a visitor enters an isolation room without proper precautions, the phlebotomist should instruct the family member regarding the proper isolation protocol that must be observed. Direct education stops the breach immediately and protects the patient and others."
   },
   {
     "number": 136,
@@ -1945,9 +1945,9 @@
       "Three",
       "None"
     ],
-    "correctIndex": 2,
+    "correctIndex": 1,
     "category": "Safety & Legal",
-    "explanation": "Standard patient identification requires at least two unique identifiers (such as full name, date of birth, and medical record number) before any specimen collection. This dual-identifier practice is a Joint Commission and CLSI requirement to prevent wrong-patient events."
+    "explanation": "Two identifiers are required to identify a patient before obtaining a blood sample—such as name and date of birth or medical record number. This dual-identifier check is a core patient-safety requirement to prevent wrong-patient specimen collection."
   },
   {
     "number": 151,
@@ -2127,9 +2127,9 @@
       "OSHA",
       "DEA"
     ],
-    "correctIndex": 2,
+    "correctIndex": 0,
     "category": "Safety & Legal",
-    "explanation": "OSHA regulates workplace safety including medical waste handling and disposal requirements for healthcare facilities. The CDC provides infection control guidance, CLIA governs lab testing quality, and the DEA regulates controlled substances—not general biohazard waste disposal."
+    "explanation": "A medical facility should contact the CDC for proper information regarding the disposal of medical waste. The CDC publishes infection-control and biohazard waste guidance that facilities follow alongside state and local regulations."
   },
   {
     "number": 165,
@@ -2270,9 +2270,9 @@
       "A battery",
       "An assault"
     ],
-    "correctIndex": 1,
+    "correctIndex": 3,
     "category": "Safety & Legal",
-    "explanation": "A tort is a civil wrong causing injury to a person or property, distinct from criminal acts. Assault and battery are specific types of torts involving threats or unwanted physical contact, but tort is the broader legal category."
+    "explanation": "Assault is a civil wrong involving intentional conduct that causes apprehension of harmful or offensive contact, or that deprives someone of personal liberty. It is one category of actionable conduct against a person under civil law."
   },
   {
     "number": 176,

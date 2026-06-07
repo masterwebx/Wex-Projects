@@ -1,0 +1,2732 @@
+[
+  {
+    "number": 1,
+    "question": "You have properly prepared the antecubital venipuncture site, you have the correct collection device and enter the vein at a 20-degree angle. Is this the proper angle of insertion?",
+    "options": [
+      "No, 10 degrees is the correct angle for the needle to be inserted into the skin.",
+      "No, 30 degrees is the correct angle for the needle to be inserted into the skin.",
+      "No, 45 degrees is the correct angle for the needle to be inserted into the skin.",
+      "No, 90 degrees is the correct angle for the needle to be inserted into the skin."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "Standard venipuncture technique calls for needle insertion at a 15–30° angle to the skin surface, with approximately 30° being the commonly taught optimal angle. A 20° angle is too shallow and increases the risk of probing under the skin without fully entering the vein lumen."
+  },
+  {
+    "number": 2,
+    "question": "When a patient develops syncope during a venipuncture, the phlebotomist should...",
+    "options": [
+      "Lower the patient's head.",
+      "Remove tourniquet and needle and call for help.",
+      "Complete venipuncture as quickly as possible.",
+      "Have the patient stand up."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "Syncope during venipuncture indicates the patient is losing consciousness from a vasovagal response. The priority is patient safety: immediately remove the tourniquet and needle to stop the procedure, then call for help rather than continuing the draw or changing position abruptly."
+  },
+  {
+    "number": 3,
+    "question": "During venipuncture, a hematoma may result from which of the following?",
+    "options": [
+      "Needle is occluded.",
+      "Needle bevel is against a vein wall.",
+      "Needle bevel is partially inserted into a vein.",
+      "Patient has coagulation issues."
+    ],
+    "correctIndex": 2,
+    "category": "Blood issue",
+    "explanation": "A hematoma forms when blood leaks into surrounding tissue. If the needle bevel is only partially inside the vein, blood can escape through the puncture site into subcutaneous tissue instead of flowing cleanly into the collection device."
+  },
+  {
+    "number": 4,
+    "question": "Petechiae are tiny, non-raised red spots on a patient's skin when the tourniquet is applied. This indicates that...",
+    "options": [
+      "Patient has high blood pressure.",
+      "Site may bleed excessively.",
+      "The tourniquet is too tight.",
+      "Patient is allergic to the latex."
+    ],
+    "correctIndex": 1,
+    "category": "Blood issue",
+    "explanation": "Petechiae are pinpoint hemorrhages caused by capillary bleeding under the skin, often seen when platelet function or clotting is impaired. Their appearance with a tourniquet signals that the puncture site may bleed excessively after the needle is removed."
+  },
+  {
+    "number": 5,
+    "question": "How long should a tourniquet be placed around a patient's arm?",
+    "options": [
+      "No more than one minute",
+      "Approximately four minutes.",
+      "Until the needle is removed.",
+      "Until the entire venipuncture is complete."
+    ],
+    "correctIndex": 0,
+    "category": "Procedure",
+    "explanation": "Prolonged tourniquet application causes hemoconcentration—fluid leaves the vein while cells and large molecules concentrate—altering test results. CLSI guidelines limit tourniquet time to no more than one minute to minimize this preanalytical error."
+  },
+  {
+    "number": 6,
+    "question": "What information would NOT be indicated on the label of a blood bank specimen?",
+    "options": [
+      "Patient's date of birth.",
+      "NPO status of the patient and time of last meal.",
+      "Date and time of specimen collection",
+      "Patient's full name including middle."
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info",
+    "explanation": "Blood bank specimen labels require positive patient identification elements such as full name, date of birth, and collection date/time. NPO status and meal timing are clinically irrelevant to transfusion testing and are not required on the label."
+  },
+  {
+    "number": 7,
+    "question": "What is the correct procedure to stop the bleeding at a venipuncture site?",
+    "options": [
+      "Apply an alcohol prep pad to the site and apply pressure.",
+      "Have the patient bend their arm and hold it there for 15 minutes.",
+      "Place a gauze pad over the site and hold pressure for 5 to 15 minutes",
+      "Apply a cotton ball to the site and hold."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "Hemostasis at a venipuncture site requires direct pressure with a clean gauze pad for 5–15 minutes. Alcohol must not be applied after the draw because it prevents platelet aggregation and clot formation at the puncture site."
+  },
+  {
+    "number": 8,
+    "question": "When blood collected in a syringe must be placed in evacuated tubes it is best if:",
+    "options": [
+      "The needle is removed from the syringe.",
+      "The tube tops are removed.",
+      "Blood transfer device is attached to the syringe.",
+      "The tubes are pierced directly with the needle that is attached to the syringe."
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "A syringe transfer device allows blood to move from a syringe into evacuated tubes without reusing the collection needle. Piercing tube stoppers with the patient needle is prohibited because it risks needlestick injury and does not meet OSHA safety standards."
+  },
+  {
+    "number": 9,
+    "question": "Heparinized plasma is preferred over serum for some chemistry tests. Heparin prevents clotting by...",
+    "options": [
+      "Binding calcium.",
+      "Inactivating thrombin.",
+      "Preventing glycolysis.",
+      "None, plasma requires blood to clot."
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "Heparin is an anticoagulant used in green-top tubes to yield plasma for chemistry testing. Per this exam key, heparin is associated with preventing glycolysis in certain plasma specimens; in clinical practice, sodium fluoride is the additive specifically used to inhibit glycolysis."
+  },
+  {
+    "number": 10,
+    "question": "The liquid portion of an anti-coagulated blood specimen is called...",
+    "options": [
+      "serum",
+      "Plasma",
+      "Oxygenated blood",
+      "Cellular components"
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info",
+    "explanation": "When blood is collected into an anticoagulant tube, clotting is prevented and the liquid supernatant remaining after centrifugation is plasma. Serum, by contrast, is the liquid portion obtained after a clotted red-top specimen is centrifuged."
+  },
+  {
+    "number": 11,
+    "question": "Which of the following would be first in the sequence of performing a finger stick procedure?",
+    "options": [
+      "Sanitize hands and put on gloves.",
+      "Clean and air-dry the puncture site.",
+      "Select the puncture/incision site.",
+      "Warm the puncture/incision site."
+    ],
+    "correctIndex": 0,
+    "category": "Procedure",
+    "explanation": "Hand hygiene and donning gloves are the first steps in any skin puncture procedure. This follows standard infection-control precautions before site selection, warming, or cleansing to protect both the patient and the phlebotomist."
+  },
+  {
+    "number": 12,
+    "question": "Complete clotting of a blood specimen can take up to...",
+    "options": [
+      "10 minutes at room temperature.",
+      "30 minutes at room temperature.",
+      "30 minutes at refrigeration temperature.",
+      "2 hours at room temperature."
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info",
+    "explanation": "Complete clot formation in a serum specimen requires adequate time for the coagulation cascade to finish; this typically takes up to 30 minutes at room temperature. Centrifuging too early yields inadequate serum separation and can affect test accuracy."
+  },
+  {
+    "number": 13,
+    "question": "Older patients are more prone to hematoma formation because...",
+    "options": [
+      "they have smaller veins.",
+      "Tourniquets must be tied tighter.",
+      "Their veins have decreased elasticity.",
+      "They have difficulty making a fist."
+    ],
+    "correctIndex": 2,
+    "category": "Blood issue",
+    "explanation": "Aging veins lose elasticity and become more fragile, making them prone to puncture through the vessel wall or leakage around the needle. This structural change increases hematoma risk even when technique is otherwise correct."
+  },
+  {
+    "number": 14,
+    "question": "When blood is inoculated into blood culture bottles using a butterfly apparatus...",
+    "options": [
+      "anaerobic bottle is inoculated first.",
+      "Safety device is activated first.",
+      "Aerobic bottle is inoculated first.",
+      "Volume of blood inoculated is increased."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "When inoculating blood culture bottles with a butterfly set, the aerobic bottle is filled first. This sequence reduces the risk of introducing air from the tubing into the anaerobic bottle, which could inhibit growth of obligate anaerobes."
+  },
+  {
+    "number": 15,
+    "question": "The primary reason for using a syringe transfer device is to...",
+    "options": [
+      "safely transfer blood from a syringe into ETS tubes.",
+      "Ensure that the proper amount of blood can be supplied to the lab.",
+      "Provide an easy method to separate the packed cells from the plasma.",
+      "Reduce the amount of time required to get the blood from a syringe to an evacuated tube."
+    ],
+    "correctIndex": 0,
+    "category": "Procedure",
+    "explanation": "The syringe transfer device is designed primarily for occupational safety—it provides a closed system to transfer blood from a syringe into evacuated tubes without recapping or reusing needles, preventing needlestick injuries."
+  },
+  {
+    "number": 16,
+    "question": "Which of the following represents the proper sequential draw from first to last?",
+    "options": [
+      "Serum tube, heparin tube, EDTA tube",
+      "Blue-top tube, EDTA tube, sterile tube",
+      "Serum tube, sterile tube, blue top tube",
+      "EDTA tube, serum tube, sterile tube"
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Order of draw prevents additive carryover between tubes. The correct sequence places non-additive serum tubes first, then heparin (green), then EDTA (lavender), because EDTA contamination most severely affects coagulation, chemistry, and cell morphology results."
+  },
+  {
+    "number": 17,
+    "question": "Which of the following may cause hematoma formation?",
+    "options": [
+      "Removing the tourniquet before the needle",
+      "Bandaging the patients arm immediately after arm has stopped bleeding",
+      "Firmly anchoring vein in needle insertion",
+      "Having the patient bend elbow to apply pressure"
+    ],
+    "correctIndex": 3,
+    "category": "Blood issue",
+    "explanation": "Having the patient bend the elbow to hold gauze applies pressure to the antecubital fold rather than directly over the venipuncture site. This ineffective hemostasis allows blood to pool in tissues and is a common cause of hematoma formation."
+  },
+  {
+    "number": 18,
+    "question": "Which substance has a higher concentration in capillary blood than in venous blood?",
+    "options": [
+      "Potassium",
+      "Calcium",
+      "Total Protein",
+      "Glucose"
+    ],
+    "correctIndex": 3,
+    "category": "Vial Info",
+    "explanation": "Capillary blood is more arterialized and metabolically active than venous blood, so glucose concentrations are typically higher in capillary specimens. This is why venous blood is preferred for most chemistry panels unless capillary collection is specifically indicated."
+  },
+  {
+    "number": 19,
+    "question": "The heel is the recommended site for collection of capillary puncture specimens on infants and the phlebotomist is going to stick in the posterior curvature of the heel. Is this correct?",
+    "options": [
+      "No, the medial plantar surface of the heel is the best site to prevent possible bone damage.",
+      "No, the central plantar surface of the heel is a better choice.",
+      "No, the anterior curvature of the heel is the preferred site on infants.",
+      "No, the great toe is the best choice."
+    ],
+    "correctIndex": 0,
+    "category": "Procedure",
+    "explanation": "Infant heel punctures must be performed on the medial or lateral plantar surface of the heel, not the posterior curvature. The posterior heel lies over the calcaneus bone and risks bone penetration and osteomyelitis in newborns."
+  },
+  {
+    "number": 20,
+    "question": "When performing a heel puncture on an infant, proper technique includes...",
+    "options": [
+      "Having the parent or guardian hold the infant's foot so the phlebotomist can perform the puncture.",
+      "Firmly holding the puncture device in place on the skin until blood appears.",
+      "Placing the lancet flat against the skin on the medial or lateral plantar surface of the heel.",
+      "Not discarding the puncture device until blood appears so the device could be used again to ensure a good puncture."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "Proper infant heel puncture technique places the lancet perpendicular on the medial or lateral plantar surface, puncturing to a controlled depth. Holding the device flat or reusing a lancet violates standard safety and technique guidelines."
+  },
+  {
+    "number": 21,
+    "question": "Color coding indicates a needle's...",
+    "options": [
+      "Gauge",
+      "Length",
+      "Manufacturer",
+      "Anticoagulant"
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Needle hub color coding in phlebotomy identifies the gauge (diameter) of the needle, not its length, manufacturer, or any anticoagulant. Gauge selection affects blood flow rate and patient comfort during venipuncture."
+  },
+  {
+    "number": 22,
+    "question": "When is a phlebotomist allowed to perform a venipuncture on an ankle vein?",
+    "options": [
+      "Never.",
+      "When a patient has IV in both arms",
+      "During an emergency",
+      "When all other options have been exhausted and the physician has given approval"
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "Ankle venipuncture is a last-resort alternative site used only when antecubital and hand veins are unavailable and the physician has specifically authorized the draw. It carries higher complication risk and is never a routine first choice."
+  },
+  {
+    "number": 23,
+    "question": "When a patient states that he or she has a needle phobia, the phlebotomist should...",
+    "options": [
+      "Have the patient lie down during the procedure.",
+      "Let the patient chew on a piece of candy or gum.",
+      "Show the patient how small the needle is.",
+      "Let the patient handle the equipment prior to the procedure."
+    ],
+    "correctIndex": 0,
+    "category": "Procedure",
+    "explanation": "Patients with needle phobia are at high risk for vasovagal syncope. Having the patient lie down during the procedure reduces injury risk from falling and allows the phlebotomist to manage a fainting episode safely."
+  },
+  {
+    "number": 24,
+    "question": "The phlebotomist has to prepare a blood smear for a leukocyte alkaline phosphatase (LAP). What is the correct procedure?",
+    "options": [
+      "Perform the skin puncture and touch the slide to first drop of blood",
+      "Perform the skin puncture and smear the slide with the first drop of blood.",
+      "Perform the skin puncture, wipe away the first drop of blood and then touch the slide to the next drop of blood.",
+      "Perform the skin puncture, wipe the first drop and then get a large drop and place in center of slide and place a cover slip over the drop"
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "For a leukocyte alkaline phosphatase (LAP) smear, the first drop of capillary blood is wiped away because it contains excess tissue fluid and debris. The second free-flowing drop provides a cleaner sample for an accurate blood film."
+  },
+  {
+    "number": 25,
+    "question": "A serum or plasma specimen containing abnormally increased fatty substances from animal or vegetable origin is described as...",
+    "options": [
+      "Lipemic",
+      "Anemic.",
+      "Icteric.",
+      "Hemolyzed"
+    ],
+    "correctIndex": 0,
+    "category": "Blood issue",
+    "explanation": "Lipemia describes a specimen with abnormally elevated lipids (triglycerides), giving serum or plasma a milky or turbid appearance. This can interfere with many chemistry assays through spectral and mechanical interference during analysis."
+  },
+  {
+    "number": 26,
+    "question": "A blood sample is needed from a dialysis patient. Which of the following is an acceptable procedure?",
+    "options": [
+      "Draw from the vein with a cannula.",
+      "Draw from the vein with a fistula.",
+      "Draw from a hand vein.",
+      "Either (a) or (b) would be acceptable."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "Dialysis patients have a fistula or graft that must never be used for routine venipuncture, as puncture can destroy vascular access. Drawing from a hand vein preserves the lifeline access site while still obtaining the required specimen."
+  },
+  {
+    "number": 27,
+    "question": "Prior to bandaging the puncture site, the phlebotomist should...",
+    "options": [
+      "Thank the patient.",
+      "Instruct a fasting patient to eat.",
+      "Examine the site for bleeding.",
+      "Apply pressure for at least 5 minutes."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "Before applying a bandage, the phlebotomist must visually inspect the puncture site to confirm bleeding has stopped. Bandaging over an actively bleeding site can cause hematoma formation and inadequate hemostasis."
+  },
+  {
+    "number": 28,
+    "question": "A skin puncture is preferred over a venipuncture when the patient...",
+    "options": [
+      "Is severely dehydrated.",
+      "Has chronic poor circulation",
+      "Is extremely cold.",
+      "Has severe burns."
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "Severe burns damage veins and surrounding tissue in affected areas, making venipuncture difficult and painful. Capillary puncture from an unburned site is preferred to obtain a specimen without compromising burned, compromised vasculature."
+  },
+  {
+    "number": 29,
+    "question": "Which of the following anticoagulants is found in a green-topped blood collection vacuum tube?",
+    "options": [
+      "EDTA",
+      "Sodium citrate",
+      "Sodium heparin",
+      "Ammonium oxalate"
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "Green-top evacuated tubes contain sodium heparin or lithium heparin as the anticoagulant. Heparin inhibits thrombin and factor Xa to produce plasma suitable for chemistry testing without clot formation."
+  },
+  {
+    "number": 30,
+    "question": "When performing a capillary blood collection, the first blood drop is wiped away because...",
+    "options": [
+      "It helps to visualize the puncture site.",
+      "You can tell where to place the capillary tube.",
+      "The first drop may clot faster.",
+      "The first drop typically has more tissue fluid"
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "The first drop of capillary blood is contaminated with tissue fluid and cellular debris from the skin puncture. Wiping it away ensures the collected specimen more closely reflects circulating blood composition."
+  },
+  {
+    "number": 31,
+    "question": "A postprandial specimen is collected ...",
+    "options": [
+      "Directly after a meal is consumed.",
+      "Two hours after a meal is consumed.",
+      "Directly before a meal is consumed.",
+      "While the patient is fasting."
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info",
+    "explanation": "A postprandial specimen is collected two hours after a meal to assess how the body metabolizes glucose and other nutrients. This standardized timing is used for glucose tolerance testing and evaluating post-meal metabolic responses."
+  },
+  {
+    "number": 32,
+    "question": "Areas from which blood should not be collected include all the following with the exception of...",
+    "options": [
+      "A Basilic vein.",
+      "A hematoma.",
+      "An arm with an IV.",
+      "An arm with a fistula."
+    ],
+    "correctIndex": 0,
+    "category": "Procedure",
+    "explanation": "Blood should not be collected from hematomas, arms with IVs, or arms with fistulas because results may be invalid or access may be compromised. The basilic vein, while used cautiously due to proximity to nerves and arteries, remains an acceptable venipuncture site."
+  },
+  {
+    "number": 33,
+    "question": "Proper identification of a coherent adult inpatient includes...",
+    "options": [
+      "ask the patient their name.",
+      "Check the identification band that is physically attached to the patient.",
+      "Both (a) and (b).",
+      "None needed; the nurse will verify the identification for you."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "Positive patient identification requires both asking the coherent patient to state their name and verifying it against the identification band physically attached to the patient. Relying on either method alone does not meet two-identifier standards."
+  },
+  {
+    "number": 34,
+    "question": "Which of the following would be the very first step in performing a routine venipuncture on a patient?",
+    "options": [
+      "Identify the patient.",
+      "Identify yourself.",
+      "Explain the procedure.",
+      "Apply the tourniquet"
+    ],
+    "correctIndex": 0,
+    "category": "Procedure",
+    "explanation": "Patient identification is the mandatory first step before any venipuncture procedure. Collecting blood from the wrong patient is the most serious preanalytical error and must be prevented before equipment setup or site preparation."
+  },
+  {
+    "number": 35,
+    "question": "What color evacuated tube would be commonly used for coagulation testing?",
+    "options": [
+      "Lavender",
+      "Light blue",
+      "Green",
+      "Yellow"
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info",
+    "explanation": "Light blue-top tubes contain sodium citrate in a precise 9:1 blood-to-anticoagulant ratio required for coagulation studies such as PT and PTT. The citrate binds calcium to prevent clotting while preserving clotting factor activity."
+  },
+  {
+    "number": 36,
+    "question": "You have to draw a 7 year old child for some blood work, what would be the best approach you should use when it is a child getting blood drawn?",
+    "options": [
+      "Have a colleague restrain the child while you collect the specimen.",
+      "Offer the child a toy if he or she lets you draw the sample.",
+      "Explain what you are going to do in simple terms and ask the child for his or her cooperation.",
+      "Let the child know that this won't hurt and will only take a few seconds."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "Pediatric patients respond best to honest, age-appropriate explanations of the procedure paired with a request for cooperation. Restraint, bribery, or false reassurance undermines trust and increases anxiety and movement during the draw."
+  },
+  {
+    "number": 37,
+    "question": "A basal-state specimen, used to establish reference ranges for inpatients, is best collected",
+    "options": [
+      "Anytime, because the patient is confined to the hospital.",
+      "Early in the morning, after fasting for 12 hours.",
+      "In the morning, immediately following breakfast.",
+      "Anytime a patient is fasting."
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info",
+    "explanation": "Basal-state specimens establish reference ranges by minimizing variables from food intake and activity. Early morning collection after a 12-hour fast best represents the patient's baseline metabolic state for inpatient reference intervals."
+  },
+  {
+    "number": 38,
+    "question": "Following venipuncture, which of the following should be applied to the venipuncture site?",
+    "options": [
+      "Cotton ball",
+      "Ace bandage",
+      "Alcohol wipe/pad",
+      "Clean, sterile gauze pad"
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "A clean, sterile gauze pad is applied immediately after needle withdrawal to achieve hemostasis through direct pressure. Cotton balls can shed fibers, and alcohol wipes would inhibit clot formation at the puncture site."
+  },
+  {
+    "number": 39,
+    "question": "Which of the following is proper care of a patient following collection of an arterial blood specimen?",
+    "options": [
+      "Have the patient to apply pressure immediately to the puncture site.",
+      "Ask the patient to check the site after 3 minutes to see if there is any bleeding.",
+      "Apply firm pressure to the puncture site for a minimum of 3-5 minutes.",
+      "Request that the patient applies pressure on the site until a nurse comes to check the site for bleeding."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "Arterial puncture sites bleed under higher pressure than venous sites and require firm, direct pressure for a minimum of 3–5 minutes. Inadequate compression can cause hematoma, bleeding, or pseudoaneurysm formation."
+  },
+  {
+    "number": 40,
+    "question": "The color-coded tube that is most frequently associated with hematological tests is...",
+    "options": [
+      "Red",
+      "Green",
+      "Lavender",
+      "Light blue"
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "Lavender (purple) EDTA tubes are the standard collection tube for hematology testing including complete blood counts, differentials, and blood smear preparation. EDTA preserves cell morphology by chelating calcium to prevent clotting."
+  },
+  {
+    "number": 41,
+    "question": "Which of the following is of primary importance in preventing rolling veins during venipuncture?",
+    "options": [
+      "Tightly apply tourniquet.",
+      "Selecting the median cubital vein.",
+      "Using 23-gauge needle.",
+      "Anchoring the vein while inserting the needle."
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "Rolling veins shift away from the needle during insertion unless they are firmly anchored below the intended puncture site. Stabilizing the vein with the thumb or fingers is the primary technique to prevent vein movement and missed sticks."
+  },
+  {
+    "number": 42,
+    "question": "To avoid contamination when should the needle cap be removed?",
+    "options": [
+      "When setting up the equipment.",
+      "Upon finding the venipuncture site.",
+      "Just prior to performing the venipuncture.",
+      "When applying the tourniquet"
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "The needle cap should remain on until just before venipuncture to maintain sterility of the needle and prevent environmental contamination. Removing it earlier exposes the needle to airborne contaminants and increases accidental stick risk."
+  },
+  {
+    "number": 43,
+    "question": "A phlebotomist most likely not use a butterfly for which of the following patients?",
+    "options": [
+      "An elderly patient with thin skin.",
+      "A wiggling child.",
+      "A patient with resilient and bouncy veins.",
+      "A patient with small, thin veins."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "Butterfly needles are ideal for fragile, small, or difficult veins but are unnecessary for large, resilient veins that tolerate a standard straight needle. Using a butterfly on bouncy, well-anchored veins adds cost and complexity without benefit."
+  },
+  {
+    "number": 44,
+    "question": "Swelling caused from blood leaking from a blood vessel is...",
+    "options": [
+      "Edema.",
+      "Sclerosis.",
+      "Thrombosis.",
+      "Hematoma."
+    ],
+    "correctIndex": 3,
+    "category": "Blood issue",
+    "explanation": "A hematoma is a localized collection of blood in subcutaneous tissue resulting from leakage outside the vessel wall. It presents as swelling, discoloration, and tenderness at or near the venipuncture site."
+  },
+  {
+    "number": 45,
+    "question": "Alcohol should be allowed to dry completely prior to skin puncture to...",
+    "options": [
+      "Prevent stinging.",
+      "Prevent dilution of the sample.",
+      "Prevent lysis of red blood cells.",
+      "Allow formation of a round drop of blood."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "Alcohol must air-dry completely before puncture because residual alcohol on the skin can mix with the blood sample and dilute analytes. Wet alcohol also causes a stinging sensation and may hemolyze red blood cells at the puncture site."
+  },
+  {
+    "number": 46,
+    "question": "Which of the following is the most appropriate procedure when preparing a patient for blood specimen collection?",
+    "options": [
+      "The phlebotomist should always ask the patient if they know why they are having blood drawn for testing.",
+      "If a patient asks the phlebotomist to explain the purpose of a blood test, the question should be referred to the doctor or nurse to answer.",
+      "If a patient asks why so many tubes of blood need to be drawn, the phlebotomist should reassure the patient that the lab needs extra blood in case they make a mistake running the test or if a tube should break.",
+      "Prior to the blood draw, the phlebotomist should ask each patient if he or she has a needle phobia."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "Phlebotomists may explain the collection procedure but should refer clinical questions about test purpose or diagnosis to the physician or nurse. Interpreting medical indications exceeds the phlebotomist's scope of practice."
+  },
+  {
+    "number": 47,
+    "question": "A falsely decreased blood alcohol level may be obtained if...",
+    "options": [
+      "Blood is collected in a gray stopper tube.",
+      "The site is cleansed with Zephiran Chloride.",
+      "The tube is only partially filled.",
+      "The tube is overfilled."
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info",
+    "explanation": "Benzalkonium chloride (Zephiran) is an antiseptic that can destroy or alter ethanol in the blood sample, producing a falsely decreased blood alcohol level. Isopropyl alcohol is the standard antiseptic for legal alcohol specimen collection."
+  },
+  {
+    "number": 48,
+    "question": "By bracing the hand while holding the needle assembly against the patients arm you...",
+    "options": [
+      "Decrease patient discomfort.",
+      "Prevent excess needle movement.",
+      "Decreases the possibility of hemolysis.",
+      "Allows tubes to be filled quicker."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "Bracing the hand and needle assembly against the patient's arm stabilizes the needle during tube changes and withdrawal. This minimizes unintended needle movement that could lacerate the vein wall or cause patient discomfort."
+  },
+  {
+    "number": 49,
+    "question": "A fully stocked phlebotomy tray readily accessible to the phlebotomy technician while performing venipuncture should include which of the following?",
+    "options": [
+      "Needles of various sizes.",
+      "Needle holder/adapter.",
+      "Evacuated blood collection tubes.",
+      "All of the above"
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "A properly stocked phlebotomy tray must include needles of appropriate gauges, a needle holder/adapter, and evacuated collection tubes. Having all supplies immediately accessible prevents procedural delays and reduces the risk of contamination from leaving the patient to retrieve equipment."
+  },
+  {
+    "number": 50,
+    "question": "The most critical part of a blood culture collection is...",
+    "options": [
+      "Filling the two media vials adequately.",
+      "Skin antisepsis of the collection site.",
+      "The selection of the collection site.",
+      "Timing of the second set of cultures."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "Skin antisepsis is the most critical step in blood culture collection because contaminant organisms on the skin are the leading cause of false-positive cultures. Inadequate site preparation leads to unnecessary antibiotics and additional testing."
+  },
+  {
+    "number": 51,
+    "question": "Preanalytical errors are mistakes made...",
+    "options": [
+      "Only by the phlebotomist.",
+      "Before laboratory testing.",
+      "During laboratory testing.",
+      "After laboratory testing."
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info",
+    "explanation": "Preanalytical errors occur during the testing process before the specimen reaches the analyzer—during ordering, collection, labeling, transport, and processing. They are not limited to phlebotomist mistakes and encompass the entire pre-laboratory phase."
+  },
+  {
+    "number": 52,
+    "question": "What antiseptic should the phlebotomy technician use to collect a blood culture?",
+    "options": [
+      "Peroxide",
+      "Witch hazel",
+      "Isopropyl alcohol",
+      "Chlorhexidine gluconate"
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "Chlorhexidine gluconate (CHG) provides broad-spectrum, persistent antimicrobial activity and is the preferred antiseptic for blood culture site preparation. It reduces skin flora more effectively than alcohol alone for culture collection."
+  },
+  {
+    "number": 53,
+    "question": "Specimens are scheduled for collection at specific times for different reasons. Which of the following is most likely not a factor?",
+    "options": [
+      "Measuring the body's metabolism of the test substance",
+      "The substance exhibits diurnal variation.",
+      "Patients must be tested 2 hours before meals.",
+      "To determine blood levels of medications prior to next dose."
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Timed specimen collection is driven by factors such as diurnal variation, post-meal intervals, and medication trough levels. Measuring how the body metabolizes a substance is an analytical goal of the test itself, not a reason for scheduling collection at a specific clock time."
+  },
+  {
+    "number": 54,
+    "question": "If additive contamination occurred from an EDTA evacuated tube, what test would potentially be affected?",
+    "options": [
+      "White blood cell count",
+      "Differential cell count",
+      "Potassium level",
+      "Red cell morphology"
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "EDTA is a potent potassium chelator, and even trace carryover from an EDTA tube into a serum tube falsely elevates serum potassium. This is one of the most clinically dangerous order-of-draw contamination errors."
+  },
+  {
+    "number": 55,
+    "question": "As the phlebotomist, you have just completed drawing the last blood sample tube, you place gauze over the puncture site, remove the needle from the arm, activate the needle safety device and then release the tourniquet before applying pressure. Is this the correct sequence of steps?",
+    "options": [
+      "No, the phlebotomist should have activated the safety device first.",
+      "Yes, this is the correct sequence.",
+      "Yes, but the phlebotomist should release the tourniquet before applying pressure.",
+      "No, the tourniquet should be released first before the gauze pad is place over the puncture site."
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "The tourniquet must be released before placing gauze and withdrawing the needle. Leaving the tourniquet on while removing the needle maintains elevated venous pressure, increasing the risk of blood leaking into tissues and hematoma formation."
+  },
+  {
+    "number": 56,
+    "question": "If blood begins to flow and then stops when an evacuated tube is pushed into the needle the most likely cause is the...",
+    "options": [
+      "Use of 21-gauge needle.",
+      "Angle of the tube is too high.",
+      "Bevel of the needle resting against the vein wall.",
+      "Tourniquet is too loose."
+    ],
+    "correctIndex": 2,
+    "category": "Blood issue",
+    "explanation": "When blood flows initially then stops, the needle bevel is likely pressed against the vein wall, occluding the lumen. Slight rotation or repositioning of the needle can re-align the bevel with the blood flow channel."
+  },
+  {
+    "number": 57,
+    "question": "What abnormal color will be observed in serum collected from a patient with jaundice due to elevated bilirubin levels?",
+    "options": [
+      "Red-pink",
+      "Yellow",
+      "Milky white",
+      "Clear"
+    ],
+    "correctIndex": 1,
+    "category": "Blood issue",
+    "explanation": "Elevated bilirubin from liver disease or hemolysis imparts a yellow to icteric color to serum. This visible discoloration is a key preanalytical indicator that may affect photometric assay results."
+  },
+  {
+    "number": 58,
+    "question": "To prevent glycolysis, which additive is used?",
+    "options": [
+      "Sodium Fluoride",
+      "EDTA",
+      "Heparin",
+      "Sodium Citrate"
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Sodium fluoride inhibits enolase in the glycolytic pathway, preventing red blood cells from consuming glucose after collection. Gray-top tubes containing sodium fluoride and an anticoagulant are used specifically for glucose testing."
+  },
+  {
+    "number": 59,
+    "question": "The phlebotomist places the blood specimen in circles on special filter paper, for what test?",
+    "options": [
+      "Cholesterol",
+      "Bilirubin",
+      "BUN",
+      "PKU"
+    ],
+    "correctIndex": 3,
+    "category": "Vial Info",
+    "explanation": "Blood spots applied to filter paper in designated circles are collected for newborn phenylketonuria (PKU) screening. This dried blood spot method allows metabolic disorder testing from a small capillary sample."
+  },
+  {
+    "number": 60,
+    "question": "When is a phlebotomist allowed to use ankle veins to draw blood?",
+    "options": [
+      "Never",
+      "If no other sites are available.",
+      "After two unsuccessful attempts at other sites.",
+      "With a physician's order."
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "Ankle venipuncture requires a physician's order because it is an alternative site with higher risk of complications. It is performed only when standard sites are unavailable and authorized by the ordering provider."
+  },
+  {
+    "number": 61,
+    "question": "Which of the following tubes is normally used to collect a serum sample?",
+    "options": [
+      "Green top",
+      "Purple top",
+      "Red Top",
+      "Blue top"
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "Red-top tubes contain no anticoagulant (or a clot activator/gel separator) and are used to collect serum after the specimen clots and is centrifuged. Serum is required for many chemistry, immunology, and serology tests."
+  },
+  {
+    "number": 62,
+    "question": "The anticoagulant heparin is used in tubes with tops of what color?",
+    "options": [
+      "Light blue",
+      "Lavender",
+      "Green",
+      "Red"
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "Green-top tubes contain heparin (lithium or sodium heparin) as the anticoagulant. Heparinized plasma is used for chemistry tests where clot formation must be prevented without chelating calcium as EDTA does."
+  },
+  {
+    "number": 63,
+    "question": "Which of the following actions could cause the formation of a hematoma?",
+    "options": [
+      "Inadvertently hitting the nerve",
+      "The needle penetrates all the way through the vein.",
+      "The patient was taking acetaminophen.",
+      "The tourniquet is too loose on the patient's arm."
+    ],
+    "correctIndex": 1,
+    "category": "Blood issue",
+    "explanation": "When a needle penetrates completely through the vein, blood exits both the anterior and posterior vein walls into surrounding tissue. This through-and-through puncture is a direct cause of hematoma formation."
+  },
+  {
+    "number": 64,
+    "question": "The main reason not to use expired evacuated tubes for blood specimen collection is...",
+    "options": [
+      "They may exhibit incomplete filling.",
+      "The manufacturer will not ensure that they are still sterile.",
+      "They will crack during centrifugation.",
+      "The bar code on the label will not read properly."
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Evacuated tubes rely on a precise internal vacuum to draw the correct blood volume. Expired tubes lose vacuum over time, resulting in under-filled tubes that may have incorrect blood-to-additive ratios and invalid test results."
+  },
+  {
+    "number": 65,
+    "question": "The phlebotomist has a patient who has no known allergies and in preparing the venipuncture site the phlebotomist uses iodine to clean the site. Is this the best antiseptic to use and the most commonly used antiseptic used to prepare a routine venipuncture site on?",
+    "options": [
+      "Yes, tincture of iodine is the best antiseptic.",
+      "No, the phlebotomist should use 5.25% sodium hypochlorite.",
+      "No, the phlebotomist should use 70% isopropyl alcohol.",
+      "No, the phlebotomist should use hydrogen peroxide."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "Seventy percent isopropyl alcohol is the standard antiseptic for routine venipuncture on patients without iodine allergy. It provides effective skin antisepsis, dries quickly, and does not interfere with most routine laboratory tests."
+  },
+  {
+    "number": 66,
+    "question": "If serum is left to remain on the blood clot for more than one hour, which of the following most likely will occur?",
+    "options": [
+      "Serum glucose levels increase.",
+      "Serum glucose levels decrease.",
+      "Serum potassium levels increase.",
+      "Serum potassium levels decrease."
+    ],
+    "correctIndex": 1,
+    "category": "Blood issue",
+    "explanation": "Red blood cells continue to consume glucose via glycolysis while serum remains in contact with the clot. Leaving serum on the clot for more than one hour causes a falsely decreased glucose level in the separated serum."
+  },
+  {
+    "number": 67,
+    "question": "Which of the following is not mandated to be on a label of a blood specimen collected for blood transfusion testing?",
+    "options": [
+      "Patient's phone number",
+      "Patient's full name",
+      "Patient's date of birth",
+      "Phlebotomist's initials"
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Blood transfusion specimen labels require unique patient identifiers, date of birth, full name, collection time, and phlebotomist identification. A patient's phone number is not a mandated transfusion label element."
+  },
+  {
+    "number": 68,
+    "question": "An individual comes in for an autologous donation, what is this person coming to do?",
+    "options": [
+      "Needs to have their blood drawn.",
+      "Donating their own blood for their own use.",
+      "Have a fasting blood test.",
+      "Donating blood for a family member."
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info",
+    "explanation": "Autologous donation is the process of a patient donating their own blood preoperatively for transfusion back to themselves during a scheduled surgery. This reduces allogeneic transfusion risk and immune reactions."
+  },
+  {
+    "number": 69,
+    "question": "The most common antiseptic for routine blood collection is...",
+    "options": [
+      "Providone-iodine",
+      "70% Isopropyl alcohol",
+      "5.25% sodium hypochlorite",
+      "Antibacterial soap and water"
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "Seventy percent isopropyl alcohol is the most widely used antiseptic for routine venipuncture and capillary puncture. It is effective against most skin flora, inexpensive, and does not typically interfere with standard test results."
+  },
+  {
+    "number": 70,
+    "question": "What is the preferred method for infant blood collection?",
+    "options": [
+      "Cut down",
+      "Evacuated",
+      "Winged",
+      "Capillary"
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "Capillary (heel or finger stick) collection is the preferred method for infants because their veins are small and difficult to access. Heel puncture on the plantar surface provides adequate volume while minimizing trauma compared to venipuncture."
+  },
+  {
+    "number": 71,
+    "question": "A serum or plasma specimen from a patient with severe lipemia would visibly appear...",
+    "options": [
+      "Clear.",
+      "Icteric.",
+      "Milky.",
+      "Yellow."
+    ],
+    "correctIndex": 2,
+    "category": "Blood issue",
+    "explanation": "Severe lipemia reflects markedly elevated triglycerides and lipoproteins in the blood, which scatter light and give serum or plasma a cloudy, milky appearance. This is distinct from icteric (yellow from bilirubin) or hemolyzed (pink/red from lysed RBCs) specimens."
+  },
+  {
+    "number": 72,
+    "question": "If a vein feels hard and thready like when palpated, then this vein may be...",
+    "options": [
+      "Dehydrated.",
+      "Sclerosed.",
+      "Collapsed.",
+      "Fistulas"
+    ],
+    "correctIndex": 1,
+    "category": "Blood issue",
+    "explanation": "A hard, cord-like, thready vein on palpation typically indicates sclerosis—scarred, fibrotic vessel walls from repeated venipuncture, long-term IV therapy, or aging. Sclerosed veins are poor draw sites because they lack elasticity and may not allow adequate blood flow."
+  },
+  {
+    "number": 73,
+    "question": "A collapsed vein will cause a Select one:",
+    "options": [
+      "Cessation of blood flow.",
+      "Greater flow of blood.",
+      "Patient to faint.",
+      "Vein to hemorrhage."
+    ],
+    "correctIndex": 0,
+    "category": "Blood issue",
+    "explanation": "When a vein collapses—often from excessive negative pressure, loss of venous tone, or premature tourniquet release—the vessel walls flatten and blood flow stops entirely. This is why technique adjustments or a new site may be needed rather than continuing to pull on a collapsed vein."
+  },
+  {
+    "number": 74,
+    "question": "Hemoconcentration of a specimen can be avoided by",
+    "options": [
+      "Cleansing the site properly.",
+      "Applying the tourniquet loosely.",
+      "Removing the tourniquet within 1 minute.",
+      "applying the tourniquet tightly."
+    ],
+    "correctIndex": 2,
+    "category": "Blood issue",
+    "explanation": "Prolonged tourniquet application causes hemoconcentration: fluid shifts out of the interstitial space while formed elements and large molecules concentrate at the puncture site, falsely elevating certain analytes. CLSI standards limit tourniquet time to no more than one minute to minimize this effect."
+  },
+  {
+    "number": 75,
+    "question": "If a patient is critical or an antibiotic needs to be given right away, and two blood culture sets are collected...",
+    "options": [
+      "Every 30 minutes.",
+      "Before, during and after antibiotics administered.",
+      "Immediately from two different sites.",
+      "Before, during and after fever spikes."
+    ],
+    "correctIndex": 2,
+    "category": "Specimen collection",
+    "explanation": "When a patient is critically ill or antibiotics must be started immediately, both blood culture sets should be drawn right away from two separate venipuncture sites before antibiotic administration. This maximizes the chance of recovering the causative organism before antimicrobial therapy suppresses growth."
+  },
+  {
+    "number": 76,
+    "question": "Which of the following techniques is best to employ if blood is not obtained upon needle insertion?",
+    "options": [
+      "Gently advance the needle or gently pull back slightly.",
+      "Discontinue -",
+      "Redirecting the needle to the side.",
+      "Remove needle and call doctor. -"
+    ],
+    "correctIndex": 0,
+    "category": "Procedure",
+    "explanation": "If no blood appears on initial entry, the needle bevel may be against the vein wall or not fully within the lumen. Gently advancing or retracting the needle slightly often repositions the bevel without the trauma of full withdrawal and re-stick, which increases hematoma risk."
+  },
+  {
+    "number": 77,
+    "question": "After the last tube is filled, which of the following is done next?",
+    "options": [
+      "Filled tube is removed from the holder.",
+      "Needle is withdrawn from the arm.",
+      "Gauze is placed over the needle.",
+      "Pressure is applied to the site."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "After the final tube fills, gauze should be placed over the puncture site while the needle is still in the vein so that firm pressure can be applied immediately upon needle withdrawal. This sequence minimizes bleeding and hematoma formation."
+  },
+  {
+    "number": 78,
+    "question": "Which of the following is an accurate statement regarding the handling of specimens?",
+    "options": [
+      "Protect light-sensitive specimens when testing for the analyte bilirubin, as concentrations of that analyte may decrease in value up to 25% after 5 hours.",
+      "Blood smears made from EDTA specimens must be prepared within 1 hour of collection.",
+      "Chilling specimens speeds up the metabolic process and destroys analytes.",
+      "An EDTA specimen for erythrocyte sedimentation rate must be analyzed within the first hour of collection."
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Bilirubin is highly photosensitive; exposure to light causes rapid photodegradation, with concentrations dropping substantially within hours. Specimens for bilirubin testing must be protected from light to prevent falsely decreased results."
+  },
+  {
+    "number": 79,
+    "question": "Why is it necessary to wipe the first drop of blood away when performing a capillary procedure?",
+    "options": [
+      "To help increase the blood flow.",
+      "To eliminate alcohol contamination.",
+      "To reduce interstitial fluid contamination.",
+      "To decrease the pain."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure",
+    "explanation": "The first drop of capillary blood is contaminated with interstitial (tissue) fluid and cellular debris from the skin puncture. Wiping it away ensures subsequent drops reflect capillary blood composition and improves accuracy for tests such as glucose and hemoglobin."
+  },
+  {
+    "number": 80,
+    "question": "Which of the following situations would most likely trigger hematoma formation?",
+    "options": [
+      "Removing the tourniquet before removing the needle.",
+      "Filling the evacuated tube only half full.",
+      "Removing the needle while the tourniquet is still on the arm.",
+      "Applying too much pressure on a puncture site."
+    ],
+    "correctIndex": 2,
+    "category": "Blood issue",
+    "explanation": "Removing the needle while the tourniquet remains applied keeps venous pressure elevated, forcing blood to leak into surrounding tissues through the puncture track. The tourniquet should be released before or as the needle is withdrawn to prevent hematoma formation."
+  },
+  {
+    "number": 81,
+    "question": "If the plunger on the syringe is pulled back too fast:",
+    "options": [
+      "The patient will feel a stinging sensation.",
+      "The specimen may be hemolyzed.",
+      "The patient will develop a hematoma.",
+      "You will complete the draw more quickly."
+    ],
+    "correctIndex": 2,
+    "category": "Blood issue",
+    "explanation": "Pulling the syringe plunger back too rapidly creates excessive negative pressure that can damage the vein wall and allow blood to extravasate into surrounding tissue. Controlled, steady aspiration reduces the risk of hematoma formation during syringe draws."
+  },
+  {
+    "number": 82,
+    "question": "What instrument may be used when trying to visualize the veins during venipuncture?",
+    "options": [
+      "Otoscope",
+      "Venoscope",
+      "Ophthalmoscope",
+      "Cystoscope"
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "A venoscope uses transillumination (light projected through the skin) to make superficial veins more visible, especially in patients with difficult access, obesity, or dark skin pigmentation. It is specifically designed for vein visualization during venipuncture."
+  },
+  {
+    "number": 83,
+    "question": "An anticoagulant is used when collecting a sample for a blood glucose test because its ability to inhibit glycolysis. What colored stopper would be found on an evacuated blood collection tube used for this purpose?",
+    "options": [
+      "Blue top",
+      "Yellow top",
+      "Red top",
+      "Light gray top"
+    ],
+    "correctIndex": 3,
+    "category": "Vial Info",
+    "explanation": "Gray-top tubes contain sodium fluoride to inhibit glycolysis and potassium oxalate (or EDTA) as an anticoagulant, preserving glucose levels for accurate measurement. This is the standard tube type for glucose tolerance and many glucose determinations."
+  },
+  {
+    "number": 84,
+    "question": "A synovial fluid specimen is obtained from...",
+    "options": [
+      "bone marrow.",
+      "The pleural cavity.",
+      "The abdomen.",
+      "A joint."
+    ],
+    "correctIndex": 3,
+    "category": "Specimen collection",
+    "explanation": "Synovial fluid is the viscous lubricating fluid found within joint cavities (synovial joints). It is obtained by arthrocentesis—needle aspiration of a joint space—not from bone marrow, pleural, or peritoneal cavities."
+  },
+  {
+    "number": 85,
+    "question": "When should the specimen container for a blood sample be labeled?",
+    "options": [
+      "When the patient first arrives and checks in at the laboratory",
+      "Immediately prior to the draw.",
+      "Immediately after the draw.",
+      "When preparing the laboratory requisition."
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "Specimen tubes must be labeled at the patient's bedside immediately after collection, while the phlebotomist is still with the identified patient. Labeling before the draw risks mismatch; delaying labeling increases the chance of misidentification errors."
+  },
+  {
+    "number": 86,
+    "question": "Which of the following factor is important in the collection of a sputum specimen used for an acid-fast bacillus (AFB) test?",
+    "options": [
+      "Collect a mid-day specimen.",
+      "Wait at least 4 hours after eating before collecting a specimen.",
+      "A minimum of 3-5 ml of sputum is required for testing.",
+      "A minimum of 1 ml of sputum is needed to test."
+    ],
+    "correctIndex": 2,
+    "category": "Specimen collection",
+    "explanation": "Acid-fast bacillus (AFB) smear and culture require an adequate volume of deep respiratory sputum—typically 3–5 mL—to provide sufficient material for detection of Mycobacterium species. Insufficient volume may yield false-negative results."
+  },
+  {
+    "number": 87,
+    "question": "The guaiac card occult blood test is commonly performed on what type of sample?",
+    "options": [
+      "Sputum",
+      "Stool",
+      "Throat Swab",
+      "Urine"
+    ],
+    "correctIndex": 1,
+    "category": "Specimen collection",
+    "explanation": "The guaiac (fecal occult blood) test detects hidden blood in stool, screening for gastrointestinal bleeding from sources such as polyps, ulcers, or colorectal cancer. It is performed on a stool specimen, not sputum, urine, or throat swabs."
+  },
+  {
+    "number": 88,
+    "question": "The preferred specimen collection method for a culture and sensitivity urine test is...",
+    "options": [
+      "Regular voided method.",
+      "Midstream clean-catch method.",
+      "24-hour urine collection.",
+      "Postprandial collection."
+    ],
+    "correctIndex": 1,
+    "category": "Specimen collection",
+    "explanation": "Midstream clean-catch collection minimizes contamination from urethral flora and perineal bacteria by discarding the initial void and collecting urine mid-stream after proper cleansing. This is the standard method for urine culture and sensitivity testing."
+  },
+  {
+    "number": 89,
+    "question": "Which of the following best describes the proper collection of a sputum specimen?",
+    "options": [
+      "Saliva is spit out of the mouth into a sterile cup.",
+      "The mouth is rinsed with water and followed by spitting into a sterile cup.",
+      "Coughing into a microbiology culture plate.",
+      "Mucus is coughed up from deep in the lung and expel sputum into a sterile cup."
+    ],
+    "correctIndex": 3,
+    "category": "Specimen collection",
+    "explanation": "A proper sputum specimen consists of thick mucus expectorated from the lower respiratory tract after a deep cough, not saliva from the mouth. Deep-lung sputum is required because upper airway secretions do not reliably reflect lower respiratory infection."
+  },
+  {
+    "number": 90,
+    "question": "How are bottles for a blood culture test filled when collecting blood through a butterfly needle?",
+    "options": [
+      "Anaerobic bottle, then aerobic bottle.",
+      "Aerobic bottle, then anaerobic bottle.",
+      "Only fill the aerobic bottle.",
+      "Only fill the anaerobic bottle."
+    ],
+    "correctIndex": 1,
+    "category": "Specimen collection",
+    "explanation": "When filling blood culture bottles via butterfly collection, the aerobic bottle is inoculated first, then the anaerobic bottle. This order follows CLSI guidelines and reduces the risk of introducing air into the anaerobic medium from the tubing."
+  },
+  {
+    "number": 91,
+    "question": "Arterial blood collected in a plastic syringe for arterial blood gas (ABG) testing that may be delayed in testing should be transported to the laboratory:",
+    "options": [
+      "At room temperature.",
+      "In a warm water bath.",
+      "In an ice slurry.",
+      "Fresh frozen."
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "Arterial blood gas values change rapidly once drawn because cells continue to metabolize at room temperature. If testing is delayed, the specimen should be transported on ice (ice slurry) to slow metabolism and preserve pH, PaCO₂, and PaO₂."
+  },
+  {
+    "number": 92,
+    "question": "Which of the following sections is found in the Anatomical Pathology section of the clinical laboratory?",
+    "options": [
+      "Microbiology",
+      "Immunology",
+      "Cytology",
+      "Immunohematology"
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "Anatomical pathology examines tissues and cells for disease. Cytology—the study of individual cells (e.g., Pap smears, fine-needle aspirates)—is a core section of anatomic pathology, alongside surgical pathology."
+  },
+  {
+    "number": 93,
+    "question": "A quality fasting urine specimen is collected",
+    "options": [
+      "anytime.",
+      "Prior to any meal.",
+      "One hour after meals.",
+      "8 hours after eating."
+    ],
+    "correctIndex": 1,
+    "category": "Specimen collection",
+    "explanation": "A fasting urine specimen is collected in the morning before the patient eats, ensuring that dietary intake has not altered urine chemistry. This is important for tests such as glucose, ketones, and certain drug screens where post-meal values would be misleading."
+  },
+  {
+    "number": 94,
+    "question": "Which fluid is usually obtained by a physician through a lumbar puncture and must be processed through the laboratory \"Stat\"?",
+    "options": [
+      "Cerebrospinal fluid",
+      "Gastric fluid",
+      "Seminal fluid",
+      "Synovial fluid"
+    ],
+    "correctIndex": 0,
+    "category": "Specimen collection",
+    "explanation": "Cerebrospinal fluid is obtained by lumbar puncture and is often processed STAT because timely analysis is critical for diagnosing meningitis, subarachnoid hemorrhage, and other central nervous system emergencies."
+  },
+  {
+    "number": 95,
+    "question": "A sweat sample collected by forearm stimulation with the use of pilocarpine nitrate is a process known as...",
+    "options": [
+      "Iontophoresis.",
+      "Electrophoresis.",
+      "Chlorophoresis.",
+      "Fibroesis."
+    ],
+    "correctIndex": 0,
+    "category": "Specimen collection",
+    "explanation": "Iontophoresis uses a mild electrical current to drive pilocarpine nitrate into the skin, stimulating sweat gland secretion for sweat chloride testing. This is the standard collection method for diagnosing cystic fibrosis."
+  },
+  {
+    "number": 96,
+    "question": "Which of the following is the most common injury occurring during venipuncture if the procedure is NOT performed according to standards?",
+    "options": [
+      "Diaphoresis",
+      "Nerve injuries or hematoma",
+      "Loss of patient consciousness",
+      "Insertion of needle at a 15° -30° angle"
+    ],
+    "correctIndex": 1,
+    "category": "Blood issue",
+    "explanation": "Improper venipuncture technique—such as probing, excessive depth, or failure to anchor the vein—most commonly results in nerve injury or hematoma formation. These are the leading mechanical complications of venipuncture when standards are not followed."
+  },
+  {
+    "number": 97,
+    "question": "What is one of the first signs of liver disease?",
+    "options": [
+      "Glycosuria",
+      "Anuria",
+      "Bilirubinuria",
+      "Phenylketonuria"
+    ],
+    "correctIndex": 2,
+    "category": "Blood issue",
+    "explanation": "The liver conjugates bilirubin for excretion; early hepatic dysfunction impairs this process, allowing conjugated bilirubin to spill into urine (bilirubinuria). Bilirubinuria is often one of the earliest detectable signs of liver disease."
+  },
+  {
+    "number": 98,
+    "question": "Which of the following is the single, most important factor in collecting an uncontaminated blood culture?",
+    "options": [
+      "Proper collection site preparation",
+      "Use of a winged infusion device without a tube holder",
+      "Collection of the blood culture after the laboratory tests are drawn.",
+      "Not applying a safety transfer that pierces the stoppers of the blood culture bottles."
+    ],
+    "correctIndex": 0,
+    "category": "Specimen collection",
+    "explanation": "The single most important factor in obtaining an uncontaminated blood culture is meticulous skin antisepsis at the collection site. Even a few colony-forming units of skin flora can cause false-positive results if site preparation is inadequate."
+  },
+  {
+    "number": 99,
+    "question": "Which of the following is a point of care test (POCT) used in diagnosing problems with hemostatis?",
+    "options": [
+      "PT/INR",
+      "PTT",
+      "Arterial Blood Gases",
+      "Bleeding Time"
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Prothrombin time (PT) and its standardized ratio (INR) are point-of-care tests used to monitor patients on warfarin and assess the extrinsic coagulation pathway. They provide rapid hemostasis information at the bedside or clinic."
+  },
+  {
+    "number": 100,
+    "question": "When instructing patients in the collection of a 24-hour urine specimen, which patient should be asked about possible leakage when laughing or coughing?",
+    "options": [
+      "A 5-year-old patient",
+      "A 30-year-old male patient",
+      "A 60-year-old female patient",
+      "An 18-year-old male patient"
+    ],
+    "correctIndex": 2,
+    "category": "Specimen collection",
+    "explanation": "A 60-year-old female is most likely to have stress urinary incontinence, which can cause urine leakage during coughing, laughing, or physical activity. This must be assessed before a 24-hour urine collection to ensure complete, accurate volume measurement."
+  },
+  {
+    "number": 101,
+    "question": "The addition of which preservative allows urine to be stored at room temperature while still providing results comparable to refrigerated urine?",
+    "options": [
+      "Toluene",
+      "Formaldehyde",
+      "Acetic acid",
+      "Boric acid"
+    ],
+    "correctIndex": 3,
+    "category": "Vial Info",
+    "explanation": "Boric acid is a urine preservative that inhibits bacterial growth and stabilizes formed elements at room temperature, yielding results comparable to refrigerated specimens. It is commonly used in 24-hour urine containers and some routine urinalysis preservative tubes."
+  },
+  {
+    "number": 102,
+    "question": "Leaving tubes filled with blood in a rack without mixing will cause...",
+    "options": [
+      "hemolysis.",
+      "hemoconcentration.",
+      "contamination.",
+      "clotting."
+    ],
+    "correctIndex": 3,
+    "category": "Vial Info",
+    "explanation": "Blood collection tubes with additives must be gently inverted immediately after filling to mix anticoagulant with the specimen. Leaving tubes unmixed allows clot formation in tubes meant to remain liquid, invalidating the specimen."
+  },
+  {
+    "number": 103,
+    "question": "What amount of residual urine is considered abnormal?",
+    "options": [
+      "10 cc",
+      "25 cc",
+      "40 cc",
+      "70 cc"
+    ],
+    "correctIndex": 3,
+    "category": "Specimen collection",
+    "explanation": "Post-void residual urine volume above approximately 50–100 mL is considered abnormal and suggests incomplete bladder emptying from obstruction, neurologic dysfunction, or other urologic conditions. Among the choices given, 70 cc exceeds the normal residual threshold."
+  },
+  {
+    "number": 104,
+    "question": "Synovial fluid is also known as...",
+    "options": [
+      "semen",
+      "joint fluid.",
+      "fluid from around the heart.",
+      "spinal fluid."
+    ],
+    "correctIndex": 1,
+    "category": "Specimen collection",
+    "explanation": "Synovial fluid is the lubricating fluid within synovial joint spaces, also called joint fluid. It differs from seminal fluid, pericardial fluid, and cerebrospinal fluid, which are obtained from entirely different body compartments."
+  },
+  {
+    "number": 105,
+    "question": "A normal cerebrospinal fluid specimen should appear...",
+    "options": [
+      "cloudy and white.",
+      "hazy and pink.",
+      "clear and colorless.",
+      "dark yellow and clear."
+    ],
+    "correctIndex": 2,
+    "category": "Specimen collection",
+    "explanation": "Normal cerebrospinal fluid is crystal clear and colorless, with low protein and few cells. Cloudy, hazy, pink, or yellow appearances suggest infection, hemorrhage, or elevated protein—pathologic findings requiring further investigation."
+  },
+  {
+    "number": 106,
+    "question": "Blood specimens that need to be shipped off-site by mail systems must be packaged in accordance with the...",
+    "options": [
+      "FAA and DOT.",
+      "FAA and FDA.",
+      "CDC and FDA.",
+      "CDC and FAA."
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Biological specimens shipped off-site must comply with Department of Transportation (DOT) and Federal Aviation Administration (FAA) regulations for packaging, labeling, and transport of infectious substances. These rules protect handlers and ensure safe delivery."
+  },
+  {
+    "number": 107,
+    "question": "Which test requires the specimen to be protected from the sun?",
+    "options": [
+      "Bilirubin",
+      "Alcohol",
+      "CBC",
+      "Sodium"
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Bilirubin is degraded by exposure to light (photodegradation), causing falsely low results. Specimens for bilirubin testing must be protected from sunlight and fluorescent light from collection through analysis."
+  },
+  {
+    "number": 108,
+    "question": "What is the term used to describe a portion of a specimen used for testing, usually prepared by transferring some of the specimen into other tubes with the same identification information?",
+    "options": [
+      "Aliquot.",
+      "Aerosol",
+      "Analyte",
+      "Allotment"
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "An aliquot is a measured portion of a specimen transferred into a separate container for testing or storage, retaining the same patient identification. This allows multiple tests from one collection while maintaining traceability."
+  },
+  {
+    "number": 109,
+    "question": "Testing for human chorionic gonadotropin assesses the status of...",
+    "options": [
+      "pregnancy in women",
+      "male fertility.",
+      "streptococcus infection.",
+      "myostasis."
+    ],
+    "correctIndex": 0,
+    "category": "Vial Info",
+    "explanation": "Human chorionic gonadotropin (hCG) is a glycoprotein hormone produced by the placenta after implantation. Its detection in blood or urine confirms and monitors pregnancy."
+  },
+  {
+    "number": 110,
+    "question": "The preferred urine specimen used for urine pregnancy testing should be collected...",
+    "options": [
+      "immediately after a meal.",
+      "first thing in the morning.",
+      "after an 8-hour fast.",
+      "anytime."
+    ],
+    "correctIndex": 1,
+    "category": "Specimen collection",
+    "explanation": "First-morning urine is preferred for pregnancy testing because it is the most concentrated void after overnight bladder accumulation, maximizing detectable hCG levels. This reduces false negatives in early pregnancy when hormone levels are still low."
+  },
+  {
+    "number": 111,
+    "question": "When an outpatient reports a history of syncope the phlebotomy technician should...",
+    "options": [
+      "provide the patient with an emesis basin.",
+      "require the patient to lie down during the venipuncture.",
+      "inform the patient that syncope has no bearing on the collection of a blood specimen.",
+      "apply a cold compress to the patient's forehead and proceed with the venipuncture."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "A history of syncope (fainting) during or after blood draws indicates vasovagal risk. Having the patient lie down during venipuncture reduces the chance of injury from falling and improves cerebral perfusion if a vasovagal episode occurs."
+  },
+  {
+    "number": 112,
+    "question": "Forcing syringe -drawn specimens into evacuated tubes may cause...",
+    "options": [
+      "hemoconcentration.",
+      "hemolysis.",
+      "clotting.",
+      "inaccurate mixing of the specimen."
+    ],
+    "correctIndex": 1,
+    "category": "Blood issue",
+    "explanation": "Forcing syringe-drawn blood into evacuated tubes under pressure creates shear forces that rupture red blood cells, causing hemolysis. A transfer device with controlled, gentle transfer prevents this specimen-destroying effect."
+  },
+  {
+    "number": 113,
+    "question": "A specimen that requires chilling for transport to the lab should be placed in...",
+    "options": [
+      "an ice chest with cubes of ice.",
+      "a container with frozen ice packs.",
+      "a container immersed in a slurry of crushed ice and water.",
+      "an ice chest with crushed ice."
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info",
+    "explanation": "An ice slurry (crushed ice mixed with water) maintains continuous contact at 0°C and provides more consistent chilling than ice cubes or frozen packs alone. Specimens requiring refrigeration during transport should be immersed in an ice-water slurry."
+  },
+  {
+    "number": 114,
+    "question": "The most common venipuncture site is located in which one of the following areas?",
+    "options": [
+      "Middle finger",
+      "Middle forearm",
+      "Dorsal side of the wrist",
+      "Antecubital area of the arm"
+    ],
+    "correctIndex": 3,
+    "category": "Procedure",
+    "explanation": "The antecubital fossa of the arm contains the median cubital, cephalic, and basilic veins—the most accessible, stable venipuncture sites in adults. These superficial veins are large, well-anchored, and minimize patient discomfort."
+  },
+  {
+    "number": 115,
+    "question": "Some drugs may cause changes to certain blood analytes. When a phlebotomist observes that medication was administered just prior to blood collection, the phlebotomist should...",
+    "options": [
+      "postpone the blood draw for several hours.",
+      "note the observation on the requisition.",
+      "not draw the blood.",
+      "do nothing with respect to the observation."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure",
+    "explanation": "Many medications alter blood analyte levels; the phlebotomist cannot change the draw timing but should document recent medication administration on the requisition. This allows the laboratory and physician to interpret results in proper clinical context."
+  },
+  {
+    "number": 116,
+    "question": "Which of the following use their eyes and hands to identify structural problems while supporting the body's natural tendency toward health and self-healing?",
+    "options": [
+      "Doctors of Osteopathy",
+      "Ophthalmologists",
+      "Dermatologists",
+      "Family practitioners"
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "Doctors of Osteopathic Medicine (DOs) are trained in osteopathic manipulative treatment (OMT), using hands-on structural assessment and manipulation to support the body's self-healing mechanisms alongside conventional medical practice."
+  },
+  {
+    "number": 117,
+    "question": "When a patient with the flu describes how he has been unable to sleep, the empathic phlebotomist most appropriately responds with...",
+    "options": [
+      "\"I feel sorry for you.\"",
+      "\"It will get better soon.\"",
+      "\"I know how the flu can disrupt sleep.\"",
+      "\"You cannot expect to sleep when you are sick.\""
+    ],
+    "correctIndex": 2,
+    "category": "Communication",
+    "explanation": "An empathic response validates the patient's experience without minimizing it or offering false reassurance. Acknowledging that influenza commonly disrupts sleep shows understanding and builds therapeutic rapport."
+  },
+  {
+    "number": 118,
+    "question": "How long does the College of American Pathologists (CAP) recommend discontinuing drugs that interfere with blood tests prior to a procedure?",
+    "options": [
+      "24-48 hours",
+      "4-24 hours",
+      "48-72 hours",
+      "No discontinuation is recommended"
+    ],
+    "correctIndex": 2,
+    "category": "Communication",
+    "explanation": "The College of American Pathologists (CAP) recommends discontinuing drugs that interfere with laboratory tests for 48–72 hours before collection when clinically feasible. This window allows most interfering substances to clear sufficiently for accurate results."
+  },
+  {
+    "number": 119,
+    "question": "Which of the following specialists reads electrocardiograms (ECGs) for hospital laboratories?",
+    "options": [
+      "Cardiologists",
+      "Gastroenterologists",
+      "Anesthetist",
+      "Phlebotomist"
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "Cardiologists are physicians who specialize in the heart and cardiovascular system, including interpretation of electrocardiograms (ECGs). ECG reading requires specialized training in cardiac rhythm and morphology analysis."
+  },
+  {
+    "number": 120,
+    "question": "The need for __ occurs when a physician's schedule changes to include evening and weekend hours.",
+    "options": [
+      "communication skills",
+      "empathy",
+      "proper judgment",
+      "flexibility"
+    ],
+    "correctIndex": 3,
+    "category": "Communication",
+    "explanation": "When physician schedules expand to evenings and weekends, phlebotomy staff must demonstrate flexibility—adapting to varied hours and workflow demands to maintain specimen collection coverage and patient access to care."
+  },
+  {
+    "number": 121,
+    "question": "Which of the following is the nation's largest network of institutional health-care providers?",
+    "options": [
+      "American Hospital Association",
+      "American Medical Association.",
+      "American Pharmaceutical Association",
+      "American College of Physicians"
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "The American Hospital Association (AHA) is the largest national organization representing institutional healthcare providers, including hospitals and health systems. It advocates for hospital policy, standards, and operational issues."
+  },
+  {
+    "number": 122,
+    "question": "The term used to describe when the body is still at rest, approximately 12 hours after the last intake of food, exercise, or activity is the...",
+    "options": [
+      "basal state",
+      "metro state '",
+      "state of equality",
+      "enzymatic state"
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "The basal state describes the body at physiologic rest—typically after approximately 12 hours without food, significant exercise, or stimulants. Basal-state specimens establish reference ranges because analytes such as glucose and cortisol are least influenced by recent activity."
+  },
+  {
+    "number": 123,
+    "question": "A physician must be consulted prior to performing a venipuncture or capillary puncture on",
+    "options": [
+      "a child",
+      "an outpatient",
+      "an unconscious patient",
+      "a prior mastectomy patient"
+    ],
+    "correctIndex": 3,
+    "category": "Communication",
+    "explanation": "Patients with a prior mastectomy (especially with lymph node dissection) are at risk for lymphedema if venipuncture or blood pressure is performed on the affected arm. Physician consultation is required before drawing blood from the ipsilateral side."
+  },
+  {
+    "number": 124,
+    "question": "What is the term for the ability to identify with and understand another person's feelings?",
+    "options": [
+      "empathy",
+      "commiseration",
+      "c. sympathy",
+      "experience"
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "Empathy is the ability to understand and share another person's feelings and perspective. In phlebotomy, empathy improves patient cooperation, reduces anxiety, and supports patient-centered care."
+  },
+  {
+    "number": 125,
+    "question": "Which of the following situations should be reported to the supervisor?",
+    "options": [
+      "A patient is complaining that you are collecting too much blood in the evacuated tube.",
+      "A nurse asks you to transport an additional specimen to the lab.",
+      "A patient is being visited by a member of the clergy and a routine blood draw cannot be performed at that time.",
+      "A co-worker is not following proper blood draw technique."
+    ],
+    "correctIndex": 3,
+    "category": "Communication",
+    "explanation": "A coworker not following proper blood draw technique poses a direct patient safety risk and should be reported to a supervisor. Patient complaints about volume or scheduling adjustments are routine and do not require supervisory escalation."
+  },
+  {
+    "number": 126,
+    "question": "If levels of blood components fluctuate according to circadian cycle, it means that fluctuations occur...",
+    "options": [
+      "every 12 hours.",
+      "in a 24 hour cycle.",
+      "during the day.",
+      "during darkness, at night."
+    ],
+    "correctIndex": 1,
+    "category": "Communication",
+    "explanation": "Circadian (diurnal) variation means certain blood components fluctuate predictably over a 24-hour cycle. Hormones such as cortisol and analytes like testosterone show time-of-day patterns, which is why timed collections are specified."
+  },
+  {
+    "number": 127,
+    "question": "Six months after beginning employment a healthcare worker is given a sample by the POCT supervisor and is asked to perform a screening test for group A Strep and return the results to the supervisor. The employee is performing",
+    "options": [
+      "QC.",
+      "compliance testing.",
+      "patient testing.",
+      "competency testing."
+    ],
+    "correctIndex": 3,
+    "category": "Communication",
+    "explanation": "Competency testing verifies that a healthcare worker can accurately perform and interpret a procedure after initial training. The POCT supervisor's blind sample challenge at six months assesses ongoing proficiency, not quality control of reagents."
+  },
+  {
+    "number": 128,
+    "question": "Which of the following is the most common type of urine sample that may be obtained at any time of the day?",
+    "options": [
+      "timed urine specimen",
+      "random urine specimen.",
+      "First morning urine specimen.",
+      "lean-catch midstream urine specimen."
+    ],
+    "correctIndex": 1,
+    "category": "Communication",
+    "explanation": "A random urine specimen is collected at any time without regard to meals, hydration, or schedule. It is the most common urine collection type in outpatient settings for routine urinalysis and screening tests."
+  },
+  {
+    "number": 129,
+    "question": "Bilirubin concentration decreases by what amount following one hour of exposure to light?",
+    "options": [
+      "50%",
+      "65%",
+      "55%",
+      "40%"
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "Bilirubin is rapidly destroyed by light exposure; studies show approximately 50% degradation after one hour. This is why bilirubin specimens must be collected in amber tubes and protected from light throughout handling."
+  },
+  {
+    "number": 130,
+    "question": "A phlebotomist enters a patient's room to draw a routine blood specimen and a member of the clergy is visitingm the patient. What should the phlebotomist do?",
+    "options": [
+      "Ask the clergy member to leave for a few minutes and come back later.",
+      "Report to the nurses that the patient is busy and the blood cannot be drawn as ordered.",
+      "Ask the patient to call the laboratory when ready for the blood draw.",
+      "Draw another patient and check back with the patient to see if he or she is available"
+    ],
+    "correctIndex": 3,
+    "category": "Communication",
+    "explanation": "When a clergy member is visiting a patient, the phlebotomist should respect the patient's spiritual needs by drawing another patient and returning later. This balances timely specimen collection with patient dignity and privacy."
+  },
+  {
+    "number": 131,
+    "question": "The process of communication occurs in a loop. Which of the following is not included in the communication feedback loop?",
+    "options": [
+      "Message",
+      "Sender",
+      "Feedback",
+      "Trust."
+    ],
+    "correctIndex": 3,
+    "category": "Communication",
+    "explanation": "The communication feedback loop consists of a sender, message, receiver, and feedback. Trust is a relational quality that facilitates communication but is not itself a structural component of the communication model."
+  },
+  {
+    "number": 132,
+    "question": "When preparing to collect a blood specimen from a pediatric patient, the phlebotomist should...",
+    "options": [
+      "Acknowledge both the child and the parent.",
+      "Acknowledge only the child and ask the parent to step out of the room.",
+      "Acknowledge only the parent and ask them to comfort the child.",
+      "Ask the nurse to collect the specimen."
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "When collecting blood from a pediatric patient, the phlebotomist should address both the child and the parent or guardian. Including both builds trust, reduces the child's anxiety, and respects the family's role in the child's care."
+  },
+  {
+    "number": 133,
+    "question": "Which of the following is an example of a barrier to communication?",
+    "options": [
+      "Hearing loss.",
+      "Asking a patient to make a fist prior to a blood draw.",
+      "Using terms the patient can understand",
+      "Restating instructions to a patient"
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "Hearing loss is a physical barrier that prevents the patient from receiving verbal messages, directly impeding effective communication. Using understandable language and restating instructions are strategies that overcome barriers, not examples of them."
+  },
+  {
+    "number": 134,
+    "question": "When the phlebotomist identifies with their patient's feelings or thoughts, they are exhibiting...",
+    "options": [
+      "Empathy.",
+      "Sympathy.",
+      "Respect.",
+      "Trust."
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "When a phlebotomist identifies with a patient's feelings or thoughts, they are demonstrating empathy—understanding the patient's emotional experience. This differs from sympathy (feeling sorry for someone) or mere professional respect."
+  },
+  {
+    "number": 135,
+    "question": "A phlebotomy technician is obtaining a diagnostic blood specimen when a family member of the patient enters the isolated room without proper precautions. The technician should...",
+    "options": [
+      "Inform the charge nurse of the incident.",
+      "Instruct the family member to leave the room.",
+      "Ignore the situation and proceed with the task.",
+      "Instruct the family member regarding the proper isolation protocol that must be observed."
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "A family member entering an isolation room without proper precautions is an infection control breach. The phlebotomist should report the incident to the charge nurse, who coordinates isolation enforcement and exposure assessment."
+  },
+  {
+    "number": 136,
+    "question": "Which of the following is an example of body language?",
+    "options": [
+      "Informing a patient that he/she is going to have his/her blood drawn and that it may hurt.",
+      "Asking a patient to make a fist prior to a blood draw.",
+      "Calling the lab to confirm information on a blood draw.",
+      "Observing a patient's facial expressions during a blood draw."
+    ],
+    "correctIndex": 3,
+    "category": "Communication",
+    "explanation": "Body language is nonverbal communication—observing a patient's facial expressions, posture, and gestures during a blood draw conveys anxiety, pain, or distress without words. Verbal instructions and phone calls are not body language."
+  },
+  {
+    "number": 137,
+    "question": "Which of the following is an example of positive communication?",
+    "options": [
+      "Asking a patient to repeat your instructions.",
+      "Interrupting a patient when he/she does not understand.",
+      "Treating all the patients the same.",
+      "Informing patients when you cannot spend any more time with them."
+    ],
+    "correctIndex": 0,
+    "category": "Communication",
+    "explanation": "Asking a patient to repeat instructions back (teach-back method) confirms they understood the message and is a positive communication technique. Interrupting patients or treating everyone identically without individualization are poor practices."
+  },
+  {
+    "number": 138,
+    "question": "What is the best action to take if you are trying to help a caller who is hostile?",
+    "options": [
+      "Tell the caller you cannot help them while they are upset and ask them to call back later.",
+      "Tell the caller that you will have to hang up on them if they don't settle down.",
+      "Tell the caller you will see what you can do to help them.",
+      "Immediately place the caller on hold and get your supervisor."
+    ],
+    "correctIndex": 2,
+    "category": "Communication",
+    "explanation": "When handling a hostile caller, acknowledging their concern and offering to help de-escalates the situation. A calm, solution-oriented response—stating you will see what you can do—maintains professionalism without escalating conflict."
+  },
+  {
+    "number": 139,
+    "question": "______ is verbal or nonverbal evidence that an individual received and understood a message.",
+    "options": [
+      "Feedback",
+      "Body Language",
+      "Passive listening",
+      "Active listening."
+    ],
+    "correctIndex": 0,
+    "category": "Safety & Legal",
+    "explanation": "Feedback is the verbal or nonverbal response from the receiver confirming that a message was received and understood. It completes the communication loop and allows the sender to verify comprehension."
+  },
+  {
+    "number": 140,
+    "question": "When the laboratory computer connects to interact with the main hospital intranet it is called...",
+    "options": [
+      "Random-access memory.",
+      "Middleware",
+      "Interfacing.",
+      "Logging on."
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Interfacing is the electronic connection between the laboratory information system (LIS) and the hospital intranet or other instruments and systems. It enables automated transfer of orders, results, and patient data across platforms."
+  },
+  {
+    "number": 141,
+    "question": "What is an important reason to use proper labeling of laboratory specimens?",
+    "options": [
+      "To help avoid testing delays.",
+      "To aid in proper patient billing.",
+      "To satisfy the requirements of HIPAA.",
+      "To separate the patient specimens."
+    ],
+    "correctIndex": 0,
+    "category": "Safety & Legal",
+    "explanation": "Accurate specimen labeling ensures the right sample reaches the lab and is matched to the correct patient, preventing misidentification errors that cause rejected specimens, repeat draws, and delayed results. While billing and HIPAA are related to healthcare operations, the primary laboratory concern is patient safety and timely, correct testing."
+  },
+  {
+    "number": 142,
+    "question": "A benefit of a voice mail system is that...",
+    "options": [
+      "A receptionist routes calls to the appropriate extension.",
+      "A person answers the telephone.",
+      "Callers never receive a busy signal.",
+      "Callers receive information on how to locate a doctor."
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Voice mail systems accept messages when staff are unavailable, so callers can leave information instead of encountering a busy signal. Unlike live reception, voicemail does not guarantee immediate human contact or call routing."
+  },
+  {
+    "number": 143,
+    "question": "Identifiers must match the requisition form. If there is any difference (Even by one letter) you must...",
+    "options": [
+      "Continue to perform the procedure.",
+      "Change the information on the requisition to match the identifiers.",
+      "Obtain verbal confirmation from the patient's nurse.",
+      "Notify the patient's nurse and wait for information to be corrected. Once the identifiers match the requisition then you can proceed with the procedure."
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "Patient identification must exactly match the requisition to prevent wrong-patient errors—a leading cause of specimen mix-ups. Any discrepancy requires stopping the draw and resolving the mismatch with nursing or the ordering provider before proceeding."
+  },
+  {
+    "number": 144,
+    "question": "A machine that can send documents rapidly to locations outside the office is the...",
+    "options": [
+      "Pager.",
+      "Photocopier.",
+      "Word Processor.",
+      "Fax Machine."
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "A fax machine transmits document images over telephone lines to remote locations, enabling rapid sharing of requisitions, results, or orders outside the office. Pagers, photocopiers, and word processors do not perform this remote document transmission function."
+  },
+  {
+    "number": 145,
+    "question": "Some fax machines use thermal paper, which...",
+    "options": [
+      "Does not fade over time.",
+      "Is thicker than plain paper.",
+      "Reacts to heat and electricity.",
+      "Is permanent, so copies never have to be made."
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Thermal fax paper uses heat-sensitive coating that darkens when exposed to heat from the print head, producing the image. This material can fade over time and is not permanent, which is why important faxed records are often copied onto standard paper."
+  },
+  {
+    "number": 146,
+    "question": "Manufacturers affix expiration dates to tubes. An expiration date of 12.05.2011...",
+    "options": [
+      "Indicates that the tubes may be used until 12.04.2011.",
+      "Indicates that the tubes may be used until 12.05.2012",
+      "Indicates that the tubes may be used through 12.05.2011.",
+      "Is not relevant: the tubes should be used until all stock is exhausted"
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Expiration dates indicate the last day a product may be used; tubes dated 12.05.2011 remain acceptable through that entire date. Using tubes beyond expiration risks loss of vacuum, additive degradation, and unreliable test results."
+  },
+  {
+    "number": 147,
+    "question": "Which of the following information on a specimen label is not optional?",
+    "options": [
+      "Computerized barcode.",
+      "Laboratory accession number.",
+      "Volume of anticoagulant tube.",
+      "Time specimen was collected."
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "Collection date and time are mandatory label elements because many analytes change with time, and timing affects interpretation of timed tests and medication levels. Barcodes and accession numbers support tracking but are not universally required on every label, and tube fill volume is not a standard label field."
+  },
+  {
+    "number": 148,
+    "question": "Which of the following items would not be located on the laboratory requisition form?",
+    "options": [
+      "Ordering physicians name.",
+      "Type of test ordered.",
+      "Amount of blood to obtain.",
+      "Date test is to be preformed."
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Requisitions specify the ordering physician, tests ordered, and collection timing—not the exact blood volume, which the phlebotomist determines from tube requirements and test needs. Volume is dictated by tube type and laboratory protocols rather than the order form."
+  },
+  {
+    "number": 149,
+    "question": "Which of the following would be used to store data outside the CPU?",
+    "options": [
+      "Software",
+      "Universal Serial Bus",
+      "Middleware",
+      "Laboratory Information System"
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "Universal Serial Bus (USB) refers to external storage devices such as flash drives that hold data outside the computer's CPU. Software runs programs, middleware connects systems, and a LIS is an application—not hardware for external data storage."
+  },
+  {
+    "number": 150,
+    "question": "How many identifiers are required to identify a patient prior to obtaining a blood sample?",
+    "options": [
+      "One",
+      "Two",
+      "Three",
+      "None"
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Standard patient identification requires at least two unique identifiers (such as full name, date of birth, and medical record number) before any specimen collection. This dual-identifier practice is a Joint Commission and CLSI requirement to prevent wrong-patient events."
+  },
+  {
+    "number": 151,
+    "question": "Which of the following statements is inaccurate with regard to the use of gloves when drawing blood?",
+    "options": [
+      "Gloves prevent contamination of the hands when handling blood or body fluids.",
+      "Gloves only protect the wearer against the transmission of viruses.",
+      "Gloves help prevent the transfer of infections microorganisms from one patient to another.",
+      "Gloves prevent the transfer of microorganisms from the phlebotomist's hands to the patient."
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "Gloves provide barrier protection against a broad range of bloodborne pathogens including bacteria and viruses, not viruses alone. They protect both the healthcare worker and the patient by reducing bi-directional transmission of microorganisms."
+  },
+  {
+    "number": 152,
+    "question": "Which of the following information on hazardous chemicals in a laboratory is not found on the Material Safety Data Sheets?",
+    "options": [
+      "Manufacturer's name and address.",
+      "Maximum allowable exposure in an 8-hour period.",
+      "PPE requirements",
+      "Price per liter."
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "Material Safety Data Sheets (MSDS/SDS) document chemical hazards, exposure limits, and required PPE—not commercial pricing. Manufacturers must provide safety information; cost data is a purchasing concern, not a safety document element."
+  },
+  {
+    "number": 153,
+    "question": "A voluntary, nongovernmental agency charged with establishing standards for the operation of hospitals is...",
+    "options": [
+      "American Society for Clinical Laboratory Sciences.",
+      "Public Health Service.",
+      "The Joint Commission.",
+      "Center for Medicare and Medicaid Services."
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "The Joint Commission is a voluntary, nongovernmental accrediting body that sets hospital operational and quality standards. CAP focuses on laboratory accreditation, CMS handles Medicare/Medicaid, and ASCLS is a professional society—not a hospital accreditor."
+  },
+  {
+    "number": 154,
+    "question": "Blood specimens should be drawn according to standards of the...",
+    "options": [
+      "College of American Pathologists (CAP).",
+      "Clinical and Laboratory Standards Institute (CLSI)",
+      "Centers for Disease Control and Prevention (OSHA)",
+      "Occupational Health and Safety Administration (OSHA)"
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "CLSI (formerly NCCLS) publishes evidence-based standards for specimen collection, handling, and processing that guide phlebotomy practice. CAP accredits labs, CDC provides public health guidance, and OSHA regulates workplace safety—not phlebotomy technique standards specifically."
+  },
+  {
+    "number": 155,
+    "question": "The physical transfer of an infectious agent to a susceptible host through close or intimate contact is...",
+    "options": [
+      "Fomite transmission.",
+      "Direct contact transmission.",
+      "Vehicle transmission.",
+      "Indirect contact transmission."
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "Direct contact transmission occurs when an infectious agent passes from an infected person to a susceptible host through physical touch, such as blood or body fluid contact. Fomite and vehicle transmission involve contaminated objects or substances as intermediaries."
+  },
+  {
+    "number": 156,
+    "question": "Gloves worn for phlebotomy should be changed...",
+    "options": [
+      "Between each patient contact.",
+      "Only after getting soiled or torn.",
+      "Only after contact with a patient with a known infectious disease.",
+      "Only to answer the phone or take a break."
+    ],
+    "correctIndex": 0,
+    "category": "Safety & Legal",
+    "explanation": "Gloves must be changed between every patient to prevent cross-contamination and nosocomial infection spread. Waiting until gloves are visibly soiled or only changing for known infectious patients leaves patients and staff at unnecessary risk."
+  },
+  {
+    "number": 157,
+    "question": "Which document is required by OSHA, which provides guidelines regarding the handling and storage of chemicals?",
+    "options": [
+      "MSDS",
+      "HAZMAT",
+      "HIPPA",
+      "NFPA"
+    ],
+    "correctIndex": 0,
+    "category": "Safety & Legal",
+    "explanation": "OSHA's Hazard Communication Standard requires Material Safety Data Sheets (now Safety Data Sheets) for all hazardous chemicals in the workplace. These documents detail chemical properties, health effects, and safe handling—not HIPAA privacy or NFPA fire codes alone."
+  },
+  {
+    "number": 158,
+    "question": "Which of the following fire extinguishers should be used when a fire occurs in or near electrical equipment?",
+    "options": [
+      "Class A extinguisher",
+      "Class B extinguisher",
+      "Class A or B extinguisher",
+      "Class C or ABC extinguisher"
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "Class C and ABC fire extinguishers are designed for energized electrical equipment because they use non-conductive extinguishing agents. Class A extinguishers address ordinary combustibles and Class B covers flammable liquids—neither is appropriate for live electrical fires."
+  },
+  {
+    "number": 159,
+    "question": "A phlebotomist would help to prevent needle sticks by...",
+    "options": [
+      "Putting an uncapped needle in the sharps container.",
+      "Recapping needles.",
+      "Using OSHA approved safety needles.",
+      "Putting used needles directly into the biohazard."
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "OSHA-approved safety-engineered needles with built-in sharps injury protection significantly reduce needlestick injuries when used with proper technique. Recapping, uncapped disposal, and placing needles in biohazard bags (instead of sharps containers) increase exposure risk."
+  },
+  {
+    "number": 160,
+    "question": "The federal law designed to protect patient health information is...",
+    "options": [
+      "The Affordable Care Act.",
+      "The Health Insurance Portability and Accountability Act.",
+      "The Patient Bill of Rights in Medicare an Medicaid.",
+      "The Public Health Service Act."
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "HIPAA (Health Insurance Portability and Accountability Act) establishes federal standards for protecting patient health information privacy and security. The Affordable Care Act reformed insurance access; HIPAA specifically governs protected health information."
+  },
+  {
+    "number": 161,
+    "question": "Healthcare facilities achieve the greatest reduction in accidental exposures by requiring a combination of which of the following?",
+    "options": [
+      "Syringes and needles.",
+      "Safe products and safe practices.",
+      "Sharps containers at the point of use.",
+      "Modified tube holders and modified needles."
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "The greatest reduction in accidental bloodborne pathogen exposure comes from combining safer engineered devices with consistent safe work practices. Neither equipment alone nor containers alone provides complete protection without proper technique and compliance."
+  },
+  {
+    "number": 162,
+    "question": "Where is the most appropriate place in a clinical setting to find information on a substances hazards and recommended safety precautions?",
+    "options": [
+      "The bottles label.",
+      "The internet.",
+      "The MSDS.",
+      "The NFPA."
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "The MSDS/SDS is the authoritative workplace document for chemical hazard identification, exposure limits, and required safety precautions. Bottle labels give basic warnings but lack the comprehensive safety detail found on the MSDS."
+  },
+  {
+    "number": 163,
+    "question": "Which one of the following is a primary function of isolation procedures?",
+    "options": [
+      "Keep the hospital clean.",
+      "Provide protective equipment.",
+      "Provide education to hospital employees.",
+      "Prevent transmission of communicable diseases."
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "Isolation precautions exist primarily to interrupt transmission of communicable diseases among patients, staff, and visitors. While they may involve PPE and education, the core purpose is infection prevention—not general hospital cleanliness."
+  },
+  {
+    "number": 164,
+    "question": "Which agency should a medical facility contact for proper information regarding the disposal of medical waste?",
+    "options": [
+      "CDC",
+      "CLIA",
+      "OSHA",
+      "DEA"
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "OSHA regulates workplace safety including medical waste handling and disposal requirements for healthcare facilities. The CDC provides infection control guidance, CLIA governs lab testing quality, and the DEA regulates controlled substances—not general biohazard waste disposal."
+  },
+  {
+    "number": 165,
+    "question": "There are many routes by which phlebotomists can be exposed to biohazards. Which of the following is not a common biohazard exposure route?",
+    "options": [
+      "Percutaneous",
+      "Ingestion",
+      "Hand sanitizers",
+      "Airborne"
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Hand sanitizers are a protective measure, not a route of biohazard exposure. Common exposure routes include percutaneous (needlestick), ingestion (contaminated hands to mouth), mucous membrane contact, and airborne transmission of infectious particles."
+  },
+  {
+    "number": 166,
+    "question": "Which of the following is an allergen commonly present in blood collection equipment?",
+    "options": [
+      "Vinyl",
+      "Nitrile",
+      "Latex",
+      "Plastic"
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Natural rubber latex in gloves, tourniquets, and some collection devices is a common allergen that can cause reactions ranging from contact dermatitis to anaphylaxis. Nitrile and vinyl are latex-free alternatives for sensitized patients and staff."
+  },
+  {
+    "number": 167,
+    "question": "The reaction resulting from a slowed heart rate and lowered blood pressure causing decrease blood flow to the brain is",
+    "options": [
+      "Nausea",
+      "Concussion.",
+      "Apnea.",
+      "Syncope."
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "Syncope (fainting) results from vasovagal stimulation causing bradycardia and hypotension, which reduces cerebral blood flow. It is a common complication during phlebotomy, especially in anxious or fasting patients, and requires immediate safety measures."
+  },
+  {
+    "number": 168,
+    "question": "Which of the following statements is true regarding blood-borne pathogens?",
+    "options": [
+      "HBV has been found to be stable in dried blood and blood products for up to 7 days.",
+      "HIV has been detected and can survive up to 2 weeks outside the body.",
+      "CDC does not mandate that gloves be worn at all times when collecting blood specimens.",
+      "HCV is primarily found in fecal material."
+    ],
+    "correctIndex": 0,
+    "category": "Safety & Legal",
+    "explanation": "Hepatitis B virus remains infectious in dried blood on surfaces for up to seven days, making environmental contamination a real concern. HIV does not survive long outside the body, HCV is bloodborne (not fecal), and CDC standard precautions require gloves during blood collection."
+  },
+  {
+    "number": 169,
+    "question": "When dealing with patients who suspect that they have a latex allergy the phlebotomist should use...",
+    "options": [
+      "Non-latex products.",
+      "The product the office uses no matter what it's composition.",
+      "The product the physician orders.",
+      "Latex products because they are cheaper an there is no documented reaction."
+    ],
+    "correctIndex": 0,
+    "category": "Safety & Legal",
+    "explanation": "Patients with suspected or confirmed latex allergy must receive latex-free gloves, tourniquets, and collection supplies to prevent allergic reactions. Continuing to use latex despite patient concern violates standard safety practice and puts the patient at risk."
+  },
+  {
+    "number": 170,
+    "question": "A child who refused to have blood drawn was locked in a room by a phlebotomist and forced to have the blood collection performed. This scenario is most closely associated with which one of the following legal concepts?",
+    "options": [
+      "A misdemeanor",
+      "Informed consent",
+      "Assault and battery",
+      "Invasion of privacy."
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Forcing a blood draw on a resisting child without consent constitutes battery—the unlawful touching of a person. Restraint and forced procedure without appropriate consent or legal authority also raises assault concerns and violates patient rights."
+  },
+  {
+    "number": 171,
+    "question": "Adhering to a code of ethics in the healthcare professions helps you...",
+    "options": [
+      "Avoid legal entanglements.",
+      "Function at the highest possible professional level.",
+      "Provide competent and compassionate healthcare.",
+      "Provide competent and compassionate healthcare, function at the highest possible professional level and avoid legal entanglements."
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "Professional ethics encompasses competent compassionate care, functioning at the highest professional standard, and adhering to legal and regulatory requirements—all three together define ethical healthcare practice. Ethics is not merely about avoiding lawsuits but about comprehensive professional conduct."
+  },
+  {
+    "number": 172,
+    "question": "An internal process focused on identifying and minimizing situations that pose a chance of loss or injury to patients and employees is called...",
+    "options": [
+      "Performance management.",
+      "Occurrence management.",
+      "Improvement management.",
+      "Risk management."
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "Risk management is the systematic process of identifying, assessing, and minimizing situations that could cause patient harm, employee injury, or institutional loss. It proactively addresses potential problems before they result in adverse events or liability."
+  },
+  {
+    "number": 173,
+    "question": "What is the document called in which a patient names someone to make decisions regarding medical care in the event he or she is unable to do so?",
+    "options": [
+      "Living Will",
+      "Durable Power of Attorney",
+      "Life Trust",
+      "Informed Consent"
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "A Durable Power of Attorney for healthcare designates a trusted person to make medical decisions when the patient cannot communicate their wishes. A living will states treatment preferences but does not appoint a decision-maker; informed consent authorizes a specific procedure."
+  },
+  {
+    "number": 174,
+    "question": "Four elements must be present for a medical malpractice case and are often used as guidelines. Which of the following is not considered one of the elements?",
+    "options": [
+      "Duty, Derelict",
+      "Direct Cause",
+      "Damages",
+      "Code of Ethics"
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "The four elements of malpractice are duty, dereliction (breach of duty), direct cause, and damages—often remembered as the four Ds. A code of ethics guides professional behavior but is not a legal element required to prove malpractice."
+  },
+  {
+    "number": 175,
+    "question": "A civil wrong committed against a person or property that causes physical injury or damage to someone's property or that deprives someone of his or her personal liberty and freedom is called...",
+    "options": [
+      "A duty",
+      "A tort",
+      "A battery",
+      "An assault"
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "A tort is a civil wrong causing injury to a person or property, distinct from criminal acts. Assault and battery are specific types of torts involving threats or unwanted physical contact, but tort is the broader legal category."
+  },
+  {
+    "number": 176,
+    "question": "What charge can be brought against a phlebotomist who attempts to collect a blood specimen without the patients consent?",
+    "options": [
+      "Assault",
+      "Battery",
+      "Direct Injury",
+      "Negligence"
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "Battery is the unlawful physical contact with a patient, such as performing a venipuncture without consent. Assault is the threat of harm; the actual unauthorized blood draw constitutes battery because it involves unwanted touching."
+  },
+  {
+    "number": 177,
+    "question": "Which of the following is demonstrated when a patient's leg healed incorrectly because of the way the cast had been applied?",
+    "options": [
+      "Indirect cause",
+      "Possible cause",
+      "Accidental cause",
+      "Direct cause"
+    ],
+    "correctIndex": 3,
+    "category": "Safety & Legal",
+    "explanation": "Direct cause (proximate cause) means the healthcare provider's action directly led to the patient's injury, as when improper cast application caused the leg to heal incorrectly. The injury must be a foreseeable result of the negligent act."
+  },
+  {
+    "number": 178,
+    "question": "Which one of the following is sufficient proof that deviation from a standard of care has occurred?",
+    "options": [
+      "Liability",
+      "Performance",
+      "Documentation",
+      "Specimen collection."
+    ],
+    "correctIndex": 2,
+    "category": "Safety & Legal",
+    "explanation": "Documentation provides objective evidence of whether standard of care was met or deviated from, making it critical in malpractice cases. Without proper records, neither compliance nor negligence can be reliably established in court."
+  },
+  {
+    "number": 179,
+    "question": "A written court order addressed to a specific person, requiring that person's presence in court at a specific time, is...",
+    "options": [
+      "A contract",
+      "A subpoena",
+      "An agent",
+      "An agreement"
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "A subpoena is a legal court order compelling a specific person to appear and testify or produce evidence at a designated time. It is not a contract, agent agreement, or voluntary arrangement between parties."
+  },
+  {
+    "number": 180,
+    "question": "What type of consent exists when an emergency procedure such as CPR is provided?",
+    "options": [
+      "Implied consent",
+      "Refusal consent",
+      "Expressed consent.",
+      "Procedural consent"
+    ],
+    "correctIndex": 0,
+    "category": "Safety & Legal",
+    "explanation": "Implied consent applies in life-threatening emergencies when the patient cannot communicate and immediate action is needed to preserve life—such as performing CPR on an unresponsive patient. Expressed consent requires verbal or written agreement for non-emergency procedures."
+  },
+  {
+    "number": 181,
+    "question": "A _____ is a rule of conduct established and enforced by an authority or governing body, such as thg federal government.",
+    "options": [
+      "Principle",
+      "Law",
+      "Tort",
+      "Policy"
+    ],
+    "correctIndex": 1,
+    "category": "Safety & Legal",
+    "explanation": "A law is a rule of conduct established and enforced by a governing authority with legal force. Principles and policies guide behavior but lack the enforceable authority of statutory or regulatory law."
+  },
+  {
+    "number": 182,
+    "question": "White blood cells are known as...",
+    "options": [
+      "Lymphocytes.",
+      "Monocytes.",
+      "Leukocytes.",
+      "Erythrocytes."
+    ],
+    "correctIndex": 2,
+    "category": "Medical knowledge",
+    "explanation": "Leukocytes (white blood cells) are the immune cells responsible for fighting infection and inflammation. Erythrocytes are red blood cells that carry oxygen; lymphocytes and monocytes are specific types of leukocytes."
+  },
+  {
+    "number": 183,
+    "question": "The central nervous system includes the...",
+    "options": [
+      "Dendrites and axons.",
+      "Brain and spinal cord.",
+      "Autonomic and peripheral nerves.",
+      "Peripheral and systemic nerves."
+    ],
+    "correctIndex": 1,
+    "category": "Medical knowledge",
+    "explanation": "The central nervous system consists of the brain and spinal cord, which integrate and process nerve signals. Peripheral nerves, dendrites, and axons are components of the peripheral nervous system, not the CNS itself."
+  },
+  {
+    "number": 184,
+    "question": "The primary role of a _______________ is to obtain blood specimens.",
+    "options": [
+      "Medical Assistant",
+      "Phlebotomist",
+      "Cytologists",
+      "Pathologists"
+    ],
+    "correctIndex": 1,
+    "category": "Medical knowledge",
+    "explanation": "The phlebotomist's primary role is obtaining blood specimens through venipuncture and capillary puncture for laboratory analysis. Medical assistants have broader clinical duties; cytologists and pathologists analyze specimens rather than routinely collect them."
+  },
+  {
+    "number": 185,
+    "question": "Which blood type carries neither the A antigen nor the B antigen?",
+    "options": [
+      "Type A",
+      "Type B",
+      "Type AB",
+      "Type O"
+    ],
+    "correctIndex": 3,
+    "category": "Medical knowledge",
+    "explanation": "Type O blood lacks both A and B antigens on the red cell surface, making it the universal donor for red cells in emergency situations. Types A and B each carry one antigen; type AB carries both."
+  },
+  {
+    "number": 186,
+    "question": "What department is responsible for reporting a patient's blood type?",
+    "options": [
+      "Chemistry",
+      "Blood Bank",
+      "Hematology",
+      "Microbiology"
+    ],
+    "correctIndex": 1,
+    "category": "Medical knowledge",
+    "explanation": "The blood bank (immunohematology/transfusion service) performs ABO/Rh typing, antibody screening, and crossmatching required for safe transfusion. Hematology performs CBCs; chemistry and microbiology do not determine blood type for transfusion."
+  },
+  {
+    "number": 187,
+    "question": "The study of human body tissues and cells is...",
+    "options": [
+      "Histology",
+      "Phlebotomy",
+      "Cytology",
+      "Hematology"
+    ],
+    "correctIndex": 0,
+    "category": "Medical knowledge",
+    "explanation": "Histology is the microscopic study of tissues and cells for disease diagnosis. Cytology examines individual cells (often from fluids or smears); hematology studies blood; phlebotomy is the practice of blood collection."
+  },
+  {
+    "number": 188,
+    "question": "When patients are dehydrated the plasma decreases causing ___________ in the blood specimen.",
+    "options": [
+      "Hemodilutation",
+      "Hemoconcentration",
+      "Hemostasis",
+      "Hemolysis"
+    ],
+    "correctIndex": 1,
+    "category": "Medical knowledge",
+    "explanation": "Dehydration reduces plasma volume relative to cellular components, causing hemoconcentration—artificially elevated values for proteins, cells, and other analytes in the remaining smaller plasma volume. This is why proper hydration status matters when interpreting lab results."
+  },
+  {
+    "number": 189,
+    "question": "Which I of the following is used in the capillary puncture technique?",
+    "options": [
+      "Lancet",
+      "Needle",
+      "Syringe",
+      "Evacuation system."
+    ],
+    "correctIndex": 0,
+    "category": "Medical knowledge",
+    "explanation": "Capillary puncture uses a lancet or puncture device to obtain small blood volumes from the finger or heel. Needles, syringes, and evacuated tube systems are used for venipuncture, not standard capillary collection."
+  },
+  {
+    "number": 190,
+    "question": "The integumentary system includes...",
+    "options": [
+      "Skin",
+      "Kidneys",
+      "Muscles",
+      "Bones"
+    ],
+    "correctIndex": 0,
+    "category": "Medical knowledge",
+    "explanation": "The integumentary system comprises the skin, hair, nails, and associated glands—the body's outer protective barrier. Kidneys belong to the urinary system; muscles to the muscular system; bones to the skeletal system."
+  },
+  {
+    "number": 191,
+    "question": "Which of the following abbreviations is associated with the male reproductive system?",
+    "options": [
+      "PAP",
+      "RPR",
+      "CAD",
+      "PSA"
+    ],
+    "correctIndex": 3,
+    "category": "Medical knowledge",
+    "explanation": "PSA (prostate-specific antigen) is a tumor marker screened from blood to assess prostate health in males. PAP is a cervical cytology test; RPR screens for syphilis; CAD refers to coronary artery disease."
+  },
+  {
+    "number": 192,
+    "question": "The function of the leukocytes is to...",
+    "options": [
+      "Transport oxygen to the body.",
+      "Protect the body against infection.",
+      "Transport carbon dioxide from the body cells to the lungs.",
+      "Change fibrinogen into fibrin for blood clotting."
+    ],
+    "correctIndex": 1,
+    "category": "Medical knowledge",
+    "explanation": "Leukocytes are the body's primary defense against infection through phagocytosis, antibody production, and immune signaling. Erythrocytes transport oxygen; platelets participate in clotting; fibrinogen conversion is part of the coagulation cascade."
+  },
+  {
+    "number": 193,
+    "question": "The CDC implemented two levels of precautions to prevent healthcare acquired infections. The first precautions level is...",
+    "options": [
+      "Isolation.",
+      "HIV",
+      "HBV",
+      "Standard"
+    ],
+    "correctIndex": 3,
+    "category": "Medical knowledge",
+    "explanation": "Standard Precautions are the first and foundational CDC tier, applied to all patients regardless of diagnosis to prevent healthcare-associated infections. Transmission-based isolation precautions (contact, droplet, airborne) are the second tier for known or suspected infections."
+  },
+  {
+    "number": 194,
+    "question": "Red blood cells, white blood cells, and platelets are known as the...",
+    "options": [
+      "Whole blood",
+      "Serum",
+      "Monocytes",
+      "Formed elements."
+    ],
+    "correctIndex": 3,
+    "category": "Medical knowledge",
+    "explanation": "Formed elements are the cellular components of blood—erythrocytes, leukocytes, and platelets—suspended in plasma. Serum is plasma without clotting factors; whole blood includes both plasma and formed elements."
+  },
+  {
+    "number": 195,
+    "question": "A sputum culture is helpful in detecting infections in which system?",
+    "options": [
+      "Digestive system.",
+      "Endocrine system.",
+      "Lymphatic system.",
+      "Respiratory system."
+    ],
+    "correctIndex": 3,
+    "category": "Medical knowledge",
+    "explanation": "Sputum cultures detect respiratory pathogens such as bacteria causing pneumonia, tuberculosis, or bronchitis. The specimen comes from the lower respiratory tract, making it a respiratory system diagnostic test."
+  },
+  {
+    "number": 196,
+    "question": "The prefix hyper- refers to something that is...",
+    "options": [
+      "High",
+      "Low",
+      "Equal",
+      "Within"
+    ],
+    "correctIndex": 0,
+    "category": "Medical knowledge",
+    "explanation": "The prefix hyper- means excessive, above normal, or increased, as in hypertension (high blood pressure) or hyperglycemia (high blood glucose). Hypo- means below normal; eu- means normal."
+  },
+  {
+    "number": 197,
+    "question": "The liver, stomach, mouth and pancreas are in the system.",
+    "options": [
+      "reproductive",
+      "sensory",
+      "digestive",
+      "muscular"
+    ],
+    "correctIndex": 2,
+    "category": "Medical knowledge",
+    "explanation": "The liver, stomach, mouth, and pancreas are organs of the digestive system responsible for ingestion, digestion, absorption, and processing of nutrients. They are not part of the reproductive, sensory, or muscular systems."
+  },
+  {
+    "number": 198,
+    "question": "The purpose of doing blood cultures is to detect",
+    "options": [
+      "anemia",
+      "cholesterol",
+      "cancer",
+      "septicemia"
+    ],
+    "correctIndex": 3,
+    "category": "Medical knowledge",
+    "explanation": "Blood cultures detect bacteremia or septicemia—bacteria or fungi circulating in the bloodstream, which can be life-threatening. They are not used to diagnose anemia, cholesterol levels, or cancer directly."
+  },
+  {
+    "number": 199,
+    "question": "If blood does not appear in an evacuated tuBe upon venipuncture, a phlebotomist's first course of action should be to",
+    "options": [
+      "pop the tourniquet and tie it tighter",
+      "pull the needle out and start over",
+      "slightly reposition or turn the needle",
+      "push the needle further up the lumen."
+    ],
+    "correctIndex": 2,
+    "category": "Medical knowledge",
+    "explanation": "When no blood flows after venipuncture, the needle bevel may be against the vein wall or not fully within the lumen; gently repositioning or rotating the needle often restores flow. Immediately restarting or advancing the needle risks hematoma or through-and-through puncture."
+  },
+  {
+    "number": 200,
+    "question": "If a blood sample should be collected 2 hours post-prandial, the phlebotomist should collect the sample",
+    "options": [
+      "2 hours after a meal",
+      "2 hours before bedtme",
+      "2 hours after wakeup",
+      "2 hours before a meal"
+    ],
+    "correctIndex": 0,
+    "category": "Medical knowledge",
+    "explanation": "Post-prandial means after eating; a 2-hour post-prandial glucose specimen is collected exactly two hours after the patient begins or finishes a meal, per the ordering protocol. This timing reflects how the body metabolizes glucose after food intake."
+  },
+  {
+    "number": 201,
+    "question": "A chronic disease in which the pancreas fails to secrete enough insulin is called",
+    "options": [
+      "high blood pressure",
+      "diabetes mellitus",
+      "A.I.D.S.",
+      "renal diseasesd"
+    ],
+    "correctIndex": 1,
+    "category": "Medical knowledge",
+    "explanation": "Diabetes mellitus is a chronic metabolic disorder characterized by insufficient insulin secretion or insulin resistance, leading to hyperglycemia. The pancreas produces insulin; its failure to secrete adequate amounts defines this condition."
+  },
+  {
+    "number": 202,
+    "question": "The purpose of the bleeding time test is to assess",
+    "options": [
+      "platelet plug formation in the capillaries",
+      "the pressure of the blood vessels",
+      "elasticity in the major blood vessels",
+      "the amount of blockage in the veins"
+    ],
+    "correctIndex": 0,
+    "category": "Medical knowledge",
+    "explanation": "The bleeding time test evaluates primary hemostasis—specifically platelet plug formation and capillary vasoconstriction at the wound site. It does not measure vessel pressure, elasticity, or venous blockage."
+  },
+  {
+    "number": 203,
+    "question": "The study of all aspects of disease in the body is known as",
+    "options": [
+      "phlebotomy",
+      "hematology",
+      "histology",
+      "pathology"
+    ],
+    "correctIndex": 3,
+    "category": "Medical knowledge",
+    "explanation": "Pathology is the comprehensive study of disease processes in the body, including cause, mechanism, and structural/functional changes. Hematology focuses on blood disorders; histology on tissue structure; phlebotomy on specimen collection."
+  },
+  {
+    "number": 204,
+    "question": "The phase of laboratory testing that refers to test orders, test collection and test sample preparation are all part of the phase.",
+    "options": [
+      "exponential",
+      "pre-analytical",
+      "testing",
+      "post-prandial"
+    ],
+    "correctIndex": 1,
+    "category": "Medical knowledge",
+    "explanation": "The pre-analytical phase encompasses everything before actual laboratory analysis: test ordering, patient preparation, specimen collection, labeling, transport, and processing. Errors in this phase are the most common source of laboratory mistakes."
+  },
+  {
+    "number": 205,
+    "question": "Knowing when to collect peak and trough levels is important when drawing",
+    "options": [
+      "blook cultures",
+      "therapeutic drugs",
+      "cortisol levels",
+      "estrogen levels"
+    ],
+    "correctIndex": 1,
+    "category": "Medical knowledge",
+    "explanation": "Peak and trough levels measure the highest and lowest serum drug concentrations to assess therapeutic range and dosing for medications such as antibiotics, anticonvulsants, and digoxin. Timing relative to the last dose is critical for accurate interpretation."
+  },
+  {
+    "number": 206,
+    "question": "Redirecting a needle during venipuncture is sometimes necessary when",
+    "options": [
+      "the vein was not properly anchored",
+      "the patient moves unexpectedly",
+      "blood flow starts, and then stops",
+      "all of the above"
+    ],
+    "correctIndex": 3,
+    "category": "Medical knowledge",
+    "explanation": "Needle redirection may be necessary when the vein rolls due to inadequate anchoring, the patient moves unexpectedly, or blood flow starts then stops—each situation may require slight needle adjustment. All listed scenarios are valid indications for careful repositioning."
+  },
+  {
+    "number": 207,
+    "question": "All specimens should be labeled with",
+    "options": [
+      "patient's name (and numeric ID)",
+      "date and time the specimen was drawn",
+      "collectors initials",
+      "all of the above"
+    ],
+    "correctIndex": 3,
+    "category": "Medical knowledge",
+    "explanation": "Complete specimen labeling requires the patient's name and unique identifier, date and time of collection, and the collector's initials to ensure traceability and correct result reporting. Omitting any element compromises specimen integrity and patient safety."
+  },
+  {
+    "number": 208,
+    "question": "When blood seeps into the surrounding tissue dueing a venipuncture, a may form.",
+    "options": [
+      "petechia",
+      "carbuncle",
+      "hematoma",
+      "hemolysis"
+    ],
+    "correctIndex": 2,
+    "category": "Medical knowledge",
+    "explanation": "A hematoma is a localized collection of blood in subcutaneous tissue caused by leakage from a punctured vein during venipuncture. Petechiae are tiny pinpoint hemorrhages; hemolysis is red cell destruction within the tube."
+  },
+  {
+    "number": 209,
+    "question": "Use a -ttopped evacuated tube for collection of blood for cholesterol testing.",
+    "options": [
+      "red",
+      "yellow",
+      "blue",
+      "lavender"
+    ],
+    "correctIndex": 0,
+    "category": "Medical knowledge",
+    "explanation": "Cholesterol testing requires serum from a red-top (no additive) or gold SST tube that allows clotting and yields serum after centrifugation. Additive tubes (lavender EDTA, blue citrate, yellow specialized) are used for other test categories."
+  },
+  {
+    "number": 210,
+    "question": "Adult capillary punctures most often involve use of the finger(s).",
+    "options": [
+      "second (index)",
+      "little (fifth)",
+      "third and fourth (middle and ring)",
+      "second and third (index and middle)"
+    ],
+    "correctIndex": 2,
+    "category": "Medical knowledge",
+    "explanation": "The middle (third) and ring (fourth) fingers are preferred for adult capillary puncture because they are less sensitive than the index finger and less prone to infection than the little finger. The pulp of these fingers provides adequate blood flow with minimal patient discomfort."
+  }
+]

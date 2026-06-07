@@ -1,0 +1,110 @@
+[
+  {
+    "number": 1,
+    "question": "You have properly prepared the antecubital venipuncture site, you have the correct collection device and enter the vein at a 20-degree angle. Is this the proper angle of insertion?",
+    "options": [
+      "No, 10 degrees is the correct angle for the needle to be inserted into the skin.",
+      "No, 30 degrees is the correct angle for the needle to be inserted into the skin.",
+      "No, 45 degrees is the correct angle for the needle to be inserted into the skin.",
+      "No, 90 degrees is the correct angle for the needle to be inserted into the skin."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure"
+  },
+  {
+    "number": 2,
+    "question": "When a patient develops syncope during a venipuncture, the phlebotomist should...",
+    "options": [
+      "Lower the patient's head.",
+      "Remove tourniquet and needle and call for help.",
+      "Complete venipuncture as quickly as possible.",
+      "Have the patient stand up."
+    ],
+    "correctIndex": 1,
+    "category": "Procedure"
+  },
+  {
+    "number": 3,
+    "question": "During venipuncture, a hematoma may result from which of the following?",
+    "options": [
+      "Needle is occluded.",
+      "Needle bevel is against a vein wall.",
+      "Needle bevel is partially inserted into a vein.",
+      "Patient has coagulation issues."
+    ],
+    "correctIndex": 2,
+    "category": "Blood issue"
+  },
+  {
+    "number": 4,
+    "question": "Petechiae are tiny, non-raised red spots on a patient's skin when the tourniquet is applied. This indicates that...",
+    "options": [
+      "Patient has high blood pressure.",
+      "Site may bleed excessively.",
+      "The tourniquet is too tight.",
+      "Patient is allergic to the latex."
+    ],
+    "correctIndex": 1,
+    "category": "Blood issue"
+  },
+  {
+    "number": 5,
+    "question": "How long should a tourniquet be placed around a patient's arm?",
+    "options": [
+      "No more than one minute",
+      "Approximately four minutes.",
+      "Until the needle is removed.",
+      "Until the entire venipuncture is complete."
+    ],
+    "correctIndex": 0,
+    "category": "Procedure"
+  },
+  {
+    "number": 6,
+    "question": "What information would NOT be indicated on the label of a blood bank specimen?",
+    "options": [
+      "Patient's date of birth.",
+      "NPO status of the patient and time of last meal.",
+      "Date and time of specimen collection",
+      "Patient's full name including middle."
+    ],
+    "correctIndex": 1,
+    "category": "Vial Info"
+  },
+  {
+    "number": 7,
+    "question": "What is the correct procedure to stop the bleeding at a venipuncture site?",
+    "options": [
+      "Apply an alcohol prep pad to the site and apply pressure.",
+      "Have the patient bend their arm and hold it there for 15 minutes.",
+      "Place a gauze pad over the site and hold pressure for 5 to 15 minutes",
+      "Apply a cotton ball to the site and hold."
+    ],
+    "correctIndex": 2,
+    "category": "Procedure"
+  },
+  {
+    "number": 8,
+    "question": "When blood collected in a syringe must be placed in evacuated tubes it is best if:",
+    "options": [
+      "The needle is removed from the syringe.",
+      "The tube tops are removed.",
+      "Blood transfer device is attached to the syringe.",
+      "The tubes are pierced directly with the needle that is attached to the syringe."
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info"
+  },
+  {
+    "number": 9,
+    "question": "Heparinized plasma is preferred over serum for some chemistry tests. Heparin prevents clotting by...",
+    "options": [
+      "Binding calcium.",
+      "Inactivating thrombin.",
+      "Preventing glycolysis.",
+      "None, plasma requires blood to clot."
+    ],
+    "correctIndex": 2,
+    "category": "Vial Info"
+  }
+]

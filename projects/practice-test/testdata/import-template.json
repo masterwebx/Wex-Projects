@@ -1,0 +1,21 @@
+[
+  {
+    "number": 1,
+    "question": "Example question text goes here?",
+    "options": [
+      "First answer choice",
+      "Second answer choice (correct)",
+      "Third answer choice",
+      "Fourth answer choice"
+    ],
+    "correctIndex": 1,
+    "category": "Example Category"
+  },
+  {
+    "number": 2,
+    "question": "You can also use correctAnswer with a letter instead of correctIndex.",
+    "options": ["Choice A", "Choice B", "Choice C", "Choice D"],
+    "correctAnswer": "C",
+    "category": "Example Category"
+  }
+]

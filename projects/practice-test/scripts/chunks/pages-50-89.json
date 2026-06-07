@@ -1,0 +1,482 @@
+[
+  {
+    "number": 50,
+    "question": "The most critical part of a blood culture collection is...",
+    "options": [
+      "Filling the two media vials adequately.",
+      "Skin antisepsis of the collection site.",
+      "The selection of the collection site.",
+      "Timing of the second set of cultures."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 51,
+    "question": "Preanalytical errors are mistakes made...",
+    "options": [
+      "Only by the phlebotomist.",
+      "Before laboratory testing.",
+      "During laboratory testing.",
+      "After laboratory testing."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 52,
+    "question": "What antiseptic should the phlebotomy technician use to collect a blood culture?",
+    "options": [
+      "Peroxide",
+      "Witch hazel",
+      "Isopropyl alcohol",
+      "Chlorhexidine gluconate"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 53,
+    "question": "Specimens are scheduled for collection at specific times for different reasons. Which of the following is most likely not a factor?",
+    "options": [
+      "Measuring the body's metabolism of the test substance",
+      "The substance exhibits diurnal variation.",
+      "Patients must be tested 2 hours before meals.",
+      "To determine blood levels of medications prior to next dose."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 54,
+    "question": "If additive contamination occurred from an EDTA evacuated tube, what test would potentially be affected?",
+    "options": [
+      "White blood cell count",
+      "Differential cell count",
+      "Potassium level",
+      "Red cell morphology"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 55,
+    "question": "As the phlebotomist, you have just completed drawing the last blood sample tube, you place gauze over the puncture site, remove the needle from the arm, activate the needle safety device and then release the tourniquet before applying pressure. Is this the correct sequence of steps?",
+    "options": [
+      "No, the phlebotomist should have activated the safety device first.",
+      "Yes, this is the correct sequence.",
+      "Yes, but the phlebotomist should release the tourniquet before applying pressure.",
+      "No, the tourniquet should be released first before the gauze pad is place over the puncture site."
+    ],
+    "correctIndex": 3,
+    "category": "Trick"
+  },
+  {
+    "number": 56,
+    "question": "If blood begins to flow and then stops when an evacuated tube is pushed into the needle the most likely cause is the...",
+    "options": [
+      "Use of 21-gauge needle.",
+      "Angle of the tube is too high.",
+      "Bevel of the needle resting against the vein wall.",
+      "Tourniquet is too loose."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 57,
+    "question": "What abnormal color will be observed in serum collected from a patient with jaundice due to elevated bilirubin levels?",
+    "options": [
+      "Red-pink",
+      "Yellow",
+      "Milky white",
+      "Clear"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 58,
+    "question": "To prevent glycolysis, which additive is used?",
+    "options": [
+      "Sodium Fluoride",
+      "EDTA",
+      "Heparin",
+      "Sodium Citrate"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 59,
+    "question": "The phlebotomist places the blood specimen in circles on special filter paper, for what test?",
+    "options": [
+      "Cholesterol",
+      "Bilirubin",
+      "BUN",
+      "PKU"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 60,
+    "question": "When is a phlebotomist allowed to use ankle veins to draw blood?",
+    "options": [
+      "Never",
+      "If no other sites are available.",
+      "After two unsuccessful attempts at other sites.",
+      "With a physician's order."
+    ],
+    "correctIndex": 3,
+    "category": "Q22"
+  },
+  {
+    "number": 61,
+    "question": "Which of the following tubes is normally used to collect a serum sample?",
+    "options": [
+      "Green top",
+      "Purple top",
+      "Red Top",
+      "Blue top"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 62,
+    "question": "The anticoagulant heparin is used in tubes with tops of what color?",
+    "options": [
+      "Light blue",
+      "Lavender",
+      "Green",
+      "Red"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 63,
+    "question": "Which of the following actions could cause the formation of a hematoma?",
+    "options": [
+      "Inadvertently hitting the nerve",
+      "The needle penetrates all the way through the vein.",
+      "The patient was taking acetaminophen.",
+      "The tourniquet is too loose on the patient's arm."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 64,
+    "question": "The main reason not to use expired evacuated tubes for blood specimen collection is...",
+    "options": [
+      "They may exhibit incomplete filling.",
+      "The manufacturer will not ensure that they are still sterile.",
+      "They will crack during centrifugation.",
+      "The bar code on the label will not read properly."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 65,
+    "question": "The phlebotomist has a patient who has no known allergies and in preparing the venipuncture site the phlebotomist uses iodine to clean the site. Is this the best antiseptic to use and the most commonly used antiseptic used to prepare a routine venipuncture site on?",
+    "options": [
+      "Yes, tincture of iodine is the best antiseptic.",
+      "No, the phlebotomist should use 5.25% sodium hypochlorite.",
+      "No, the phlebotomist should use 70% isopropyl alcohol.",
+      "No, the phlebotomist should use hydrogen peroxide."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 66,
+    "question": "If serum is left to remain on the blood clot for more than one hour, which of the following most likely will occur?",
+    "options": [
+      "Serum glucose levels increase.",
+      "Serum glucose levels decrease.",
+      "Serum potassium levels increase.",
+      "Serum potassium levels decrease."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 67,
+    "question": "Which of the following is not mandated to be on a label of a blood specimen collected for blood transfusion testing?",
+    "options": [
+      "Patient's phone number",
+      "Patient's full name",
+      "Patient's date of birth",
+      "Phlebotomist's initials"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 68,
+    "question": "An individual comes in for an autologous donation, what is this person coming to do?",
+    "options": [
+      "Needs to have their blood drawn.",
+      "Donating their own blood for their own use.",
+      "Have a fasting blood test.",
+      "Donating blood for a family member."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 69,
+    "question": "The most common antiseptic for routine blood collection is...",
+    "options": [
+      "Providone-iodine",
+      "70% Isopropyl alcohol",
+      "5.25% sodium hypochlorite",
+      "Antibacterial soap and water"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 70,
+    "question": "What is the preferred method for infant blood collection?",
+    "options": [
+      "Cut down",
+      "Evacuated",
+      "Winged",
+      "Capillary"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 71,
+    "question": "A serum or plasma specimen from a patient with severe lipemia would visibly appear...",
+    "options": [
+      "Clear.",
+      "Icteric.",
+      "Milky.",
+      "Yellow."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 72,
+    "question": "If a vein feels hard and thready like when palpated, then this vein may be...",
+    "options": [
+      "Dehydrated.",
+      "Sclerosed.",
+      "Collapsed.",
+      "Fistulas"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 73,
+    "question": "A collapsed vein will cause a Select one:",
+    "options": [
+      "Cessation of blood flow.",
+      "Greater flow of blood.",
+      "Patient to faint.",
+      "Vein to hemorrhage."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 74,
+    "question": "Hemoconcentration of a specimen can be avoided by",
+    "options": [
+      "Cleansing the site properly.",
+      "Applying the tourniquet loosely.",
+      "Removing the tourniquet within 1 minute.",
+      "applying the tourniquet tightly."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 75,
+    "question": "If a patient is critical or an antibiotic needs to be given right away, and two blood culture sets are collected...",
+    "options": [
+      "Every 30 minutes.",
+      "Before, during and after antibiotics administered.",
+      "Immediately from two different sites.",
+      "Before, during and after fever spikes."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 76,
+    "question": "Which of the following techniques is best to employ if blood is not obtained upon needle insertion?",
+    "options": [
+      "Gently advance the needle or gently pull back slightly.",
+      "Discontinue -",
+      "Redirecting the needle to the side.",
+      "Remove needle and call doctor. -"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 77,
+    "question": "After the last tube is filled, which of the following is done next?",
+    "options": [
+      "Filled tube is removed from the holder.",
+      "Needle is withdrawn from the arm.",
+      "Gauze is placed over the needle.",
+      "Pressure is applied to the site."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 78,
+    "question": "Which of the following is an accurate statement regarding the handling of specimens?",
+    "options": [
+      "Protect light-sensitive specimens when testing for the analyte bilirubin, as concentrations of that analyte may decrease in value up to 25% after 5 hours.",
+      "Blood smears made from EDTA specimens must be prepared within 1 hour of collection.",
+      "Chilling specimens speeds up the metabolic process and destroys analytes.",
+      "An EDTA specimen for erythrocyte sedimentation rate must be analyzed within the first hour of collection."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 79,
+    "question": "Why is it necessary to wipe the first drop of blood away when performing a capillary procedure?",
+    "options": [
+      "To help increase the blood flow.",
+      "To eliminate alcohol contamination.",
+      "To reduce interstitial fluid contamination.",
+      "To decrease the pain."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 80,
+    "question": "Which of the following situations would most likely trigger hematoma formation?",
+    "options": [
+      "Removing the tourniquet before removing the needle.",
+      "Filling the evacuated tube only half full.",
+      "Removing the needle while the tourniquet is still on the arm.",
+      "Applying too much pressure on a puncture site."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 81,
+    "question": "If the plunger on the syringe is pulled back too fast:",
+    "options": [
+      "The patient will feel a stinging sensation.",
+      "The specimen may be hemolyzed.",
+      "The patient will develop a hematoma.",
+      "You will complete the draw more quickly."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 82,
+    "question": "What instrument may be used when trying to visualize the veins during venipuncture?",
+    "options": [
+      "Otoscope",
+      "Venoscope",
+      "Ophthalmoscope",
+      "Cystoscope"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 83,
+    "question": "An anticoagulant is used when collecting a sample for a blood glucose test because its ability to inhibit glycolysis. What colored stopper would be found on an evacuated blood collection tube used for this purpose?",
+    "options": [
+      "Blue top",
+      "Yellow top",
+      "Red top",
+      "Light gray top"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 84,
+    "question": "A synovial fluid specimen is obtained from...",
+    "options": [
+      "bone marrow.",
+      "The pleural cavity.",
+      "The abdomen.",
+      "A joint."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 85,
+    "question": "When should the specimen container for a blood sample be labeled?",
+    "options": [
+      "When the patient first arrives and checks in at the laboratory",
+      "Immediately prior to the draw.",
+      "Immediately after the draw.",
+      "When preparing the laboratory requisition."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 86,
+    "question": "Which of the following factor is important in the collection of a sputum specimen used for an acid-fast bacillus (AFB) test?",
+    "options": [
+      "Collect a mid-day specimen.",
+      "Wait at least 4 hours after eating before collecting a specimen.",
+      "A minimum of 3-5 ml of sputum is required for testing.",
+      "A minimum of 1 ml of sputum is needed to test."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 87,
+    "question": "The guaiac card occult blood test is commonly performed on what type of sample?",
+    "options": [
+      "Sputum",
+      "Stool",
+      "Throat Swab",
+      "Urine"
+    ],
+    "correctIndex": 1,
+    "category": "SPA"
+  },
+  {
+    "number": 88,
+    "question": "The preferred specimen collection method for a culture and sensitivity urine test is...",
+    "options": [
+      "Regular voided method.",
+      "Midstream clean-catch method.",
+      "24-hour urine collection.",
+      "Postprandial collection."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 89,
+    "question": "Which of the following best describes the proper collection of a sputum specimen?",
+    "options": [
+      "Saliva is spit out of the mouth into a sterile cup.",
+      "The mouth is rinsed with water and followed by spitting into a sterile cup.",
+      "Coughing into a microbiology culture plate.",
+      "Mucus is coughed up from deep in the lung and expel sputum into a sterile cup."
+    ],
+    "correctIndex": 3,
+    "category": "mouth - SPA"
+  }
+]

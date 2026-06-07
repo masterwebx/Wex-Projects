@@ -1,0 +1,866 @@
+[
+  {
+    "number": 139,
+    "question": "______ is verbal or nonverbal evidence that an individual received and understood a message.",
+    "options": [
+      "Feedback",
+      "Body Language",
+      "Passive listening",
+      "Active listening."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 140,
+    "question": "When the laboratory computer connects to interact with the main hospital intranet it is called...",
+    "options": [
+      "Random-access memory.",
+      "Middleware",
+      "Interfacing.",
+      "Logging on."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 141,
+    "question": "What is an important reason to use proper labeling of laboratory specimens?",
+    "options": [
+      "To help avoid testing delays.",
+      "To aid in proper patient billing.",
+      "To satisfy the requirements of HIPAA.",
+      "To separate the patient specimens."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 142,
+    "question": "A benefit of a voice mail system is that...",
+    "options": [
+      "A receptionist routes calls to the appropriate extension.",
+      "A person answers the telephone.",
+      "Callers never receive a busy signal.",
+      "Callers receive information on how to locate a doctor."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 143,
+    "question": "Identifiers must match the requisition form. If there is any difference (Even by one letter) you must...",
+    "options": [
+      "Continue to perform the procedure.",
+      "Change the information on the requisition to match the identifiers.",
+      "Obtain verbal confirmation from the patient's nurse.",
+      "Notify the patient's nurse and wait for information to be corrected. Once the identifiers match the requisition then you can proceed with the procedure."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 144,
+    "question": "A machine that can send documents rapidly to locations outside the office is the...",
+    "options": [
+      "Pager.",
+      "Photocopier.",
+      "Word Processor.",
+      "Fax Machine."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 145,
+    "question": "Some fax machines use thermal paper, which...",
+    "options": [
+      "Does not fade over time.",
+      "Is thicker than plain paper.",
+      "Reacts to heat and electricity.",
+      "Is permanent, so copies never have to be made."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 146,
+    "question": "Manufacturers affix expiration dates to tubes. An expiration date of 12.05.2011...",
+    "options": [
+      "Indicates that the tubes may be used until 12.04.2011.",
+      "Indicates that the tubes may be used until 12.05.2012",
+      "Indicates that the tubes may be used through 12.05.2011.",
+      "Is not relevant: the tubes should be used until all stock is exhausted"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 147,
+    "question": "Which of the following information on a specimen label is not optional?",
+    "options": [
+      "Computerized barcode.",
+      "Laboratory accession number.",
+      "Volume of anticoagulant tube.",
+      "Time specimen was collected."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 148,
+    "question": "Which of the following items would not be located on the laboratory requisition form?",
+    "options": [
+      "Ordering physicians name.",
+      "Type of test ordered.",
+      "Amount of blood to obtain.",
+      "Date test is to be preformed."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 149,
+    "question": "Which of the following would be used to store data outside the CPU?",
+    "options": [
+      "Software",
+      "Universal Serial Bus",
+      "Middleware",
+      "Laboratory Information System"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 150,
+    "question": "How many identifiers are required to identify a patient prior to obtaining a blood sample?",
+    "options": [
+      "One",
+      "Two",
+      "Three",
+      "None"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 151,
+    "question": "Which of the following statements is inaccurate with regard to the use of gloves when drawing blood?",
+    "options": [
+      "Gloves prevent contamination of the hands when handling blood or body fluids.",
+      "Gloves only protect the wearer against the transmission of viruses.",
+      "Gloves help prevent the transfer of infections microorganisms from one patient to another.",
+      "Gloves prevent the transfer of microorganisms from the phlebotomist's hands to the patient."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 152,
+    "question": "Which of the following information on hazardous chemicals in a laboratory is not found on the Material Safety Data Sheets?",
+    "options": [
+      "Manufacturer's name and address.",
+      "Maximum allowable exposure in an 8-hour period.",
+      "PPE requirements",
+      "Price per liter."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 153,
+    "question": "A voluntary, nongovernmental agency charged with establishing standards for the operation of hospitals is...",
+    "options": [
+      "American Society for Clinical Laboratory Sciences.",
+      "Public Health Service.",
+      "The Joint Commission.",
+      "Center for Medicare and Medicaid Services."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 154,
+    "question": "Blood specimens should be drawn according to standards of the...",
+    "options": [
+      "College of American Pathologists (CAP).",
+      "Clinical and Laboratory Standards Institute (CLSI)",
+      "Centers for Disease Control and Prevention (OSHA)",
+      "Occupational Health and Safety Administration (OSHA)"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 155,
+    "question": "The physical transfer of an infectious agent to a susceptible host through close or intimate contact is...",
+    "options": [
+      "Fomite transmission.",
+      "Direct contact transmission.",
+      "Vehicle transmission.",
+      "Indirect contact transmission."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 156,
+    "question": "Gloves worn for phlebotomy should be changed...",
+    "options": [
+      "Between each patient contact.",
+      "Only after getting soiled or torn.",
+      "Only after contact with a patient with a known infectious disease.",
+      "Only to answer the phone or take a break."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 157,
+    "question": "Which document is required by OSHA, which provides guidelines regarding the handling and storage of chemicals?",
+    "options": [
+      "MSDS",
+      "HAZMAT",
+      "HIPPA",
+      "NFPA"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 158,
+    "question": "Which of the following fire extinguishers should be used when a fire occurs in or near electrical equipment?",
+    "options": [
+      "Class A extinguisher",
+      "Class B extinguisher",
+      "Class A or B extinguisher",
+      "Class C or ABC extinguisher"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 159,
+    "question": "A phlebotomist would help to prevent needle sticks by...",
+    "options": [
+      "Putting an uncapped needle in the sharps container.",
+      "Recapping needles.",
+      "Using OSHA approved safety needles.",
+      "Putting used needles directly into the biohazard."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 160,
+    "question": "The federal law designed to protect patient health information is...",
+    "options": [
+      "The Affordable Care Act.",
+      "The Health Insurance Portability and Accountability Act.",
+      "The Patient Bill of Rights in Medicare an Medicaid.",
+      "The Public Health Service Act."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 161,
+    "question": "Healthcare facilities achieve the greatest reduction in accidental exposures by requiring a combination of which of the following?",
+    "options": [
+      "Syringes and needles.",
+      "Safe products and safe practices.",
+      "Sharps containers at the point of use.",
+      "Modified tube holders and modified needles."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 162,
+    "question": "Where is the most appropriate place in a clinical setting to find information on a substances hazards and recommended safety precautions?",
+    "options": [
+      "The bottles label.",
+      "The internet.",
+      "The MSDS.",
+      "The NFPA."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 163,
+    "question": "Which one of the following is a primary function of isolation procedures?",
+    "options": [
+      "Keep the hospital clean.",
+      "Provide protective equipment.",
+      "Provide education to hospital employees.",
+      "Prevent transmission of communicable diseases."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 164,
+    "question": "Which agency should a medical facility contact for proper information regarding the disposal of medical waste?",
+    "options": [
+      "CDC",
+      "CLIA",
+      "OSHA",
+      "DEA"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 165,
+    "question": "There are many routes by which phlebotomists can be exposed to biohazards. Which of the following is not a common biohazard exposure route?",
+    "options": [
+      "Percutaneous",
+      "Ingestion",
+      "Hand sanitizers",
+      "Airborne"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 166,
+    "question": "Which of the following is an allergen commonly present in blood collection equipment?",
+    "options": [
+      "Vinyl",
+      "Nitrile",
+      "Latex",
+      "Plastic"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 167,
+    "question": "The reaction resulting from a slowed heart rate and lowered blood pressure causing decrease blood flow to the brain is",
+    "options": [
+      "Nausea",
+      "Concussion.",
+      "Apnea.",
+      "Syncope."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 168,
+    "question": "Which of the following statements is true regarding blood-borne pathogens?",
+    "options": [
+      "HBV has been found to be stable in dried blood and blood products for up to 7 days.",
+      "HIV has been detected and can survive up to 2 weeks outside the body.",
+      "CDC does not mandate that gloves be worn at all times when collecting blood specimens.",
+      "HCV is primarily found in fecal material."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 169,
+    "question": "When dealing with patients who suspect that they have a latex allergy the phlebotomist should use...",
+    "options": [
+      "Non-latex products.",
+      "The product the office uses no matter what it's composition.",
+      "The product the physician orders.",
+      "Latex products because they are cheaper an there is no documented reaction."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 170,
+    "question": "A child who refused to have blood drawn was locked in a room by a phlebotomist and forced to have the blood collection performed. This scenario is most closely associated with which one of the following legal concepts?",
+    "options": [
+      "A misdemeanor",
+      "Informed consent",
+      "Assault and battery",
+      "Invasion of privacy."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 171,
+    "question": "Adhering to a code of ethics in the healthcare professions helps you...",
+    "options": [
+      "Avoid legal entanglements.",
+      "Function at the highest possible professional level.",
+      "Provide competent and compassionate healthcare.",
+      "Provide competent and compassionate healthcare, function at the highest possible professional level and avoid legal entanglements."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 172,
+    "question": "An internal process focused on identifying and minimizing situations that pose a chance of loss or injury to patients and employees is called...",
+    "options": [
+      "Performance management.",
+      "Occurrence management.",
+      "Improvement management.",
+      "Risk management."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 173,
+    "question": "What is the document called in which a patient names someone to make decisions regarding medical care in the event he or she is unable to do so?",
+    "options": [
+      "Living Will",
+      "Durable Power of Attorney",
+      "Life Trust",
+      "Informed Consent"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 174,
+    "question": "Four elements must be present for a medical malpractice case and are often used as guidelines. Which of the following is not considered one of the elements?",
+    "options": [
+      "Duty, Derelict",
+      "Direct Cause",
+      "Damages",
+      "Code of Ethics"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 175,
+    "question": "A civil wrong committed against a person or property that causes physical injury or damage to someone's property or that deprives someone of his or her personal liberty and freedom is called...",
+    "options": [
+      "A duty",
+      "A tort",
+      "A battery",
+      "An assault"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 176,
+    "question": "What charge can be brought against a phlebotomist who attempts to collect a blood specimen without the patients consent?",
+    "options": [
+      "Assault",
+      "Battery",
+      "Direct Injury",
+      "Negligence"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 177,
+    "question": "Which of the following is demonstrated when a patient's leg healed incorrectly because of the way the cast had been applied?",
+    "options": [
+      "Indirect cause",
+      "Possible cause",
+      "Accidental cause",
+      "Direct cause"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 178,
+    "question": "Which one of the following is sufficient proof that deviation from a standard of care has occurred?",
+    "options": [
+      "Liability",
+      "Performance",
+      "Documentation",
+      "Specimen collection."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 179,
+    "question": "A written court order addressed to a specific person, requiring that person's presence in court at a specific time, is...",
+    "options": [
+      "A contract",
+      "A subpoena",
+      "An agent",
+      "An agreement"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 180,
+    "question": "What type of consent exists when an emergency procedure such as CPR is provided?",
+    "options": [
+      "Implied consent",
+      "Refusal consent",
+      "Expressed consent.",
+      "Procedural consent"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 181,
+    "question": "A _____ is a rule of conduct established and enforced by an authority or governing body, such as thg federal government.",
+    "options": [
+      "Principle",
+      "Law",
+      "Tort",
+      "Policy"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 182,
+    "question": "White blood cells are known as...",
+    "options": [
+      "Lymphocytes.",
+      "Monocytes.",
+      "Leukocytes.",
+      "Erythrocytes."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 183,
+    "question": "The central nervous system includes the...",
+    "options": [
+      "Dendrites and axons.",
+      "Brain and spinal cord.",
+      "Autonomic and peripheral nerves.",
+      "Peripheral and systemic nerves."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 184,
+    "question": "The primary role of a _______________ is to obtain blood specimens.",
+    "options": [
+      "Medical Assistant",
+      "Phlebotomist",
+      "Cytologists",
+      "Pathologists"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 185,
+    "question": "Which blood type carries neither the A antigen nor the B antigen?",
+    "options": [
+      "Type A",
+      "Type B",
+      "Type AB",
+      "Type O"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 186,
+    "question": "What department is responsible for reporting a patient's blood type?",
+    "options": [
+      "Chemistry",
+      "Blood Bank",
+      "Hematology",
+      "Microbiology"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 187,
+    "question": "The study of human body tissues and cells is...",
+    "options": [
+      "Histology",
+      "Phlebotomy",
+      "Cytology",
+      "Hematology"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 188,
+    "question": "When patients are dehydrated the plasma decreases causing ___________ in the blood specimen.",
+    "options": [
+      "Hemodilutation",
+      "Hemoconcentration",
+      "Hemostasis",
+      "Hemolysis"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 189,
+    "question": "Which I of the following is used in the capillary puncture technique?",
+    "options": [
+      "Lancet",
+      "Needle",
+      "Syringe",
+      "Evacuation system."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 190,
+    "question": "The integumentary system includes...",
+    "options": [
+      "Skin",
+      "Kidneys",
+      "Muscles",
+      "Bones"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 191,
+    "question": "Which of the following abbreviations is associated with the male reproductive system?",
+    "options": [
+      "PAP",
+      "RPR",
+      "CAD",
+      "PSA"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 192,
+    "question": "The function of the leukocytes is to...",
+    "options": [
+      "Transport oxygen to the body.",
+      "Protect the body against infection.",
+      "Transport carbon dioxide from the body cells to the lungs.",
+      "Change fibrinogen into fibrin for blood clotting."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 193,
+    "question": "The CDC implemented two levels of precautions to prevent healthcare acquired infections. The first precautions level is...",
+    "options": [
+      "Isolation.",
+      "HIV",
+      "HBV",
+      "Standard"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 194,
+    "question": "Red blood cells, white blood cells, and platelets are known as the...",
+    "options": [
+      "Whole blood",
+      "Serum",
+      "Monocytes",
+      "Formed elements."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 195,
+    "question": "A sputum culture is helpful in detecting infections in which system?",
+    "options": [
+      "Digestive system.",
+      "Endocrine system.",
+      "Lymphatic system.",
+      "Respiratory system."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 196,
+    "question": "The prefix hyper- refers to something that is...",
+    "options": [
+      "High",
+      "Low",
+      "Equal",
+      "Within"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 197,
+    "question": "The liver, stomach, mouth and pancreas are in the system.",
+    "options": [
+      "reproductive",
+      "sensory",
+      "digestive",
+      "muscular"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 198,
+    "question": "The purpose of doing blood cultures is to detect",
+    "options": [
+      "anemia",
+      "cholesterol",
+      "cancer",
+      "septicemia"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 199,
+    "question": "If blood does not appear in an evacuated tuBe upon venipuncture, a phlebotomist's first course of action should be to",
+    "options": [
+      "pop the tourniquet and tie it tighter",
+      "pull the needle out and start over",
+      "slightly reposition or turn the needle",
+      "push the needle further up the lumen."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 200,
+    "question": "If a blood sample should be collected 2 hours post-prandial, the phlebotomist should collect the sample",
+    "options": [
+      "2 hours after a meal",
+      "2 hours before bedtme",
+      "2 hours after wakeup",
+      "2 hours before a meal"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 201,
+    "question": "A chronic disease in which the pancreas fails to secrete enough insulin is called",
+    "options": [
+      "high blood pressure",
+      "diabetes mellitus",
+      "A.I.D.S.",
+      "renal diseasesd"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 202,
+    "question": "The purpose of the bleeding time test is to assess",
+    "options": [
+      "platelet plug formation in the capillaries",
+      "the pressure of the blood vessels",
+      "elasticity in the major blood vessels",
+      "the amount of blockage in the veins"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 203,
+    "question": "The study of all aspects of disease in the body is known as",
+    "options": [
+      "phlebotomy",
+      "hematology",
+      "histology",
+      "pathology"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 204,
+    "question": "The phase of laboratory testing that refers to test orders, test collection and test sample preparation are all part of the phase.",
+    "options": [
+      "exponential",
+      "pre-analytical",
+      "testing",
+      "post-prandial"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 205,
+    "question": "Knowing when to collect peak and trough levels is important when drawing",
+    "options": [
+      "blook cultures",
+      "therapeutic drugs",
+      "cortisol levels",
+      "estrogen levels"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 206,
+    "question": "Redirecting a needle during venipuncture is sometimes necessary when",
+    "options": [
+      "the vein was not properly anchored",
+      "the patient moves unexpectedly",
+      "blood flow starts, and then stops",
+      "all of the above"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 207,
+    "question": "All specimens should be labeled with",
+    "options": [
+      "patient's name (and numeric ID)",
+      "date and time the specimen was drawn",
+      "collectors initials",
+      "all of the above"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 208,
+    "question": "When blood seeps into the surrounding tissue dueing a venipuncture, a may form.",
+    "options": [
+      "petechia",
+      "carbuncle",
+      "hematoma",
+      "hemolysis"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 209,
+    "question": "Use a -ttopped evacuated tube for collection of blood for cholesterol testing.",
+    "options": [
+      "red",
+      "yellow",
+      "blue",
+      "lavender"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 210,
+    "question": "Adult capillary punctures most often involve use of the finger(s).",
+    "options": [
+      "second (index)",
+      "little (fifth)",
+      "third and fourth (middle and ring)",
+      "second and third (index and middle)"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  }
+]

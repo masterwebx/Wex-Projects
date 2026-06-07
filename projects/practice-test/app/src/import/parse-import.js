@@ -12,6 +12,8 @@
  *   correctAnswer                  — "A"–"D" or full answer text
  *   number | questionNumber     — exam question # (for scan verification)
  *   category (optional)
+ *   explanation | rationale (optional)
+ *   needs_review | needsReview (optional)
  */
 
 import { normalizeQuestionNumber } from '../ui/helpers.js';

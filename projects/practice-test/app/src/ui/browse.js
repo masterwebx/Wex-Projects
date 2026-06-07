@@ -25,6 +25,7 @@ import {
   normalizeQuestionNumber,
 } from './helpers.js';
 import { getMemorizeHint } from '../srs.js';
+import { armGhostClickGuard } from './navigation-guard.js';
 
 const PAGE_SIZE = 25;
 
@@ -143,6 +144,7 @@ export async function renderBrowse(container) {
         : '';
 
     attachHandlers();
+    armGhostClickGuard();
   }
 
   function attachHandlers() {

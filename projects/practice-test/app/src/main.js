@@ -18,6 +18,7 @@ import { renderAnswerKey } from './ui/answer-key.js';
 import { renderPrintExam } from './ui/print-exam.js';
 import { getQuestion, seedBundledExams } from './db.js';
 import { resetSessionChrome } from './ui/session-chrome.js';
+import { armGhostClickGuard, initNavigationGuard } from './ui/navigation-guard.js';
 
 initTheme();
 
@@ -46,6 +47,7 @@ function parseRoute() {
 let renderGen = 0;
 
 async function render() {
+  armGhostClickGuard();
   const gen = ++renderGen;
   if (!app) {
     document.body.innerHTML =
@@ -109,6 +111,7 @@ async function render() {
 
   updateNavActive(path);
   await renderTestSelector(document.querySelector('#test-selector'));
+  armGhostClickGuard();
 }
 
 function updateNavActive(path) {
@@ -148,5 +151,6 @@ async function boot() {
 }
 
 initShell();
+initNavigationGuard();
 window.addEventListener('hashchange', render);
 boot();

@@ -15,6 +15,7 @@ import {
   normalizeQuestionNumber,
   compareQuestionNumbers,
 } from './helpers.js';
+import { armGhostClickGuard } from './navigation-guard.js';
 
 const LETTERS = ['A', 'B', 'C', 'D'];
 
@@ -73,7 +74,8 @@ export async function renderImportQuestions(container) {
     "question": "What is the capital of France?",
     "options": ["London", "Paris", "Berlin", "Madrid"],
     "correctIndex": 1,
-    "category": "Geography"
+    "category": "Geography",
+    "explanation": "Paris is the capital and largest city of France."
   },
   {
     "number": 2,
@@ -83,7 +85,13 @@ export async function renderImportQuestions(container) {
     "category": "Procedure"
   }
 ]</pre>
-          <p class="import-format-note">Include <code>number</code> from your scan to verify against the original. Also accepts <code>{ "questions": [ ... ] }</code>. Use <code>correctIndex</code> (0–3) or <code>correctAnswer</code> ("A"–"D"). Optional <code>needs_review": true</code> flags uncertain items.</p>
+          <p class="import-format-note">
+            Required: <code>question</code>, four <code>options</code> (or <code>choices</code>/<code>answers</code>), and
+            <code>correctIndex</code> (0–3) or <code>correctAnswer</code> ("A"–"D" or matching option text).
+            Optional: <code>number</code>, <code>category</code>, <code>explanation</code>.
+            Also accepts <code>{ "questions": [ ... ] }</code> or a top-level array.
+            Set <code>needs_review": true</code> to flag uncertain items during import.
+          </p>
         </details>
 
         ${
@@ -116,6 +124,7 @@ export async function renderImportQuestions(container) {
     `;
 
     bindHandlers();
+    armGhostClickGuard();
 
     if (drafts.length > 0) {
       renderReviewList();

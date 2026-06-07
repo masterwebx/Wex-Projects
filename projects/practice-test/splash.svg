@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" role="img" aria-label="Practice Test">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1d4ed8"/>
+    </linearGradient>
+  </defs>
+  <rect width="400" height="200" fill="url(#bg)" rx="12"/>
+  <rect x="95" y="55" width="210" height="110" rx="10" fill="rgba(255,255,255,0.14)" stroke="rgba(255,255,255,0.35)" stroke-width="2"/>
+  <text x="200" y="95" text-anchor="middle" fill="#fff" font-family="Segoe UI, system-ui, sans-serif" font-size="28" font-weight="700">Practice Test</text>
+  <text x="200" y="128" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-family="Segoe UI, system-ui, sans-serif" font-size="15">Study · Practice · Mock exams</text>
+  <circle cx="130" cy="150" r="6" fill="#93c5fd"/>
+  <circle cx="200" cy="150" r="6" fill="#86efac"/>
+  <circle cx="270" cy="150" r="6" fill="#fde68a"/>
+</svg>

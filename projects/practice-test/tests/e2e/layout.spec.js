@@ -69,4 +69,36 @@ test.describe('Layout regressions', () => {
     expect(metrics.maxBtnWidth / metrics.listWidth).toBeGreaterThan(0.95);
     expect(metrics.listHeight).toBeGreaterThan(180);
   });
+
+  test('desktop practice options fill the 2x2 grid', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await page.goto('/#practice?quick=1');
+    await expect(page.locator('.session-countdown-overlay')).toHaveCount(0, { timeout: 6000 });
+    await expect(page.locator('.practice-session .option-btn').first()).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const metrics = await page.evaluate(() => {
+      const buttons = [...document.querySelectorAll('.practice-session .option-btn')];
+      const list = document.querySelector('.practice-session .options-list');
+      const listRect = list.getBoundingClientRect();
+      const heights = buttons.map((btn) => Math.round(btn.getBoundingClientRect().height));
+      const rowTop = Math.min(...buttons.map((btn) => btn.getBoundingClientRect().top));
+      const rowBottom = Math.max(...buttons.map((btn) => btn.getBoundingClientRect().bottom));
+      const usedHeight = Math.round(rowBottom - rowTop);
+      return {
+        heights,
+        listHeight: Math.round(listRect.height),
+        usedHeight,
+        columns: new Set(buttons.map((btn) => Math.round(btn.getBoundingClientRect().left))).size,
+      };
+    });
+
+    expect(metrics.heights).toHaveLength(4);
+    expect(metrics.columns).toBe(2);
+    const [a, b, c, d] = metrics.heights;
+    expect(Math.abs(a - b)).toBeLessThanOrEqual(2);
+    expect(Math.abs(c - d)).toBeLessThanOrEqual(2);
+    expect(metrics.usedHeight / metrics.listHeight).toBeGreaterThan(0.9);
+  });
 });

@@ -13,12 +13,12 @@ import { renderExam } from './ui/exam.js';
 import { renderHelp } from './ui/help.js';
 import { renderSettings } from './ui/settings.js';
 import { renderTests } from './ui/tests.js';
-import { renderTestSelector } from './ui/test-selector.js';
 import { renderAnswerKey } from './ui/answer-key.js';
 import { renderPrintExam } from './ui/print-exam.js';
 import { getQuestion, seedBundledExams } from './db.js';
 import { resetSessionChrome } from './ui/session-chrome.js';
 import { armGhostClickGuard, initNavigationGuard } from './ui/navigation-guard.js';
+import { closeMobileNav, initMobileNav } from './ui/mobile-nav.js';
 
 initTheme();
 
@@ -56,6 +56,7 @@ async function render() {
   }
 
   resetSessionChrome();
+  closeMobileNav();
 
   const { path, params } = parseRoute();
   app.innerHTML = '<div class="loading">Loading...</div>';
@@ -110,7 +111,6 @@ async function render() {
   if (gen !== renderGen) return;
 
   updateNavActive(path);
-  await renderTestSelector(document.querySelector('#test-selector'));
   armGhostClickGuard();
 }
 
@@ -152,5 +152,6 @@ async function boot() {
 
 initShell();
 initNavigationGuard();
+initMobileNav();
 window.addEventListener('hashchange', render);
 boot();

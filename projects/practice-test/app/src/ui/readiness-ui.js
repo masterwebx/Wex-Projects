@@ -37,6 +37,7 @@ export function renderReadinessCard(readiness) {
         <h2 id="readiness-heading">Exam readiness</h2>
         <p class="readiness-label">${escapeHtml(readiness.label)} — <strong>${readiness.overall}/100</strong></p>
         ${capNote}
+        <div class="readiness-table-wrap">
         <table class="readiness-table">
           <caption class="sr-only">How your readiness score is calculated</caption>
           <thead>
@@ -55,6 +56,7 @@ export function renderReadinessCard(readiness) {
             </tr>
           </tfoot>
         </table>
+        </div>
         ${recs ? `<ul class="readiness-recs">${recs}</ul>` : ''}
       </div>
     </section>

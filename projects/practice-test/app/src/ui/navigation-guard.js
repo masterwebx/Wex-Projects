@@ -3,6 +3,7 @@ let suppressUntil = 0;
 
 function blockIfArmed(event) {
   if (performance.now() < suppressUntil) {
+    if (event.target.closest('.main-nav, .app-footer')) return;
     event.preventDefault();
     event.stopImmediatePropagation();
   }

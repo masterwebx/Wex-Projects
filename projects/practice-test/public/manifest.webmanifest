@@ -2,13 +2,13 @@
   "name": "Practice Test",
   "short_name": "Practice Test",
   "description": "Spaced repetition practice tests with mock exams and readiness tracking.",
-  "start_url": "/#home",
+  "start_url": "./index.html#home",
   "display": "standalone",
   "background_color": "#eef1f6",
   "theme_color": "#2563eb",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

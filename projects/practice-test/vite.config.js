@@ -11,18 +11,13 @@ export default defineConfig({
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['favicon.svg', 'manifest.webmanifest', 'icons.svg'],
       manifest: false,
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,svg,json,woff2}'],
-        navigateFallback: '/index.html',
-        runtimeCaching: [
-          {
-            urlPattern: /^https:\/\/127\.0\.0\.1:5173\/.*/i,
-            handler: 'NetworkFirst',
-            options: { cacheName: 'dev-cache' },
-          },
-        ],
+        // Hash-router SPA — no document navigations; absolute /index.html breaks on GitHub Pages subpaths.
+        navigateFallback: null,
+        cleanupOutdatedCaches: true,
       },
       devOptions: {
         enabled: false,

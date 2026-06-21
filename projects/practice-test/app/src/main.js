@@ -2,7 +2,20 @@ import '../styles/main.css';
 import { registerSW } from 'virtual:pwa-register';
 import { initTheme, toggleTheme, updateThemeToggleLabel } from './theme.js';
 
-registerSW({ immediate: true });
+const updateSW = registerSW({
+  immediate: true,
+  onRegisteredSW(_swUrl, registration) {
+    if (!registration) return;
+    const check = () => registration.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') check();
+    });
+    window.addEventListener('focus', check);
+  },
+  onNeedRefresh() {
+    updateSW(true);
+  },
+});
 import { renderDashboard } from './ui/dashboard.js';
 import { renderBrowse, renderAddEditForm } from './ui/browse.js';
 import { renderImportQuestions } from './ui/import-questions.js';

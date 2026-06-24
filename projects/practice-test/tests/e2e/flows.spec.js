@@ -29,10 +29,10 @@ test.describe('Extended app flows', () => {
   });
 
   test('onboarding can be dismissed', async ({ page }) => {
-    await page.goto('/#home');
-    await expect(page.locator('#app')).not.toContainText('Loading...', { timeout: 15_000 });
+    await waitForAppReady(page);
     const overlay = page.locator('.onboarding-overlay');
     if (await overlay.isVisible()) {
+      await page.waitForTimeout(500);
       await page.locator('#dismiss-onboarding').click();
       await expect(overlay).toHaveCount(0);
     }
@@ -71,7 +71,7 @@ test.describe('Extended app flows', () => {
   test('category mock exam completes with results', async ({ page }) => {
     await waitForAppReady(page);
     const category = encodeURIComponent('Specimen collection');
-    await page.goto(`/#exam?start=1&timer=0&category=${category}`);
+    await page.goto(`/#exam?start=1&timer=60&category=${category}`);
     await expect(page.locator('.session-countdown-overlay')).toHaveCount(0, { timeout: 6000 });
     await expect(page.locator('.option-btn').first()).toBeVisible({ timeout: 15_000 });
 
@@ -84,6 +84,11 @@ test.describe('Extended app flows', () => {
 
     await expect(page.locator('.exam-complete, .session-complete')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.session-review-list')).toBeVisible();
+    await expect(page.locator('.exam-time-line')).toBeVisible();
+
+    await page.goto('/#exam');
+    await expect(page.locator('#exam-history-heading')).toContainText('Previous mock exams');
+    await expect(page.locator('.exam-history-row-link').first()).toBeVisible({ timeout: 10_000 });
   });
 
   test('add question form includes explanation field', async ({ page }) => {

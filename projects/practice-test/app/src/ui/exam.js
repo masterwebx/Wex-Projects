@@ -5,6 +5,7 @@ import {
   saveActiveExamSession,
   clearActiveExamSession,
   addExamHistoryEntry,
+  getExamHistory,
 } from '../context.js';
 import {
   buildCategoryStats,
@@ -15,14 +16,24 @@ import { renderMcQuestion, cleanupMcQuestion } from '../study/mc-mode.js';
 import { runSessionCountdown } from './session-countdown.js';
 import { setSessionChrome } from './session-chrome.js';
 import { escapeHtml, questionNumberHtml, sortQuestionsByNumber, explanationBlockHtml } from './helpers.js';
+import { renderExamHistorySection } from './exam-history-ui.js';
 
 const EXAM_PASS_PERCENT = 70;
 const TIMER_PRESETS = [
-  { value: 0, label: 'No timer' },
   { value: 60, label: '60 min' },
   { value: 90, label: '90 min' },
   { value: 120, label: '120 min' },
 ];
+
+function resolveDefaultTimer(questionCount) {
+  return questionCount >= 200 ? 90 : 60;
+}
+
+function normalizeTimerMinutes(value, questionCount) {
+  const n = parseInt(value, 10);
+  if (Number.isFinite(n) && n > 0) return n;
+  return resolveDefaultTimer(questionCount);
+}
 
 function shuffleQuestions(list) {
   const copy = [...list];
@@ -79,7 +90,7 @@ export async function renderExam(container, params = {}) {
     const category = params.category && categoryNames.includes(decodeURIComponent(params.category))
       ? decodeURIComponent(params.category)
       : 'all';
-    const timerMinutes = parseInt(params.timer, 10) || 0;
+    const timerMinutes = normalizeTimerMinutes(params.timer, allQuestions.length);
     const filtered = filterQuestionsByCategory(allQuestions, category);
     let questions = sortQuestionsByNumber(filtered);
     if (params.shuffle === '1') questions = shuffleQuestions(questions);
@@ -104,11 +115,12 @@ export async function renderExam(container, params = {}) {
     return;
   }
 
-  renderExamSetup(container, { test, testId, allQuestions, categoryStats, saved });
+  const examHistory = getExamHistory(testId);
+  renderExamSetup(container, { test, testId, allQuestions, categoryStats, saved, examHistory });
 }
 
-function renderExamSetup(container, { test, testId, allQuestions, categoryStats, saved }) {
-  const defaultTimer = allQuestions.length >= 200 ? 90 : 60;
+function renderExamSetup(container, { test, testId, allQuestions, categoryStats, saved, examHistory }) {
+  const defaultTimer = resolveDefaultTimer(allQuestions.length);
 
   container.innerHTML = `
     <section class="page exam-page">
@@ -157,7 +169,7 @@ function renderExamSetup(container, { test, testId, allQuestions, categoryStats,
             `
             ).join('')}
           </div>
-          <p class="setup-desc">Timer is optional. Full exams are often ~90 minutes.</p>
+          <p class="setup-desc">Pick a time limit matching your real exam. Full exams are often ~90 minutes.</p>
         </div>
 
         <label class="exam-shuffle-option">
@@ -168,6 +180,8 @@ function renderExamSetup(container, { test, testId, allQuestions, categoryStats,
         <p class="exam-setup-summary" id="exam-setup-summary"></p>
         <button type="button" class="btn btn-primary btn-large" id="start-exam-btn">Start mock exam</button>
       </div>
+
+      ${renderExamHistorySection(examHistory, { returnTo: 'exam' })}
     </section>
   `;
 
@@ -182,7 +196,7 @@ function renderExamSetup(container, { test, testId, allQuestions, categoryStats,
         cat === 'all'
           ? 'Counts toward readiness score'
           : 'Practice only — does not affect readiness score';
-      el.textContent = `${count} questions · ${timerMinutes ? `${timerMinutes} min limit` : 'untimed'} · ${scopeNote}`;
+      el.textContent = `${count} questions · ${timerMinutes} min limit · ${scopeNote}`;
     }
   }
 
@@ -207,7 +221,7 @@ function renderExamSetup(container, { test, testId, allQuestions, categoryStats,
 
   container.querySelector('#discard-exam-btn')?.addEventListener('click', () => {
     clearActiveExamSession(testId);
-    renderExamSetup(container, { test, testId, allQuestions, categoryStats, saved: null });
+    renderExamSetup(container, { test, testId, allQuestions, categoryStats, saved: null, examHistory });
   });
 
   updateSummary();
@@ -216,7 +230,7 @@ function renderExamSetup(container, { test, testId, allQuestions, categoryStats,
 async function runExamSession(container, ctx) {
   const { test, testId } = ctx;
   const allQuestions = ctx.allQuestions || (await getAllQuestions(testId));
-  const wantsStartCountdown = Boolean(ctx.fresh);
+  const isResume = Boolean(ctx.saved && !ctx.fresh);
   let questions;
   let category;
   let timerMinutes;
@@ -226,22 +240,24 @@ async function runExamSession(container, ctx) {
   let timerId = null;
   let timeLeftSec = null;
 
-  if (ctx.saved && !ctx.fresh) {
+  if (isResume) {
     const qMap = new Map(allQuestions.map((q) => [q.id, q]));
     questions = ctx.saved.questionIds.map((id) => qMap.get(id)).filter(Boolean);
     category = ctx.saved.category || 'all';
-    timerMinutes = ctx.saved.timerMinutes || 0;
+    timerMinutes = normalizeTimerMinutes(ctx.saved.timerMinutes, allQuestions.length);
     currentIndex = ctx.saved.currentIndex || 0;
     answers = ctx.saved.answers || [];
-    startedAt = ctx.saved.startedAt || Date.now();
+    startedAt = Number.isFinite(ctx.saved.startedAt) ? ctx.saved.startedAt : null;
   } else {
     questions = ctx.questions;
     category = ctx.category;
-    timerMinutes = ctx.timerMinutes;
+    timerMinutes = normalizeTimerMinutes(ctx.timerMinutes, allQuestions.length);
     currentIndex = 0;
     answers = [];
-    startedAt = Date.now();
+    startedAt = null;
   }
+
+  const showStartCountdown = !isResume || (startedAt == null && currentIndex === 0);
 
   if (!questions?.length) {
     container.innerHTML = `<div class="empty-state"><p>Exam could not be loaded.</p><a href="#exam" class="btn btn-primary">Back</a></div>`;
@@ -313,7 +329,13 @@ async function runExamSession(container, ctx) {
     const timerEl = container.querySelector('#exam-timer');
     const progressFill = container.querySelector('#exam-progress-fill');
 
-    if (timerMinutes > 0) {
+    function startExamTimer() {
+      if (timerMinutes <= 0 || !timerEl || timerId) return;
+      if (startedAt == null) {
+        startedAt = Date.now();
+        persist();
+      }
+      timerEl.classList.remove('exam-timer-pending');
       const elapsed = Math.floor((Date.now() - startedAt) / 1000);
       timeLeftSec = Math.max(0, timerMinutes * 60 - elapsed);
       timerEl.textContent = formatTime(timeLeftSec);
@@ -321,14 +343,23 @@ async function runExamSession(container, ctx) {
         timeLeftSec--;
         if (timeLeftSec <= 0) {
           clearInterval(timerId);
-          finishExam();
+          timerId = null;
+          timerEl.classList.add('exam-timer-expired');
+          finishExam(true);
           return;
         }
         timerEl.textContent = formatTime(timeLeftSec);
         if (timeLeftSec <= 300) timerEl.classList.add('exam-timer-warning');
       }, 1000);
-    } else {
-      timerEl.textContent = 'Untimed';
+    }
+
+    if (timerMinutes > 0 && timerEl) {
+      if (showStartCountdown) {
+        timerEl.textContent = '';
+        timerEl.classList.add('exam-timer-pending');
+      } else {
+        timerEl.textContent = formatTime(timerMinutes * 60);
+      }
     }
 
     container.querySelector('#exam-pause-btn')?.addEventListener('click', () => {
@@ -351,13 +382,15 @@ async function runExamSession(container, ctx) {
       counter.textContent = `Question ${currentIndex + 1} of ${questions.length}`;
     }
 
-    function showComplete() {
-      clearInterval(timerId);
+    function showComplete({ timedOut = false } = {}) {
+      if (timerId) clearInterval(timerId);
       setExamChrome(false);
       clearActiveExamSession(testId);
 
+      const durationSec = Math.floor((Date.now() - (startedAt ?? Date.now())) / 1000);
       const correct = answers.filter((a) => a.correct).length;
-      const total = answers.length;
+      const total = timedOut ? questions.length : answers.length;
+      const unanswered = timedOut ? total - answers.length : 0;
       const pct = total > 0 ? Math.round((correct / total) * 1000) / 10 : 0;
       const passed = pct >= EXAM_PASS_PERCENT;
 
@@ -372,16 +405,35 @@ async function runExamSession(container, ctx) {
 
       const bankTotal = allQuestions.length;
       addExamHistoryEntry(testId, {
+        id: crypto.randomUUID(),
         category,
         correct,
         total,
         percent: pct,
         passed,
         timerMinutes,
-        durationSec: Math.floor((Date.now() - startedAt) / 1000),
+        durationSec,
         bankTotal,
-        isFullExam: category === 'all' && total === bankTotal,
+        isFullExam: category === 'all' && questions.length === bankTotal,
+        timedOut,
+        answers: answers.map(({ question, correct: isCorrect, selectedText, correctText }) => ({
+          questionId: question.id,
+          correct: isCorrect,
+          selectedText,
+          correctText,
+        })),
       });
+
+      const timeLine =
+        timerMinutes > 0
+          ? `<p class="exam-time-line">Time: <strong>${formatTime(durationSec)}</strong> of ${formatTime(timerMinutes * 60)}</p>`
+          : '';
+
+      const timeoutNote = timedOut
+        ? `<p class="exam-timeout-note"><strong>Time's up!</strong> ${unanswered} question${unanswered === 1 ? '' : 's'} unanswered (counted incorrect).</p>`
+        : '';
+
+      const heading = timedOut ? "Time's up" : passed ? 'Passed!' : 'Keep studying';
 
       const catRows = [...byCategory.entries()]
         .sort((a, b) => a[0].localeCompare(b[0]))
@@ -411,9 +463,11 @@ async function runExamSession(container, ctx) {
 
       container.innerHTML = `
         <section class="page exam-page">
-          <div class="session-complete exam-complete ${passed ? 'exam-passed' : 'exam-failed'}">
-            <h2>${passed ? 'Passed!' : 'Keep studying'}</h2>
+          <div class="session-complete exam-complete ${passed ? 'exam-passed' : 'exam-failed'} ${timedOut ? 'exam-timed-out' : ''}">
+            <h2>${heading}</h2>
             <p class="session-score-line">Score: <strong>${correct}</strong> / <strong>${total}</strong> (${pct}%)</p>
+            ${timeoutNote}
+            ${timeLine}
             <p class="exam-pass-line">${passed ? `At or above ${EXAM_PASS_PERCENT}% pass threshold.` : `Below ${EXAM_PASS_PERCENT}% — review mistakes and try again.`}</p>
             ${catRows ? `<div class="exam-category-scores"><h3>By category</h3><ul>${catRows}</ul></div>` : ''}
             <div class="session-review">
@@ -430,9 +484,9 @@ async function runExamSession(container, ctx) {
       `;
     }
 
-    function finishExam() {
+    function finishExam(timedOut = false) {
       currentIndex = questions.length;
-      showComplete();
+      showComplete({ timedOut });
     }
 
     let pending = null;
@@ -514,15 +568,19 @@ async function runExamSession(container, ctx) {
       mcShuffle = { shuffled: mcResult.shuffled, correctIndex: mcResult.correctIndex };
     }
 
-    let pendingExamCountdown = wantsStartCountdown;
+    let pendingExamCountdown = showStartCountdown;
 
     function beginExamQuestions() {
       if (pendingExamCountdown) {
         pendingExamCountdown = false;
         const sessionEl = container.querySelector('.practice-session');
-        runSessionCountdown(sessionEl || container).then(() => showQuestion());
+        runSessionCountdown(sessionEl || container).then(() => {
+          startExamTimer();
+          showQuestion();
+        });
         return;
       }
+      startExamTimer();
       showQuestion();
     }
 

@@ -1,3 +1,5 @@
+import { localDateKeyFromIso } from './date-utils.js';
+
 /**
  * Build per-day study activity from practice history and mock exam completions.
  * @param {object[]} progressList
@@ -19,7 +21,7 @@ export function buildDailyActivity(progressList, examHistory, questionIds) {
   for (const p of progressList) {
     if (!qSet.has(p.questionId)) continue;
     for (const h of p.history || []) {
-      const dateKey = (h.date || '').slice(0, 10);
+      const dateKey = localDateKeyFromIso(h.date);
       if (!dateKey) continue;
       const day = ensureDay(dateKey);
       day.practiceAnswers++;
@@ -28,7 +30,7 @@ export function buildDailyActivity(progressList, examHistory, questionIds) {
   }
 
   for (const exam of examHistory) {
-    const dateKey = (exam.completedAt || '').slice(0, 10);
+    const dateKey = localDateKeyFromIso(exam.completedAt);
     if (!dateKey) continue;
     ensureDay(dateKey).exams.push({
       percent: exam.percent,

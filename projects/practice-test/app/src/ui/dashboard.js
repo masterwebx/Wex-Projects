@@ -8,7 +8,6 @@ import {
   getActiveTestId,
   isDoneForToday,
   clearDoneForToday,
-  getExamHistory,
   isOnboardingComplete,
   setOnboardingComplete,
 } from '../context.js';
@@ -29,12 +28,10 @@ export async function renderDashboard(container) {
   const qIds = new Set(questions.map((q) => q.id));
   const scopedProgress = progress.filter((p) => qIds.has(p.questionId));
   const stats = buildStats(questions, scopedProgress);
-  const examHistory = getExamHistory(testId);
   const readiness = getTestReadiness(questions, scopedProgress);
   const mistakePreview = buildMistakeQueue(questions, scopedProgress, { sessionSize: 'all' });
   const unseenPreview = buildUnseenQueue(questions, scopedProgress, { sessionSize: 'all' });
   const doneToday = isDoneForToday(testId);
-  const lastExam = examHistory[0];
   const showOnboarding = questions.length > 0 && !isOnboardingComplete();
 
   container.innerHTML = `
@@ -70,7 +67,6 @@ export async function renderDashboard(container) {
           : `
         ${showOnboarding ? renderOnboardingModal() : ''}
         ${doneToday ? renderDoneTodayBanner() : ''}
-        ${lastExam ? renderLastExamBanner(lastExam) : ''}
 
       `
       }
@@ -110,17 +106,6 @@ function renderDoneTodayBanner() {
     <div class="done-today-banner">
       <strong>You marked today complete.</strong> Rest up — or keep going if you want.
       <button type="button" class="btn btn-small btn-secondary" id="clear-done-today">Practice more today</button>
-    </div>
-  `;
-}
-
-function renderLastExamBanner(exam) {
-  const when = new Date(exam.completedAt).toLocaleDateString();
-  return `
-    <div class="exam-history-banner ${exam.passed ? 'exam-passed' : ''}">
-      <strong>Last mock exam:</strong> ${exam.correct}/${exam.total} (${exam.percent}%) on ${when}
-      ${exam.passed ? ' — Passed' : ''}
-      <a href="#exam" class="focus-link">Take another →</a>
     </div>
   `;
 }

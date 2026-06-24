@@ -9,6 +9,7 @@ import {
   needsCategoryBanner,
 } from '../srs.js';
 import { buildDailyActivity, hasActivity, activityTypes } from '../activity-log.js';
+import { toLocalDateKey } from '../date-utils.js';
 import { escapeHtml } from './helpers.js';
 import { renderReadinessCard } from './readiness-ui.js';
 import { renderCompactCategorySection } from './category-ui.js';
@@ -48,7 +49,7 @@ function renderCalendarMonth(year, month, activityMap, selectedDate) {
   const first = new Date(year, month, 1);
   const startPad = first.getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = toLocalDateKey();
   const cells = [];
 
   for (let i = 0; i < startPad; i++) {
@@ -160,7 +161,7 @@ function resolveSelectedDate(params, activityMap, now) {
     if (!day || !hasActivity(day)) selectedDate = '';
   }
   if (!selectedDate) {
-    const todayKey = now.toISOString().slice(0, 10);
+    const todayKey = toLocalDateKey(now);
     const todayActivity = activityMap.get(todayKey);
     if (todayActivity && hasActivity(todayActivity)) {
       selectedDate = todayKey;

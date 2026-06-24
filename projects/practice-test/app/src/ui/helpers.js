@@ -105,9 +105,10 @@ export function renderHelpContent() {
       <li><strong>Add Questions</strong> — Type each question and four choices. Add a <strong>category</strong> to group by topic.</li>
       <li><strong>Study</strong> — Pick a category and read questions with correct answers shown (no shuffling, no scoring).</li>
       <li><strong>Practice</strong> — Spaced repetition sessions (default 20 questions, auto answer mode). Home shortcuts and category Practice buttons start a session immediately.</li>
-      <li><strong>Mock exam</strong> — Timed simulation with no hints. Only a <strong>full</strong> mock exam (all categories, every question) unlocks your readiness score above 30.</li>
+      <li><strong>Mock exam</strong> — Timed simulation with no hints (60, 90, or 120 minutes). Only a <strong>full</strong> mock exam (all categories, every question) unlocks your readiness score above 30. Previous results appear on Practice and Mock Exam setup — click a row to review answers.</li>
       <li><strong>Progress</strong> — Exam readiness score, study stats, activity calendar, and per-category breakdown.</li>
       <li><strong>Home</strong> — Quick links to start today&rsquo;s practice, review mistakes, or try new questions.</li>
+      <li><strong>Review mistakes</strong> — Questions you missed on the last attempt or within the past week (up to 50 per session).</li>
       <li><strong>Explanations</strong> — Shown after each practice answer when a custom explanation exists on the question.</li>
     </ol>
 

@@ -402,18 +402,26 @@ export function filterQuestionsByCategory(questions, category) {
 
 function mistakePriority(progress, weekAgo) {
   if (!progress?.history?.length) return 0;
-  const wrongs = progress.history.filter((h) => !h.correct);
+  const history = progress.history;
+  const last = history[history.length - 1];
+  const wrongs = history.filter((h) => !h.correct);
   if (wrongs.length === 0) return 0;
 
-  let score = wrongs.length * 5;
   const lastWrong = wrongs[wrongs.length - 1];
-  if (new Date(lastWrong.date) >= weekAgo) score += 40;
+  const recentWrong = new Date(lastWrong.date) >= weekAgo;
+  const lastAttemptWrong = !last.correct;
+
+  if (!lastAttemptWrong && !recentWrong) return 0;
+
+  let score = wrongs.length * 5;
+  if (recentWrong) score += 40;
+  if (lastAttemptWrong) score += 25;
   if (progress.stage !== STAGES.MASTERED) score += 15;
   if (progress.stage === STAGES.LEARNING) score += 10;
   return score;
 }
 
-/** Questions missed recently or with a history of wrong answers. */
+/** Questions where the last attempt was wrong or a miss occurred within the last week. */
 export function buildMistakeQueue(questions, progressList, options = {}) {
   const progressMap = new Map(progressList.map((p) => [p.questionId, p]));
   const weekAgo = new Date();

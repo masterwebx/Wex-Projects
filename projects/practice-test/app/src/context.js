@@ -1,4 +1,5 @@
 import { DEFAULT_SESSION_SIZE } from './srs.js';
+import { toLocalDateKey } from './date-utils.js';
 
 const ACTIVE_TEST_KEY = 'activeTestId';
 const PRACTICE_MODE_KEY = 'practiceMode';
@@ -22,7 +23,7 @@ function readCategoryMap() {
 }
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  return toLocalDateKey();
 }
 
 export function getActiveTestId() {
@@ -225,15 +226,25 @@ export function getExamHistory(testId) {
   }
 }
 
+export function getExamHistoryEntry(testId, id) {
+  if (!testId || !id) return null;
+  return getExamHistory(testId).find((e) => e.id === id) ?? null;
+}
+
 export function addExamHistoryEntry(testId, entry) {
   if (!testId) return;
+  const record = {
+    ...entry,
+    id: entry.id || crypto.randomUUID(),
+    completedAt: new Date().toISOString(),
+  };
   try {
     const map = JSON.parse(localStorage.getItem(EXAM_HISTORY_KEY) || '{}');
     const list = map[testId] || [];
-    list.unshift({ ...entry, completedAt: new Date().toISOString() });
+    list.unshift(record);
     map[testId] = list.slice(0, 20);
     localStorage.setItem(EXAM_HISTORY_KEY, JSON.stringify(map));
   } catch {
-    localStorage.setItem(EXAM_HISTORY_KEY, JSON.stringify({ [testId]: [entry] }));
+    localStorage.setItem(EXAM_HISTORY_KEY, JSON.stringify({ [testId]: [record] }));
   }
 }

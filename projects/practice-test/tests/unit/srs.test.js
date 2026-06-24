@@ -51,9 +51,40 @@ describe('buildSessionQueue', () => {
 });
 
 describe('buildMistakeQueue', () => {
-  it('includes questions with wrong history', () => {
+  it('includes questions with a recent wrong answer', () => {
     const progress = [
       progressWithHistory('q1', [{ date: new Date().toISOString(), mode: 'mc', correct: false }]),
+      createDefaultProgress('q2'),
+      createDefaultProgress('q3'),
+    ];
+    const result = buildMistakeQueue(questions, progress, { sessionSize: 10 });
+    expect(result.queue).toHaveLength(1);
+    expect(result.queue[0].question.id).toBe('q1');
+  });
+
+  it('excludes questions wrong long ago if last attempt was correct', () => {
+    const old = new Date();
+    old.setDate(old.getDate() - 30);
+    const progress = [
+      progressWithHistory('q1', [
+        { date: old.toISOString(), mode: 'mc', correct: false },
+        { date: new Date().toISOString(), mode: 'mc', correct: true },
+      ]),
+      createDefaultProgress('q2'),
+      createDefaultProgress('q3'),
+    ];
+    const result = buildMistakeQueue(questions, progress, { sessionSize: 10 });
+    expect(result.queue).toHaveLength(0);
+  });
+
+  it('includes questions wrong long ago if last attempt was wrong', () => {
+    const old = new Date();
+    old.setDate(old.getDate() - 30);
+    const progress = [
+      progressWithHistory('q1', [
+        { date: old.toISOString(), mode: 'mc', correct: true },
+        { date: old.toISOString(), mode: 'mc', correct: false },
+      ]),
       createDefaultProgress('q2'),
       createDefaultProgress('q3'),
     ];

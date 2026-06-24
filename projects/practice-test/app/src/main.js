@@ -1,6 +1,7 @@
 import '../styles/main.css';
 import { registerSW } from 'virtual:pwa-register';
 import { initTheme, toggleTheme, updateThemeToggleLabel } from './theme.js';
+import { version as appVersion } from '../../package.json';
 
 const updateSW = registerSW({
   immediate: true,
@@ -156,6 +157,8 @@ function initShell() {
     themeBtn.addEventListener('click', toggleTheme);
     updateThemeToggleLabel();
   }
+  const versionEl = document.querySelector('#app-version');
+  if (versionEl) versionEl.textContent = `v${appVersion}`;
 }
 
 async function boot() {

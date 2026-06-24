@@ -21,6 +21,7 @@ import {
   getActivePracticeSession,
   saveActivePracticeSession,
   clearActivePracticeSession,
+  getExamHistory,
 } from '../context.js';
 import {
   buildSessionQueue,
@@ -44,6 +45,8 @@ import { escapeHtml, questionNumberHtml, explanationBlockHtml, hasCustomExplanat
 import { runSessionCountdown } from './session-countdown.js';
 import { setSessionChrome } from './session-chrome.js';
 import { guardClick } from './click-guard.js';
+import { renderExamHistorySection } from './exam-history-ui.js';
+import { renderExamReview } from './exam-review.js';
 
 async function ensureProgress(questionId) {
   return getOrCreateProgress(questionId, getProgress, saveProgress);
@@ -155,6 +158,7 @@ function restoreQueueFromSession(saved, allQuestions, progressList) {
 
 const PRESET_SESSION_SIZES = [10, 20, 30];
 const MAX_CUSTOM_SESSION_SIZE = 500;
+const MISTAKES_SESSION_CAP = 50;
 
 function formatSizeLabel(size) {
   return size === 'all' ? 'all due' : size;
@@ -175,6 +179,16 @@ export async function renderStudy(container, params = {}) {
   await ensureDefaultTest();
   const testId = getActiveTestId();
   const test = testId ? await getTest(testId) : null;
+
+  if (params.examReview) {
+    await renderExamReview(container, {
+      testId,
+      test,
+      reviewId: params.examReview,
+      returnTo: params.returnTo,
+    });
+    return;
+  }
 
   const allQuestions = await getAllQuestions(testId);
   const qIds = new Set(allQuestions.map((q) => q.id));
@@ -227,6 +241,11 @@ export async function renderStudy(container, params = {}) {
   let setupExpanded = params.setup === '1' || params.setup === true;
   let sessionFocus = ['mistakes', 'unseen'].includes(params.focus) ? params.focus : 'due';
 
+  if (sessionFocus === 'mistakes' && !params.size) {
+    setupSize = 'all';
+    setupSizeCustom = false;
+  }
+
   let sessionActive = false;
   let lockedMode = setupMode;
   let lockedCategory = setupCategory;
@@ -251,9 +270,19 @@ export async function renderStudy(container, params = {}) {
     return filterQuestionsByCategory(allQuestions, setupCategory);
   }
 
+  function resolveMistakesSessionSize(filtered) {
+    const { totalDue } = buildMistakeQueue(filtered, progressList, { sessionSize: 'all' });
+    if (totalDue <= 0) return 0;
+    return Math.min(totalDue, MISTAKES_SESSION_CAP);
+  }
+
   function buildQueueForFocus(filtered) {
+    const size =
+      sessionFocus === 'mistakes' && setupSize === 'all'
+        ? resolveMistakesSessionSize(filtered)
+        : setupSize;
     if (sessionFocus === 'mistakes') {
-      return buildMistakeQueue(filtered, progressList, { sessionSize: setupSize });
+      return buildMistakeQueue(filtered, progressList, { sessionSize: size });
     }
     if (sessionFocus === 'unseen') {
       return buildUnseenQueue(filtered, progressList, { sessionSize: setupSize });
@@ -308,6 +337,7 @@ export async function renderStudy(container, params = {}) {
       setupSizeCustom,
       sessionFocus
     );
+    const examHistory = getExamHistory(testId);
 
     container.innerHTML = `
       <section class="page practice-page">
@@ -400,6 +430,8 @@ export async function renderStudy(container, params = {}) {
             <p class="setup-desc">${formatSessionPreview(preview, setupSize)}</p>
           </div>
         </div>
+
+        ${renderExamHistorySection(examHistory)}
       </section>
     `;
 

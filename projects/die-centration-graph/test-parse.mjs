@@ -163,9 +163,21 @@ assert.ok(3 < fences.hi);
 
 const m4780 = lookup.rows.find(r => String(col(r, 'MSPEC #')).replace(/\.0+$/, '') === '4780');
 assert.ok(m4780);
-assert.equal(parseFloat(col(m4780, 'Lower Control')), 0.5);
-assert.equal(parseFloat(col(m4780, 'Upper Control')), 0.525);
+assert.equal(parseFloat(col(m4780, 'Lower Control')), 0.505);
+assert.equal(parseFloat(col(m4780, 'Upper Control')), 0.53);
 assert.notEqual(parseFloat(col(m4780, 'Lower Control')), 0.032);
+assert.notEqual(parseFloat(col(m4780, 'Upper Control')), 0.525);
+
+const m4540 = lookup.rows.find(r => String(col(r, 'MSPEC #')).replace(/\.0+$/, '') === '4540');
+assert.ok(m4540);
+assert.equal(parseFloat(col(m4540, 'Lower Control')), 0.505);
+assert.equal(parseFloat(col(m4540, 'Target')), 0.515);
+assert.equal(parseFloat(col(m4540, 'Upper Control')), 0.53);
+assert.notEqual(parseFloat(col(m4540, 'Upper Control')), 0.52);
+
+const m4460 = lookup.rows.find(r => String(col(r, 'MSPEC #')).replace(/\.0+$/, '') === '4460');
+assert.ok(m4460);
+assert.equal(parseFloat(col(m4460, 'Upper Control')), 0.53);
 
 const row3000 = {
   'MSPEC #': '3000', AF: 'AF500', 'Lower Control': '0.530', Target: '0.540',
@@ -178,6 +190,17 @@ assert.match(html, /'Item'/);
 assert.match(html, /'Width'/);
 assert.match(vba, /Master Sheet/);
 assert.match(vba, /Table7/);
+assert.match(vba, /LookupTableTsv/);
+assert.match(vba, /LinkSources/);
+assert.match(vba, /\[1\]Master Sheet/);
+assert.match(vba, /LinkedMasterSheetToTsv/);
+assert.match(vba, /Quality AIO/);
+
+assert.match(html, /dieGraphPack\.v2/);
+assert.match(html, /id="specSource"/);
+assert.match(html, /Master Sheet MSPEC/);
+assert.doesNotMatch(html, /Object\.assign\(\{\}, historyPack\.lookupByMspec/);
+assert.match(html, /if \(!lookupRows\.length && historyPack && historyPack\.lookupRows\)/);
 
 function canonMspec(v) {
   let s = String(v ?? '').trim();
@@ -193,5 +216,30 @@ function canonMspec(v) {
 assert.equal(canonMspec('3000.0'), '3000');
 assert.equal(canonMspec('4780'), '4780');
 assert.equal(canonMspec('#N/A'), '');
+assert.equal(canonMspec('4540.0'), '4540');
+
+function buildLookupMap(rows) {
+  const map = {};
+  for (const row of rows || []) {
+    const raw = String(col(row, 'MSPEC #', 'MSPEC') || '').trim();
+    const key = canonMspec(raw);
+    if (!key || map[key]) continue;
+    map[key] = row;
+    if (raw && raw !== key) map[raw] = row;
+    if (/^\d+$/.test(key)) map[key + '.0'] = row;
+  }
+  return map;
+}
+const map = buildLookupMap(lookup.rows);
+assert.equal(parseFloat(col(map['4540'], 'Upper Control')), 0.53);
+assert.equal(parseFloat(col(map['4540.0'], 'Upper Control')), 0.53);
+assert.equal(parseFloat(col(map[canonMspec('4540.0')], 'Upper Control')), 0.53);
+
+const dupes = [
+  { 'MSPEC #': '4540', 'Lower Control': '0.505', Target: '0.515', 'Upper Control': '0.53' },
+  { 'MSPEC #': '4540.0', 'Lower Control': '0.505', Target: '0.515', 'Upper Control': '0.52' }
+];
+const firstWins = buildLookupMap(dupes);
+assert.equal(parseFloat(col(firstWins['4540'], 'Upper Control')), 0.53);
 
 console.log('parse-diegraph tests passed');

@@ -27,7 +27,8 @@ Private Const CF_UNICODETEXT As Long = 13
 Private Const GMEM_MOVEABLE As Long = &H2
 
 ' Button name: Copy for Graph
-' Copies current S4 values (if any), lookup specs (Master Sheet Table7),
+' Copies current S4 values (if any), lookup specs from the same Master Sheet
+' S4 VLOOKUPs (Quality AIO / linked workbook, not the stale local copy),
 ' and the full Data S4 TableS4 table as DIEGRAPH2 text for the HTML graph.
 Public Sub CopyForGraph()
     Dim wsS4 As Worksheet
@@ -46,8 +47,8 @@ Public Sub CopyForGraph()
     
     payload = CurrentSection(wsS4, hasPoints)
     
-    Application.StatusBar = "Copying lookup table..."
-    tsvLookup = ListObjectToTsv(LookupListObject())
+    Application.StatusBar = "Copying Quality AIO Master Sheet..."
+    tsvLookup = LookupTableTsv()
     payload = payload & "[LOOKUP]" & vbCrLf
     If LenB(tsvLookup) > 0 Then
         payload = payload & tsvLookup & vbCrLf
@@ -99,17 +100,42 @@ Private Function TableS4ListObject() As ListObject
     Set TableS4ListObject = lo
 End Function
 
-Private Function LookupListObject() As ListObject
+Private Function LookupTableTsv() As String
     Dim ws As Worksheet
     Dim lo As ListObject
+    Dim tsv As String
+    
+    ' 1) Quality AIO (or whichever workbook S4 VLOOKUPs) if it is already open
+    Set ws = LinkedMasterSheetIfOpen()
+    If Not ws Is Nothing Then
+        Set lo = MspecListObject(ws)
+        If Not lo Is Nothing Then
+            LookupTableTsv = ListObjectToTsv(lo)
+            If LenB(LookupTableTsv) > 0 Then Exit Function
+        End If
+    End If
+    
+    ' 2) Same [n]Master Sheet cache S4 uses, so specs match E6/G6 even if AIO is closed
+    tsv = LinkedMasterSheetToTsv()
+    If LenB(tsv) > 0 Then
+        LookupTableTsv = tsv
+        Exit Function
+    End If
+    
+    ' 3) Local Master Sheet Table7 (Quality AIO itself, or last-resort stale copy)
+    Set lo = MspecListObject(SheetByName("Master Sheet"))
+    LookupTableTsv = ListObjectToTsv(lo)
+End Function
+
+Private Function MspecListObject(ByVal ws As Worksheet) As ListObject
+    Dim lo As ListObject
     Dim hdr As Range
-    Set ws = SheetByName("Master Sheet")
     If ws Is Nothing Then Exit Function
     On Error Resume Next
     Set lo = ws.ListObjects("Table7")
     On Error GoTo 0
     If Not lo Is Nothing Then
-        Set LookupListObject = lo
+        Set MspecListObject = lo
         Exit Function
     End If
     For Each lo In ws.ListObjects
@@ -117,12 +143,161 @@ Private Function LookupListObject() As ListObject
         Set hdr = lo.HeaderRowRange
         On Error GoTo 0
         If Not hdr Is Nothing Then
-            If HeaderHas(hdr, "MSPEC #") And HeaderHas(hdr, "Lower Control") Then
-                Set LookupListObject = lo
+            If HeaderHas(hdr, "MSPEC #") And HeaderHas(hdr, "Lower Control") And HeaderHas(hdr, "Upper Control") Then
+                Set MspecListObject = lo
                 Exit Function
             End If
         End If
     Next lo
+End Function
+
+Private Function LinkedMasterSheetIfOpen() As Worksheet
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim links As Variant
+    Dim i As Long
+    Dim p As String
+    Dim fname As String
+    
+    On Error Resume Next
+    links = ThisWorkbook.LinkSources(xlExcelLinks)
+    On Error GoTo 0
+    If Not IsArray(links) Then Exit Function
+    
+    For i = LBound(links) To UBound(links)
+        p = CStr(links(i))
+        fname = LinkFileName(p)
+        For Each wb In Application.Workbooks
+            If WorkbookMatchesLink(wb, p, fname) Then
+                On Error Resume Next
+                Set ws = wb.Worksheets("Master Sheet")
+                On Error GoTo 0
+                If Not ws Is Nothing Then
+                    Set LinkedMasterSheetIfOpen = ws
+                    Exit Function
+                End If
+            End If
+        Next wb
+    Next i
+End Function
+
+Private Function WorkbookMatchesLink(ByVal wb As Workbook, ByVal linkPath As String, ByVal fname As String) As Boolean
+    If wb Is Nothing Then Exit Function
+    If StrComp(wb.Name, ThisWorkbook.Name, vbTextCompare) = 0 Then Exit Function
+    If LenB(fname) > 0 Then
+        If StrComp(wb.Name, fname, vbTextCompare) = 0 Then
+            WorkbookMatchesLink = True
+            Exit Function
+        End If
+    End If
+    If InStr(1, linkPath, wb.Name, vbTextCompare) > 0 Then WorkbookMatchesLink = True
+End Function
+
+Private Function LinkFileName(ByVal p As String) As String
+    Dim s As String
+    Dim i As Long
+    s = Replace(Replace(p, "%20", " "), "/", "\")
+    i = InStrRev(s, "\")
+    If i > 0 Then s = Mid$(s, i + 1)
+    LinkFileName = s
+End Function
+
+' S4 E6 is VLOOKUP(D4,'[1]Master Sheet'!A:D,4,FALSE) — copy that same sheet.
+Private Function MasterSheetBookRef() As String
+    Dim f As String
+    Dim ws As Worksheet
+    Dim i As Long
+    Dim j As Long
+    
+    Set ws = SheetByName("S4")
+    If ws Is Nothing Then
+        MasterSheetBookRef = "'[1]Master Sheet'"
+        Exit Function
+    End If
+    f = CStr(ws.Range("E6").Formula)
+    i = InStr(1, f, "Master Sheet", vbTextCompare)
+    If i = 0 Then
+        MasterSheetBookRef = "'Master Sheet'"
+        Exit Function
+    End If
+    j = i
+    Do While j > 1 And Mid$(f, j, 1) <> "'"
+        j = j - 1
+    Loop
+    If Mid$(f, j, 1) = "'" Then
+        MasterSheetBookRef = Mid$(f, j, i + 12 - j)
+    Else
+        MasterSheetBookRef = "'Master Sheet'"
+    End If
+End Function
+
+Private Function LinkedMasterSheetToTsv() As String
+    Dim ref As String
+    Dim r As Long
+    Dim c As Long
+    Dim nC As Long
+    Dim nLines As Long
+    Dim v As Variant
+    Dim lines() As String
+    Dim parts() As String
+    Dim evalWs As Worksheet
+    
+    ref = MasterSheetBookRef()
+    If InStr(1, ref, "[", vbBinaryCompare) = 0 Then Exit Function
+    
+    Set evalWs = SheetByName("S4")
+    If evalWs Is Nothing Then Set evalWs = ActiveSheet
+    
+    nC = 0
+    For c = 1 To 22
+        v = EvalLinkedIndex(evalWs, ref, 1, c)
+        If IsBlankLink(v) Then Exit For
+        nC = c
+    Next c
+    If nC < 6 Then Exit Function
+    
+    ReDim lines(1 To 200)
+    For r = 1 To 200
+        v = EvalLinkedIndex(evalWs, ref, r, 1)
+        If r > 1 Then
+            If IsBlankLink(v) Then Exit For
+            If Not IsNumeric(v) Then Exit For
+        End If
+        ReDim parts(1 To nC)
+        For c = 1 To nC
+            If c = 1 And r > 1 Then
+                parts(c) = TsvEscape(v)
+            Else
+                parts(c) = TsvEscape(EvalLinkedIndex(evalWs, ref, r, c))
+            End If
+        Next c
+        nLines = nLines + 1
+        lines(nLines) = Join(parts, vbTab)
+    Next r
+    If nLines < 2 Then Exit Function
+    ReDim Preserve lines(1 To nLines)
+    LinkedMasterSheetToTsv = Join(lines, vbCrLf)
+End Function
+
+Private Function EvalLinkedIndex(ByVal ws As Worksheet, ByVal bookRef As String, ByVal r As Long, ByVal c As Long) As Variant
+    Dim expr As String
+    expr = "INDEX(" & bookRef & "!A:V," & r & "," & c & ")"
+    On Error Resume Next
+    If Not ws Is Nothing Then
+        EvalLinkedIndex = ws.Evaluate(expr)
+    Else
+        EvalLinkedIndex = Application.Evaluate(expr)
+    End If
+End Function
+
+Private Function IsBlankLink(ByVal v As Variant) As Boolean
+    If IsError(v) Then
+        IsBlankLink = True
+    ElseIf IsNull(v) Or IsEmpty(v) Then
+        IsBlankLink = True
+    ElseIf LenB(Trim$(CStr(v))) = 0 Then
+        IsBlankLink = True
+    End If
 End Function
 
 Private Function HeaderHas(ByVal hdr As Range, ByVal colName As String) As Boolean

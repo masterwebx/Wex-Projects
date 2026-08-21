@@ -198,8 +198,8 @@ Private Function TsvEscape(ByVal v As Variant) As String
 End Function
 
 Private Sub PutTextOnClipboard(ByVal s As String)
-#If Mac Then
     Dim clip As Object
+#If Mac Then
     Set clip = CreateObject("New:{1C3B4210-F441-11CE-B9EA-00AA006B1A69}")
     clip.SetText s
     clip.PutInClipboard
@@ -208,7 +208,6 @@ Private Sub PutTextOnClipboard(ByVal s As String)
     If Not PutUnicodeTextWin32(s) Then GoTo Fallback
     Exit Sub
 Fallback:
-    Dim clip As Object
     Set clip = CreateObject("New:{1C3B4210-F441-11CE-B9EA-00AA006B1A69}")
     clip.SetText s
     clip.PutInClipboard

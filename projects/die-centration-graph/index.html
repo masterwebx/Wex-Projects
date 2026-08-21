@@ -50,15 +50,53 @@
   .welcome .actions { display: grid; gap: 10px; }
   #screenHistory { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
   .table-wrap { overflow: auto; padding: 0; }
-  table.results { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
-  table.results th, table.results td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; }
-  table.results thead th { position: sticky; top: 0; background: var(--bg-elev); z-index: 2; }
-  table.results thead tr.filters th { top: 34px; background: var(--idle); z-index: 1; font-weight: 400; }
-  table.results select {
-    width: 100%; min-width: 88px; border: 1px solid var(--line); border-radius: 8px;
-    background: var(--bg-elev); color: var(--text); font: inherit; font-size: 13px; padding: 4px;
+  table.results {
+    width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px;
+    table-layout: fixed;
   }
+  table.results th, table.results td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; }
+  table.results tbody td { height: 42px; overflow: hidden; text-overflow: ellipsis; }
+  table.results thead th { position: sticky; top: 0; background: var(--bg-elev); z-index: 3; box-shadow: 0 1px 0 var(--line); height: auto; vertical-align: bottom; overflow: visible; }
+  table.results th:first-child, table.results td:first-child { width: 52px; min-width: 52px; }
+  table.results th:nth-child(2) { width: 260px; min-width: 260px; }
+  table.results th:nth-child(n+3), table.results td:nth-child(n+3) { width: 128px; min-width: 110px; }
+  table.results tbody tr { height: 42px; }
   table.results tbody tr:hover { background: var(--idle); }
+  table.results tr.spacer td { height: auto; border: 0; padding: 0; line-height: 0; }
+  .th-inner { display: flex; align-items: center; gap: 6px; }
+  .th-menu {
+    width: 28px; min-height: 28px; padding: 0; border-radius: 8px; font-size: 14px;
+    background: var(--idle); color: var(--text); border: 1px solid var(--line);
+  }
+  .th-menu.active, .th-menu.filtered { border-color: var(--accent); color: var(--accent); }
+  .date-slicers { display: flex; gap: 4px; margin-top: 4px; }
+  .date-slicers select {
+    flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--idle); color: var(--text); font: inherit; font-size: 12px; padding: 4px;
+  }
+  .filter-pop {
+    position: fixed; z-index: 40; width: min(280px, calc(100vw - 16px));
+    background: var(--bg-elev); color: var(--text); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: var(--shadow); padding: 10px; display: none;
+  }
+  .filter-pop.show { display: block; }
+  .filter-pop button.sort-btn { width: 100%; margin: 0 0 6px; min-height: 36px; font-size: 14px; }
+  .filter-pop input[type="search"] {
+    width: 100%; margin: 8px 0; padding: 7px 8px; border: 2px solid var(--line);
+    border-radius: 8px; background: var(--idle); color: var(--text); font: inherit; font-size: 15px;
+  }
+  .filter-list { max-height: 220px; overflow: auto; display: grid; gap: 4px; font-size: 14px; }
+  .filter-list label { display: flex; gap: 8px; align-items: center; font-weight: 400; }
+  .spc-only { display: none !important; }
+  html[data-mode="spc"] .spc-only { display: flex !important; flex-direction: column; gap: 8px; }
+  html[data-mode="spc"] .spc-only label {
+    display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  html[data-mode="spc"] .spc-only select, html[data-mode="spc"] .spc-only input[type="date"] {
+    width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
+    font: inherit; font-size: 16px; background: var(--idle); color: var(--text);
+  }
   .pf-pill { font-weight: 700; }
   .pf-pill.good { color: var(--ok); }
   .pf-pill.bad { color: var(--thick); }
@@ -145,6 +183,7 @@
     <div class="actions">
       <button type="button" id="welcomePaste">Paste from clipboard</button>
       <button class="secondary" type="button" id="welcomeEnter">Enter results</button>
+      <button class="secondary" type="button" id="welcomeSpc">SPC mode</button>
     </div>
     <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
   </div>
@@ -159,12 +198,14 @@
     <div class="toolbar">
       <button class="secondary" type="button" id="histBack">Start over</button>
       <button type="button" id="histPaste">Paste again</button>
+      <button class="secondary" type="button" id="histSpc">SPC mode</button>
       <button class="secondary" type="button" id="histClearFilters">Clear filters</button>
       <button class="secondary" type="button" id="histTheme">Dark mode</button>
     </div>
   </header>
-  <div class="card table-wrap"><table class="results" id="histTable"></table></div>
+  <div class="card table-wrap" id="histWrap"><table class="results" id="histTable"><thead id="histHead"></thead><tbody id="histBody"></tbody></table></div>
 </section>
+<div class="filter-pop" id="filterPop"></div>
 
 <section class="screen" id="screenView">
   <header>
@@ -182,7 +223,22 @@
     <section class="card panel">
       <h2 class="centration-only">Thickness points</h2>
       <div class="grid centration-only" id="inputs"></div>
-      <p class="hist-meta" id="spcHint" hidden>SPC charts average, range, and density for this item over time. Green and red lines are min and max spec.</p>
+      <div class="spc-only" id="spcControls">
+        <h2>SPC series</h2>
+        <label>View by
+          <select id="spcBy">
+            <option value="item">Item #</option>
+            <option value="mspec">MSPEC</option>
+          </select>
+        </label>
+        <label><span id="spcValueName">Item #</span>
+          <select id="spcValue"></select>
+        </label>
+        <label>From <input type="date" id="spcFrom"></label>
+        <label>To <input type="date" id="spcTo"></label>
+        <button class="secondary full" type="button" id="spcOutliers">Show outliers</button>
+        <p class="hist-meta" id="spcHint">Average, range, and density over time with min/max spec lines. Extreme outliers are hidden by default.</p>
+      </div>
       <div class="actions">
         <button class="secondary full centration-only" type="button" id="copyBtn">Copy values</button>
         <button class="secondary full centration-only" type="button" id="clearBtn">Clear values</button>
@@ -232,6 +288,9 @@
 <script>
 const STORE = 'dieGraphState.v4';
 const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
+const NUM_COLS = new Set(['Item #','MSPEC','Bundle #','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const ROW_H = 42;
 const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const canvas = document.getElementById('dieCanvas');
 const ctx = canvas.getContext('2d');
@@ -250,7 +309,16 @@ let historyPack = null;
 let currentSnapshot = {};
 let viewingIdx = 'current';
 let tableFilters = {};
+let tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
+let histPaint = 0;
+let histRangeKey = '';
+let indexedRows = [];
+let colUniques = {};
+let filteredCache = [];
+let filteredDirty = true;
 let pasteIntent = false;
+let spcHideOutliers = true;
+let openFilterCol = null;
 
 function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 function palette() {
@@ -302,11 +370,11 @@ function setViewMode(mode) {
   document.documentElement.setAttribute('data-mode', viewMode);
   document.getElementById('pageTitle').textContent = viewMode === 'spc' ? 'SPC charts' : 'Die Centration Radial Graph';
   document.getElementById('modeBtn').textContent = viewMode === 'spc' ? 'Centration graph' : 'SPC mode';
-  document.getElementById('spcHint').hidden = viewMode !== 'spc';
   const legend = document.getElementById('canvasLegend');
   legend.innerHTML = viewMode === 'spc'
-    ? `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#c24141"></i>Out of spec</span><span><i class="swatch" style="background:#1d4ed8"></i>Selected</span>`
+    ? `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#c24141"></i>Out of spec</span><span><i class="swatch" style="background:#f59e0b"></i>Outlier</span><span><i class="swatch" style="background:#1d4ed8"></i>Selected</span>`
     : `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#e2b340"></i>Thin</span><span><i class="swatch" style="background:#c24141"></i>Thick</span>`;
+  if (viewMode === 'spc') fillSpcControls();
 }
 function setArrowVisible(on) {
   showArrow = !!on;
@@ -556,63 +624,336 @@ function esc(s) {
 function hasCurrentSheet() {
   return !!(currentSnapshot && (currentSnapshot.item || (currentSnapshot.values || []).some(v => v !== '' && v != null)));
 }
-function uniqueValues(rows, key) {
-  const seen = new Set();
-  const out = [];
-  for (const row of rows) {
-    const raw = key === 'Date/Time' ? (excelWhen(col(row, key)) || col(row, key)) : col(row, key);
-    const v = String(raw ?? '').trim();
-    if (!v || seen.has(v)) continue;
-    seen.add(v); out.push(v);
+function dateParts(serial) {
+  const n = numVal(serial);
+  if (!isFinite(n) || n < 20000) return { y: 0, m: 0, d: 0, serial: n };
+  const dt = new Date(Math.round((n - 25569) * 86400 * 1000));
+  if (isNaN(dt.getTime())) return { y: 0, m: 0, d: 0, serial: n };
+  return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate(), serial: n };
+}
+function isoFromParts(y, m, d) {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+function indexHistory() {
+  const rows = historyPack && historyPack.rows || [];
+  indexedRows = new Array(rows.length);
+  colUniques = {};
+  for (const k of TABLE_COLS) if (k !== 'Date/Time') colUniques[k] = new Set();
+  for (let idx = 0; idx < rows.length; idx++) {
+    const row = rows[idx];
+    const parts = dateParts(col(row, 'Date/Time'));
+    const display = {}, num = {}, text = {};
+    for (const k of TABLE_COLS) {
+      const raw = col(row, k);
+      display[k] = displayCell(k, raw);
+      num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw) : numVal(raw);
+      text[k] = String(raw ?? '').trim();
+      if (k !== 'Date/Time' && text[k]) colUniques[k].add(text[k]);
+    }
+    indexedRows[idx] = {
+      idx, row, serial: parts.serial, y: parts.y, m: parts.m, d: parts.d,
+      display, num, text,
+      item: String(col(row, 'Item #') || '').trim(),
+      mspec: String(col(row, 'MSPEC', 'MSPEC #') || '').trim()
+    };
   }
-  out.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  for (const k of Object.keys(colUniques)) colUniques[k] = [...colUniques[k]];
+  filteredDirty = true;
+}
+function uniqueSorted(values, numeric) {
+  const out = values.slice();
+  out.sort((a, b) => numeric
+    ? (numVal(a) - numVal(b)) || String(a).localeCompare(String(b), undefined, { numeric: true })
+    : String(a).localeCompare(String(b), undefined, { numeric: true }));
   return out;
 }
-function sortedHistoryRows() {
-  const rows = (historyPack && historyPack.rows || []).map((row, idx) => ({ row, idx }));
-  rows.sort((a, b) => (numVal(col(b.row, 'Date/Time')) || 0) - (numVal(col(a.row, 'Date/Time')) || 0));
+function dateFilter() { return tableFilters['Date/Time'] || { year: '', month: '', day: '' }; }
+function rowMatches(r) {
+  const df = dateFilter();
+  if (df.year && r.y !== +df.year) return false;
+  if (df.month && r.m !== +df.month) return false;
+  if (df.day && r.d !== +df.day) return false;
+  for (const k of TABLE_COLS) {
+    if (k === 'Date/Time') continue;
+    const sel = tableFilters[k];
+    if (sel instanceof Set && !sel.has(r.text[k])) return false;
+  }
+  return true;
+}
+function compareIndexed(a, b) {
+  const col = tableSort.col, dir = tableSort.dir === 'asc' ? 1 : -1, mode = tableSort.mode;
+  if (col === 'Date/Time' || mode === 'date') return dir * ((a.serial || 0) - (b.serial || 0));
+  if (mode === 'num' || (mode !== 'text' && NUM_COLS.has(col))) {
+    const av = a.num[col], bv = b.num[col];
+    const aOk = isFinite(av), bOk = isFinite(bv);
+    if (aOk && bOk && av !== bv) return dir * (av - bv);
+    if (aOk !== bOk) return aOk ? -1 : 1;
+  }
+  return dir * String(a.text[col] || '').localeCompare(String(b.text[col] || ''), undefined, { numeric: true });
+}
+function getFilteredRows() {
+  if (!filteredDirty) return filteredCache;
+  const rows = indexedRows.filter(rowMatches);
+  rows.sort(compareIndexed);
+  filteredCache = rows;
+  filteredDirty = false;
   return rows;
 }
-function filteredHistoryRows() {
-  return sortedHistoryRows().filter(({ row }) => {
-    return TABLE_COLS.every(key => {
-      const want = tableFilters[key];
-      if (!want) return true;
-      const raw = key === 'Date/Time' ? (excelWhen(col(row, key)) || col(row, key)) : col(row, key);
-      return String(raw ?? '').trim() === want;
-    });
-  });
+function yearsInData() {
+  const s = new Set();
+  for (const r of indexedRows) if (r.y) s.add(r.y);
+  return [...s].sort((a, b) => b - a);
+}
+function monthsInYear(year) {
+  const s = new Set();
+  for (const r of indexedRows) if (!year || r.y === +year) { if (r.m) s.add(r.m); }
+  return [...s].sort((a, b) => a - b);
+}
+function daysInMonth(year, month) {
+  const s = new Set();
+  for (const r of indexedRows) {
+    if (year && r.y !== +year) continue;
+    if (month && r.m !== +month) continue;
+    if (r.d) s.add(r.d);
+  }
+  return [...s].sort((a, b) => a - b);
+}
+function fillDateSlicers() {
+  const df = dateFilter();
+  const yearEl = document.getElementById('dateYear');
+  const monthEl = document.getElementById('dateMonth');
+  const dayEl = document.getElementById('dateDay');
+  if (!yearEl) return;
+  const years = yearsInData();
+  yearEl.innerHTML = `<option value="">All years</option>` + years.map(y => `<option value="${y}" ${df.year == y ? 'selected' : ''}>${y}</option>`).join('');
+  const months = monthsInYear(df.year);
+  monthEl.innerHTML = `<option value="">All months</option>` + months.map(m => `<option value="${m}" ${df.month == m ? 'selected' : ''}>${MONTHS[m - 1]}</option>`).join('');
+  monthEl.disabled = !df.year;
+  const days = daysInMonth(df.year, df.month);
+  dayEl.innerHTML = `<option value="">All days</option>` + days.map(d => `<option value="${d}" ${df.day == d ? 'selected' : ''}>${d}</option>`).join('');
+  dayEl.disabled = !df.year || !df.month;
+}
+function isColFiltered(k) {
+  if (k === 'Date/Time') {
+    const df = dateFilter();
+    return !!(df.year || df.month || df.day);
+  }
+  return !!(tableFilters[k] && tableFilters[k].size);
+}
+function renderHistoryChrome() {
+  const head = document.getElementById('histHead');
+  const dateTh = `<th><div class="th-inner">Date/Time <button class="th-menu${tableSort.col === 'Date/Time' ? ' active' : ''}${isColFiltered('Date/Time') ? ' filtered' : ''}" type="button" data-col="Date/Time" aria-label="Sort Date/Time">▾</button></div><div class="date-slicers">
+    <select id="dateYear"></select><select id="dateMonth"></select><select id="dateDay"></select>
+  </div></th>`;
+  const others = TABLE_COLS.slice(1).map(k => {
+    const sortHint = tableSort.col === k ? (tableSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    const on = isColFiltered(k) || tableSort.col === k ? ' active' : '';
+    const filtered = isColFiltered(k) ? ' filtered' : '';
+    return `<th><div class="th-inner">${esc(k)}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
+  }).join('');
+  head.innerHTML = `<tr><th></th>${dateTh}${others}</tr>`;
+  fillDateSlicers();
+  document.getElementById('dateYear').onchange = () => {
+    tableFilters['Date/Time'] = { year: document.getElementById('dateYear').value, month: '', day: '' };
+    filteredDirty = true; fillDateSlicers(); renderHistoryBody(true);
+  };
+  document.getElementById('dateMonth').onchange = () => {
+    const df = dateFilter();
+    tableFilters['Date/Time'] = { year: df.year, month: document.getElementById('dateMonth').value, day: '' };
+    filteredDirty = true; fillDateSlicers(); renderHistoryBody(true);
+  };
+  document.getElementById('dateDay').onchange = () => {
+    const df = dateFilter();
+    tableFilters['Date/Time'] = { year: df.year, month: df.month, day: document.getElementById('dateDay').value };
+    filteredDirty = true; renderHistoryBody(true);
+  };
+}
+function rowHtml(r) {
+  const tds = TABLE_COLS.map(k => `<td>${r.display[k]}</td>`).join('');
+  return `<tr><td><button class="icon" type="button" data-view="${r.idx}" title="View result">${EYE}</button></td>${tds}</tr>`;
+}
+function renderHistoryBody(force) {
+  const body = document.getElementById('histBody');
+  const wrap = document.getElementById('histWrap');
+  const rows = getFilteredRows();
+  const current = hasCurrentSheet() && !Object.values(tableFilters).some(v => v && (v.size || v.year || v.month || v.day));
+  const extra = current ? 1 : 0;
+  const total = rows.length + extra;
+  const viewH = wrap.clientHeight || 400;
+  const start = Math.max(0, Math.floor(wrap.scrollTop / ROW_H) - 12);
+  const vis = Math.ceil(viewH / ROW_H) + 24;
+  const end = Math.min(total, start + vis);
+  const key = `${start}:${end}:${total}:${tableSort.col}:${tableSort.dir}:${tableSort.mode}:${wrap.scrollTop < 2}`;
+  if (!force && key === histRangeKey) return;
+  histRangeKey = key;
+  const topH = start * ROW_H;
+  const botH = Math.max(0, (total - end) * ROW_H);
+  const parts = [`<tr class="spacer"><td colspan="20" style="height:${topH}px;padding:0;border:0"></td></tr>`];
+  for (let i = start; i < end; i++) {
+    if (current && i === 0) {
+      parts.push(`<tr><td><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${TABLE_COLS.length - 2}">Values copied from S4</td></tr>`);
+      continue;
+    }
+    const r = rows[i - extra];
+    if (r) parts.push(rowHtml(r));
+  }
+  parts.push(`<tr class="spacer"><td colspan="20" style="height:${botH}px;padding:0;border:0"></td></tr>`);
+  body.innerHTML = parts.join('');
+  document.getElementById('histMeta').textContent = `Showing ${rows.length} of ${indexedRows.length} results`;
 }
 function renderHistoryTable() {
-  const table = document.getElementById('histTable');
-  const all = sortedHistoryRows();
-  const rows = filteredHistoryRows();
-  const head = TABLE_COLS.map(k => `<th>${esc(k)}</th>`).join('');
-  const filters = TABLE_COLS.map(k => {
-    const opts = uniqueValues(all.map(x => x.row), k).map(v =>
-      `<option value="${esc(v)}" ${tableFilters[k] === v ? 'selected' : ''}>${esc(v)}</option>`
-    ).join('');
-    return `<th><select data-col="${esc(k)}"><option value="">All</option>${opts}</select></th>`;
+  filteredDirty = true;
+  histRangeKey = '';
+  renderHistoryChrome();
+  const wrap = document.getElementById('histWrap');
+  wrap.scrollTop = 0;
+  renderHistoryBody(true);
+}
+function closeFilterPop() {
+  document.getElementById('filterPop').classList.remove('show');
+  openFilterCol = null;
+}
+function openFilterMenu(col, anchor) {
+  const pop = document.getElementById('filterPop');
+  if (openFilterCol !== col) pop.dataset.q = '';
+  openFilterCol = col;
+  const numeric = NUM_COLS.has(col);
+  if (col === 'Date/Time') {
+    pop.innerHTML = `<button class="secondary sort-btn" type="button" data-sort="asc" data-mode="date">Sort oldest to newest</button>
+      <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="date">Sort newest to oldest</button>`;
+    const r = anchor.getBoundingClientRect();
+    pop.style.left = Math.min(r.left, window.innerWidth - 300) + 'px';
+    pop.style.top = Math.min(r.bottom + 4, window.innerHeight - 160) + 'px';
+    pop.classList.add('show');
+    pop.querySelectorAll('[data-sort]').forEach(btn => {
+      btn.onclick = () => {
+        tableSort = { col: 'Date/Time', dir: btn.dataset.sort, mode: 'date' };
+        filteredDirty = true;
+        closeFilterPop();
+        renderHistoryChrome();
+        renderHistoryBody(true);
+      };
+    });
+    return;
+  }
+  const selected = tableFilters[col];
+  const q = (pop.dataset.q || '').toLowerCase();
+  let values = uniqueSorted(colUniques[col] || [], numeric);
+  if (q) values = values.filter(v => String(v).toLowerCase().includes(q));
+  const shown = values.slice(0, 250);
+  const sortBtns = `<button class="secondary sort-btn" type="button" data-sort="asc" data-mode="text">Sort A to Z</button>
+       <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="text">Sort Z to A</button>
+       <button class="secondary sort-btn" type="button" data-sort="asc" data-mode="num">Sort smallest to largest</button>
+       <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="num">Sort largest to smallest</button>`;
+  const checks = shown.map(v => {
+    const on = !selected || selected.has(String(v));
+    return `<label><input type="checkbox" data-val="${esc(String(v))}" ${on ? 'checked' : ''}>${esc(String(v))}</label>`;
   }).join('');
-  const currentRow = hasCurrentSheet()
-    ? `<tr><td><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${TABLE_COLS.length - 2}">Values copied from S4</td></tr>`
-    : '';
-  const body = currentRow + rows.map(({ row, idx }) => {
-    const tds = TABLE_COLS.map(k => `<td>${displayCell(k, col(row, k))}</td>`).join('');
-    return `<tr><td><button class="icon" type="button" data-view="${idx}" title="View result">${EYE}</button></td>${tds}</tr>`;
-  }).join('');
-  table.innerHTML = `<thead><tr><th></th>${head}</tr><tr class="filters"><th></th>${filters}</tr></thead><tbody>${body || '<tr><td colspan="20">No rows match the slicers</td></tr>'}</tbody>`;
-  table.querySelectorAll('select[data-col]').forEach(sel => {
-    sel.onchange = () => { tableFilters[sel.dataset.col] = sel.value; renderHistoryTable(); };
-  });
-  table.querySelectorAll('button[data-view]').forEach(btn => {
-    btn.onclick = () => {
-      if (btn.dataset.view === 'current') viewCurrent();
-      else viewResult(Number(btn.dataset.view));
-    };
-  });
-  const meta = document.getElementById('histMeta');
-  meta.textContent = `Showing ${rows.length} of ${all.length} results, newest first`;
+  pop.innerHTML = `${sortBtns}
+    <input type="search" id="filterSearch" placeholder="Search" value="${esc(pop.dataset.q || '')}">
+    <label><input type="checkbox" id="filterAll" ${!selected ? 'checked' : ''}> (Select All)</label>
+    <div class="filter-list">${checks || '<div>No values</div>'}${values.length > 250 ? '<div>Type to search for more</div>' : ''}</div>
+    <div class="modal-actions"><button type="button" id="filterApply">Apply</button><button class="secondary" type="button" id="filterClear">Clear</button></div>`;
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = Math.min(r.left, window.innerWidth - 300) + 'px';
+  pop.style.top = Math.min(r.bottom + 4, window.innerHeight - 360) + 'px';
+  pop.classList.add('show');
+    pop.querySelectorAll('[data-sort]').forEach(btn => {
+      btn.onclick = () => {
+        tableSort = { col, dir: btn.dataset.sort, mode: btn.dataset.mode || (numeric ? 'num' : 'text') };
+        filteredDirty = true;
+        closeFilterPop();
+        renderHistoryChrome();
+        renderHistoryBody(true);
+      };
+    });
+  document.getElementById('filterSearch').oninput = (e) => {
+    pop.dataset.q = e.target.value;
+    openFilterMenu(col, anchor);
+    document.getElementById('filterSearch').focus();
+    const el = document.getElementById('filterSearch');
+    el.setSelectionRange(el.value.length, el.value.length);
+  };
+  document.getElementById('filterAll').onchange = (e) => {
+    pop.querySelectorAll('.filter-list input[type="checkbox"]').forEach(c => { c.checked = e.target.checked; });
+  };
+  document.getElementById('filterApply').onclick = () => {
+    const boxes = [...pop.querySelectorAll('.filter-list input[type="checkbox"]')];
+    const on = boxes.filter(c => c.checked).map(c => c.dataset.val);
+    const allOn = document.getElementById('filterAll').checked && !pop.dataset.q;
+    tableFilters[col] = (allOn || on.length === (colUniques[col] || []).length) ? null : new Set(on);
+    pop.dataset.q = '';
+    filteredDirty = true;
+    closeFilterPop();
+    renderHistoryChrome();
+    renderHistoryBody(true);
+  };
+  document.getElementById('filterClear').onclick = () => {
+    tableFilters[col] = null;
+    pop.dataset.q = '';
+    filteredDirty = true;
+    closeFilterPop();
+    renderHistoryChrome();
+    renderHistoryBody(true);
+  };
+}
+function fillSpcControls() {
+  const by = document.getElementById('spcBy').value;
+  const sel = document.getElementById('spcValue');
+  document.getElementById('spcValueName').textContent = by === 'mspec' ? 'MSPEC' : 'Item #';
+  const values = uniqueSorted([...new Set(indexedRows.map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
+  let preferred = sel.value;
+  if (!preferred) {
+    if (viewingIdx !== 'current' && historyPack && historyPack.rows[Number(viewingIdx)]) {
+      const row = historyPack.rows[Number(viewingIdx)];
+      preferred = by === 'mspec' ? col(row, 'MSPEC') : col(row, 'Item #');
+    } else preferred = by === 'mspec' ? (currentSnapshot.mspec || '') : (currentSnapshot.item || '');
+  }
+  sel.innerHTML = values.map(v => `<option value="${esc(v)}" ${String(v) === String(preferred) ? 'selected' : ''}>${esc(v)}</option>`).join('');
+  if (preferred && values.includes(String(preferred))) sel.value = preferred;
+  else if (values.length && !sel.value) sel.value = values[0];
+  syncSpcDates(false);
+  document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
+}
+function spcSelectedRows() {
+  const by = document.getElementById('spcBy').value;
+  const val = String(document.getElementById('spcValue').value || '').trim();
+  let rows = indexedRows.filter(r => (by === 'mspec' ? r.mspec : r.item) === val);
+  const from = document.getElementById('spcFrom').value;
+  const to = document.getElementById('spcTo').value;
+  if (from) {
+    const minS = Date.parse(from + 'T00:00:00') / 86400000 + 25569;
+    rows = rows.filter(r => r.serial >= minS);
+  }
+  if (to) {
+    const maxS = Date.parse(to + 'T23:59:59') / 86400000 + 25569;
+    rows = rows.filter(r => r.serial <= maxS);
+  }
+  rows.sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  return rows;
+}
+function syncSpcDates(force) {
+  const rows = (() => {
+    const by = document.getElementById('spcBy').value;
+    const val = String(document.getElementById('spcValue').value || '').trim();
+    return indexedRows.filter(r => (by === 'mspec' ? r.mspec : r.item) === val);
+  })();
+  const serials = rows.map(r => r.serial).filter(isFinite);
+  if (!serials.length) return;
+  const toIso = s => {
+    const d = new Date(Math.round((s - 25569) * 86400 * 1000));
+    if (isNaN(d.getTime())) return '';
+    return isoFromParts(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  };
+  const fromEl = document.getElementById('spcFrom');
+  const toEl = document.getElementById('spcTo');
+  if (force || !fromEl.value) fromEl.value = toIso(Math.min(...serials));
+  if (force || !toEl.value) toEl.value = toIso(Math.max(...serials));
+}
+function openSpc() {
+  if (!indexedRows.length) { toast('Paste TableS4 results first'); return; }
+  setViewMode('spc');
+  setScreen('view');
 }
 function viewResult(idx) {
   viewingIdx = idx;
@@ -655,9 +996,14 @@ function applyDieGraph2(text) {
   captureCurrentSnapshot(meta);
   historyPack = { item: meta.item || '', mspec: meta.mspec || '', rows: table.rows, lookupByMspec };
   tableFilters = {};
+  tableSort = { col: 'Date/Time', dir: 'desc' };
+  indexHistory();
   const n = table.rows.length;
   toast(n ? `Loaded ${n} past result${n === 1 ? '' : 's'}` : 'Loaded current sheet');
-  if (n) { renderHistoryTable(); setScreen('history'); }
+  if (n) {
+    setScreen('history');
+    requestAnimationFrame(() => renderHistoryTable());
+  }
   else { viewingIdx = 'current'; setScreen('view'); refreshChecks(); }
   return true;
 }
@@ -816,20 +1162,20 @@ function finiteMinMax(vals) {
   const pad = (hi - lo) * 0.12;
   return { min: lo - pad, max: hi + pad };
 }
+function extremeFences(values) {
+  const s = values.filter(v => isFinite(v)).slice().sort((a, b) => a - b);
+  if (s.length < 4) return { lo: -Infinity, hi: Infinity };
+  const at = p => {
+    const i = (s.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i);
+    return s[lo] + (s[hi] - s[lo]) * (i - lo);
+  };
+  const iqr = at(0.75) - at(0.25);
+  return { lo: at(0.25) - 3 * iqr, hi: at(0.75) + 3 * iqr };
+}
 function rangeAsThousandths(v) {
   const n = parseFloat(v);
   if (!isFinite(n)) return NaN;
   return Math.abs(n) < 1 ? n * 1000 : n;
-}
-function spcPointsForItem(item) {
-  const id = String(item || '').trim();
-  return sortedHistoryRows().filter(x => String(col(x.row, 'Item #')).trim() === id).reverse().map(({ row, idx }) => ({
-    idx, row,
-    t: numVal(col(row, 'Date/Time')),
-    avg: numVal(col(row, 'Thickness Average')),
-    range: rangeAsThousandths(col(row, 'Thickness Range')),
-    density: numVal(col(row, 'Density'))
-  }));
 }
 function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTarget, selectedIdx) {
   const { x, y, w, h } = panel;
@@ -843,8 +1189,10 @@ function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTar
   ctx.fillText(title + (unit ? '  (' + unit + ')' : ''), x + 10, y + 8);
   const padL = 52, padR = 14, padT = 28, padB = 28;
   const plot = { x: x + padL, y: y + padT, w: Math.max(20, w - padL - padR), h: Math.max(20, h - padT - padB) };
-  const values = pts.map(p => p[key]).filter(v => isFinite(v));
-  const ym = finiteMinMax([specMin, specMax, specTarget, ...values]);
+  const fences = extremeFences(pts.map(p => p[key]));
+  const flagged = pts.map(p => isFinite(p[key]) && (p[key] < fences.lo || p[key] > fences.hi));
+  const plotVals = pts.filter((p, i) => isFinite(p[key]) && !(spcHideOutliers && flagged[i])).map(p => p[key]);
+  const ym = finiteMinMax([specMin, specMax, specTarget, ...plotVals]);
   const yAt = v => plot.y + plot.h - ((v - ym.min) / (ym.max - ym.min)) * plot.h;
   const xAt = (i, n) => n <= 1 ? plot.x + plot.w / 2 : plot.x + (i / (n - 1)) * plot.w;
   const specLine = (val, color) => {
@@ -867,19 +1215,26 @@ function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTar
   ctx.strokeStyle = c.text; ctx.globalAlpha = 0.85; ctx.lineWidth = 2; ctx.beginPath();
   let started = false;
   pts.forEach((p, i) => {
-    if (!isFinite(p[key])) return;
+    if (!isFinite(p[key]) || (spcHideOutliers && flagged[i])) return;
     const xx = xAt(i, n), yy = yAt(p[key]);
     if (!started) { ctx.moveTo(xx, yy); started = true; } else ctx.lineTo(xx, yy);
   });
   ctx.stroke(); ctx.globalAlpha = 1;
   pts.forEach((p, i) => {
     if (!isFinite(p[key])) return;
+    if (spcHideOutliers && flagged[i]) return;
     const xx = xAt(i, n), yy = yAt(p[key]);
+    const outlier = flagged[i];
     const inSpec = judgeBetween(p[key], specMin, specMax);
     const selected = p.idx === selectedIdx;
-    ctx.beginPath(); ctx.arc(xx, yy, selected ? 6 : 4, 0, Math.PI * 2);
-    ctx.fillStyle = selected ? '#2563eb' : (inSpec === 'Fail' ? c.thickDot : c.inDot);
-    ctx.fill(); ctx.lineWidth = selected ? 2.5 : 1.4; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+    if (outlier && !spcHideOutliers) {
+      ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(xx - 5, yy - 5); ctx.lineTo(xx + 5, yy + 5); ctx.moveTo(xx + 5, yy - 5); ctx.lineTo(xx - 5, yy + 5); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(xx, yy, selected ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = selected ? '#2563eb' : (inSpec === 'Fail' ? c.thickDot : c.inDot);
+      ctx.fill(); ctx.lineWidth = selected ? 2.5 : 1.4; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+    }
     spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx });
   });
   if (n) {
@@ -898,16 +1253,20 @@ function drawSpc() {
   spcHits = [];
   ctx.clearRect(0, 0, canvasW, canvasH);
   ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
-  let item = currentSnapshot.item || '';
-  if (viewingIdx !== 'current' && historyPack) item = col(historyPack.rows[Number(viewingIdx)], 'Item #') || item;
-  const pts = historyPack ? spcPointsForItem(item) : [];
+  const pts = spcSelectedRows().map(r => ({
+    idx: r.idx, row: r.row, t: r.serial,
+    avg: r.num['Thickness Average'],
+    range: r.num['Thickness Range'],
+    density: r.num['Density']
+  }));
   if (!pts.length) {
     ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(item ? 'No TableS4 rows for this item' : 'No item number on this result', canvasW / 2, canvasH / 2);
+    ctx.fillText(indexedRows.length ? 'No rows for this series / time frame' : 'Paste TableS4 data to see SPC', canvasW / 2, canvasH / 2);
     return;
   }
-  const mspec = col(pts[pts.length - 1].row, 'MSPEC') || currentSnapshot.mspec;
+  const by = document.getElementById('spcBy').value;
+  const mspec = by === 'mspec' ? document.getElementById('spcValue').value : (col(pts[pts.length - 1].row, 'MSPEC') || currentSnapshot.mspec);
   const specs = lookupSpecs(mspec) || {};
   const selectedIdx = viewingIdx === 'current' ? -1 : Number(viewingIdx);
   const gap = 8, panelH = (canvasH - gap * 4) / 3;
@@ -1037,7 +1396,10 @@ window.addEventListener('mouseup', onPointerUp);
 canvas.addEventListener('touchstart', onPointerDown, { passive: false });
 window.addEventListener('touchmove', onPointerMove, { passive: false });
 window.addEventListener('touchend', onPointerUp);
-window.addEventListener('resize', () => { if (screenName === 'view') draw(); });
+window.addEventListener('resize', () => {
+  if (screenName === 'view') draw();
+  if (screenName === 'history') { histRangeKey = ''; renderHistoryBody(true); }
+});
 document.getElementById('welcomePaste').onclick = applyFromClipboard;
 document.getElementById('histPaste').onclick = applyFromClipboard;
 document.getElementById('welcomeEnter').onclick = () => {
@@ -1046,12 +1408,59 @@ document.getElementById('welcomeEnter').onclick = () => {
   captureCurrentSnapshot({});
   setViewMode('centration'); setScreen('view'); refreshChecks();
 };
-document.getElementById('histBack').onclick = () => { historyPack = null; tableFilters = {}; setScreen('welcome'); };
-document.getElementById('viewBack').onclick = () => { if (historyPack && historyPack.rows.length) { renderHistoryTable(); setScreen('history'); } else setScreen('welcome'); };
-document.getElementById('histClearFilters').onclick = () => { tableFilters = {}; renderHistoryTable(); };
+document.getElementById('welcomeSpc').onclick = document.getElementById('histSpc').onclick = openSpc;
+document.getElementById('histBack').onclick = () => {
+  historyPack = null; tableFilters = {}; indexedRows = []; colUniques = {}; setScreen('welcome');
+};
+document.getElementById('viewBack').onclick = () => {
+  if (indexedRows.length) {
+    setViewMode('centration');
+    setScreen('history');
+    requestAnimationFrame(() => renderHistoryBody(true));
+  } else setScreen('welcome');
+};
+document.getElementById('histClearFilters').onclick = () => {
+  tableFilters = {}; tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' }; renderHistoryTable();
+};
 document.getElementById('copyBtn').onclick = copyValues;
 document.getElementById('clearBtn').onclick = clearValues;
-document.getElementById('modeBtn').onclick = () => { setViewMode(viewMode === 'spc' ? 'centration' : 'spc'); draw(); };
+document.getElementById('modeBtn').onclick = () => {
+  if (viewMode === 'spc') { setViewMode('centration'); draw(); }
+  else openSpc();
+};
+document.getElementById('spcBy').onchange = () => {
+  document.getElementById('spcValue').value = '';
+  fillSpcControls();
+  syncSpcDates(true);
+  draw();
+};
+document.getElementById('spcValue').onchange = () => { syncSpcDates(true); draw(); };
+document.getElementById('spcFrom').onchange = document.getElementById('spcTo').onchange = () => draw();
+document.getElementById('spcOutliers').onclick = () => {
+  spcHideOutliers = !spcHideOutliers;
+  document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
+  draw();
+};
+document.getElementById('histWrap').addEventListener('scroll', () => {
+  if (histPaint) return;
+  histPaint = requestAnimationFrame(() => { histPaint = 0; renderHistoryBody(); });
+}, { passive: true });
+document.getElementById('histBody').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-view]');
+  if (!btn) return;
+  if (btn.dataset.view === 'current') viewCurrent();
+  else viewResult(Number(btn.dataset.view));
+});
+document.getElementById('histHead').addEventListener('click', (e) => {
+  const btn = e.target.closest('.th-menu');
+  if (!btn) return;
+  e.stopPropagation();
+  if (openFilterCol === btn.dataset.col) closeFilterPop();
+  else openFilterMenu(btn.dataset.col, btn);
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#filterPop') && !e.target.closest('.th-menu')) closeFilterPop();
+});
 document.addEventListener('paste', (e) => {
   const tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' && e.target.id !== 'clipCatcher') return;

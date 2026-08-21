@@ -63,6 +63,27 @@ assert.match(html, /Width/);
 assert.match(html, /function drawSpc/);
 assert.match(html, /function clearClipboard/);
 assert.match(html, /navigator\.clipboard\.writeText\(''\)/);
+assert.match(html, /id="dateYear"/);
+assert.match(html, /id="dateMonth"/);
+assert.match(html, /id="dateDay"/);
+assert.match(html, /Sort A to Z/);
+assert.match(html, /Sort smallest to largest/);
+assert.match(html, /id="spcBy"/);
+assert.match(html, /id="spcValue"/);
+assert.match(html, /id="spcFrom"/);
+assert.match(html, /id="spcTo"/);
+assert.match(html, /id="spcOutliers"/);
+assert.match(html, /Show outliers/);
+assert.match(html, /spcHideOutliers = true/);
+assert.match(html, /function extremeFences/);
+assert.match(html, /function indexHistory/);
+assert.match(html, /function renderHistoryBody/);
+assert.match(html, /id="welcomeSpc"/);
+assert.match(html, /id="histSpc"/);
+assert.match(html, /id="modeBtn"/);
+assert.doesNotMatch(html, /id="modeBtn"[^>]*hidden/);
+assert.match(html, /ROW_H = 42/);
+assert.match(html, /option value="mspec"/);
 
 assert.equal(parseRangeSpec('6'), 0.006);
 assert.ok(!/^DIEGRAPH\b/i.test('DIEGRAPH2'));
@@ -102,5 +123,19 @@ assert.equal(tvals[4], 0.5171);
 const dated = table.rows.map((row, idx) => ({ row, idx }))
   .sort((a, b) => parseFloat(col(b.row, 'Date/Time')) - parseFloat(col(a.row, 'Date/Time')));
 assert.ok(parseFloat(col(dated[0].row, 'Date/Time')) >= parseFloat(col(dated[dated.length - 1].row, 'Date/Time')));
+
+function extremeFences(values) {
+  const s = values.filter(v => isFinite(v)).slice().sort((a, b) => a - b);
+  if (s.length < 4) return { lo: -Infinity, hi: Infinity };
+  const at = p => {
+    const i = (s.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i);
+    return s[lo] + (s[hi] - s[lo]) * (i - lo);
+  };
+  const iqr = at(0.75) - at(0.25);
+  return { lo: at(0.25) - 3 * iqr, hi: at(0.75) + 3 * iqr };
+}
+const fences = extremeFences([1, 2, 2, 3, 3, 3, 4, 100]);
+assert.ok(100 > fences.hi);
+assert.ok(3 < fences.hi);
 
 console.log('parse-diegraph tests passed');

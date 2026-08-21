@@ -1,0 +1,47 @@
+DIEGRAPH2
+[CURRENT]
+source=S1S3
+item=410805
+mspec=4003
+line=S3
+min=0.24
+target=0.25
+max=0.26
+range=24
+densMin=1
+densTarget=1.1
+densMax=1.2
+cellMin=18
+widthMin=74.5
+widthTarget=75
+width=75
+widthPf=Pass
+cellMd=22
+cellCd=22
+density=0.9287616752033746
+avg=0.25530769230769229
+avgPf=Pass
+tRange=0.014
+tRangePf=Pass
+weight=19.76
+0.252
+0.251
+0.25
+0.25
+0.259
+0.264
+0.264
+0.257
+0.255
+0.253
+0.255
+0.251
+0.258
+[LOOKUP]
+MSPEC #	AF#	Lower Spec	Lower Control	Target	Upper Control	Upper Spec	Thickness Range Max	Cell Count Min	Cell Count Max	Density Min	Density Target	Density Max
+4001	AF125		0.115	0.125	0.13500000000000001		30	20	24	0.9	1	1.1000000000000001
+4003	AF250		0.24	0.25	0.26		24	18	22	1	1.1000000000000001	1.2
+[TABLES1S3]
+Item Desc	MSPEC	Date/Time	Line	Item #	Bundle #	Slit/Width	Footage	Perf	Bundle Tight/Loose	Tape Color	Cell Count MD	Cell Count CD	Thickness Average	Thickness Range	Density	Pass/Fail	User	Reason for Check	Notes	Diameter (ULINE only)	T1	T2	T3	T4	T5	T6	T7	T8	T9	T10	T11	T12	T13	Weight	Slit/Width Pass/Fail	Perf Pass/Fail	Thickness Average Pass/Fail	Thickness Range Pass/Fail	Diameter Pass/Fail	Winder Tension	Bump Roll Pressure	Winder Tension Pass/Fail	Bump Roll Pass/Fail
+AF250 1/4 74"X500'	4003	45880.65960648148	S3	410805	7	75	500		PASS	BROWN	22	22	0.25530769230769229	0.014	0.9287616752033746	Pass	SONOFRE	HOURLY			0.252	0.251	0.25	0.25	0.259	0.264	0.264	0.257	0.255	0.253	0.255	0.251	0.258	19.76	Pass		Pass	Pass			
+AF125 1/8 48"X450' S24" P12"	4001	45880.475439814814	S1	43477	30	24	456	0	PASS	RED	20	20			Fail	FFLORES	HOURLY	.123 Average thickness		0.12	0.125	0.124	0.12	0.118	0.125	0.13	0.12	0.122	0.127	0.122	0.128	0.125	11.6	Fail	Fail	Fail	Pass			

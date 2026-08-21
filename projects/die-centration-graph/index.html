@@ -236,7 +236,7 @@
 <section class="screen" id="screenWelcome">
   <div class="card welcome">
     <h1>Die Centration Graph</h1>
-    <p>Paste inspection results from Excel, or type thickness points yourself.</p>
+    <p>Paste Copy for Graph from the S4 or S1 S3 quality check sheet, or type thickness points yourself.</p>
     <div class="actions">
       <button type="button" id="welcomePaste">Paste results</button>
       <div class="welcome-extra">
@@ -376,7 +376,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.4.4';
+const APP_VERSION = '1.4.5';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -730,8 +730,12 @@ function splitDieGraph2(text) {
   const sections = { CURRENT: [], LOOKUP: [], TABLES4: [] };
   let cur = null;
   for (const line of lines.slice(1)) {
-    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4)\]$/i);
-    if (m) { cur = m[1].toUpperCase(); continue; }
+    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|HISTORY)\]$/i);
+    if (m) {
+      const name = m[1].toUpperCase();
+      cur = (name === 'TABLES1S3' || name === 'HISTORY') ? 'TABLES4' : name;
+      continue;
+    }
     if (cur) sections[cur].push(line);
   }
   return sections;
@@ -963,6 +967,14 @@ function esc(s) {
 }
 function hasCurrentSheet() {
   return !!(currentSnapshot && (currentSnapshot.item || (currentSnapshot.values || []).some(v => v !== '' && v != null)));
+}
+function currentSheetSourceLabel() {
+  const src = String((currentSnapshot && currentSnapshot.source) || '').trim().toUpperCase();
+  if (src === 'S1S3') return 'S1 S3';
+  if (src === 'S4') return 'S4';
+  const line = String((currentSnapshot && currentSnapshot.line) || '').trim().toUpperCase();
+  if (/^S[134]$/.test(line)) return line;
+  return 'sheet';
 }
 function dateParts(serial) {
   const n = numVal(serial);
@@ -1275,7 +1287,7 @@ function renderHistoryBody(force) {
   const parts = [spacerRow(topH)];
   for (let i = start; i < end; i++) {
     if (current && i === 0) {
-      parts.push(`<tr><td><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${TABLE_COLS.length - 2}">Values copied from S4</td></tr>`);
+      parts.push(`<tr><td><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${TABLE_COLS.length - 2}">Values copied from ${esc(currentSheetSourceLabel())}</td></tr>`);
       continue;
     }
     const r = rows[i - extra];

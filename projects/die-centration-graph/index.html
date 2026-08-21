@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Die Centration Radial Graph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef1f5; --bg-elev: #ffffff; --text: #12202b; --muted: #3e4a55; --line: #d5dde4;
+    --accent: #1d4ed8; --ok: #166534; --ok-bg: #dcfce7; --thin: #92400e; --thin-bg: #fef3c7;
+    --thick: #991b1b; --thick-bg: #fee2e2; --idle: #f8fafc; --shadow: 0 8px 24px rgba(15, 23, 42, .08);
+  }
+  html[data-theme="dark"] {
+    --bg: #0c1116; --bg-elev: #151c24; --text: #f3f7fb; --muted: #c5d0db; --line: #2a3541;
+    --accent: #3b82f6; --ok: #86efac; --ok-bg: #14532d; --thin: #fcd34d; --thin-bg: #78350f;
+    --thick: #fca5a5; --thick-bg: #7f1d1d; --idle: #0f1620; --shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif;
+    background: var(--bg); color: var(--text); font-size: 18px; overflow: hidden;
+  }
+  .app { height: 100dvh; display: grid; grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  h1 { font-size: 24px; margin: 0; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  .layout {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr) minmax(250px, 300px);
+    gap: 12px;
+  }
+  .card { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); min-height: 0; }
+  .panel { padding: 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .panel h2, .side h2 { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; overflow: auto; flex: 1; min-height: 0; padding-right: 4px; }
+  .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .field label { font-size: 16px; font-weight: 700; display: flex; gap: 6px; align-items: center; }
+  .field input, .specs input, .modal input, .history select {
+    width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
+    font: inherit; font-size: 18px; background: var(--idle); color: var(--text);
+  }
+  .field input, .specs input, .modal input {
+    text-align: center; appearance: textfield; -moz-appearance: textfield;
+  }
+  .history select { text-align: left; font-size: 15px; }
+  .history { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+  .history[hidden] { display: none; }
+  .history label { display: flex; flex-direction: column; gap: 3px; font-size: 14px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .histMeta { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.35; }
+  .field input::-webkit-outer-spin-button, .field input::-webkit-inner-spin-button,
+  .specs input::-webkit-outer-spin-button, .specs input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .field.in input { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); font-weight: 700; }
+  .field.thin input { background: var(--thin-bg); border-color: var(--thin); color: var(--thin); font-weight: 700; }
+  .field.thick input { background: var(--thick-bg); border-color: var(--thick); color: var(--thick); font-weight: 700; }
+  .actions { display: grid; gap: 8px; flex-shrink: 0; }
+  .side { padding: 14px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+  .specs { display: grid; gap: 8px; }
+  .specs label { font-size: 15px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; }
+  .specs input { width: 108px; flex: 0 0 108px; }
+  button {
+    border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer;
+    background: var(--accent); color: #fff; font: inherit; font-size: 16px; font-weight: 700; min-height: 44px;
+  }
+  button.secondary { background: var(--bg-elev); color: var(--text); border: 2px solid var(--line); }
+  button.full { width: 100%; }
+  button.copied { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .stat, .alert {
+    border-radius: 999px; padding: 14px 18px; font-size: 18px; font-weight: 700;
+    line-height: 1.2; border: 2px solid var(--line); background: var(--idle);
+  }
+  .stat { display: flex; justify-content: space-between; gap: 12px; }
+  .stat.good, .alert.good { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+  .stat.bad, .alert.bad { background: var(--thick-bg); color: var(--thick); border-color: var(--thick); }
+  .canvas-wrap { display: grid; grid-template-rows: auto 1fr; min-height: 0; overflow: hidden; }
+  .canvas-head { padding: 8px 12px; font-size: 16px; color: var(--muted); font-weight: 700; display: flex; justify-content: flex-end; border-bottom: 1px solid var(--line); }
+  .stage { min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px; }
+  canvas { display: block; max-width: 100%; max-height: 100%; }
+  .legend { display: flex; gap: 12px; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .overlay.show { display: flex; }
+  .modal { width: min(440px, 100%); background: var(--bg-elev); color: var(--text); border-radius: 16px; padding: 18px; border: 1px solid var(--line); }
+  .modal h3 { margin: 0 0 12px; font-size: 22px; }
+  .modal label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; font-weight: 700; }
+  .modal input { width: 100px; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 700; margin: 12px 0; }
+  .switch { position: relative; width: 52px; height: 30px; flex: 0 0 52px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--line); border-radius: 999px; cursor: pointer; }
+  .slider:before { content: ""; position: absolute; height: 22px; width: 22px; left: 4px; top: 4px; background: #fff; border-radius: 50%; transition: .15s; }
+  .switch input:checked + .slider { background: var(--accent); }
+  .switch input:checked + .slider:before { transform: translateX(22px); }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  #clipCatcher { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg-elev); padding: 10px 16px; border-radius: 999px; font-weight: 700; display: none; z-index: 30; }
+  .toast.show { display: block; }
+  @media (max-width: 1100px) {
+    body { overflow: auto; }
+    .app { height: auto; min-height: 100dvh; overflow: visible; }
+    .layout { grid-template-columns: 1fr; }
+    .panel { max-height: 70dvh; }
+    .stage { min-height: 380px; }
+  }
+</style>
+</head>
+<body>
+<textarea id="clipCatcher" aria-hidden="true"></textarea>
+<div class="toast" id="toast"></div>
+<div class="app">
+  <header>
+    <h1>Die Centration Radial Graph</h1>
+    <div class="toolbar">
+      <button class="secondary" id="themeBtn" type="button">Dark mode</button>
+      <button class="secondary" id="settingsBtn" type="button">Settings</button>
+      <button class="secondary" id="arrowToggle" type="button">Show arrow</button>
+      <button class="secondary" id="resetArrowBtn" type="button" hidden>Reset arrow</button>
+    </div>
+  </header>
+  <div class="layout">
+    <section class="card panel">
+      <div class="history" id="historyBox" hidden>
+        <h2>Past results</h2>
+        <label>Item #<select id="histItem"></select></label>
+        <label>Record<select id="histRecord"></select></label>
+        <p class="histMeta" id="histMeta"></p>
+      </div>
+      <h2>Thickness points</h2>
+      <div class="grid" id="inputs"></div>
+      <div class="actions">
+        <button class="full" id="clipBtn" type="button">Apply from clipboard</button>
+        <button class="secondary full" id="copyBtn" type="button">Copy values</button>
+        <button class="secondary full" id="clearBtn" type="button">Clear values</button>
+      </div>
+    </section>
+    <section class="card canvas-wrap">
+      <div class="canvas-head">
+        <div class="legend">
+          <span><i class="swatch" style="background:#3c9d5a"></i>In spec</span>
+          <span><i class="swatch" style="background:#e2b340"></i>Thin</span>
+          <span><i class="swatch" style="background:#c24141"></i>Thick</span>
+        </div>
+      </div>
+      <div class="stage"><canvas id="dieCanvas" width="700" height="700"></canvas></div>
+    </section>
+    <aside class="card side">
+      <h2>Specs</h2>
+      <div class="specs">
+        <label>Min thickness <input type="number" id="minThickness" step="0.001" value="0.240"></label>
+        <label>Max thickness <input type="number" id="maxThickness" step="0.001" value="0.260"></label>
+        <label>Range spec max <input type="number" id="rangeSpec" step="0.001" value="0.010"></label>
+      </div>
+      <h2>Results</h2>
+      <div id="summary"></div>
+    </aside>
+  </div>
+</div>
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <h3>Settings</h3>
+    <label>Number of points <input type="number" id="setPoints" min="3" max="36" step="1"></label>
+    <label>Centration bolts <input type="number" id="setBolts" min="4" max="24" step="1"></label>
+    <div class="toggle">
+      <span>Start bolts from bottom</span>
+      <label class="switch"><input type="checkbox" id="setBoltStart"><span class="slider"></span></label>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="saveSettings">Save</button>
+      <button class="secondary" type="button" id="cancelSettings">Cancel</button>
+    </div>
+  </div>
+</div>
+<script>
+const STORE = 'dieGraphState.v3';
+const canvas = document.getElementById('dieCanvas');
+const ctx = canvas.getContext('2d');
+const SOUTH = Math.PI / 2, HANDLE_R = 18;
+const catcher = document.getElementById('clipCatcher');
+let TOTAL = 13, NUM_BOLTS = 4, ANGLE_STEP = (2 * Math.PI) / TOTAL, startBoltsFromBottom = false;
+const points = [], fieldEls = [], markEls = [];
+let showArrow = false, customArrow = false, dragKind = null;
+let lastMin = 0.240, lastMax = 0.260, lastRangeSpec = 0.010, lastValues = [];
+let arrow = { tail: null, head: null };
+let S = 700, center = { x: 350, y: 350 };
+let YELLOW_R = 96, GREEN_R = 210, MAX_PLOT_R = 275, POINT_R = 7, LABEL_R = 250, COMPASS_R = 330, ARROW_GAP = 52;
+
+function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+function palette() {
+  if (isDark()) {
+    return {
+      canvas: '#1b2430', yellow: '#c9a227', yellowStroke: '#e0bd55', green: '#2f7d4a', greenStroke: '#5bd08a',
+      text: '#f3f7fb', muted: '#d0dbe6', halo: '#1b2430', arrow: '#f3f6fa', handle: '#1b2430', pointStroke: '#0b0f14',
+      thinDot: '#e2b340', thickDot: '#ef6b6b', inDot: '#4ade80', idleDot: '#7b8a99', lineOk: '#4ade80', lineBad: '#f87171', bolt: '#1f4e63'
+    };
+  }
+  return {
+    canvas: '#f7f9fc', yellow: '#f2c94c', yellowStroke: '#b8860b', green: '#3c9d5a', greenStroke: '#1f7a3a',
+    text: '#12202b', muted: '#3e4a55', halo: '#f7f9fc', arrow: '#111827', handle: '#ffffff', pointStroke: '#111827',
+    thinDot: '#f2c94c', thickDot: '#b91c1c', inDot: '#22c55e', idleDot: '#94a3b8', lineOk: '#166534', lineBad: '#dc2626', bolt: '#0a4d68'
+  };
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 1600);
+}
+function loadState() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } }
+function saveState() {
+  localStorage.setItem(STORE, JSON.stringify({
+    theme: document.documentElement.getAttribute('data-theme') || 'light',
+    showArrow, customArrow, arrow, TOTAL, NUM_BOLTS, startBoltsFromBottom,
+    min: document.getElementById('minThickness').value,
+    max: document.getElementById('maxThickness').value,
+    range: document.getElementById('rangeSpec').value,
+    values: points.map(p => p.value)
+  }));
+}
+function applyTheme(theme) {
+  const dark = theme === 'dark';
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  document.getElementById('themeBtn').textContent = dark ? 'Light mode' : 'Dark mode';
+}
+function setArrowVisible(on) {
+  showArrow = !!on;
+  document.getElementById('arrowToggle').textContent = showArrow ? 'Hide arrow' : 'Show arrow';
+  document.getElementById('resetArrowBtn').hidden = !showArrow;
+}
+function setupInputs(savedValues) {
+  const container = document.getElementById('inputs');
+  container.innerHTML = '';
+  points.length = 0; fieldEls.length = 0; markEls.length = 0;
+  ANGLE_STEP = (2 * Math.PI) / TOTAL;
+  for (let i = 0; i < TOTAL; i++) {
+    const field = document.createElement('div'); field.className = 'field';
+    const label = document.createElement('label');
+    label.innerHTML = `T${i + 1} <span class="mark"></span>`;
+    const input = document.createElement('input');
+    input.type = 'number'; input.step = '0.001'; input.placeholder = '0.000';
+    if (savedValues && savedValues[i] != null && savedValues[i] !== '') input.value = savedValues[i];
+    input.addEventListener('input', () => { customArrow = false; calculate(); saveState(); });
+    field.append(label, input); container.appendChild(field);
+    points.push(input); fieldEls.push(field); markEls.push(label.querySelector('.mark'));
+  }
+}
+function parseRangeSpec(raw) {
+  const n = parseFloat(raw); if (!isFinite(n)) return NaN;
+  return Math.abs(n) >= 1 ? n / 1000 : n;
+}
+let historyPack = null;
+let currentSnapshot = { values: [], min: '', max: '', range: '', item: '', mspec: '' };
+
+function applyPlainNumbers(values) {
+  for (let i = 0; i < Math.min(values.length, TOTAL); i++) {
+    const v = values[i];
+    points[i].value = (v == null || v === '' || !isFinite(Number(v))) ? '' : Number(v).toFixed(3);
+  }
+}
+function applySpecFields(min, max, range) {
+  if (min != null && isFinite(min)) document.getElementById('minThickness').value = Number(min).toFixed(3);
+  if (max != null && isFinite(max)) document.getElementById('maxThickness').value = Number(max).toFixed(3);
+  if (range != null && isFinite(range)) document.getElementById('rangeSpec').value = Number(range).toFixed(3);
+}
+function applyDieGraphLines(lines) {
+  let min = null, max = null, range = null; const tvals = [];
+  let inPoints = false;
+  for (const raw of lines) {
+    const line = String(raw || '').trim();
+    const m = line.match(/^(min|max|range|target|item|mspec)\s*=\s*(.*)$/i);
+    if (m && !inPoints) {
+      const key = m[1].toLowerCase();
+      if (key === 'item' || key === 'mspec' || key === 'target') continue;
+      const num = parseFloat(m[2]); if (!isFinite(num)) continue;
+      if (key === 'min') min = num; else if (key === 'max') max = num; else range = parseRangeSpec(num);
+      continue;
+    }
+    if (!line && !inPoints) continue;
+    inPoints = true;
+    if (!line) { tvals.push(''); continue; }
+    const num = parseFloat(line);
+    tvals.push(isFinite(num) ? num : '');
+  }
+  applySpecFields(min, max, range);
+  if (tvals.some(v => v !== '')) applyPlainNumbers(tvals);
+  return { min, max, range, tvals };
+}
+function applyDieGraph(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  applyDieGraphLines(lines.slice(1));
+}
+function parseTsv(lines) {
+  const nonempty = lines.map(s => String(s ?? '').replace(/\r/g, '')).filter(l => l.length);
+  if (!nonempty.length) return { headers: [], rows: [] };
+  const headers = nonempty[0].split('\t').map(s => s.trim());
+  const rows = [];
+  for (let i = 1; i < nonempty.length; i++) {
+    const parts = nonempty[i].split('\t');
+    const obj = {};
+    headers.forEach((h, j) => { obj[h] = parts[j] == null ? '' : parts[j]; });
+    rows.push(obj);
+  }
+  return { headers, rows };
+}
+function splitDieGraph2(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [] };
+  let cur = null;
+  for (const line of lines.slice(1)) {
+    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4)\]$/i);
+    if (m) { cur = m[1].toUpperCase(); continue; }
+    if (cur) sections[cur].push(line);
+  }
+  return sections;
+}
+function col(row, ...names) {
+  if (!row) return '';
+  for (const n of names) {
+    if (row[n] != null && String(row[n]).trim() !== '') return row[n];
+  }
+  const keys = Object.keys(row);
+  for (const n of names) {
+    const hit = keys.find(k => k.toLowerCase() === n.toLowerCase());
+    if (hit && String(row[hit]).trim() !== '') return row[hit];
+  }
+  return '';
+}
+function excelWhen(v) {
+  const n = parseFloat(v);
+  if (isFinite(n) && n > 20000 && n < 90000) {
+    const d = new Date(Math.round((n - 25569) * 86400 * 1000));
+    if (!isNaN(d.getTime())) return d.toLocaleString();
+  }
+  const s = String(v || '').trim();
+  return s || '';
+}
+function lookupSpecs(mspec) {
+  if (!historyPack || !historyPack.lookupByMspec) return null;
+  const key = String(mspec || '').trim();
+  if (!key) return null;
+  const row = historyPack.lookupByMspec[key] || historyPack.lookupByMspec[key.replace(/\.0+$/, '')];
+  if (!row) return null;
+  const min = parseFloat(col(row, 'Lower Control', 'Lower Spec'));
+  const max = parseFloat(col(row, 'Upper Control', 'Upper Spec'));
+  const range = parseRangeSpec(col(row, 'Thickness Range Max'));
+  return {
+    min: isFinite(min) ? min : null,
+    max: isFinite(max) ? max : null,
+    range: isFinite(range) ? range : null
+  };
+}
+function rowTValues(row) {
+  const out = [];
+  for (let i = 1; i <= TOTAL; i++) {
+    const n = parseFloat(col(row, 'T' + i));
+    out.push(isFinite(n) ? n : '');
+  }
+  return out;
+}
+function captureCurrentSnapshot(extra) {
+  currentSnapshot = {
+    values: points.map(p => p.value),
+    min: document.getElementById('minThickness').value,
+    max: document.getElementById('maxThickness').value,
+    range: document.getElementById('rangeSpec').value,
+    item: extra && extra.item || currentSnapshot.item || '',
+    mspec: extra && extra.mspec || currentSnapshot.mspec || ''
+  };
+}
+function applySnapshot(snap) {
+  if (!snap) return;
+  document.getElementById('minThickness').value = snap.min;
+  document.getElementById('maxThickness').value = snap.max;
+  document.getElementById('rangeSpec').value = snap.range;
+  for (let i = 0; i < TOTAL; i++) points[i].value = snap.values[i] || '';
+}
+function hideHistory() {
+  historyPack = null;
+  document.getElementById('historyBox').hidden = true;
+  document.getElementById('histItem').innerHTML = '';
+  document.getElementById('histRecord').innerHTML = '';
+  document.getElementById('histMeta').textContent = '';
+}
+function uniqueItems(rows) {
+  const seen = new Set();
+  const items = [];
+  for (const row of rows) {
+    const id = String(col(row, 'Item #')).trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    items.push(id);
+  }
+  items.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  return items;
+}
+function recordsForItem(item) {
+  const id = String(item || '').trim();
+  const rows = (historyPack && historyPack.rows || [])
+    .map((row, idx) => ({ row, idx }))
+    .filter(x => String(col(x.row, 'Item #')).trim() === id);
+  rows.sort((a, b) => parseFloat(col(b.row, 'Date/Time')) - parseFloat(col(a.row, 'Date/Time')));
+  return rows;
+}
+function fillItemDropdown(preferred) {
+  const sel = document.getElementById('histItem');
+  const items = uniqueItems(historyPack.rows);
+  sel.innerHTML = '';
+  if (preferred && !items.includes(preferred)) {
+    const opt = document.createElement('option');
+    opt.value = preferred; opt.textContent = preferred + ' (current)';
+    sel.appendChild(opt);
+  }
+  for (const id of items) {
+    const opt = document.createElement('option');
+    opt.value = id; opt.textContent = id;
+    sel.appendChild(opt);
+  }
+  if (preferred && (items.includes(preferred) || sel.options.length)) sel.value = preferred;
+  else if (items.length) sel.value = items[0];
+}
+function fillRecordDropdown(selectCurrent) {
+  const item = document.getElementById('histItem').value;
+  const rec = document.getElementById('histRecord');
+  const rows = recordsForItem(item);
+  rec.innerHTML = '';
+  const cur = document.createElement('option');
+  cur.value = '__current__';
+  cur.textContent = 'Current sheet';
+  rec.appendChild(cur);
+  rows.forEach((entry, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(entry.idx);
+    const when = excelWhen(col(entry.row, 'Date/Time')) || 'No date';
+    const bundle = col(entry.row, 'Bundle #') || '—';
+    const user = col(entry.row, 'User') || '';
+    const pf = col(entry.row, 'Pass/Fail') || '';
+    opt.textContent = `${when} · Bundle ${bundle}${user ? ' · ' + user : ''}${pf ? ' · ' + pf : ''}`;
+    rec.appendChild(opt);
+    if (i === 0) opt.dataset.newest = '1';
+  });
+  rec.value = selectCurrent ? '__current__' : (rows.length ? String(rows[0].idx) : '__current__');
+  document.getElementById('histMeta').textContent = rows.length
+    ? `${rows.length} past result${rows.length === 1 ? '' : 's'} for this item · ${historyPack.rows.length} total in TableS4`
+    : `No past TableS4 rows for this item · ${historyPack.rows.length} total in TableS4`;
+}
+function applyHistorySelection() {
+  const rec = document.getElementById('histRecord');
+  if (!rec.value || rec.value === '__current__') {
+    applySnapshot(currentSnapshot);
+    customArrow = false; calculate(); saveState();
+    return;
+  }
+  const row = historyPack.rows[Number(rec.value)];
+  if (!row) return;
+  const tvals = rowTValues(row);
+  applyPlainNumbers(tvals);
+  const specs = lookupSpecs(col(row, 'MSPEC', 'MSPEC #')) || lookupSpecs(currentSnapshot.mspec);
+  if (specs) applySpecFields(specs.min, specs.max, specs.range);
+  customArrow = false; calculate(); saveState();
+}
+function showHistory(pack, appliedCurrentHasPoints) {
+  historyPack = pack;
+  const box = document.getElementById('historyBox');
+  if (!pack || !pack.rows.length) {
+    box.hidden = true;
+    return;
+  }
+  box.hidden = false;
+  fillItemDropdown(pack.item || '');
+  fillRecordDropdown(appliedCurrentHasPoints);
+  if (!appliedCurrentHasPoints && document.getElementById('histRecord').value !== '__current__') {
+    applyHistorySelection();
+  }
+}
+function parseCurrentMeta(lines) {
+  const meta = { item: '', mspec: '' };
+  for (const raw of lines) {
+    const m = String(raw || '').trim().match(/^(item|mspec)\s*=\s*(.*)$/i);
+    if (m) meta[m[1].toLowerCase()] = m[2].trim();
+  }
+  return meta;
+}
+function applyDieGraph2(text) {
+  const sections = splitDieGraph2(text);
+  const applied = applyDieGraphLines(sections.CURRENT);
+  const meta = parseCurrentMeta(sections.CURRENT);
+  const lookup = parseTsv(sections.LOOKUP);
+  const table = parseTsv(sections.TABLES4);
+  const lookupByMspec = {};
+  for (const row of lookup.rows) {
+    const key = String(col(row, 'MSPEC #', 'MSPEC')).trim();
+    if (key) lookupByMspec[key] = row;
+  }
+  captureCurrentSnapshot(meta);
+  showHistory({
+    item: meta.item,
+    mspec: meta.mspec,
+    rows: table.rows,
+    lookupByMspec
+  }, applied.tvals.length > 0);
+  const n = table.rows.length;
+  toast(n ? `Loaded ${n} past result${n === 1 ? '' : 's'}` : 'Loaded current sheet + lookup');
+  return true;
+}
+async function clearClipboard() {
+  catcher.value = '';
+  try { await navigator.clipboard.writeText(''); }
+  catch {
+    try { catcher.value = ' '; catcher.select(); document.execCommand('copy'); catcher.value = ''; }
+    catch { /* ignore */ }
+  }
+}
+function applyClipboardText(text) {
+  text = (text || '').trim();
+  if (!text) { toast('Clipboard is empty'); return false; }
+  if (/^DIEGRAPH2\b/i.test(text)) applyDieGraph2(text);
+  else if (/^DIEGRAPH\b/i.test(text)) { hideHistory(); applyDieGraph(text); }
+  else {
+    const values = text.split(/[\s,]+/).map(Number).filter(v => !isNaN(v));
+    if (!values.length) { toast('No numbers found'); return false; }
+    hideHistory();
+    applyPlainNumbers(values);
+  }
+  customArrow = false; calculate(); saveState();
+  clearClipboard();
+  return true;
+}
+function applyFromClipboard() { catcher.focus(); catcher.select(); }
+async function copyValues() {
+  const lines = points.map(p => { const v = parseFloat(p.value); return isFinite(v) ? v.toFixed(3) : ''; }).join('\n').replace(/\n+$/, '');
+  const btn = document.getElementById('copyBtn');
+  try {
+    await navigator.clipboard.writeText(lines ? lines + '\n' : '');
+    btn.textContent = 'Copied!'; btn.classList.add('copied'); toast('Values copied');
+    setTimeout(() => { btn.textContent = 'Copy values'; btn.classList.remove('copied'); }, 1500);
+  } catch {
+    catcher.value = lines; catcher.select();
+    const ok = document.execCommand('copy');
+    btn.textContent = ok ? 'Copied!' : 'Copy failed'; btn.classList.toggle('copied', ok);
+    if (ok) toast('Values copied');
+    setTimeout(() => { btn.textContent = 'Copy values'; btn.classList.remove('copied'); }, 1500);
+  }
+}
+function clearValues() { points.forEach(p => { p.value = ''; }); customArrow = false; calculate(); saveState(); }
+function calculate() {
+  lastMin = parseFloat(document.getElementById('minThickness').value);
+  lastMax = parseFloat(document.getElementById('maxThickness').value);
+  lastRangeSpec = parseFloat(document.getElementById('rangeSpec').value);
+  if (!isFinite(lastMin)) lastMin = 0;
+  if (!isFinite(lastMax) || lastMax <= lastMin) lastMax = lastMin + 0.001;
+  lastValues = points.map(p => { const v = parseFloat(p.value); return isNaN(v) ? NaN : v; });
+  draw(); saveState();
+}
+function pointAngle(i) { return SOUTH + (i + 0.5) * ANGLE_STEP; }
+function compassAngles() {
+  return [
+    { label: 'N', angle: -Math.PI / 2 },
+    { label: 'E', angle: 0 },
+    { label: 'S', angle: Math.PI / 2 },
+    { label: 'W', angle: Math.PI }
+  ];
+}
+function boltSet() {
+  const n = Math.max(4, NUM_BOLTS);
+  if (n === 4) return compassAngles().map(b => ({ ...b, kind: 'cardinal' }));
+  const start = startBoltsFromBottom ? Math.PI / 2 : -Math.PI / 2;
+  const numbered = [];
+  for (let i = 0; i < n; i++) numbered.push({ label: String(i + 1), angle: start + i * (2 * Math.PI / n), kind: 'numbered' });
+  const compass = compassAngles().map(b => ({ ...b, kind: 'compass' }));
+  return numbered.concat(compass);
+}
+function valueToRadius(val, min, max) {
+  if (!isFinite(val)) return (YELLOW_R + GREEN_R) / 2;
+  if (val <= min) return min <= 0 ? 0 : Math.max(0, (val / min) * YELLOW_R);
+  const px = (GREEN_R - YELLOW_R) / Math.max(max - min, 1e-6);
+  return Math.min(MAX_PLOT_R, YELLOW_R + (val - min) * px);
+}
+function angDist(a, b) { let d = Math.abs(a - b) % (Math.PI * 2); if (d > Math.PI) d = Math.PI * 2 - d; return d; }
+function labelRadius(angle, bolts) {
+  let r = LABEL_R;
+  for (const b of bolts) if (b.kind !== 'compass' && angDist(angle, b.angle) < 0.28) r = GREEN_R + S * 0.028;
+  return r;
+}
+function layoutCanvas() {
+  const stage = canvas.parentElement;
+  const size = Math.max(280, Math.floor(Math.min(stage.clientWidth, stage.clientHeight)));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = size * dpr; canvas.height = size * dpr;
+  canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  S = size; center = { x: S / 2, y: S / 2 };
+  YELLOW_R = S * 0.14; GREEN_R = S * 0.30; MAX_PLOT_R = S * 0.39;
+  POINT_R = Math.max(6, S * 0.011); LABEL_R = GREEN_R + S * 0.048;
+  COMPASS_R = S / 2 - 38; ARROW_GAP = Math.max(48, S * 0.08);
+}
+function defaultArrowEnds(plot, maxIdx, minIdx) {
+  if (maxIdx < 0 || minIdx < 0 || maxIdx === minIdx) return { tail: null, head: null };
+  const thick = plot[maxIdx], thin = plot[minIdx];
+  const dx = thick.x - thin.x, dy = thick.y - thin.y, dist = Math.hypot(dx, dy) || 1;
+  const gap = Math.min(ARROW_GAP, dist * 0.28);
+  if (dist < gap * 2 + 8) return { tail: { x: thin.x, y: thin.y }, head: { x: thick.x, y: thick.y } };
+  return { tail: { x: thin.x + dx / dist * gap, y: thin.y + dy / dist * gap }, head: { x: thick.x - dx / dist * gap, y: thick.y - dy / dist * gap } };
+}
+function drawArrow(c, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy); if (len < 16) return;
+  const ux = dx / len, uy = dy / len, px = -uy, py = ux;
+  const shaftHalf = Math.max(5, S * 0.008);
+  let headLen = Math.max(22, S * 0.038), headHalf = headLen * 0.52;
+  if (len < headLen + 24) { headLen = Math.max(16, len * 0.32); headHalf = headLen * 0.5; }
+  const bx = x2 - ux * headLen, by = y2 - uy * headLen;
+  ctx.fillStyle = c.arrow; ctx.beginPath();
+  ctx.moveTo(x1 + px * shaftHalf, y1 + py * shaftHalf);
+  ctx.lineTo(bx + px * shaftHalf, by + py * shaftHalf);
+  ctx.lineTo(bx + px * headHalf, by + py * headHalf);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(bx - px * headHalf, by - py * headHalf);
+  ctx.lineTo(bx - px * shaftHalf, by - py * shaftHalf);
+  ctx.lineTo(x1 - px * shaftHalf, y1 - py * shaftHalf);
+  ctx.closePath(); ctx.fill();
+}
+function drawHandle(c, x, y, on) {
+  ctx.beginPath(); ctx.arc(x, y, Math.max(7, S * 0.012), 0, Math.PI * 2);
+  ctx.fillStyle = on ? '#60a5fa' : c.handle; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = c.arrow; ctx.stroke();
+}
+function drawBolt(c, bolt) {
+  const r = bolt.kind === 'compass' ? COMPASS_R + Math.max(18, S * 0.032) : COMPASS_R;
+  const bx = center.x + Math.cos(bolt.angle) * r;
+  const by = center.y + Math.sin(bolt.angle) * r;
+  if (bolt.kind === 'compass') {
+    ctx.font = `700 ${Math.max(14, S * 0.024)}px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4; ctx.strokeStyle = c.halo; ctx.strokeText(bolt.label, bx, by);
+    ctx.fillStyle = c.text; ctx.fillText(bolt.label, bx, by);
+    return;
+  }
+  const s = Math.max(14, S * 0.026);
+  ctx.fillStyle = c.bolt; ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(bx - s, by - s, s * 2, s * 2, 8); else ctx.rect(bx - s, by - s, s * 2, s * 2);
+  ctx.fill(); ctx.fillStyle = '#fff';
+  ctx.font = `700 ${Math.max(14, S * 0.024)}px "Atkinson Hyperlegible", Arial`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(bolt.label, bx, by);
+}
+function updateSummary(avg, range, min, max, rangeSpec) {
+  const avgBad = isFinite(avg) && (avg < min || avg > max);
+  const rangeBad = isFinite(range) && range > rangeSpec;
+  const avgOk = isFinite(avg) && !avgBad;
+  const rangeOk = isFinite(range) && !rangeBad;
+  document.getElementById('summary').innerHTML = `
+    <div class="stat ${avgBad ? 'bad' : (avgOk ? 'good' : '')}">Average <b>${isFinite(avg) ? avg.toFixed(3) : '--'}</b></div>
+    <div class="stat ${rangeBad ? 'bad' : (rangeOk ? 'good' : '')}">Range <b>${isFinite(range) ? range.toFixed(3) : '--'}</b></div>
+    ${avgBad ? `<div class="alert bad">Average is out of spec</div>` : (avgOk ? `<div class="alert good">Average is in spec</div>` : `<div class="alert">Average status --</div>`)}
+    ${rangeBad ? `<div class="alert bad">Range exceeds spec</div>` : (rangeOk ? `<div class="alert good">Range is within spec</div>` : `<div class="alert">Range status --</div>`)}
+  `;
+}
+function draw() {
+  layoutCanvas();
+  const min = lastMin, max = lastMax, values = lastValues, c = palette(), bolts = boltSet();
+  ctx.clearRect(0, 0, S, S); ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, S, S);
+  ctx.globalAlpha = 0.96;
+  ctx.fillStyle = c.yellow; ctx.beginPath(); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c.green; ctx.beginPath(); ctx.arc(center.x, center.y, GREEN_R, 0, Math.PI * 2); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2, true); ctx.fill();
+  ctx.globalAlpha = 1; ctx.lineWidth = 2;
+  ctx.strokeStyle = c.greenStroke; ctx.beginPath(); ctx.arc(center.x, center.y, GREEN_R, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = c.yellowStroke; ctx.beginPath(); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = c.text; ctx.beginPath(); ctx.arc(center.x, center.y, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c.muted; ctx.font = `700 ${Math.max(14, S * 0.022)}px "Atkinson Hyperlegible", Arial`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('0', center.x + 10, center.y);
+  bolts.forEach(b => drawBolt(c, b));
+  const plot = [];
+  for (let i = 0; i < TOTAL; i++) {
+    const a = pointAngle(i), v = values[i], r = valueToRadius(v, min, max);
+    plot.push({ idx: i, val: v, x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r });
+  }
+  ctx.lineWidth = Math.max(2, S * 0.004);
+  for (let i = 0; i < TOTAL; i++) {
+    const a = plot[i], b = plot[(i + 1) % TOTAL];
+    const ok = isFinite(a.val) && isFinite(b.val) && a.val >= min && a.val <= max && b.val >= min && b.val <= max;
+    ctx.strokeStyle = ok ? c.lineOk : c.lineBad;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  let maxVal = -Infinity, minVal = Infinity, maxIdx = -1, minIdx = -1;
+  for (const p of plot) {
+    if (!isFinite(p.val)) continue;
+    if (p.val > maxVal) { maxVal = p.val; maxIdx = p.idx; }
+    if (p.val < minVal) { minVal = p.val; minIdx = p.idx; }
+  }
+  if (!customArrow) arrow = defaultArrowEnds(plot, maxIdx, minIdx);
+  if (showArrow && arrow.head && arrow.tail) {
+    drawArrow(c, arrow.tail.x, arrow.tail.y, arrow.head.x, arrow.head.y);
+    drawHandle(c, arrow.tail.x, arrow.tail.y, dragKind === 'tail');
+    drawHandle(c, arrow.head.x, arrow.head.y, dragKind === 'head');
+  }
+  for (const p of plot) {
+    let col = c.idleDot;
+    if (isFinite(p.val)) col = p.val < min ? c.thinDot : (p.val > max ? c.thickDot : c.inDot);
+    ctx.beginPath(); ctx.arc(p.x, p.y, POINT_R, 0, Math.PI * 2);
+    ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+  }
+  ctx.font = `700 ${Math.max(15, S * 0.024)}px "Atkinson Hyperlegible", Arial`; ctx.textBaseline = 'middle';
+  for (let i = 0; i < TOTAL; i++) {
+    const ang = pointAngle(i), ca = Math.cos(ang), sa = Math.sin(ang), r = labelRadius(ang, bolts);
+    const tx = center.x + ca * r, ty = center.y + sa * r;
+    ctx.textAlign = Math.abs(ca) < 0.25 ? 'center' : (ca > 0 ? 'left' : 'right');
+    const v = values[i], extra = !isFinite(v) ? '' : (v < min ? ' ↓' : (v > max ? ' ↑' : ''));
+    const text = `T${i + 1} ${isFinite(v) ? v.toFixed(3) : '--'}${extra}`;
+    ctx.lineWidth = 5; ctx.strokeStyle = c.halo; ctx.strokeText(text, tx, ty);
+    ctx.fillStyle = isFinite(v) ? (v < min ? '#d97706' : (v > max ? (isDark() ? '#fca5a5' : '#b91c1c') : c.text)) : c.muted;
+    ctx.fillText(text, tx, ty);
+  }
+  for (let i = 0; i < TOTAL; i++) {
+    const v = values[i], field = fieldEls[i], mark = markEls[i];
+    field.classList.remove('in', 'thin', 'thick'); mark.textContent = '';
+    if (!isFinite(v)) continue;
+    if (v < min) { field.classList.add('thin'); mark.textContent = '↓'; }
+    else if (v > max) { field.classList.add('thick'); mark.textContent = '↑'; }
+    else { field.classList.add('in'); mark.textContent = '✓'; }
+  }
+  const valid = values.filter(v => isFinite(v));
+  const avg = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : NaN;
+  const range = isFinite(maxVal) && isFinite(minVal) ? maxVal - minVal : NaN;
+  updateSummary(avg, range, min, max, lastRangeSpec);
+}
+function canvasPoint(evt) {
+  const r = canvas.getBoundingClientRect(), src = evt.touches ? evt.touches[0] : evt;
+  return { x: (src.clientX - r.left) * (S / r.width), y: (src.clientY - r.top) * (S / r.height) };
+}
+function hitHandle(pt) {
+  if (!showArrow || !arrow.head || !arrow.tail) return null;
+  const dh = Math.hypot(pt.x - arrow.head.x, pt.y - arrow.head.y);
+  const dt = Math.hypot(pt.x - arrow.tail.x, pt.y - arrow.tail.y);
+  if (dh <= HANDLE_R && dh <= dt) return 'head';
+  if (dt <= HANDLE_R) return 'tail';
+  return null;
+}
+function onPointerDown(e) {
+  const k = hitHandle(canvasPoint(e)); if (!k) return;
+  dragKind = k; customArrow = true; canvas.style.cursor = 'grabbing'; e.preventDefault(); draw(); saveState();
+}
+function onPointerMove(e) {
+  const pt = canvasPoint(e);
+  if (!dragKind) { canvas.style.cursor = hitHandle(pt) ? 'grab' : 'default'; return; }
+  e.preventDefault();
+  if (dragKind === 'head') arrow.head = { x: pt.x, y: pt.y }; else arrow.tail = { x: pt.x, y: pt.y };
+  draw();
+}
+function onPointerUp() { if (!dragKind) return; dragKind = null; canvas.style.cursor = 'default'; draw(); saveState(); }
+
+canvas.addEventListener('mousedown', onPointerDown);
+window.addEventListener('mousemove', onPointerMove);
+window.addEventListener('mouseup', onPointerUp);
+canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+window.addEventListener('touchmove', onPointerMove, { passive: false });
+window.addEventListener('touchend', onPointerUp);
+window.addEventListener('resize', draw);
+document.getElementById('clipBtn').onclick = applyFromClipboard;
+document.getElementById('copyBtn').onclick = copyValues;
+document.getElementById('clearBtn').onclick = clearValues;
+document.getElementById('histItem').onchange = () => {
+  const same = document.getElementById('histItem').value === String(currentSnapshot.item || '');
+  fillRecordDropdown(same);
+  applyHistorySelection();
+};
+document.getElementById('histRecord').onchange = applyHistorySelection;
+document.addEventListener('paste', (e) => {
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' && e.target.id !== 'clipCatcher') return;
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  if (applyClipboardText(text)) e.preventDefault();
+});
+catcher.addEventListener('paste', (e) => {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  e.preventDefault(); applyClipboardText(text);
+});
+document.getElementById('minThickness').oninput = document.getElementById('maxThickness').oninput = () => { customArrow = false; calculate(); };
+document.getElementById('rangeSpec').oninput = calculate;
+document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };
+document.getElementById('arrowToggle').onclick = () => { setArrowVisible(!showArrow); draw(); saveState(); };
+document.getElementById('themeBtn').onclick = () => { applyTheme(isDark() ? 'light' : 'dark'); draw(); saveState(); };
+document.getElementById('settingsBtn').onclick = () => {
+  document.getElementById('setPoints').value = TOTAL;
+  document.getElementById('setBolts').value = Math.max(4, NUM_BOLTS);
+  document.getElementById('setBoltStart').checked = startBoltsFromBottom;
+  document.getElementById('settingsOverlay').classList.add('show');
+};
+document.getElementById('cancelSettings').onclick = () => document.getElementById('settingsOverlay').classList.remove('show');
+document.getElementById('saveSettings').onclick = () => {
+  const n = Math.max(3, Math.min(36, parseInt(document.getElementById('setPoints').value, 10) || 13));
+  const b = Math.max(4, Math.min(24, parseInt(document.getElementById('setBolts').value, 10) || 4));
+  const old = points.map(p => p.value);
+  TOTAL = n; NUM_BOLTS = b; startBoltsFromBottom = document.getElementById('setBoltStart').checked; customArrow = false;
+  setupInputs(old);
+  document.getElementById('settingsOverlay').classList.remove('show');
+  calculate();
+};
+
+const saved = loadState();
+if (saved.TOTAL) TOTAL = saved.TOTAL;
+NUM_BOLTS = Math.max(4, saved.NUM_BOLTS || 4);
+startBoltsFromBottom = !!saved.startBoltsFromBottom;
+if (saved.min) document.getElementById('minThickness').value = saved.min;
+if (saved.max) document.getElementById('maxThickness').value = saved.max;
+if (saved.range) document.getElementById('rangeSpec').value = saved.range;
+applyTheme(saved.theme || 'light');
+setArrowVisible(!!saved.showArrow);
+customArrow = !!saved.customArrow;
+if (saved.arrow) arrow = saved.arrow;
+setupInputs(saved.values || []);
+calculate();
+</script>
+</body>
+</html>

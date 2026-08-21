@@ -2,8 +2,11 @@ Attribute VB_Name = "CopyForGraphFromS4"
 Option Explicit
 
 ' Import into Personal.xlsb or a launcher workbook — NOT into S4.xlsm.
-' Self-contained: copies S4.xlsm, opens the copy hidden (macros disabled),
-' builds DIEGRAPH2 from that copy, then closes it. No macro inside S4 is used.
+' Self-contained: copies S4.xlsm into %TEMP%, opens that copy hidden (macros
+' disabled), builds DIEGRAPH2, then closes and deletes the temp copy.
+' Never writes into the quality Files folder (Permission denied on G:).
+' If S4 is already open, uses that workbook and does not close it.
+' No macro inside S4 is used.
 '
 ' Button: CopyForGraphFromS4.CopyForGraphFromS4
 
@@ -37,6 +40,8 @@ Private Const GRAPH_HTML As String = "G:\Shipping\100% Inspection Sheets\Product
 
 Private Const SOURCE_XLSM As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Files\S4.xlsm"
 Private dataWb As Workbook
+Private openedByLauncher As Boolean
+Private copyPathToDelete As String
 
 Public Sub CopyForGraphFromS4()
     CopyForGraphFromFile SOURCE_XLSM, "s4"
@@ -53,16 +58,17 @@ Private Sub CopyForGraphFromFile(ByVal src As String, ByVal tag As String)
     
     On Error GoTo ErrHandler
     
-    If LenB(Dir$(src, vbNormal)) = 0 Then
-        MsgBox "Could not find workbook:" & vbCrLf & src, vbCritical, "Copy for Graph"
-        Exit Sub
-    End If
+    openedByLauncher = False
+    copyPathToDelete = vbNullString
+    Set dataWb = Nothing
     
-    dest = TempCopyPath(src, tag)
-    On Error Resume Next
-    Kill dest
-    On Error GoTo ErrHandler
-    FileCopy src, dest
+    Set dataWb = AlreadyOpenWorkbook(src)
+    If dataWb Is Nothing Then
+        If Not FileExists(src) Then
+            MsgBox "Could not find workbook:" & vbCrLf & src, vbCritical, "Copy for Graph"
+            Exit Sub
+        End If
+    End If
     
     prevSU = Application.ScreenUpdating
     prevEA = Application.EnableEvents
@@ -73,11 +79,27 @@ Private Sub CopyForGraphFromFile(ByVal src As String, ByVal tag As String)
     Application.EnableEvents = False
     Application.DisplayAlerts = False
     Application.Cursor = xlWait
-    Application.AutomationSecurity = msoAutomationSecurityForceDisable
-    Application.StatusBar = "Opening a silent copy of " & Mid$(src, InStrRev(src, "\") + 1) & "..."
     
-    Set dataWb = Workbooks.Open(Filename:=dest, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
-    HideWorkbookWindows dataWb
+    If dataWb Is Nothing Then
+        dest = TempCopyPath(tag)
+        If CopyWorkbookFile(src, dest) Then
+            copyPathToDelete = dest
+            Application.AutomationSecurity = msoAutomationSecurityForceDisable
+            Application.StatusBar = "Opening a silent copy of " & SourceFileName(src) & "..."
+            Set dataWb = Workbooks.Open(Filename:=dest, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
+            openedByLauncher = True
+            HideWorkbookWindows dataWb
+        Else
+            ' Files folder on G: is often not writable, or the .xlsm is locked.
+            Application.AutomationSecurity = msoAutomationSecurityForceDisable
+            Application.StatusBar = "Opening " & SourceFileName(src) & " read-only..."
+            Set dataWb = Workbooks.Open(Filename:=src, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
+            openedByLauncher = True
+            HideWorkbookWindows dataWb
+        End If
+    Else
+        Application.StatusBar = "Using already-open " & dataWb.Name
+    End If
     
     Application.EnableEvents = True
     Application.DisplayAlerts = True
@@ -86,7 +108,7 @@ Private Sub CopyForGraphFromFile(ByVal src As String, ByVal tag As String)
     
     CopyForGraphFromOpenCopy
     
-    CloseCopy dataWb, dest
+    ReleaseDataWorkbook
     RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
     Application.StatusBar = "Copied for graph from silent workbook copy"
     Exit Sub
@@ -94,7 +116,7 @@ Private Sub CopyForGraphFromFile(ByVal src As String, ByVal tag As String)
 ErrHandler:
     errMsg = Err.Description
     On Error Resume Next
-    CloseCopy dataWb, dest
+    ReleaseDataWorkbook
     RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
     Application.Cursor = xlDefault
     Application.StatusBar = False
@@ -626,12 +648,83 @@ Private Function CellText(ByVal cell As Range) As String
     CellText = Trim$(CStr(v))
 End Function
 
-Private Function TempCopyPath(ByVal src As String, ByVal tag As String) As String
+Private Function TempCopyPath(ByVal tag As String) As String
     Dim folder As String
+    folder = Environ$("TEMP")
+    If LenB(folder) = 0 Then folder = Environ$("TMP")
+    If LenB(folder) = 0 Then folder = ThisWorkbook.Path
+    If LenB(folder) = 0 Then folder = CurDir$
+    If Right$(folder, 1) <> "\" Then folder = folder & "\"
+    TempCopyPath = folder & "diegraph_" & tag & "_copy_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Int(Timer * 100) Mod 100000) & ".xlsm"
+End Function
+
+Private Function SourceFileName(ByVal src As String) As String
     Dim i As Long
-    i = InStrRev(src, "\")
-    If i > 0 Then folder = Left$(src, i) Else folder = Environ$("TEMP") & "\"
-    TempCopyPath = folder & "_diegraph_" & tag & "_copy_" & Format$(Now, "yyyymmdd_hhnnss") & ".xlsm"
+    i = InStrRev(Replace(src, "/", "\"), "\")
+    If i > 0 Then
+        SourceFileName = Mid$(src, i + 1)
+    Else
+        SourceFileName = src
+    End If
+End Function
+
+Private Function AlreadyOpenWorkbook(ByVal src As String) As Workbook
+    Dim wb As Workbook
+    Dim srcName As String
+    srcName = SourceFileName(src)
+    For Each wb In Application.Workbooks
+        If StrComp(wb.FullName, src, vbTextCompare) = 0 Then
+            Set AlreadyOpenWorkbook = wb
+            Exit Function
+        End If
+        If LenB(srcName) > 0 Then
+            If StrComp(wb.Name, srcName, vbTextCompare) = 0 Then
+                Set AlreadyOpenWorkbook = wb
+                Exit Function
+            End If
+        End If
+    Next wb
+End Function
+
+Private Function CopyWorkbookFile(ByVal src As String, ByVal dest As String) As Boolean
+    Dim fso As Object
+    Dim stm As Object
+    
+    On Error Resume Next
+    If FileExists(dest) Then Kill dest
+    Err.Clear
+    
+    FileCopy src, dest
+    If Err.Number = 0 And FileExists(dest) Then
+        CopyWorkbookFile = True
+        Exit Function
+    End If
+    Err.Clear
+    
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso Is Nothing Then
+        fso.CopyFile src, dest, True
+        If Err.Number = 0 And FileExists(dest) Then
+            CopyWorkbookFile = True
+            Exit Function
+        End If
+        Err.Clear
+    End If
+    
+    Set stm = CreateObject("ADODB.Stream")
+    If Not stm Is Nothing Then
+        stm.Type = 1
+        stm.Open
+        stm.LoadFromFile src
+        If Err.Number = 0 Then
+            stm.SaveToFile dest, 2
+        End If
+        stm.Close
+        If Err.Number = 0 And FileExists(dest) Then
+            CopyWorkbookFile = True
+            Exit Function
+        End If
+    End If
 End Function
 
 Private Sub HideWorkbookWindows(ByVal wb As Workbook)
@@ -643,13 +736,32 @@ Private Sub HideWorkbookWindows(ByVal wb As Workbook)
     Next w
 End Sub
 
-Private Sub CloseCopy(ByVal wb As Workbook, ByVal dest As String)
+Private Sub ReleaseDataWorkbook()
     On Error Resume Next
     Application.DisplayAlerts = False
     Application.EnableEvents = False
-    If Not wb Is Nothing Then wb.Close SaveChanges:=False
-    If LenB(dest) > 0 Then Kill dest
+    If openedByLauncher Then
+        If Not dataWb Is Nothing Then dataWb.Close SaveChanges:=False
+        DeleteFileWithRetry copyPathToDelete
+    End If
     Set dataWb = Nothing
+    openedByLauncher = False
+    copyPathToDelete = vbNullString
+End Sub
+
+Private Sub DeleteFileWithRetry(ByVal dest As String)
+    Dim i As Long
+    Dim t As Double
+    If LenB(dest) = 0 Then Exit Sub
+    On Error Resume Next
+    For i = 1 To 6
+        Kill dest
+        If Not FileExists(dest) Then Exit Sub
+        t = Timer
+        Do While Timer < t + 0.25
+            DoEvents
+        Loop
+    Next i
 End Sub
 
 Private Sub RestoreApp(ByVal prevSU As Boolean, ByVal prevEA As Boolean, ByVal prevDA As Boolean, ByVal prevCur As XlMousePointer, ByVal prevSec As MsoAutomationSecurity)

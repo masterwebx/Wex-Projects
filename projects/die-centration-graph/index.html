@@ -376,7 +376,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.4.5';
+const APP_VERSION = '1.4.6';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -566,6 +566,7 @@ function setScreen(name) {
   if (name === 'view') requestAnimationFrame(() => { calculate(); });
 }
 function setViewMode(mode, fromView) {
+  const leavingSpc = viewMode === 'spc' && mode !== 'spc';
   viewMode = mode === 'spc' ? 'spc' : 'centration';
   document.documentElement.setAttribute('data-mode', viewMode);
   document.getElementById('pageTitle').textContent = viewMode === 'spc' ? 'SPC charts' : 'Die Centration Radial Graph';
@@ -577,6 +578,7 @@ function setViewMode(mode, fromView) {
   if (viewMode !== 'spc') hideSpcTip();
   if (viewMode === 'spc') fillSpcControls(fromView);
   syncViewChrome();
+  if (leavingSpc && screenName === 'view') requestAnimationFrame(() => calculate());
 }
 function setArrowVisible(on) {
   showArrow = !!on;
@@ -1517,6 +1519,7 @@ function applyHistoryRow(idx) {
   applyPlainNumbers(rowTValues(row));
   fillSpecPanel(specsFor(col(row, 'MSPEC', 'MSPEC #')), col(row, 'MSPEC', 'MSPEC #'));
   customArrow = false;
+  syncPlotFromInputs();
   return true;
 }
 function selectSpcPoint(idx) {
@@ -1691,13 +1694,16 @@ async function copyValues() {
   }
 }
 function clearValues() { points.forEach(p => { p.value = ''; }); customArrow = false; calculate(); saveState(); }
-function calculate() {
+function syncPlotFromInputs() {
   lastMin = parseFloat(document.getElementById('minThickness').value);
   lastMax = parseFloat(document.getElementById('maxThickness').value);
   lastRangeSpec = parseFloat(document.getElementById('rangeSpec').value);
   if (!isFinite(lastMin)) lastMin = 0;
   if (!isFinite(lastMax) || lastMax <= lastMin) lastMax = lastMin + 0.001;
   lastValues = points.map(p => { const v = parseFloat(p.value); return isNaN(v) ? NaN : v; });
+}
+function calculate() {
+  syncPlotFromInputs();
   draw(); saveState();
 }
 function pointAngle(i) { return SOUTH + (i + 0.5) * ANGLE_STEP; }
@@ -2152,7 +2158,7 @@ document.getElementById('filterChips').onclick = (e) => {
 document.getElementById('copyBtn').onclick = copyValues;
 document.getElementById('clearBtn').onclick = clearValues;
 document.getElementById('modeBtn').onclick = () => {
-  if (viewMode === 'spc') { setViewMode('centration'); draw(); }
+  if (viewMode === 'spc') { setViewMode('centration'); }
   else openSpc();
 };
 document.getElementById('spcBy').onchange = () => {

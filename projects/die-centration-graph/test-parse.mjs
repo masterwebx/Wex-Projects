@@ -56,7 +56,10 @@ assert.match(vba, /densMin=/);
 assert.match(vba, /cellMd=/);
 assert.match(vba, /width=/);
 assert.match(vba, /CopyForGraphS1S3\.bas/);
-assert.match(vba, /source=S4/);
+assert.match(vba, /OpenGraphHtml/);
+assert.match(vba, /1 - Quality\\centration\.html/);
+assert.match(vbaS1, /OpenGraphHtml/);
+assert.match(vbaS1, /1 - Quality\\centration\.html/);
 
 assert.match(vbaS1, /Attribute VB_Name = "CopyForGraphS1S3"/);
 assert.match(vbaS1, /SheetByName\("S1 S3"\)/);

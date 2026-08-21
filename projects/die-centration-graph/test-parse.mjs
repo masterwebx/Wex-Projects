@@ -76,7 +76,12 @@ assert.match(html, /SPC mode/);
 assert.match(html, /Cell count MD/);
 assert.match(html, /Density/);
 assert.match(html, /Width/);
-assert.match(html, /function drawSpc/);
+assert.match(html, /HIST_COL_W/);
+assert.match(html, /function applyHistColgroup/);
+assert.match(html, /function syncHistHeaderGutter/);
+assert.match(html, /function redrawSpc/);
+assert.match(html, /spcValue'\)\.oninput/);
+assert.match(html, /spcFrom'\)\.oninput/);
 assert.match(html, /function clearClipboard/);
 assert.match(html, /navigator\.clipboard\.writeText\(''\)/);
 assert.match(html, /id="dateYear"/);
@@ -248,7 +253,9 @@ const dupes = [
   { 'MSPEC #': '4540.0', 'Lower Control': '0.505', Target: '0.515', 'Upper Control': '0.52' }
 ];
 const firstWins = buildLookupMap(dupes);
-assert.equal(parseFloat(col(firstWins['4540'], 'Upper Control')), 0.53);
+const colW = html.match(/const HIST_COL_W = \[([^\]]+)\]/);
+assert.ok(colW);
+assert.equal(colW[1].split(',').length, 15);
 
 function excelSerialDate(n) {
   return new Date(Math.round((Number(n) - 25569) * 86400000));

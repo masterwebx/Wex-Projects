@@ -56,15 +56,12 @@
   .hist-head-freeze::-webkit-scrollbar { display: none; }
   .table-wrap { flex: 1; min-height: 0; overflow: auto; padding: 0; }
   table.results {
-    width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px;
+    width: max-content; border-collapse: separate; border-spacing: 0; font-size: 14px;
     table-layout: fixed;
   }
-  table.results th, table.results td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; }
-  table.results tbody td { height: 42px; overflow: hidden; text-overflow: ellipsis; }
+  table.results th, table.results td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; }
+  table.results tbody td { height: 42px; }
   table.results thead th { position: sticky; top: 0; background: var(--bg-elev); z-index: 3; box-shadow: 0 1px 0 var(--line); height: auto; vertical-align: bottom; overflow: visible; }
-  table.results th:first-child, table.results td:first-child { width: 52px; min-width: 52px; }
-  table.results th:nth-child(2), table.results td:nth-child(2) { width: 260px; min-width: 260px; }
-  table.results th:nth-child(n+3), table.results td:nth-child(n+3) { width: 128px; min-width: 110px; }
   table.results tbody tr { height: 42px; }
   table.results tbody tr:hover { background: var(--idle); }
   table.results tr.spacer { height: auto; }
@@ -370,12 +367,13 @@
 </div>
 
 <script>
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.4.2';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
 const PACK_STORE = 'pack';
 const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
+const HIST_COL_W = [52, 280, 120, 240, 100, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120];
 const COL_ALIASES = {
   'Item #': ['Item #', 'Item', 'Item Number'],
   'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription'],
@@ -1179,7 +1177,27 @@ function syncFilterBar() {
     ).join('');
   }
 }
-function renderHistoryChrome() {
+function histTableWidth() {
+  return HIST_COL_W.reduce((a, b) => a + b, 0);
+}
+function applyHistColgroup(table) {
+  if (!table) return;
+  let cg = table.querySelector('colgroup');
+  if (!cg) {
+    cg = document.createElement('colgroup');
+    table.insertBefore(cg, table.firstChild);
+  }
+  cg.innerHTML = HIST_COL_W.map(w => `<col style="width:${w}px">`).join('');
+  table.style.width = histTableWidth() + 'px';
+  table.style.minWidth = histTableWidth() + 'px';
+}
+function syncHistHeaderGutter() {
+  const wrap = document.getElementById('histWrap');
+  const head = document.querySelector('.hist-head-freeze');
+  if (!wrap || !head) return;
+  head.style.paddingRight = Math.max(0, wrap.offsetWidth - wrap.clientWidth) + 'px';
+  head.scrollLeft = wrap.scrollLeft;
+}
   const head = document.getElementById('histHead');
   const dateTh = `<th class="${isColFiltered('Date/Time') ? 'filtered' : ''}"><div class="th-inner">Date/Time <button class="th-menu${tableSort.col === 'Date/Time' ? ' active' : ''}${isColFiltered('Date/Time') ? ' filtered' : ''}" type="button" data-col="Date/Time" aria-label="Sort Date/Time">▾</button></div><div class="date-slicers">
     <select id="dateYear"></select><select id="dateMonth"></select><select id="dateDay"></select>
@@ -1191,6 +1209,7 @@ function renderHistoryChrome() {
     return `<th class="${isColFiltered(k) ? 'filtered' : ''}"><div class="th-inner">${esc(k)}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
   }).join('');
   head.innerHTML = `<tr><th></th>${dateTh}${others}</tr>`;
+  applyHistColgroup(document.getElementById('histHeadTable'));
   fillDateSlicers();
   document.getElementById('dateYear').onchange = () => {
     tableFilters['Date/Time'] = { year: document.getElementById('dateYear').value, month: '', day: '' };
@@ -1250,6 +1269,8 @@ function renderHistoryBody(force) {
   document.getElementById('histMeta').textContent = on
     ? `Showing ${rows.length} of ${indexedRows.length} results · filters on`
     : `Showing ${rows.length} of ${indexedRows.length} results`;
+  applyHistColgroup(document.getElementById('histTable'));
+  syncHistHeaderGutter();
   syncFilterBar();
 }
 function renderHistoryTable() {
@@ -1372,6 +1393,15 @@ function fillSpcControls() {
   document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
   refreshViewMeta();
 }
+function redrawSpc() {
+  if (screenName !== 'view' || viewMode !== 'spc') return;
+  const by = document.getElementById('spcBy').value;
+  const val = String(document.getElementById('spcValue').value || '').trim();
+  const mspec = by === 'mspec' ? val : ((indexedRows.find(r => r.item === val) || {}).mspec || currentSnapshot.mspec);
+  fillSpecPanel(specsFor(mspec), mspec);
+  refreshViewMeta();
+  requestAnimationFrame(() => draw());
+}
 function spcSelectedRows() {
   const by = document.getElementById('spcBy').value;
   const val = String(document.getElementById('spcValue').value || '').trim();
@@ -1448,6 +1478,7 @@ function openSpc() {
   if (!indexedRows.length || enterMode) { toast('Paste TableS4 results first'); return; }
   setViewMode('spc');
   setScreen('view');
+  requestAnimationFrame(() => draw());
 }
 function viewResult(idx) {
   viewingIdx = idx;
@@ -1993,7 +2024,7 @@ window.addEventListener('touchmove', onPointerMove, { passive: false });
 window.addEventListener('touchend', onPointerUp);
 window.addEventListener('resize', () => {
   if (screenName === 'view') draw();
-  if (screenName === 'history') { histRangeKey = ''; renderHistoryBody(true); }
+  if (screenName === 'history') { histRangeKey = ''; renderHistoryBody(true); syncHistHeaderGutter(); }
 });
 document.getElementById('welcomePaste').onclick = () => applyFromClipboard(false);
 document.getElementById('welcomePasteMore').onclick = () => applyFromClipboard(true);
@@ -2047,14 +2078,19 @@ document.getElementById('spcBy').onchange = () => {
   document.getElementById('spcValue').value = '';
   fillSpcControls();
   syncSpcDates(true);
-  draw();
+  redrawSpc();
 };
-document.getElementById('spcValue').onchange = () => { syncSpcDates(true); draw(); };
-document.getElementById('spcFrom').onchange = document.getElementById('spcTo').onchange = () => draw();
+document.getElementById('spcValue').onchange = document.getElementById('spcValue').oninput = () => {
+  syncSpcDates(true);
+  redrawSpc();
+};
+const redrawSpcDates = () => { if (viewMode === 'spc') requestAnimationFrame(() => draw()); };
+document.getElementById('spcFrom').onchange = document.getElementById('spcFrom').oninput = redrawSpcDates;
+document.getElementById('spcTo').onchange = document.getElementById('spcTo').oninput = redrawSpcDates;
 document.getElementById('spcOutliers').onclick = () => {
   spcHideOutliers = !spcHideOutliers;
   document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
-  draw();
+  requestAnimationFrame(() => draw());
 };
 document.getElementById('histWrap').addEventListener('scroll', () => {
   const wrap = document.getElementById('histWrap');
@@ -2062,6 +2098,11 @@ document.getElementById('histWrap').addEventListener('scroll', () => {
   if (head) head.scrollLeft = wrap.scrollLeft;
   if (histPaint) return;
   histPaint = requestAnimationFrame(() => { histPaint = 0; renderHistoryBody(); });
+}, { passive: true });
+document.querySelector('.hist-head-freeze').addEventListener('scroll', () => {
+  const wrap = document.getElementById('histWrap');
+  const head = document.querySelector('.hist-head-freeze');
+  if (wrap && head) wrap.scrollLeft = head.scrollLeft;
 }, { passive: true });
 document.getElementById('histBody').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-view]');

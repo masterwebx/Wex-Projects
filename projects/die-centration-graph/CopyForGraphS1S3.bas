@@ -1,4 +1,4 @@
-Attribute VB_Name = "CopyForGraph"
+Attribute VB_Name = "CopyForGraphS1S3"
 Option Explicit
 
 #If Mac Then
@@ -26,13 +26,15 @@ Option Explicit
 Private Const CF_UNICODETEXT As Long = 13
 Private Const GMEM_MOVEABLE As Long = &H2
 
-' Button name: Copy for Graph
-' Copies current S4 values (if any), lookup specs from the same Master Sheet
-' S4 VLOOKUPs (Quality AIO / linked workbook, not the stale local copy),
-' and the full Data S4 TableS4 table as DIEGRAPH2 text for the HTML graph.
-' For the S1 S3 quality check workbook, import CopyForGraphS1S3.bas instead.
+' Import this module into the S1 S3 quality check workbook only.
+' The S4 book uses CopyForGraph.bas — do not put both in the same file.
+' Button name: Copy for Graph  (macro CopyForGraphS1S3.CopyForGraph)
+' Copies current S1 S3 values, lookup specs from the same Master Sheet
+' S1 S3 VLOOKUPs (Quality AIO / linked workbook, not the stale local copy),
+' and the full Data S1 S3 TableS1S3 table as DIEGRAPH2 text for the HTML graph.
+' History is tagged [TABLES4] so the same graph parser can ingest S4 and S1 S3.
 Public Sub CopyForGraph()
-    Dim wsS4 As Worksheet
+    Dim wsForm As Worksheet
     Dim payload As String
     Dim hasPoints As Boolean
     Dim tsvLookup As String
@@ -40,13 +42,13 @@ Public Sub CopyForGraph()
     
     On Error GoTo ErrHandler
     
-    Set wsS4 = SheetByName("S4")
-    If wsS4 Is Nothing Then Set wsS4 = ActiveSheet
+    Set wsForm = SheetByName("S1 S3")
+    If wsForm Is Nothing Then Set wsForm = ActiveSheet
     
     Application.Cursor = xlWait
     Application.StatusBar = "Copying for graph..."
     
-    payload = CurrentSection(wsS4, hasPoints)
+    payload = CurrentSection(wsForm, hasPoints)
     
     Application.StatusBar = "Copying Quality AIO Master Sheet..."
     tsvLookup = LookupTableTsv()
@@ -55,8 +57,8 @@ Public Sub CopyForGraph()
         payload = payload & tsvLookup & vbCrLf
     End If
     
-    Application.StatusBar = "Copying TableS4..."
-    tsvTable = ListObjectToTsv(TableS4ListObject())
+    Application.StatusBar = "Copying TableS1S3..."
+    tsvTable = ListObjectToTsv(TableS1S3ListObject())
     payload = payload & "[TABLES4]" & vbCrLf
     If LenB(tsvTable) > 0 Then
         payload = payload & tsvTable & vbCrLf
@@ -64,7 +66,7 @@ Public Sub CopyForGraph()
     
     PutTextOnClipboard payload
     
-    Application.StatusBar = "Copied for graph (current + lookup + TableS4)"
+    Application.StatusBar = "Copied for graph (current + lookup + TableS1S3)"
     Application.Cursor = xlDefault
     Exit Sub
     
@@ -82,23 +84,23 @@ Private Function SheetByName(ByVal sheetName As String) As Worksheet
     Set SheetByName = ws
 End Function
 
-Private Function TableS4ListObject() As ListObject
+Private Function TableS1S3ListObject() As ListObject
     Dim ws As Worksheet
     Dim lo As ListObject
-    Set ws = SheetByName("Data S4")
+    Set ws = SheetByName("Data S1 S3")
     If ws Is Nothing Then Exit Function
     On Error Resume Next
-    Set lo = ws.ListObjects("TableS4")
+    Set lo = ws.ListObjects("TableS1S3")
     On Error GoTo 0
     If lo Is Nothing Then
         For Each lo In ws.ListObjects
-            If StrComp(lo.Name, "TableS4", vbTextCompare) = 0 Or StrComp(lo.DisplayName, "TableS4", vbTextCompare) = 0 Then
-                Set TableS4ListObject = lo
+            If StrComp(lo.Name, "TableS1S3", vbTextCompare) = 0 Or StrComp(lo.DisplayName, "TableS1S3", vbTextCompare) = 0 Then
+                Set TableS1S3ListObject = lo
                 Exit Function
             End If
         Next lo
     End If
-    Set TableS4ListObject = lo
+    Set TableS1S3ListObject = lo
 End Function
 
 Private Function LookupTableTsv() As String
@@ -106,7 +108,7 @@ Private Function LookupTableTsv() As String
     Dim lo As ListObject
     Dim tsv As String
     
-    ' 1) Quality AIO (or whichever workbook S4 VLOOKUPs) if it is already open
+    ' 1) Quality AIO (or whichever workbook S1 S3 VLOOKUPs) if it is already open
     Set ws = LinkedMasterSheetIfOpen()
     If Not ws Is Nothing Then
         Set lo = MspecListObject(ws)
@@ -116,7 +118,7 @@ Private Function LookupTableTsv() As String
         End If
     End If
     
-    ' 2) Same [n]Master Sheet cache S4 uses, so specs match E6/G6 even if AIO is closed
+    ' 2) Same [n]Master Sheet cache S1 S3 uses, so specs match E6/G6 even if AIO is closed
     tsv = LinkedMasterSheetToTsv()
     If LenB(tsv) > 0 Then
         LookupTableTsv = tsv
@@ -203,14 +205,14 @@ Private Function LinkFileName(ByVal p As String) As String
     LinkFileName = s
 End Function
 
-' S4 E6 is VLOOKUP(D4,'[1]Master Sheet'!A:D,4,FALSE) — copy that same sheet.
+' S1 S3 E6 is VLOOKUP(D4,'[1]Master Sheet'!A:D,4,FALSE) — copy that same sheet.
 Private Function MasterSheetBookRef() As String
     Dim f As String
     Dim ws As Worksheet
     Dim i As Long
     Dim j As Long
     
-    Set ws = SheetByName("S4")
+    Set ws = SheetByName("S1 S3")
     If ws Is Nothing Then
         MasterSheetBookRef = "'[1]Master Sheet'"
         Exit Function
@@ -246,7 +248,7 @@ Private Function LinkedMasterSheetToTsv() As String
     ref = MasterSheetBookRef()
     If InStr(1, ref, "[", vbBinaryCompare) = 0 Then Exit Function
     
-    Set evalWs = SheetByName("S4")
+    Set evalWs = SheetByName("S1 S3")
     If evalWs Is Nothing Then Set evalWs = ActiveSheet
     
     nC = 0
@@ -434,7 +436,7 @@ Private Function PutUnicodeTextWin32(ByVal s As String) As Boolean
 End Function
 #End If
 
-Private Function CurrentSection(ByVal wsS4 As Worksheet, ByRef hasPoints As Boolean) As String
+Private Function CurrentSection(ByVal wsForm As Worksheet, ByRef hasPoints As Boolean) As String
     Dim i As Long
     Dim pointLine As String
     Dim tLines As String
@@ -443,38 +445,40 @@ Private Function CurrentSection(ByVal wsS4 As Worksheet, ByRef hasPoints As Bool
     hasPoints = False
     tLines = ""
     For i = 2 To 14
-        pointLine = CellNum(wsS4.Range("J" & i))
+        pointLine = CellNum(wsForm.Range("J" & i))
         If LenB(pointLine) > 0 Then hasPoints = True
         tLines = tLines & pointLine & vbCrLf
     Next i
     
     head = "DIEGRAPH2" & vbCrLf
     head = head & "[CURRENT]" & vbCrLf
-    head = head & "source=S4" & vbCrLf
-    head = head & "item=" & CellText(wsS4.Range("B3")) & vbCrLf
-    head = head & "mspec=" & CellText(wsS4.Range("D4")) & vbCrLf
-    head = head & "min=" & CellNum(wsS4.Range("E6")) & vbCrLf
-    head = head & "target=" & CellNum(wsS4.Range("F6")) & vbCrLf
-    head = head & "max=" & CellNum(wsS4.Range("G6")) & vbCrLf
-    head = head & "range=" & CellNum(wsS4.Range("G7")) & vbCrLf
-    head = head & "densMin=" & CellNum(wsS4.Range("E9")) & vbCrLf
-    head = head & "densTarget=" & CellNum(wsS4.Range("F9")) & vbCrLf
-    head = head & "densMax=" & CellNum(wsS4.Range("G9")) & vbCrLf
-    head = head & "cellMin=" & CellNum(wsS4.Range("G10")) & vbCrLf
-    head = head & "widthMin=" & CellNum(wsS4.Range("E11")) & vbCrLf
-    head = head & "widthTarget=" & CellText(wsS4.Range("F11")) & vbCrLf
-    head = head & "width=" & CellNum(wsS4.Range("B5")) & vbCrLf
-    head = head & "widthPf=" & CellText(wsS4.Range("C5")) & vbCrLf
-    head = head & "cellMd=" & CellNum(wsS4.Range("B8")) & vbCrLf
-    head = head & "cellMdPf=" & CellText(wsS4.Range("C8")) & vbCrLf
-    head = head & "cellCd=" & CellNum(wsS4.Range("B9")) & vbCrLf
-    head = head & "cellCdPf=" & CellText(wsS4.Range("C9")) & vbCrLf
-    head = head & "density=" & CellNum(wsS4.Range("B12")) & vbCrLf
-    head = head & "densityPf=" & CellText(wsS4.Range("C12")) & vbCrLf
-    head = head & "avg=" & CellNum(wsS4.Range("B10")) & vbCrLf
-    head = head & "avgPf=" & CellText(wsS4.Range("C10")) & vbCrLf
-    head = head & "tRange=" & CellNum(wsS4.Range("B11")) & vbCrLf
-    head = head & "tRangePf=" & CellText(wsS4.Range("C11")) & vbCrLf
+    head = head & "source=S1S3" & vbCrLf
+    head = head & "item=" & CellText(wsForm.Range("B3")) & vbCrLf
+    head = head & "mspec=" & CellText(wsForm.Range("D4")) & vbCrLf
+    head = head & "line=" & CellText(wsForm.Range("B2")) & vbCrLf
+    head = head & "min=" & CellNum(wsForm.Range("E6")) & vbCrLf
+    head = head & "target=" & CellNum(wsForm.Range("F6")) & vbCrLf
+    head = head & "max=" & CellNum(wsForm.Range("G6")) & vbCrLf
+    head = head & "range=" & CellNum(wsForm.Range("G7")) & vbCrLf
+    head = head & "densMin=" & CellNum(wsForm.Range("E9")) & vbCrLf
+    head = head & "densTarget=" & CellNum(wsForm.Range("F9")) & vbCrLf
+    head = head & "densMax=" & CellNum(wsForm.Range("G9")) & vbCrLf
+    head = head & "cellMin=" & CellNum(wsForm.Range("G10")) & vbCrLf
+    head = head & "widthMin=" & CellNum(wsForm.Range("E11")) & vbCrLf
+    head = head & "widthTarget=" & CellText(wsForm.Range("F11")) & vbCrLf
+    head = head & "width=" & CellNum(wsForm.Range("B5")) & vbCrLf
+    head = head & "widthPf=" & CellText(wsForm.Range("C5")) & vbCrLf
+    head = head & "cellMd=" & CellNum(wsForm.Range("B10")) & vbCrLf
+    head = head & "cellMdPf=" & CellText(wsForm.Range("C10")) & vbCrLf
+    head = head & "cellCd=" & CellNum(wsForm.Range("B11")) & vbCrLf
+    head = head & "cellCdPf=" & CellText(wsForm.Range("C11")) & vbCrLf
+    head = head & "density=" & CellNum(wsForm.Range("B14")) & vbCrLf
+    head = head & "densityPf=" & CellText(wsForm.Range("C14")) & vbCrLf
+    head = head & "avg=" & CellNum(wsForm.Range("B12")) & vbCrLf
+    head = head & "avgPf=" & CellText(wsForm.Range("C12")) & vbCrLf
+    head = head & "tRange=" & CellNum(wsForm.Range("B13")) & vbCrLf
+    head = head & "tRangePf=" & CellText(wsForm.Range("C13")) & vbCrLf
+    head = head & "weight=" & CellNum(wsForm.Range("L2")) & vbCrLf
     If hasPoints Then
         CurrentSection = head & tLines
     Else

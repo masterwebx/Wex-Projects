@@ -7,7 +7,9 @@ import assert from 'node:assert/strict';
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
 const vba = fs.readFileSync(path.join(dir, 'CopyForGraph.bas'), 'utf8');
+const vbaS1 = fs.readFileSync(path.join(dir, 'CopyForGraphS1S3.bas'), 'utf8');
 const payload = fs.readFileSync(path.join(dir, 'fixtures/sample-diegraph2.txt'), 'utf8');
+const payloadS1 = fs.readFileSync(path.join(dir, 'fixtures/sample-diegraph2-s1s3.txt'), 'utf8');
 
 function parseRangeSpec(raw) {
   const n = parseFloat(raw); if (!isFinite(n)) return NaN;
@@ -31,8 +33,12 @@ function splitDieGraph2(text) {
   const sections = { CURRENT: [], LOOKUP: [], TABLES4: [] };
   let cur = null;
   for (const line of lines.slice(1)) {
-    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4)\]$/i);
-    if (m) { cur = m[1].toUpperCase(); continue; }
+    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|HISTORY)\]$/i);
+    if (m) {
+      const name = m[1].toUpperCase();
+      cur = (name === 'TABLES1S3' || name === 'HISTORY') ? 'TABLES4' : name;
+      continue;
+    }
     if (cur) sections[cur].push(line);
   }
   return sections;
@@ -49,8 +55,24 @@ assert.doesNotMatch(vba, /Item # must be filled in/);
 assert.match(vba, /densMin=/);
 assert.match(vba, /cellMd=/);
 assert.match(vba, /width=/);
+assert.match(vba, /CopyForGraphS1S3\.bas/);
+assert.match(vba, /source=S4/);
+
+assert.match(vbaS1, /Attribute VB_Name = "CopyForGraphS1S3"/);
+assert.match(vbaS1, /SheetByName\("S1 S3"\)/);
+assert.match(vbaS1, /Data S1 S3/);
+assert.match(vbaS1, /TableS1S3/);
+assert.match(vbaS1, /source=S1S3/);
+assert.match(vbaS1, /Range\("B14"\)/);
+assert.match(vbaS1, /Range\("B12"\)/);
+assert.match(vbaS1, /Range\("B10"\)/);
+assert.doesNotMatch(vbaS1, /Data S4/);
+assert.doesNotMatch(vbaS1, /SheetByName\("S4"\)/);
 
 assert.match(html, /data-screen="welcome"/);
+assert.match(html, /S1 S3 quality check sheet/);
+assert.match(html, /function currentSheetSourceLabel/);
+assert.match(html, /TABLES1S3/);
 assert.match(html, /Paste results/);
 assert.match(html, /Enter points by hand/);
 assert.match(html, /Paste more data/);
@@ -169,6 +191,34 @@ for (const raw of sections.CURRENT) {
 assert.equal(tvals[0], 0.5307);
 assert.equal(tvals[3], '');
 assert.equal(tvals[4], 0.5171);
+
+const s1 = splitDieGraph2(payloadS1);
+assert.match(payloadS1, /source=S1S3/);
+assert.match(payloadS1, /\[TABLES1S3\]/);
+const s1Lookup = parseTsv(s1.LOOKUP);
+const s1Table = parseTsv(s1.TABLES4);
+assert.equal(s1Table.rows.length, 2);
+assert.equal(col(s1Table.rows[0], 'Line'), 'S3');
+assert.equal(col(s1Table.rows[1], 'Line'), 'S1');
+assert.equal(col(s1Table.rows[0], 'MSPEC'), '4003');
+assert.equal(parseFloat(col(s1Table.rows[0], 'T1')), 0.252);
+assert.equal(parseFloat(col(s1Table.rows[0], 'T13')), 0.258);
+assert.equal(parseFloat(col(s1Table.rows[0], 'Thickness Average')), 0.25530769230769229);
+assert.ok(s1Table.headers.includes('Tape Color'));
+assert.ok(s1Table.headers.includes('Winder Tension'));
+const s1Current = Object.fromEntries(s1.CURRENT.filter(l => l.includes('=')).map(l => {
+  const i = l.indexOf('=');
+  return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+}));
+assert.equal(s1Current.item, '410805');
+assert.equal(s1Current.mspec, '4003');
+assert.equal(s1Current.line, 'S3');
+assert.equal(parseFloat(s1Current.min), 0.24);
+assert.equal(parseFloat(s1Current.max), 0.26);
+const s14003 = s1Lookup.rows.find(r => String(col(r, 'MSPEC #')) === '4003');
+assert.ok(s14003);
+assert.equal(parseFloat(col(s14003, 'Lower Control')), 0.24);
+assert.equal(parseFloat(col(s14003, 'Upper Control')), 0.26);
 
 const dated = table.rows.map((row, idx) => ({ row, idx }))
   .sort((a, b) => parseFloat(col(b.row, 'Date/Time')) - parseFloat(col(a.row, 'Date/Time')));

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
@@ -80,6 +81,9 @@ assert.match(html, /HIST_COL_W/);
 assert.match(html, /function applyHistColgroup/);
 assert.match(html, /function syncHistHeaderGutter/);
 assert.match(html, /function renderHistoryChrome/);
+assert.doesNotMatch(html, /\bhistCount\b/);
+assert.doesNotMatch(html, /\bupdateHistNav\b/);
+assert.match(html, /rel="icon"/);
 assert.match(html, /function redrawSpc/);
 assert.match(html, /function fillSpcControls\(fromView\)/);
 assert.match(html, /function spcPreferredFromView/);
@@ -286,5 +290,20 @@ const sampleWhen = parseFloat(col(table.rows[3], 'Date/Time'));
 const sampleDt = excelSerialDate(sampleWhen);
 assert.equal(sampleDt.getUTCFullYear(), 2026);
 assert.equal(sampleDt.getUTCHours(), Math.floor((sampleWhen - Math.floor(sampleWhen)) * 24 + 1e-9));
+
+const declaredIds = new Set([...html.matchAll(/\bid=["']([^"']+)["']/g)].map(m => m[1]));
+const missingIds = [];
+for (const m of html.matchAll(/getElementById\(\s*['"]([^'"]+)['"]\s*\)/g)) {
+  if (!declaredIds.has(m[1])) missingIds.push(m[1]);
+}
+assert.deepEqual(missingIds, [], `getElementById missing in markup: ${missingIds.join(', ')}`);
+
+const script = html.match(/<script>([\s\S]*)<\/script>/);
+assert.ok(script, 'inline script present');
+const tmpJs = path.join(dir, '.script-check.js');
+fs.writeFileSync(tmpJs, script[1]);
+const check = spawnSync(process.execPath, ['--check', tmpJs], { encoding: 'utf8' });
+fs.unlinkSync(tmpJs);
+assert.equal(check.status, 0, check.stderr || check.stdout);
 
 console.log('parse-diegraph tests passed');

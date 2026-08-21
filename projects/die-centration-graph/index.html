@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Die Centration Graph</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%231d4ed8'/><circle cx='16' cy='16' r='10' fill='%233c9d5a'/><circle cx='16' cy='16' r='4' fill='%23e2b340'/></svg>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
@@ -375,7 +376,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.4.3';
+const APP_VERSION = '1.4.4';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -1244,11 +1245,6 @@ function renderHistoryChrome() {
     tableFilters['Date/Time'] = { year: df.year, month: df.month, day: document.getElementById('dateDay').value };
     pruneFilters(); filteredDirty = true; renderHistoryChrome(); renderHistoryBody(true);
   };
-  if (histCount() === 0) {
-    document.getElementById('histBody').innerHTML = '<tr><td colspan="20" style="text-align:center;color:var(--muted);padding:28px">No saved graphs yet. Use Copy for Graph in Excel, then paste here.</td></tr>';
-    document.getElementById('histCount').textContent = '0 saved';
-  }
-  updateHistNav();
 }
 function rowHtml(r) {
   const tds = TABLE_COLS.map(k => {

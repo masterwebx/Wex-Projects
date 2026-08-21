@@ -15,11 +15,18 @@
     --thick: #991b1b; --thick-bg: #fee2e2; --idle: #f8fafc; --shadow: 0 8px 24px rgba(15, 23, 42, .08);
     --filter-bg: #dbeafe; --filter-text: #1e40af;
   }
+  html { color-scheme: light; }
   html[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #0c1116; --bg-elev: #151c24; --text: #f3f7fb; --muted: #c5d0db; --line: #2a3541;
     --accent: #3b82f6; --ok: #86efac; --ok-bg: #14532d; --thin: #fcd34d; --thin-bg: #78350f;
     --thick: #fca5a5; --thick-bg: #7f1d1d; --idle: #0f1620; --shadow: 0 8px 24px rgba(0,0,0,.35);
     --filter-bg: #1e3a5f; --filter-text: #93c5fd;
+  }
+  html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1) brightness(1.6);
+    opacity: 1;
+    cursor: pointer;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -31,6 +38,7 @@
   html[data-screen="welcome"] #screenWelcome { display: flex; }
   html[data-screen="history"] #screenHistory { display: grid; }
   html[data-screen="view"] #screenView { display: grid; }
+  html[data-screen="compliance"] #screenCompliance { display: grid; }
   header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   h1 { font-size: 24px; margin: 0; }
   .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -126,13 +134,70 @@
     display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; color: var(--muted);
     text-transform: uppercase; letter-spacing: .04em;
   }
-  html[data-mode="spc"] .spc-only select, html[data-mode="spc"] .spc-only input[type="date"] {
+  html[data-mode="spc"] .spc-only .combo,
+  html[data-mode="spc"] .spc-only .combo input,
+  html[data-mode="spc"] .spc-only .combo-list { text-transform: none; letter-spacing: normal; }
+  html[data-mode="spc"] .spc-only select,
+  html[data-mode="spc"] .spc-only input[type="date"],
+  html[data-mode="spc"] .spc-only input[type="search"] {
     width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
     font: inherit; font-size: 16px; background: var(--idle); color: var(--text);
+  }
+  .combo { position: relative; }
+  .combo-list {
+    position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 16;
+    max-height: 240px; overflow: auto; display: none;
+    background: var(--bg-elev); color: var(--text); border: 2px solid var(--line);
+    border-radius: 10px; box-shadow: var(--shadow);
+  }
+  .combo-list.show { display: block; }
+  .combo-list button {
+    display: block; width: 100%; text-align: left; background: transparent;
+    color: var(--text); font-weight: 400; border-radius: 0; min-height: 36px;
+  }
+  .combo-list button:hover, .combo-list button.active { background: var(--filter-bg); color: var(--filter-text); }
+  .combo-list .hist-meta { padding: 10px; }
+  #screenCompliance { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  .comp-scroll { overflow: auto; padding: 16px; display: grid; gap: 20px; }
+  .comp-week { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .comp-hours { overflow-x: auto; }
+  .comp-grid {
+    display: grid; grid-template-columns: 92px repeat(24, 22px); gap: 4px; align-items: center;
+    min-width: 92px;
+    font-size: 12px; font-weight: 700; color: var(--muted);
+  }
+  .comp-hlabel { text-align: center; font-size: 11px; }
+  .comp-hour {
+    width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--line);
+    background: transparent;
+  }
+  .comp-hour.check { background: #22c55e; border-color: #15803d; }
+  .comp-hour.nocheck { background: #9ca3af; border-color: #6b7280; }
+  .comp-hour.miss { background: #ef4444; border-color: #b91c1c; }
+  .comp-hour.future { background: transparent; border-color: transparent; }
+  .comp-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; color: var(--muted); font-weight: 700; }
+  .comp-legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; margin-right: 6px; vertical-align: -2px; border: 1px solid var(--line); }
+  .comp-day { display: grid; gap: 8px; }
+  .comp-day h3 { margin: 0; font-size: 18px; }
+  .comp-item {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center;
+    padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--idle);
+  }
+  .comp-item b { display: block; font-size: 16px; }
+  .comp-item .muted { color: var(--muted); font-weight: 400; font-size: 14px; }
+  .comp-sum { font-size: 14px; font-weight: 700; text-align: right; max-width: 280px; }
+  .comp-sum.good { color: var(--ok); }
+  .comp-sum.bad { color: var(--thick); }
+  .comp-sum.gray { color: #9ca3af; }
+  .comp-empty { color: var(--muted); font-size: 14px; margin: 0; }
+  @media (max-width: 720px) {
+    .comp-item { grid-template-columns: 1fr; }
+    .comp-sum { text-align: left; max-width: none; }
   }
   .pf-pill { font-weight: 700; }
   .pf-pill.good { color: var(--ok); }
   .pf-pill.bad { color: var(--thick); }
+  .pf-pill.gray { color: #9ca3af; }
   .hist-meta { margin: 0; font-size: 14px; color: var(--muted); }
   .view-meta { margin: 4px 0 0; font-size: 15px; color: var(--muted); font-weight: 700; }
   .progress-track { height: 12px; border-radius: 999px; background: var(--line); overflow: hidden; }
@@ -242,6 +307,7 @@
       <div class="welcome-extra">
         <button type="button" id="welcomePasteMore">Paste more data</button>
         <button class="secondary" type="button" id="welcomeHistory">View history</button>
+        <button class="secondary" type="button" id="welcomeCompliance">Compliance</button>
       </div>
       <button class="secondary" type="button" id="welcomeEnter">Enter points by hand</button>
     </div>
@@ -258,6 +324,7 @@
     <div class="toolbar">
       <button class="secondary" type="button" id="histBack">Go to main</button>
       <button type="button" id="histPaste">Paste more data</button>
+      <button class="secondary" type="button" id="histCompliance">Compliance</button>
       <button class="secondary" type="button" id="histSpc">SPC mode</button>
       <button type="button" id="histResetFilters" disabled>Reset filters</button>
       <button class="secondary" type="button" id="histTheme">Dark mode</button>
@@ -274,6 +341,32 @@
   </div>
 </section>
 <div class="filter-pop" id="filterPop"></div>
+
+<section class="screen" id="screenCompliance">
+  <header>
+    <div>
+      <h1>Compliance</h1>
+      <p class="hist-meta" id="complianceWeekLabel"></p>
+    </div>
+    <div class="toolbar">
+      <button class="secondary" type="button" id="complianceBack">Back</button>
+      <button class="secondary" type="button" id="compliancePrevWeek">Previous week</button>
+      <button class="secondary" type="button" id="complianceThisWeek">This week</button>
+      <button class="secondary" type="button" id="complianceNextWeek">Next week</button>
+      <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
+    </div>
+  </header>
+  <div class="card comp-scroll">
+    <div class="comp-legend" id="complianceLegend">
+      <span><i style="background:#22c55e"></i>Checked</span>
+      <span><i style="background:#9ca3af"></i>NO CHECK</span>
+      <span><i style="background:#ef4444"></i>No checks</span>
+      <span><i style="background:transparent"></i>Not yet</span>
+    </div>
+    <div class="comp-hours" id="complianceHours"></div>
+    <div id="complianceDays"></div>
+  </div>
+</section>
 
 <section class="screen" id="screenView">
   <header>
@@ -305,7 +398,11 @@
           </select>
         </label>
         <label><span id="spcValueName">Item #</span>
-          <select id="spcValue"></select>
+          <div class="combo" id="spcValueCombo">
+            <input type="search" id="spcValueSearch" autocomplete="off" spellcheck="false" placeholder="Type to search">
+            <input type="hidden" id="spcValue">
+            <div class="combo-list" id="spcValueList"></div>
+          </div>
         </label>
         <label>From <input type="date" id="spcFrom"></label>
         <label>To <input type="date" id="spcTo"></label>
@@ -376,13 +473,13 @@
 </div>
 
 <script>
-const APP_VERSION = '1.4.6';
+const APP_VERSION = '1.5.0';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
 const PACK_STORE = 'pack';
 const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
-const HIST_COL_W = [52, 280, 120, 240, 100, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120];
+const HIST_COL_W = [52, 280, 120, 240, 150, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120];
 const COL_ALIASES = {
   'Item #': ['Item #', 'Item', 'Item Number'],
   'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription'],
@@ -421,6 +518,9 @@ let pasteIntent = false;
 let spcHideOutliers = true;
 let openFilterCol = null;
 let enterMode = false;
+let complianceMonday = null;
+let complianceBackTo = 'welcome';
+let spcComboHi = -1;
 
 function finiteNum(v) {
   if (v == null || v === '') return false;
@@ -537,7 +637,7 @@ function applyTheme(theme) {
   const dark = theme === 'dark';
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   const label = dark ? 'Light mode' : 'Dark mode';
-  ['themeBtn','welcomeTheme','histTheme'].forEach(id => {
+  ['themeBtn','welcomeTheme','histTheme','complianceTheme'].forEach(id => {
     const el = document.getElementById(id); if (el) el.textContent = label;
   });
 }
@@ -666,7 +766,7 @@ function fillSpecPanel(specs, mspec) {
   if (!specsHaveValues(s)) {
     if (src) {
       src.textContent = key
-        ? `No Master Sheet row for MSPEC ${key} — keeping last specs`
+        ? `No Master Sheet row for MSPEC ${mspecWithTarget(key)} — keeping last specs`
         : 'No MSPEC on this graph — keeping last specs';
     }
     return;
@@ -682,7 +782,7 @@ function fillSpecPanel(specs, mspec) {
   setSpecInput('cellMaxSpec', s.cellMax, 0);
   setSpecInput('widthMinSpec', s.widthMin, 1);
   setSpecInput('widthTargetSpec', s.widthTarget, 1);
-  if (src) src.textContent = key ? `Master Sheet MSPEC ${key}` : '';
+  if (src) src.textContent = key ? `Master Sheet MSPEC ${mspecWithTarget(key)}` : '';
 }
 function applyDieGraphLines(lines) {
   let min = null, max = null, range = null; const tvals = [];
@@ -829,6 +929,109 @@ function buildLookupMap(rows) {
   }
   return map;
 }
+function mspecTarget(mspec) {
+  const s = lookupSpecs(mspec);
+  return s && finiteNum(s.target) ? Number(s.target) : NaN;
+}
+function mspecWithTarget(mspec) {
+  const key = canonMspec(mspec);
+  if (!key) return '';
+  const t = mspecTarget(key);
+  return finiteNum(t) ? `${key} (${Number(t).toFixed(3)})` : key;
+}
+function isNoCheckPf(v) {
+  const s = String(v || '').trim().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+  return /^no check$/i.test(s);
+}
+function hourComplianceStatus(pfs, isFuture) {
+  if (isFuture) return 'future';
+  const list = (pfs || []).map(v => String(v == null ? '' : v));
+  if (!list.length) return 'miss';
+  const hasCheck = list.some(v => v.trim() && !isNoCheckPf(v));
+  if (hasCheck) return 'check';
+  if (list.some(isNoCheckPf)) return 'nocheck';
+  return 'check';
+}
+function failReasonsForRow(row, specs) {
+  const overall = col(row, 'Pass/Fail');
+  if (isNoCheckPf(overall)) return [];
+  const s = specs || {};
+  const reasons = [];
+  const avg = numVal(col(row, 'Thickness Average'));
+  const rangeThou = rangeAsThousandths(col(row, 'Thickness Range'));
+  const dens = numVal(col(row, 'Density'));
+  const cellMd = numVal(col(row, 'Cell Count MD'));
+  const cellCd = numVal(col(row, 'Cell Count CD'));
+  const width = numVal(col(row, 'Slit/Width'));
+  const failed = (stored, computed) => normalizePf(stored) === 'Fail' || computed === 'Fail';
+  if (failed(col(row, 'Thickness Average Pass/Fail'), judgeBetween(avg, s.min, s.max))) {
+    if (finiteNum(avg) && finiteNum(s.min) && avg < s.min) reasons.push('thickness under');
+    else if (finiteNum(avg) && finiteNum(s.max) && avg > s.max) reasons.push('thickness over');
+    else reasons.push('thickness fail');
+  }
+  if (failed(col(row, 'Thickness Range Pass/Fail'), judgeBetween(rangeThou, 0, s.rangeThou))) {
+    reasons.push('range over');
+  }
+  if (failed(col(row, 'Density Pass/Fail'), judgeBetween(finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, s.densMin, s.densMax))) {
+    if (finiteNum(dens) && finiteNum(s.densMin) && dens < s.densMin) reasons.push('density under');
+    else if (finiteNum(dens) && finiteNum(s.densMax) && dens > s.densMax) reasons.push('density over');
+    else reasons.push('density fail');
+  }
+  if (failed(col(row, 'Cell Count MD Pass/Fail'), judgeBetween(cellMd, s.cellMin, s.cellMax))) {
+    if (finiteNum(cellMd) && finiteNum(s.cellMin) && cellMd < s.cellMin) reasons.push('cell count MD under');
+    else if (finiteNum(cellMd) && finiteNum(s.cellMax) && cellMd > s.cellMax) reasons.push('cell count MD over');
+    else reasons.push('cell count MD fail');
+  }
+  if (failed(col(row, 'Cell Count CD Pass/Fail'), judgeBetween(cellCd, s.cellMin, s.cellMax))) {
+    if (finiteNum(cellCd) && finiteNum(s.cellMin) && cellCd < s.cellMin) reasons.push('cell count CD under');
+    else if (finiteNum(cellCd) && finiteNum(s.cellMax) && cellCd > s.cellMax) reasons.push('cell count CD over');
+    else reasons.push('cell count CD fail');
+  }
+  if (failed(col(row, 'Slit/Width Pass/Fail'), judgeBetween(width, s.widthMin, NaN))) {
+    if (finiteNum(width) && finiteNum(s.widthMin) && width < s.widthMin) reasons.push('width under');
+    else reasons.push('width fail');
+  }
+  if (normalizePf(overall) === 'Fail' && !reasons.length) reasons.push('failed check');
+  return reasons;
+}
+function mondayOfLocalDate(d) {
+  const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = utc.getUTCDay() || 7;
+  utc.setUTCDate(utc.getUTCDate() - day + 1);
+  return utc;
+}
+function isoWeekFromMonday(monday) {
+  const thu = new Date(Date.UTC(monday.getUTCFullYear(), monday.getUTCMonth(), monday.getUTCDate() + 3));
+  const year = thu.getUTCFullYear();
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const jan4Dow = (jan4.getUTCDay() + 6) % 7;
+  const week1 = new Date(jan4);
+  week1.setUTCDate(jan4.getUTCDate() - jan4Dow);
+  const week = 1 + Math.round((monday.getTime() - week1.getTime()) / 604800000);
+  return { year, week };
+}
+function shiftMonday(monday, weeks) {
+  const d = new Date(monday.getTime());
+  d.setUTCDate(d.getUTCDate() + weeks * 7);
+  return d;
+}
+function fmtWeekDate(d) {
+  return d.toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+}
+function excelTimeShort(serial) {
+  const dt = excelSerialDate(serial);
+  if (isNaN(dt.getTime())) return '';
+  return dt.toLocaleTimeString(undefined, { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' });
+}
+function serialHour(serial) {
+  const dt = excelSerialDate(serial);
+  return isNaN(dt.getTime()) ? -1 : dt.getUTCHours();
+}
+function localTodayParts() {
+  const n = new Date();
+  return { y: n.getFullYear(), m: n.getMonth() + 1, d: n.getDate(), h: n.getHours() };
+}
+function ymdNum(y, m, d) { return y * 10000 + m * 100 + d; }
 function numVal(v) {
   const s = String(v ?? '').trim();
   if (!s || s[0] === '#') return NaN;
@@ -954,6 +1157,7 @@ function applySnapshot(snap) {
 function displayCell(key, raw) {
   if (key === 'Date/Time') return excelWhen(raw) || raw || '';
   if (key === 'Pass/Fail') {
+    if (isNoCheckPf(raw)) return '<span class="pf-pill gray">NO CHECK</span>';
     const pf = normalizePf(raw);
     return pf ? `<span class="pf-pill ${pf === 'Pass' ? 'good' : 'bad'}">${pf}</span>` : esc(raw);
   }
@@ -1028,7 +1232,7 @@ async function indexHistory(onProg) {
     const tone = tonesForRow(row, mspec);
     for (const k of TABLE_COLS) {
       const raw = col(row, k);
-      display[k] = displayCell(k, raw);
+      display[k] = k === 'MSPEC' ? esc(mspecWithTarget(mspec) || raw) : displayCell(k, raw);
       num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw) : numVal(raw);
       text[k] = String(raw ?? '').trim();
     }
@@ -1037,7 +1241,8 @@ async function indexHistory(onProg) {
       display, num, text, tone,
       item: String(col(row, 'Item #') || '').trim(),
       mspec,
-      desc: String(col(row, 'Item Desc', 'Item Description') || '').trim()
+      desc: String(col(row, 'Item Desc', 'Item Description') || '').trim(),
+      pf: String(col(row, 'Pass/Fail') || '').trim()
     };
     if (onProg && idx % 400 === 0) {
       onProg(idx, rows.length);
@@ -1353,7 +1558,8 @@ function openFilterMenu(col, anchor) {
        <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="num">Sort largest to smallest</button>`;
   const checks = shown.map(v => {
     const on = !selected || selected.has(String(v));
-    return `<label><input type="checkbox" data-val="${esc(String(v))}" ${on ? 'checked' : ''}>${esc(String(v))}</label>`;
+    const label = col === 'MSPEC' ? mspecWithTarget(v) || String(v) : String(v);
+    return `<label><input type="checkbox" data-val="${esc(String(v))}" ${on ? 'checked' : ''}>${esc(label)}</label>`;
   }).join('');
   pop.innerHTML = `${sortBtns}
     <input type="search" id="filterSearch" placeholder="Search" value="${esc(pop.dataset.q || '')}">
@@ -1420,15 +1626,63 @@ function fillSpcControls(fromView) {
   const fromRow = spcPreferredFromView();
   let preferred = fromView ? (fromRow || sel.value) : (sel.value || fromRow);
   if (by === 'mspec') preferred = canonMspec(preferred);
-  sel.innerHTML = values.map(v => `<option value="${esc(v)}" ${String(v) === String(preferred) ? 'selected' : ''}>${esc(v)}</option>`).join('');
   if (preferred && values.includes(String(preferred))) sel.value = preferred;
+  else if (values.length && !values.includes(String(sel.value))) sel.value = values[0] || '';
   else if (values.length && !sel.value) sel.value = values[0];
+  const search = document.getElementById('spcValueSearch');
+  if (search) {
+    search.placeholder = by === 'mspec' ? 'Type to search MSPEC' : 'Type to search Item #';
+    search.value = spcOptionLabel(sel.value, by);
+  }
+  renderSpcValueList(search && search === document.activeElement ? search.value : '');
+  hideSpcValueList();
   syncSpcDates(!!fromView);
   const val = String(sel.value || '').trim();
   const mspec = by === 'mspec' ? val : ((indexedRows.find(r => r.item === val) || {}).mspec || currentSnapshot.mspec);
   fillSpecPanel(specsFor(mspec), mspec);
   document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
   refreshViewMeta();
+}
+function spcOptionLabel(v, by) {
+  if (!v) return '';
+  return by === 'mspec' ? mspecWithTarget(v) : String(v);
+}
+function spcComboValues() {
+  const by = document.getElementById('spcBy').value;
+  return uniqueSorted([...new Set(indexedRows.map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
+}
+function renderSpcValueList(q) {
+  const list = document.getElementById('spcValueList');
+  if (!list) return;
+  const by = document.getElementById('spcBy').value;
+  const selected = String(document.getElementById('spcValue').value || '');
+  const needle = String(q || '').trim().toLowerCase();
+  const shown = spcComboValues().filter(v => {
+    if (!needle) return true;
+    return String(v).toLowerCase().includes(needle) || spcOptionLabel(v, by).toLowerCase().includes(needle);
+  }).slice(0, 80);
+  spcComboHi = shown.findIndex(v => String(v) === selected);
+  list.innerHTML = shown.map((v, i) =>
+    `<button type="button" data-val="${esc(v)}" class="${i === spcComboHi ? 'active' : ''}">${esc(spcOptionLabel(v, by))}</button>`
+  ).join('') || `<div class="hist-meta">No matches</div>`;
+}
+function showSpcValueList() {
+  const list = document.getElementById('spcValueList');
+  if (list) list.classList.add('show');
+}
+function hideSpcValueList() {
+  const list = document.getElementById('spcValueList');
+  if (list) list.classList.remove('show');
+  spcComboHi = -1;
+}
+function pickSpcValue(v) {
+  const by = document.getElementById('spcBy').value;
+  document.getElementById('spcValue').value = v || '';
+  const search = document.getElementById('spcValueSearch');
+  if (search) search.value = spcOptionLabel(v, by);
+  hideSpcValueList();
+  syncSpcDates(true);
+  redrawSpc();
 }
 function redrawSpc() {
   if (screenName !== 'view' || viewMode !== 'spc') return;
@@ -1485,12 +1739,12 @@ function refreshViewMeta() {
   if (viewMode === 'spc') {
     const by = document.getElementById('spcBy');
     const val = document.getElementById('spcValue');
-    el.textContent = by && val && val.value ? `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${val.value}` : '';
+    el.textContent = by && val && val.value ? `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${by.value === 'mspec' ? mspecWithTarget(val.value) : val.value}` : '';
     return;
   }
   if (viewingIdx === 'current') {
     const snap = currentSnapshot || {};
-    const parts = ['Current sheet', snap.item && `Item ${snap.item}`, snap.mspec && `MSPEC ${snap.mspec}`].filter(Boolean);
+    const parts = ['Current sheet', snap.item && `Item ${snap.item}`, snap.mspec && `MSPEC ${mspecWithTarget(snap.mspec)}`].filter(Boolean);
     el.textContent = parts.join(' · ');
     return;
   }
@@ -1500,7 +1754,7 @@ function refreshViewMeta() {
   const item = col(row, 'Item #');
   const desc = col(row, 'Item Desc', 'Item Description');
   const mspec = col(row, 'MSPEC', 'MSPEC #');
-  el.textContent = [when, item && `Item ${item}`, desc, mspec && `MSPEC ${mspec}`].filter(Boolean).join(' · ');
+  el.textContent = [when, item && `Item ${item}`, desc, mspec && `MSPEC ${mspecWithTarget(mspec)}`].filter(Boolean).join(' · ');
 }
 function viewPrev() {
   const { rows, i } = historyNav();
@@ -1538,6 +1792,129 @@ function openSpc() {
   syncSpcDates(true);
   setScreen('view');
   requestAnimationFrame(() => draw());
+}
+function openCompliance(from) {
+  if (!indexedRows.length) { toast('Paste results first'); return; }
+  complianceBackTo = from === 'history' ? 'history' : 'welcome';
+  complianceMonday = mondayOfLocalDate(new Date());
+  setViewMode('centration');
+  setScreen('compliance');
+  renderCompliance();
+}
+function renderCompliance() {
+  if (!complianceMonday) complianceMonday = mondayOfLocalDate(new Date());
+  const monday = complianceMonday;
+  const sunday = new Date(monday.getTime());
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const { year, week } = isoWeekFromMonday(monday);
+  const label = document.getElementById('complianceWeekLabel');
+  if (label) label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}`;
+  const thisMon = mondayOfLocalDate(new Date());
+  const next = document.getElementById('complianceNextWeek');
+  if (next) next.disabled = monday.getTime() >= thisMon.getTime();
+  renderComplianceHours(monday);
+  renderComplianceDays(monday);
+}
+function renderComplianceHours(monday) {
+  const el = document.getElementById('complianceHours');
+  if (!el) return;
+  const today = localTodayParts();
+  const todayN = ymdNum(today.y, today.m, today.d);
+  const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  let html = '<div class="comp-grid"><div></div>';
+  for (let h = 0; h < 24; h++) html += `<div class="comp-hlabel">${String(h).padStart(2, '0')}</div>`;
+  for (let d = 0; d < 7; d++) {
+    const day = new Date(monday.getTime());
+    day.setUTCDate(monday.getUTCDate() + d);
+    const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, dd = day.getUTCDate();
+    const dayN = ymdNum(y, m, dd);
+    const futureDay = dayN > todayN;
+    html += `<div>${DAYS[d]}</div>`;
+    const dayRows = futureDay ? [] : indexedRows.filter(r => r.y === y && r.m === m && r.d === dd);
+    const byHour = Array.from({ length: 24 }, () => []);
+    for (const r of dayRows) {
+      const h = serialHour(r.serial);
+      if (h >= 0 && h < 24) byHour[h].push(r.pf);
+    }
+    for (let h = 0; h < 24; h++) {
+      const future = futureDay || (dayN === todayN && h > today.h);
+      const st = hourComplianceStatus(byHour[h], future);
+      const title = `${DAYS[d]} ${String(h).padStart(2, '0')}:00 · ${st === 'check' ? 'checked' : st === 'nocheck' ? 'NO CHECK' : st === 'miss' ? 'no checks' : 'not yet'}`;
+      html += `<div class="comp-hour ${st}" title="${esc(title)}"></div>`;
+    }
+  }
+  html += '</div>';
+  el.innerHTML = html;
+}
+function renderComplianceDays(monday) {
+  const el = document.getElementById('complianceDays');
+  if (!el) return;
+  const today = localTodayParts();
+  const todayN = ymdNum(today.y, today.m, today.d);
+  const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const parts = [];
+  for (let d = 0; d < 7; d++) {
+    const day = new Date(monday.getTime());
+    day.setUTCDate(monday.getUTCDate() + d);
+    const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, dd = day.getUTCDate();
+    const heading = `${DAYS[d]}, ${fmtWeekDate(day)}`;
+    if (ymdNum(y, m, dd) > todayN) {
+      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3><p class="comp-empty">—</p></div>`);
+      continue;
+    }
+    const rows = indexedRows.filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
+    if (!rows.length) {
+      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3><p class="comp-empty">No items</p></div>`);
+      continue;
+    }
+    const groups = [];
+    const byItem = new Map();
+    for (const r of rows) {
+      const key = r.item || '(no item)';
+      if (!byItem.has(key)) {
+        const g = { item: r.item, desc: r.desc, mspec: r.mspec, first: r.serial, last: r.serial, rows: [] };
+        byItem.set(key, g);
+        groups.push(g);
+      }
+      const g = byItem.get(key);
+      g.last = r.serial;
+      if (!g.desc && r.desc) g.desc = r.desc;
+      if (!g.mspec && r.mspec) g.mspec = r.mspec;
+      g.rows.push(r);
+    }
+    const itemsHtml = groups.map(g => {
+      const reasons = [];
+      let allNoCheck = g.rows.length > 0;
+      for (const r of g.rows) {
+        if (!isNoCheckPf(r.pf)) allNoCheck = false;
+        failReasonsForRow(r.row, specsFor(r.mspec)).forEach(x => { if (!reasons.includes(x)) reasons.push(x); });
+      }
+      const t1 = excelTimeShort(g.first);
+      const t2 = excelTimeShort(g.last);
+      const period = t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2);
+      let sumCls = 'good', sumText = 'All pass';
+      if (allNoCheck) { sumCls = 'gray'; sumText = 'NO CHECK'; }
+      else if (reasons.length) { sumCls = 'bad'; sumText = reasons.join(', '); }
+      const n = g.rows.length;
+      const viewBtn = g.item
+        ? `<button type="button" data-comp-item="${esc(g.item)}" data-comp-y="${y}" data-comp-m="${m}" data-comp-d="${dd}">View</button>`
+        : '';
+      const meta = [g.desc, g.mspec && `MSPEC ${mspecWithTarget(g.mspec)}`, period, `${n} check${n === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
+      return `<div class="comp-item"><div><b>${esc(g.item || '—')}</b><span class="muted">${esc(meta)}</span></div><div class="comp-sum ${sumCls}">${esc(sumText)}</div>${viewBtn}</div>`;
+    }).join('');
+    parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${itemsHtml}</div>`);
+  }
+  el.innerHTML = parts.join('');
+}
+function openHistoryForItemDay(item, y, m, d) {
+  tableFilters = {};
+  if (item) tableFilters['Item #'] = new Set([String(item)]);
+  tableFilters['Date/Time'] = { year: String(y), month: String(m), day: String(d) };
+  tableSort = { col: 'Date/Time', dir: 'asc', mode: 'date' };
+  filteredDirty = true;
+  setViewMode('centration');
+  setScreen('history');
+  requestAnimationFrame(() => renderHistoryTable());
 }
 function viewResult(idx) {
   if (!applyHistoryRow(idx)) return;
@@ -2121,6 +2498,8 @@ document.getElementById('welcomeHistory').onclick = () => {
   setViewMode('centration'); setScreen('history');
   requestAnimationFrame(() => renderHistoryTable());
 };
+document.getElementById('welcomeCompliance').onclick = () => openCompliance('welcome');
+document.getElementById('histCompliance').onclick = () => openCompliance('history');
 document.getElementById('welcomeEnter').onclick = () => {
   enterMode = true;
   viewingIdx = 'current';
@@ -2132,6 +2511,34 @@ document.getElementById('histBack').onclick = () => {
   enterMode = false;
   setViewMode('centration');
   setScreen('welcome');
+};
+document.getElementById('complianceBack').onclick = () => {
+  setViewMode('centration');
+  if (complianceBackTo === 'history') {
+    setScreen('history');
+    requestAnimationFrame(() => renderHistoryTable());
+  } else {
+    setScreen('welcome');
+  }
+};
+document.getElementById('compliancePrevWeek').onclick = () => {
+  complianceMonday = shiftMonday(complianceMonday || mondayOfLocalDate(new Date()), -1);
+  renderCompliance();
+};
+document.getElementById('complianceNextWeek').onclick = () => {
+  const next = shiftMonday(complianceMonday || mondayOfLocalDate(new Date()), 1);
+  if (next.getTime() > mondayOfLocalDate(new Date()).getTime()) return;
+  complianceMonday = next;
+  renderCompliance();
+};
+document.getElementById('complianceThisWeek').onclick = () => {
+  complianceMonday = mondayOfLocalDate(new Date());
+  renderCompliance();
+};
+document.getElementById('complianceDays').onclick = (e) => {
+  const btn = e.target.closest('button[data-comp-item]');
+  if (!btn) return;
+  openHistoryForItemDay(btn.dataset.compItem, +btn.dataset.compY, +btn.dataset.compM, +btn.dataset.compD);
 };
 document.getElementById('viewBack').onclick = () => {
   if (indexedRows.length && !enterMode) {
@@ -2167,9 +2574,34 @@ document.getElementById('spcBy').onchange = () => {
   syncSpcDates(true);
   redrawSpc();
 };
-document.getElementById('spcValue').onchange = document.getElementById('spcValue').oninput = () => {
-  syncSpcDates(true);
-  redrawSpc();
+const spcSearch = document.getElementById('spcValueSearch');
+spcSearch.onfocus = () => { renderSpcValueList(spcSearch.value); showSpcValueList(); };
+spcSearch.oninput = () => { renderSpcValueList(spcSearch.value); showSpcValueList(); };
+spcSearch.onkeydown = (e) => {
+  const list = document.getElementById('spcValueList');
+  const btns = list ? [...list.querySelectorAll('button[data-val]')] : [];
+  if (e.key === 'Escape') { hideSpcValueList(); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (!btns.length) return;
+    if (e.key === 'ArrowDown') spcComboHi = Math.min(btns.length - 1, Math.max(0, spcComboHi + 1));
+    else spcComboHi = Math.max(0, (spcComboHi < 0 ? btns.length : spcComboHi) - 1);
+    btns.forEach((b, i) => b.classList.toggle('active', i === spcComboHi));
+    if (btns[spcComboHi]) btns[spcComboHi].scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (spcComboHi >= 0 && btns[spcComboHi]) { pickSpcValue(btns[spcComboHi].dataset.val); return; }
+    const by = document.getElementById('spcBy').value;
+    const q = String(spcSearch.value || '').trim().toLowerCase();
+    const hit = spcComboValues().find(v => String(v).toLowerCase() === q || spcOptionLabel(v, by).toLowerCase() === q);
+    if (hit) pickSpcValue(hit);
+  }
+};
+document.getElementById('spcValueList').onclick = (e) => {
+  const btn = e.target.closest('button[data-val]');
+  if (btn) pickSpcValue(btn.dataset.val);
 };
 const redrawSpcDates = () => { if (viewMode === 'spc') requestAnimationFrame(() => draw()); };
 document.getElementById('spcFrom').onchange = document.getElementById('spcFrom').oninput = redrawSpcDates;
@@ -2206,6 +2638,7 @@ document.getElementById('histHead').addEventListener('click', (e) => {
 });
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#filterPop') && !e.target.closest('.th-menu')) closeFilterPop();
+  if (!e.target.closest('#spcValueCombo')) hideSpcValueList();
 });
 document.addEventListener('paste', (e) => {
   const tag = (e.target && e.target.tagName) || '';
@@ -2228,7 +2661,7 @@ document.getElementById('rangeSpec').oninput = document.getElementById('targetTh
 });
 document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };
 document.getElementById('arrowToggle').onclick = () => { setArrowVisible(!showArrow); draw(); saveState(); };
-document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = () => {
+document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = document.getElementById('complianceTheme').onclick = () => {
   applyTheme(isDark() ? 'light' : 'dark'); if (screenName === 'view') draw(); saveState();
 };
 document.getElementById('settingsBtn').onclick = () => {

@@ -23,8 +23,13 @@
     --thick: #fca5a5; --thick-bg: #7f1d1d; --idle: #0f1620; --shadow: 0 8px 24px rgba(0,0,0,.35);
     --filter-bg: #1e3a5f; --filter-text: #93c5fd;
   }
+  html[data-theme="dark"] input[type="date"] {
+    color-scheme: light;
+    color: var(--text);
+    background: var(--idle);
+  }
   html[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator {
-    filter: invert(1) brightness(1.6);
+    filter: invert(1);
     opacity: 1;
     cursor: pointer;
   }
@@ -179,8 +184,14 @@
   .comp-legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; margin-right: 6px; vertical-align: -2px; border: 1px solid var(--line); }
   .comp-day { display: grid; gap: 8px; }
   .comp-day h3 { margin: 0; font-size: 18px; }
+  .comp-miss {
+    background: var(--thick-bg); color: var(--thick); border: 1px solid var(--thick);
+    border-radius: 12px; padding: 10px 12px;
+  }
+  .comp-miss b { display: block; margin-bottom: 4px; }
+  .comp-fail-list { margin: 6px 0 0; padding-left: 18px; font-size: 13px; font-weight: 400; color: var(--thick); }
   .comp-item {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center;
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: start;
     padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--idle);
   }
   .comp-item b { display: block; font-size: 16px; }
@@ -190,6 +201,10 @@
   .comp-sum.bad { color: var(--thick); }
   .comp-sum.gray { color: #9ca3af; }
   .comp-empty { color: var(--muted); font-size: 14px; margin: 0; }
+  .rpt-list { max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 4px; }
+  .rpt-opts { display: grid; gap: 6px; margin: 10px 0; }
+  .rpt-opts label { font-weight: 400; justify-content: flex-start; }
+  #spcReportOverlay .modal { width: min(560px, 100%); max-height: 90dvh; overflow: auto; }
   @media (max-width: 720px) {
     .comp-item { grid-template-columns: 1fr; }
     .comp-sum { text-align: left; max-width: none; }
@@ -326,6 +341,7 @@
       <button type="button" id="histPaste">Paste more data</button>
       <button class="secondary" type="button" id="histCompliance">Compliance</button>
       <button class="secondary" type="button" id="histSpc">SPC mode</button>
+      <button class="secondary" type="button" id="histDownload">Download Excel</button>
       <button type="button" id="histResetFilters" disabled>Reset filters</button>
       <button class="secondary" type="button" id="histTheme">Dark mode</button>
     </div>
@@ -353,6 +369,7 @@
       <button class="secondary" type="button" id="compliancePrevWeek">Previous week</button>
       <button class="secondary" type="button" id="complianceThisWeek">This week</button>
       <button class="secondary" type="button" id="complianceNextWeek">Next week</button>
+      <button type="button" id="complianceDownload">Download PDF</button>
       <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
     </div>
   </header>
@@ -406,8 +423,11 @@
         </label>
         <label>From <input type="date" id="spcFrom"></label>
         <label>To <input type="date" id="spcTo"></label>
+        <p class="hist-meta" id="spcDateHint">Date range limits the Item/MSPEC list to what ran in that period.</p>
         <button class="secondary full" type="button" id="spcOutliers">Show outliers</button>
-        <p class="hist-meta" id="spcHint">Average, range, and density over time with min/max spec lines. Extreme outliers are hidden by default.</p>
+        <button class="secondary full" type="button" id="spcDownloadPdf">Download SPC PDF</button>
+        <button class="secondary full" type="button" id="spcReportBtn">SPC report…</button>
+        <p class="hist-meta" id="spcHint">Average, range, and density over time with min/max spec lines. Points way outside the spec window are hidden by default.</p>
       </div>
       <div class="actions">
         <button class="secondary full centration-only" type="button" id="copyBtn">Copy values</button>
@@ -456,6 +476,31 @@
   </div>
 </div>
 
+<div class="overlay" id="spcReportOverlay">
+  <div class="modal">
+    <h3>SPC report</h3>
+    <label>From <input type="date" id="rptFrom"></label>
+    <label>To <input type="date" id="rptTo"></label>
+    <p class="hist-meta">Items / MSPECs that ran in this period</p>
+    <div class="modal-actions">
+      <button class="secondary" type="button" id="rptSelectAll">Select all</button>
+      <button class="secondary" type="button" id="rptClear">Clear</button>
+    </div>
+    <div class="rpt-list" id="rptItems"></div>
+    <div class="rpt-opts">
+      <label><input type="checkbox" id="rptAvg" checked> Average chart</label>
+      <label><input type="checkbox" id="rptRange" checked> Range chart</label>
+      <label><input type="checkbox" id="rptDens" checked> Density chart</label>
+      <label><input type="checkbox" id="rptTable" checked> Data table</label>
+      <label><input type="checkbox" id="rptOutliers"> Include outliers</label>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="rptDownload">Download PDF</button>
+      <button class="secondary" type="button" id="rptCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="settingsOverlay">
   <div class="modal">
     <h3>Settings</h3>
@@ -473,19 +518,30 @@
 </div>
 
 <script>
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.1';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
 const PACK_STORE = 'pack';
 const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
-const HIST_COL_W = [52, 280, 120, 240, 150, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120];
+const HIST_COL_W = [52, 280, 180, 240, 170, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120];
 const COL_ALIASES = {
   'Item #': ['Item #', 'Item', 'Item Number'],
   'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription'],
-  'MSPEC': ['MSPEC', 'MSPEC #', 'M-Spec Number', 'MSpec'],
+  'MSPEC': ['MSPEC', 'MSPEC #', 'M-Spec Number', 'MSpec', 'MSpec Number'],
   'Slit/Width': ['Slit/Width', 'Width', 'Slit Width'],
-  'Slit/Width Pass/Fail': ['Slit/Width Pass/Fail', 'Width Pass/Fail']
+  'Slit/Width Pass/Fail': ['Slit/Width Pass/Fail', 'Width Pass/Fail'],
+  'Cell Count Min': ['Cell Count Min', 'Cell Min', 'Min Cell Count', 'CellCountMin'],
+  'Cell Count Max': ['Cell Count Max', 'Cell Max', 'Max Cell Count', 'CellCountMax'],
+  'Lower Control': ['Lower Control', 'Lower Control Limit', 'LCL', 'Min Thickness'],
+  'Upper Control': ['Upper Control', 'Upper Control Limit', 'UCL', 'Max Thickness'],
+  'Target': ['Target', 'Thickness Target', 'Target Thickness'],
+  'Thickness Range Max': ['Thickness Range Max', 'Range Max', 'Max Range', 'Range Spec'],
+  'Density Min': ['Density Min', 'Min Density', 'Dens Min', 'Min Dens', 'Density LCL', 'PCF Min', 'Dens. Min'],
+  'Density Target': ['Density Target', 'Target Density', 'Dens Target', 'Target Dens', 'Density Nom', 'Nom Density', 'PCF Target', 'Density Tgt'],
+  'Density Max': ['Density Max', 'Max Density', 'Dens Max', 'Max Dens', 'Density UCL', 'PCF Max', 'Dens. Max'],
+  'Thickness Average Pass/Fail': ['Thickness Average Pass/Fail', 'Average Pass/Fail'],
+  'Thickness Range Pass/Fail': ['Thickness Range Pass/Fail', 'Range Pass/Fail']
 };
 const NUM_COLS = new Set(['Item #','MSPEC','Bundle #','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -706,6 +762,70 @@ function parseRangeSpec(raw) {
   const n = parseFloat(raw); if (!isFinite(n)) return NaN;
   return Math.abs(n) >= 1 ? n / 1000 : n;
 }
+function asThousandths(v) {
+  const n = parseFloat(v);
+  if (!finiteNum(n)) return NaN;
+  return Math.abs(n) < 1 ? n * 1000 : n;
+}
+function normHeader(s) {
+  return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+function specCell(row, names, skipNorm) {
+  if (!row) return '';
+  const skip = new Set((skipNorm || []).map(normHeader));
+  for (const n of names) {
+    const v = col(row, n);
+    if (v != null && String(v).trim() !== '') return v;
+  }
+  const wanted = names.map(normHeader);
+  for (const k of Object.keys(row)) {
+    const nk = normHeader(k);
+    if (skip.has(nk)) continue;
+    if (wanted.includes(nk) && String(row[k] ?? '').trim() !== '') return row[k];
+  }
+  return '';
+}
+function looksLikeCellSpec(n) {
+  return finiteNum(n) && n >= 8 && n <= 80 && Math.abs(n - Math.round(n)) < 0.05;
+}
+function looksLikeDensity(n) {
+  return finiteNum(n) && n >= 0.2 && n <= 12 && !(n >= 8 && Math.abs(n - Math.round(n)) < 0.05);
+}
+function cellSpecsFromLookupRow(row) {
+  let min = numVal(specCell(row, COL_ALIASES['Cell Count Min'] || ['Cell Count Min']));
+  let max = numVal(specCell(row, COL_ALIASES['Cell Count Max'] || ['Cell Count Max']));
+  if (!looksLikeCellSpec(min) || !looksLikeCellSpec(max)) {
+    const keys = Object.keys(row || {});
+    const rangeIdx = keys.findIndex(k => /^(thickness)?rangemax|maxrange|rangespec$/.test(normHeader(k)));
+    if (rangeIdx >= 0) {
+      if (!looksLikeCellSpec(min)) min = numVal(row[keys[rangeIdx + 1]]);
+      if (!looksLikeCellSpec(max)) max = numVal(row[keys[rangeIdx + 2]]);
+    }
+  }
+  return {
+    cellMin: looksLikeCellSpec(min) ? min : null,
+    cellMax: looksLikeCellSpec(max) ? max : null
+  };
+}
+function densitySpecsFromLookupRow(row) {
+  let min = numVal(specCell(row, COL_ALIASES['Density Min']));
+  let target = numVal(specCell(row, COL_ALIASES['Density Target']));
+  let max = numVal(specCell(row, COL_ALIASES['Density Max']));
+  if (!looksLikeDensity(min) || !looksLikeDensity(target) || !looksLikeDensity(max)) {
+    const keys = Object.keys(row || {});
+    const cellMaxIdx = keys.findIndex(k => /cellcountmax|maxcellcount/.test(normHeader(k)));
+    if (cellMaxIdx >= 0) {
+      if (!looksLikeDensity(min)) min = numVal(row[keys[cellMaxIdx + 1]]);
+      if (!looksLikeDensity(target)) target = numVal(row[keys[cellMaxIdx + 2]]);
+      if (!looksLikeDensity(max)) max = numVal(row[keys[cellMaxIdx + 3]]);
+    }
+  }
+  return {
+    densMin: looksLikeDensity(min) ? min : null,
+    densTarget: looksLikeDensity(target) ? target : null,
+    densMax: looksLikeDensity(max) ? max : null
+  };
+}
 function applyPlainNumbers(values) {
   for (let i = 0; i < Math.min(values.length, TOTAL); i++) {
     const v = values[i];
@@ -735,7 +855,7 @@ function specsFor(mspec) {
     densMin: firstFinite(looked.densMin, same ? snapNum(snap, 'densmin') : NaN),
     densTarget: firstFinite(looked.densTarget, same ? snapNum(snap, 'denstarget') : NaN),
     densMax: firstFinite(looked.densMax, same ? snapNum(snap, 'densmax') : NaN),
-    cellMin: firstFinite(looked.cellMin, same ? snapNum(snap, 'cellmin') : NaN),
+    cellMin: firstFinite(looked.cellMin),
     cellMax: firstFinite(looked.cellMax),
     widthMin: firstFinite(same ? snapNum(snap, 'widthmin', 'widthMin') : NaN),
     widthTarget: firstFinite(same ? snapNum(snap, 'widthtarget', 'widthTarget') : NaN)
@@ -763,18 +883,11 @@ function fillSpecPanel(specs, mspec) {
   const s = specs || {};
   const src = document.getElementById('specSource');
   const key = canonMspec(mspec);
-  if (!specsHaveValues(s)) {
-    if (src) {
-      src.textContent = key
-        ? `No Master Sheet row for MSPEC ${mspecWithTarget(key)} — keeping last specs`
-        : 'No MSPEC on this graph — keeping last specs';
-    }
-    return;
-  }
-  setSpecInput('minThickness', s.min, 3);
-  setSpecInput('targetThickness', s.target, 3);
-  setSpecInput('maxThickness', s.max, 3);
-  setSpecInput('rangeSpec', s.range, 3);
+  const has = specsHaveValues(s);
+  if (finiteNum(s.min)) setSpecInput('minThickness', s.min, 3);
+  if (has || finiteNum(s.target)) setSpecInput('targetThickness', s.target, 3);
+  if (finiteNum(s.max)) setSpecInput('maxThickness', s.max, 3);
+  if (has || finiteNum(s.range)) setSpecInput('rangeSpec', s.range, 3);
   setSpecInput('densMinSpec', s.densMin, 2);
   setSpecInput('densTargetSpec', s.densTarget, 2);
   setSpecInput('densMaxSpec', s.densMax, 2);
@@ -782,7 +895,11 @@ function fillSpecPanel(specs, mspec) {
   setSpecInput('cellMaxSpec', s.cellMax, 0);
   setSpecInput('widthMinSpec', s.widthMin, 1);
   setSpecInput('widthTargetSpec', s.widthTarget, 1);
-  if (src) src.textContent = key ? `Master Sheet MSPEC ${mspecWithTarget(key)}` : '';
+  if (src) {
+    src.textContent = has
+      ? (key ? `Master Sheet MSPEC ${mspecWithTarget(key)}` : '')
+      : (key ? `No Master Sheet row for MSPEC ${key}` : 'No MSPEC on this graph');
+  }
 }
 function applyDieGraphLines(lines) {
   let min = null, max = null, range = null; const tvals = [];
@@ -895,26 +1012,23 @@ function lookupSpecs(mspec) {
     }
   }
   if (!row) return null;
-  const min = parseFloat(col(row, 'Lower Control'));
-  const target = parseFloat(col(row, 'Target'));
-  const max = parseFloat(col(row, 'Upper Control'));
-  const rangeThou = parseFloat(col(row, 'Thickness Range Max'));
-  const densMin = parseFloat(col(row, 'Density Min'));
-  const densTarget = parseFloat(col(row, 'Density Target'));
-  const densMax = parseFloat(col(row, 'Density Max'));
-  const cellMin = parseFloat(col(row, 'Cell Count Min'));
-  const cellMax = parseFloat(col(row, 'Cell Count Max'));
+  const min = parseFloat(specCell(row, ['Lower Control', 'Lower Control Limit', 'LCL', 'Min Thickness']));
+  const target = parseFloat(specCell(row, ['Target', 'Thickness Target', 'Target Thickness'], ['densitytarget', 'aftarget']));
+  const max = parseFloat(specCell(row, ['Upper Control', 'Upper Control Limit', 'UCL', 'Max Thickness']));
+  const rangeRaw = parseFloat(specCell(row, ['Thickness Range Max', 'Range Max', 'Max Range', 'Range Spec']));
+  const dens = densitySpecsFromLookupRow(row);
+  const cells = cellSpecsFromLookupRow(row);
   return {
     min: finiteNum(min) ? min : null,
     target: finiteNum(target) ? target : null,
     max: finiteNum(max) ? max : null,
-    range: finiteNum(rangeThou) ? parseRangeSpec(rangeThou) : null,
-    rangeThou: finiteNum(rangeThou) ? rangeThou : null,
-    densMin: finiteNum(densMin) ? densMin : null,
-    densTarget: finiteNum(densTarget) ? densTarget : null,
-    densMax: finiteNum(densMax) ? densMax : null,
-    cellMin: finiteNum(cellMin) ? cellMin : null,
-    cellMax: finiteNum(cellMax) ? cellMax : null
+    range: finiteNum(rangeRaw) ? parseRangeSpec(rangeRaw) : null,
+    rangeThou: finiteNum(rangeRaw) ? asThousandths(rangeRaw) : null,
+    densMin: dens.densMin,
+    densTarget: dens.densTarget,
+    densMax: dens.densMax,
+    cellMin: cells.cellMin,
+    cellMax: cells.cellMax
   };
 }
 function buildLookupMap(rows) {
@@ -929,15 +1043,40 @@ function buildLookupMap(rows) {
   }
   return map;
 }
-function mspecTarget(mspec) {
+function fmtThickTarget(n) {
+  return Number(n).toFixed(3).replace(/^0(?=\.)/, '');
+}
+function fmtDensTarget(n) {
+  return Number(n).toFixed(2) + '#';
+}
+function specTargetsText(mspec) {
   const s = lookupSpecs(mspec);
-  return s && finiteNum(s.target) ? Number(s.target) : NaN;
+  if (!s) return '';
+  const bits = [];
+  if (finiteNum(s.target)) bits.push(fmtThickTarget(s.target));
+  if (finiteNum(s.densTarget)) bits.push(fmtDensTarget(s.densTarget));
+  return bits.join(' ');
 }
 function mspecWithTarget(mspec) {
   const key = canonMspec(mspec);
   if (!key) return '';
-  const t = mspecTarget(key);
-  return finiteNum(t) ? `${key} (${Number(t).toFixed(3)})` : key;
+  const t = specTargetsText(key);
+  return t ? `${key} (${t})` : key;
+}
+function mspecForItem(item) {
+  const want = String(item || '').trim();
+  if (!want) return '';
+  const rows = indexedRows.filter(r => r.item === want);
+  if (!rows.length) return canonMspec(currentSnapshot && currentSnapshot.item === want ? currentSnapshot.mspec : '');
+  let best = rows[0];
+  for (const r of rows) if ((r.serial || 0) > (best.serial || 0)) best = r;
+  return best.mspec || '';
+}
+function itemWithTargets(item, mspec) {
+  const id = String(item || '').trim();
+  if (!id) return '';
+  const t = specTargetsText(mspec || mspecForItem(id));
+  return t ? `${id} (${t})` : id;
 }
 function isNoCheckPf(v) {
   const s = String(v || '').trim().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
@@ -952,47 +1091,44 @@ function hourComplianceStatus(pfs, isFuture) {
   if (list.some(isNoCheckPf)) return 'nocheck';
   return 'check';
 }
-function failReasonsForRow(row, specs) {
+function failDetailsForRow(row, specs) {
   const overall = col(row, 'Pass/Fail');
   if (isNoCheckPf(overall)) return [];
-  const s = specs || {};
-  const reasons = [];
+  const s = specs || lookupSpecs(col(row, 'MSPEC', 'MSPEC #')) || {};
+  const out = [];
+  const add = (stored, got, min, max, name, digits, reasonUnder, reasonOver, reasonFail) => {
+    const computed = judgeBetween(got, min, max);
+    if (!isMeasuredFail(stored, computed)) return;
+    if (!finiteNum(got)) {
+      out.push({ reason: reasonFail, detail: `${name} fail` });
+      return;
+    }
+    const g = Number(got).toFixed(digits);
+    if (finiteNum(min) && got < min) {
+      out.push({ reason: reasonUnder, detail: `${name} under (min ${Number(min).toFixed(digits)}, got ${g})` });
+    } else if (finiteNum(max) && got > max) {
+      out.push({ reason: reasonOver, detail: `${name} over (max ${Number(max).toFixed(digits)}, got ${g})` });
+    } else {
+      out.push({ reason: reasonFail, detail: `${name} fail` });
+    }
+  };
   const avg = numVal(col(row, 'Thickness Average'));
-  const rangeThou = rangeAsThousandths(col(row, 'Thickness Range'));
+  const rangeThou = asThousandths(col(row, 'Thickness Range'));
   const dens = numVal(col(row, 'Density'));
   const cellMd = numVal(col(row, 'Cell Count MD'));
   const cellCd = numVal(col(row, 'Cell Count CD'));
   const width = numVal(col(row, 'Slit/Width'));
-  const failed = (stored, computed) => normalizePf(stored) === 'Fail' || computed === 'Fail';
-  if (failed(col(row, 'Thickness Average Pass/Fail'), judgeBetween(avg, s.min, s.max))) {
-    if (finiteNum(avg) && finiteNum(s.min) && avg < s.min) reasons.push('thickness under');
-    else if (finiteNum(avg) && finiteNum(s.max) && avg > s.max) reasons.push('thickness over');
-    else reasons.push('thickness fail');
-  }
-  if (failed(col(row, 'Thickness Range Pass/Fail'), judgeBetween(rangeThou, 0, s.rangeThou))) {
-    reasons.push('range over');
-  }
-  if (failed(col(row, 'Density Pass/Fail'), judgeBetween(finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, s.densMin, s.densMax))) {
-    if (finiteNum(dens) && finiteNum(s.densMin) && dens < s.densMin) reasons.push('density under');
-    else if (finiteNum(dens) && finiteNum(s.densMax) && dens > s.densMax) reasons.push('density over');
-    else reasons.push('density fail');
-  }
-  if (failed(col(row, 'Cell Count MD Pass/Fail'), judgeBetween(cellMd, s.cellMin, s.cellMax))) {
-    if (finiteNum(cellMd) && finiteNum(s.cellMin) && cellMd < s.cellMin) reasons.push('cell count MD under');
-    else if (finiteNum(cellMd) && finiteNum(s.cellMax) && cellMd > s.cellMax) reasons.push('cell count MD over');
-    else reasons.push('cell count MD fail');
-  }
-  if (failed(col(row, 'Cell Count CD Pass/Fail'), judgeBetween(cellCd, s.cellMin, s.cellMax))) {
-    if (finiteNum(cellCd) && finiteNum(s.cellMin) && cellCd < s.cellMin) reasons.push('cell count CD under');
-    else if (finiteNum(cellCd) && finiteNum(s.cellMax) && cellCd > s.cellMax) reasons.push('cell count CD over');
-    else reasons.push('cell count CD fail');
-  }
-  if (failed(col(row, 'Slit/Width Pass/Fail'), judgeBetween(width, s.widthMin, NaN))) {
-    if (finiteNum(width) && finiteNum(s.widthMin) && width < s.widthMin) reasons.push('width under');
-    else reasons.push('width fail');
-  }
-  if (normalizePf(overall) === 'Fail' && !reasons.length) reasons.push('failed check');
-  return reasons;
+  add(col(row, 'Thickness Average Pass/Fail'), avg, s.min, s.max, 'thickness', 3, 'thickness under', 'thickness over', 'thickness fail');
+  add(col(row, 'Thickness Range Pass/Fail'), rangeThou, 0, asThousandths(s.rangeThou != null ? s.rangeThou : s.range), 'range', 1, 'range under', 'range over', 'range over');
+  add(col(row, 'Density Pass/Fail'), finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, s.densMin, s.densMax, 'density', 2, 'density under', 'density over', 'density fail');
+  add(col(row, 'Cell Count MD Pass/Fail'), cellMd, s.cellMin, s.cellMax, 'cell count MD', 0, 'cell count MD under', 'cell count MD over', 'cell count MD fail');
+  add(col(row, 'Cell Count CD Pass/Fail'), cellCd, s.cellMin, s.cellMax, 'cell count CD', 0, 'cell count CD under', 'cell count CD over', 'cell count CD fail');
+  add(col(row, 'Slit/Width Pass/Fail'), width, s.widthMin, NaN, 'width', 1, 'width under', 'width over', 'width fail');
+  if (normalizePf(overall) === 'Fail' && !out.length) out.push({ reason: 'failed check', detail: 'failed check' });
+  return out;
+}
+function failReasonsForRow(row, specs) {
+  return failDetailsForRow(row, specs).map(x => x.reason);
 }
 function mondayOfLocalDate(d) {
   const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -1060,12 +1196,27 @@ function judgeBetween(v, min, max) {
   return '';
 }
 function pickPf(stored, computed) { return normalizePf(stored) || computed || ''; }
+function isMeasuredFail(stored, computed) {
+  const pf = normalizePf(stored);
+  if (pf === 'Pass') return false;
+  if (pf === 'Fail') return true;
+  return computed === 'Fail';
+}
 function specTone(v, min, max) {
   if (!finiteNum(v)) return '';
   if (finiteNum(min) && v < min) return 'thin';
   if (finiteNum(max) && v > max) return 'thick';
   if (finiteNum(min) || finiteNum(max)) return 'in';
   return '';
+}
+function specToneFromStored(stored, v, min, max) {
+  const pf = normalizePf(stored);
+  if (pf === 'Pass') return 'in';
+  if (pf === 'Fail') {
+    if (finiteNum(v) && finiteNum(min) && v < min) return 'thin';
+    return 'thick';
+  }
+  return specTone(v, min, max);
 }
 function checkRow(label, valueText, pf) {
   const cls = pf === 'Pass' ? 'good' : (pf === 'Fail' ? 'bad' : '');
@@ -1092,17 +1243,16 @@ function checksFromCurrent() {
   ];
 }
 function checksFromTableRow(row) {
-  const specs = specsFor(col(row, 'MSPEC', 'MSPEC #'));
-  const panel = readPanelSpecs();
+  const specs = lookupSpecs(col(row, 'MSPEC', 'MSPEC #')) || specsFor(col(row, 'MSPEC', 'MSPEC #')) || {};
   const width = numVal(col(row, 'Slit/Width'));
   const cellMd = numVal(col(row, 'Cell Count MD'));
   const cellCd = numVal(col(row, 'Cell Count CD'));
   const density = numVal(col(row, 'Density'));
-  const widthMin = firstFinite(panel.widthMin, specs.widthMin);
-  const cellMin = firstFinite(panel.cellMin, specs.cellMin);
-  const cellMax = firstFinite(panel.cellMax, specs.cellMax);
-  const densMin = firstFinite(panel.densMin, specs.densMin);
-  const densMax = firstFinite(panel.densMax, specs.densMax);
+  const widthMin = firstFinite(specs.widthMin);
+  const cellMin = firstFinite(specs.cellMin);
+  const cellMax = firstFinite(specs.cellMax);
+  const densMin = firstFinite(specs.densMin);
+  const densMax = firstFinite(specs.densMax);
   return [
     { label: 'Width', text: fmtCheck(width, 1), pf: pickPf(col(row, 'Slit/Width Pass/Fail'), judgeBetween(width, widthMin, NaN)) },
     { label: 'Cell count MD', text: fmtCheck(cellMd, 0), pf: pickPf(col(row, 'Cell Count MD Pass/Fail'), judgeBetween(cellMd, cellMin, cellMax)) },
@@ -1204,21 +1354,21 @@ function excelSerialToIso(s) {
   return isoFromParts(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
 }
 function tonesForRow(row, mspec) {
-  const specs = lookupSpecs(mspec);
-  if (!specs) return {};
+  const specs = lookupSpecs(mspec) || {};
   const avg = numVal(col(row, 'Thickness Average'));
-  const rangeThou = rangeAsThousandths(col(row, 'Thickness Range'));
+  const rangeThou = asThousandths(col(row, 'Thickness Range'));
   const dens = numVal(col(row, 'Density'));
   const cellMd = numVal(col(row, 'Cell Count MD'));
   const cellCd = numVal(col(row, 'Cell Count CD'));
   const width = numVal(col(row, 'Slit/Width'));
+  const rangeMax = asThousandths(specs.rangeThou != null ? specs.rangeThou : specs.range);
   return {
-    'Thickness Average': specTone(avg, specs.min, specs.max),
-    'Thickness Range': specTone(rangeThou, 0, specs.rangeThou),
-    'Density': specTone(finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, specs.densMin, specs.densMax),
-    'Cell Count MD': specTone(cellMd, specs.cellMin, specs.cellMax),
-    'Cell Count CD': specTone(cellCd, specs.cellMin, specs.cellMax),
-    'Slit/Width': specTone(width, NaN, NaN)
+    'Thickness Average': specToneFromStored(col(row, 'Thickness Average Pass/Fail'), avg, specs.min, specs.max),
+    'Thickness Range': specToneFromStored(col(row, 'Thickness Range Pass/Fail'), rangeThou, 0, rangeMax),
+    'Density': specToneFromStored(col(row, 'Density Pass/Fail'), finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, specs.densMin, specs.densMax),
+    'Cell Count MD': specToneFromStored(col(row, 'Cell Count MD Pass/Fail'), cellMd, specs.cellMin, specs.cellMax),
+    'Cell Count CD': specToneFromStored(col(row, 'Cell Count CD Pass/Fail'), cellCd, specs.cellMin, specs.cellMax),
+    'Slit/Width': specToneFromStored(col(row, 'Slit/Width Pass/Fail'), width, specs.widthMin, NaN)
   };
 }
 async function indexHistory(onProg) {
@@ -1232,7 +1382,9 @@ async function indexHistory(onProg) {
     const tone = tonesForRow(row, mspec);
     for (const k of TABLE_COLS) {
       const raw = col(row, k);
-      display[k] = k === 'MSPEC' ? esc(mspecWithTarget(mspec) || raw) : displayCell(k, raw);
+      display[k] = k === 'MSPEC' ? esc(mspecWithTarget(mspec) || raw)
+        : k === 'Item #' ? esc(itemWithTargets(String(col(row, 'Item #') || '').trim(), mspec) || raw)
+        : displayCell(k, raw);
       num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw) : numVal(raw);
       text[k] = String(raw ?? '').trim();
     }
@@ -1558,7 +1710,9 @@ function openFilterMenu(col, anchor) {
        <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="num">Sort largest to smallest</button>`;
   const checks = shown.map(v => {
     const on = !selected || selected.has(String(v));
-    const label = col === 'MSPEC' ? mspecWithTarget(v) || String(v) : String(v);
+    const label = (col === 'MSPEC')
+      ? (mspecWithTarget(v) || String(v))
+      : (col === 'Item #' ? (itemWithTargets(v, mspecForItem(v)) || String(v)) : String(v));
     return `<label><input type="checkbox" data-val="${esc(String(v))}" ${on ? 'checked' : ''}>${esc(label)}</label>`;
   }).join('');
   pop.innerHTML = `${sortBtns}
@@ -1622,13 +1776,15 @@ function fillSpcControls(fromView) {
   const by = document.getElementById('spcBy').value;
   const sel = document.getElementById('spcValue');
   document.getElementById('spcValueName').textContent = by === 'mspec' ? 'MSPEC' : 'Item #';
-  const values = uniqueSorted([...new Set(indexedRows.map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
+  if (fromView) syncSpcDates(true);
+  const values = spcComboValues();
   const fromRow = spcPreferredFromView();
   let preferred = fromView ? (fromRow || sel.value) : (sel.value || fromRow);
   if (by === 'mspec') preferred = canonMspec(preferred);
   if (preferred && values.includes(String(preferred))) sel.value = preferred;
   else if (values.length && !values.includes(String(sel.value))) sel.value = values[0] || '';
   else if (values.length && !sel.value) sel.value = values[0];
+  else if (!values.includes(String(sel.value))) sel.value = values[0] || '';
   const search = document.getElementById('spcValueSearch');
   if (search) {
     search.placeholder = by === 'mspec' ? 'Type to search MSPEC' : 'Type to search Item #';
@@ -1636,7 +1792,6 @@ function fillSpcControls(fromView) {
   }
   renderSpcValueList(search && search === document.activeElement ? search.value : '');
   hideSpcValueList();
-  syncSpcDates(!!fromView);
   const val = String(sel.value || '').trim();
   const mspec = by === 'mspec' ? val : ((indexedRows.find(r => r.item === val) || {}).mspec || currentSnapshot.mspec);
   fillSpecPanel(specsFor(mspec), mspec);
@@ -1645,11 +1800,27 @@ function fillSpcControls(fromView) {
 }
 function spcOptionLabel(v, by) {
   if (!v) return '';
-  return by === 'mspec' ? mspecWithTarget(v) : String(v);
+  return by === 'mspec' ? mspecWithTarget(v) : itemWithTargets(v, mspecForItem(v));
+}
+function spcRowsInDateRange(rows) {
+  let out = rows || indexedRows;
+  const fromEl = document.getElementById('spcFrom');
+  const toEl = document.getElementById('spcTo');
+  const from = fromEl && fromEl.value;
+  const to = toEl && toEl.value;
+  if (from) {
+    const minS = isoToExcelSerial(from, false);
+    if (isFinite(minS)) out = out.filter(r => r.serial >= minS);
+  }
+  if (to) {
+    const maxS = isoToExcelSerial(to, true);
+    if (isFinite(maxS)) out = out.filter(r => r.serial <= maxS);
+  }
+  return out;
 }
 function spcComboValues() {
   const by = document.getElementById('spcBy').value;
-  return uniqueSorted([...new Set(indexedRows.map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
+  return uniqueSorted([...new Set(spcRowsInDateRange(indexedRows).map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
 }
 function renderSpcValueList(q) {
   const list = document.getElementById('spcValueList');
@@ -1681,7 +1852,6 @@ function pickSpcValue(v) {
   const search = document.getElementById('spcValueSearch');
   if (search) search.value = spcOptionLabel(v, by);
   hideSpcValueList();
-  syncSpcDates(true);
   redrawSpc();
 }
 function redrawSpc() {
@@ -1711,20 +1881,12 @@ function spcSelectedRows() {
   return rows;
 }
 function syncSpcDates(force) {
-  const rows = (() => {
-    const by = document.getElementById('spcBy').value;
-    const val = String(document.getElementById('spcValue').value || '').trim();
-    return indexedRows.filter(r => (by === 'mspec' ? r.mspec : r.item) === val);
-  })();
-  const serials = rows.map(r => r.serial).filter(isFinite);
+  const serials = indexedRows.map(r => r.serial).filter(isFinite);
   if (!serials.length) return;
-  const toIso = s => {
-    return excelSerialToIso(s);
-  };
   const fromEl = document.getElementById('spcFrom');
   const toEl = document.getElementById('spcTo');
-  if (force || !fromEl.value) fromEl.value = toIso(Math.min(...serials));
-  if (force || !toEl.value) toEl.value = toIso(Math.max(...serials));
+  if (force || !fromEl.value) fromEl.value = excelSerialToIso(Math.min(...serials));
+  if (force || !toEl.value) toEl.value = excelSerialToIso(Math.max(...serials));
 }
 function historyNav() {
   const rows = getFilteredRows();
@@ -1739,12 +1901,12 @@ function refreshViewMeta() {
   if (viewMode === 'spc') {
     const by = document.getElementById('spcBy');
     const val = document.getElementById('spcValue');
-    el.textContent = by && val && val.value ? `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${by.value === 'mspec' ? mspecWithTarget(val.value) : val.value}` : '';
+    el.textContent = by && val && val.value ? `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${by.value === 'mspec' ? mspecWithTarget(val.value) : itemWithTargets(val.value, mspecForItem(val.value))}` : '';
     return;
   }
   if (viewingIdx === 'current') {
     const snap = currentSnapshot || {};
-    const parts = ['Current sheet', snap.item && `Item ${snap.item}`, snap.mspec && `MSPEC ${mspecWithTarget(snap.mspec)}`].filter(Boolean);
+    const parts = ['Current sheet', snap.item && `Item ${itemWithTargets(snap.item, snap.mspec)}`, snap.mspec && `MSPEC ${mspecWithTarget(snap.mspec)}`].filter(Boolean);
     el.textContent = parts.join(' · ');
     return;
   }
@@ -1754,7 +1916,7 @@ function refreshViewMeta() {
   const item = col(row, 'Item #');
   const desc = col(row, 'Item Desc', 'Item Description');
   const mspec = col(row, 'MSPEC', 'MSPEC #');
-  el.textContent = [when, item && `Item ${item}`, desc, mspec && `MSPEC ${mspecWithTarget(mspec)}`].filter(Boolean).join(' · ');
+  el.textContent = [when, item && `Item ${itemWithTargets(item, mspec)}`, desc, mspec && `MSPEC ${mspecWithTarget(mspec)}`].filter(Boolean).join(' · ');
 }
 function viewPrev() {
   const { rows, i } = historyNav();
@@ -1837,7 +1999,7 @@ function renderComplianceHours(monday) {
       if (h >= 0 && h < 24) byHour[h].push(r.pf);
     }
     for (let h = 0; h < 24; h++) {
-      const future = futureDay || (dayN === todayN && h > today.h);
+      const future = futureDay || (dayN === todayN && h > today.h) || (dayN === todayN && h === today.h && !byHour[h].length);
       const st = hourComplianceStatus(byHour[h], future);
       const title = `${DAYS[d]} ${String(h).padStart(2, '0')}:00 · ${st === 'check' ? 'checked' : st === 'nocheck' ? 'NO CHECK' : st === 'miss' ? 'no checks' : 'not yet'}`;
       html += `<div class="comp-hour ${st}" title="${esc(title)}"></div>`;
@@ -1845,6 +2007,22 @@ function renderComplianceHours(monday) {
   }
   html += '</div>';
   el.innerHTML = html;
+}
+function fmtHourLabel(h) {
+  const hr = ((h + 11) % 12) + 1;
+  return `${hr}:00 ${h < 12 ? 'AM' : 'PM'}`;
+}
+function dayHourStatuses(y, m, dd, today) {
+  const todayN = ymdNum(today.y, today.m, today.d);
+  const dayN = ymdNum(y, m, dd);
+  const futureDay = dayN > todayN;
+  const dayRows = futureDay ? [] : indexedRows.filter(r => r.y === y && r.m === m && r.d === dd);
+  const byHour = Array.from({ length: 24 }, () => []);
+  for (const r of dayRows) {
+    const hour = serialHour(r.serial);
+    if (hour >= 0 && hour < 24) byHour[hour].push(r.pf);
+  }
+  return byHour.map((pfs, h) => hourComplianceStatus(pfs, futureDay || (dayN === todayN && h > today.h) || (dayN === todayN && h === today.h && !pfs.length)));
 }
 function renderComplianceDays(monday) {
   const el = document.getElementById('complianceDays');
@@ -1862,9 +2040,14 @@ function renderComplianceDays(monday) {
       parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3><p class="comp-empty">—</p></div>`);
       continue;
     }
+    const hours = dayHourStatuses(y, m, dd, today);
+    const missing = hours.map((st, h) => st === 'miss' ? fmtHourLabel(h) : '').filter(Boolean);
+    const missHtml = missing.length
+      ? `<div class="comp-miss"><b>Missing checks</b>${esc(missing.join(', '))}</div>`
+      : `<p class="comp-empty">No missing hours</p>`;
     const rows = indexedRows.filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
     if (!rows.length) {
-      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3><p class="comp-empty">No items</p></div>`);
+      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}<p class="comp-empty">No items</p></div>`);
       continue;
     }
     const groups = [];
@@ -1883,26 +2066,40 @@ function renderComplianceDays(monday) {
       g.rows.push(r);
     }
     const itemsHtml = groups.map(g => {
-      const reasons = [];
-      let allNoCheck = g.rows.length > 0;
+      let passed = 0, failed = 0, noCheck = 0;
+      const failLines = [];
       for (const r of g.rows) {
-        if (!isNoCheckPf(r.pf)) allNoCheck = false;
-        failReasonsForRow(r.row, specsFor(r.mspec)).forEach(x => { if (!reasons.includes(x)) reasons.push(x); });
+        if (isNoCheckPf(r.pf)) { noCheck += 1; continue; }
+        const specs = lookupSpecs(r.mspec) || specsFor(r.mspec) || {};
+        const details = failDetailsForRow(r.row, specs);
+        if (details.length || normalizePf(r.pf) === 'Fail') {
+          failed += 1;
+          const when = excelTimeShort(r.serial);
+          details.forEach(x => failLines.push(`${when} ${x.detail}`));
+          if (!details.length) failLines.push(`${when} failed check`);
+        } else passed += 1;
       }
       const t1 = excelTimeShort(g.first);
       const t2 = excelTimeShort(g.last);
       const period = t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2);
-      let sumCls = 'good', sumText = 'All pass';
-      if (allNoCheck) { sumCls = 'gray'; sumText = 'NO CHECK'; }
-      else if (reasons.length) { sumCls = 'bad'; sumText = reasons.join(', '); }
-      const n = g.rows.length;
+      let sumCls = 'good', sumText = `${passed} passed`;
+      if (failed) {
+        sumCls = 'bad';
+        sumText = `${passed} passed, ${failed} failed`;
+      } else if (noCheck && !passed) {
+        sumCls = 'gray';
+        sumText = `${noCheck} NO CHECK`;
+      } else if (noCheck) {
+        sumText = `${passed} passed, ${noCheck} NO CHECK`;
+      }
+      const failHtml = failLines.length ? `<ul class="comp-fail-list">${failLines.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
       const viewBtn = g.item
         ? `<button type="button" data-comp-item="${esc(g.item)}" data-comp-y="${y}" data-comp-m="${m}" data-comp-d="${dd}">View</button>`
         : '';
-      const meta = [g.desc, g.mspec && `MSPEC ${mspecWithTarget(g.mspec)}`, period, `${n} check${n === 1 ? '' : 's'}`].filter(Boolean).join(' · ');
-      return `<div class="comp-item"><div><b>${esc(g.item || '—')}</b><span class="muted">${esc(meta)}</span></div><div class="comp-sum ${sumCls}">${esc(sumText)}</div>${viewBtn}</div>`;
+      const meta = [g.desc, g.mspec && `MSPEC ${mspecWithTarget(g.mspec)}`, period].filter(Boolean).join(' · ');
+      return `<div class="comp-item"><div><b>${esc(itemWithTargets(g.item, g.mspec) || '—')}</b><span class="muted">${esc(meta)}</span>${failHtml}</div><div class="comp-sum ${sumCls}">${esc(sumText)}</div>${viewBtn}</div>`;
     }).join('');
-    parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${itemsHtml}</div>`);
+    parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${itemsHtml}</div>`);
   }
   el.innerHTML = parts.join('');
 }
@@ -1915,6 +2112,587 @@ function openHistoryForItemDay(item, y, m, d) {
   setViewMode('centration');
   setScreen('history');
   requestAnimationFrame(() => renderHistoryTable());
+}
+function downloadBlob(filename, bytes, mime) {
+  const blob = new Blob([bytes], { type: mime || 'application/octet-stream' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1500);
+}
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < u8.length; i++) c = CRC_TABLE[(c ^ u8[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+function u16(n) { const b = new Uint8Array(2); new DataView(b.buffer).setUint16(0, n, true); return b; }
+function u32(n) { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, n, true); return b; }
+function zipStore(files) {
+  const enc = new TextEncoder();
+  const chunks = [];
+  const centrals = [];
+  let offset = 0;
+  const push = arr => { chunks.push(arr); offset += arr.length; };
+  for (const f of files) {
+    const name = enc.encode(f.name);
+    const data = typeof f.data === 'string' ? enc.encode(f.data) : f.data;
+    const crc = crc32(data);
+    const local = offset;
+    push(u32(0x04034b50)); push(u16(20)); push(u16(0)); push(u16(0));
+    push(u16(0)); push(u16(0)); push(u32(crc)); push(u32(data.length)); push(u32(data.length));
+    push(u16(name.length)); push(u16(0)); push(name); push(data);
+    const central = [];
+    const add = x => central.push(x);
+    add(u32(0x02014b50)); add(u16(20)); add(u16(20)); add(u16(0)); add(u16(0));
+    add(u16(0)); add(u16(0)); add(u32(crc)); add(u32(data.length)); add(u32(data.length));
+    add(u16(name.length)); add(u16(0)); add(u16(0)); add(u16(0)); add(u16(0));
+    add(u32(0)); add(u32(local)); add(name);
+    centrals.push(central);
+  }
+  const cdStart = offset;
+  for (const c of centrals) for (const part of c) push(part);
+  const cdSize = offset - cdStart;
+  push(u32(0x06054b50)); push(u16(0)); push(u16(0));
+  push(u16(files.length)); push(u16(files.length));
+  push(u32(cdSize)); push(u32(cdStart)); push(u16(0));
+  const out = new Uint8Array(offset);
+  let pos = 0;
+  for (const part of chunks) { out.set(part, pos); pos += part.length; }
+  return out;
+}
+function colLetter(n) {
+  let s = '';
+  while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); }
+  return s;
+}
+function xmlEsc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[ch]));
+}
+function buildXlsx(sheetName, headers, rows, widths) {
+  if (!rows.length) rows = [headers.map(() => '')];
+  const nCol = headers.length, nRow = rows.length + 1;
+  const ref = `A1:${colLetter(nCol)}${nRow}`;
+  const safeName = String(sheetName || 'Sheet1').replace(/[:\\/?*\[\]]/g, ' ').slice(0, 31) || 'Sheet1';
+  let sheetData = `<row r="1">`;
+  headers.forEach((h, i) => {
+    sheetData += `<c r="${colLetter(i + 1)}1" t="inlineStr" s="1"><is><t>${xmlEsc(h)}</t></is></c>`;
+  });
+  sheetData += `</row>`;
+  rows.forEach((row, ri) => {
+    const r = ri + 2;
+    sheetData += `<row r="${r}">`;
+    row.forEach((v, i) => {
+      const cell = `${colLetter(i + 1)}${r}`;
+      if (v == null || v === '') { sheetData += `<c r="${cell}"/>`; return; }
+      if (typeof v === 'number' && isFinite(v)) {
+        sheetData += `<c r="${cell}" t="n"><v>${v}</v></c>`;
+        return;
+      }
+      const s = String(v);
+      const n = parseFloat(s);
+      if (s !== '' && isFinite(n) && /^-?\d+(\.\d+)?$/.test(s.trim())) {
+        sheetData += `<c r="${cell}" t="n"><v>${n}</v></c>`;
+        return;
+      }
+      sheetData += `<c r="${cell}" t="inlineStr"><is><t>${xmlEsc(s)}</t></is></c>`;
+    });
+    sheetData += `</row>`;
+  });
+  const cols = (widths || headers.map(() => 18)).map((w, i) =>
+    `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`
+  ).join('');
+  const tableCols = headers.map((h, i) => `<tableColumn id="${i + 1}" name="${xmlEsc(String(h).replace(/[,\[\]]/g, ' '))}"/>`).join('');
+  const files = [
+    { name: '[Content_Types].xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+<Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>
+</Types>` },
+    { name: '_rels/.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>` },
+    { name: 'xl/workbook.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheets><sheet name="${xmlEsc(safeName)}" sheetId="1" r:id="rId1"/></sheets>
+</workbook>` },
+    { name: 'xl/_rels/workbook.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+</Relationships>` },
+    { name: 'xl/styles.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/><color rgb="FFFFFFFF"/></font></fonts>
+<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1D4ED8"/><bgColor indexed="64"/></patternFill></fill></fills>
+<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
+<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>
+</styleSheet>` },
+    { name: 'xl/worksheets/sheet1.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
+<cols>${cols}</cols>
+<sheetData>${sheetData}</sheetData>
+<autoFilter ref="${ref}"/>
+<tableParts count="1"><tablePart r:id="rId1"/></tableParts>
+</worksheet>` },
+    { name: 'xl/worksheets/_rels/sheet1.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table1.xml"/>
+</Relationships>` },
+    { name: 'xl/tables/table1.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="DieGraphTable" displayName="DieGraphTable" ref="${ref}" totalsRowShown="0">
+<autoFilter ref="${ref}"/>
+<tableColumns count="${nCol}">${tableCols}</tableColumns>
+<tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>
+</table>` }
+  ];
+  return zipStore(files);
+}
+function histCellValue(r, k) {
+  if (k === 'Date/Time') return excelWhen(r.serial) || r.text[k] || '';
+  if (k === 'MSPEC') return mspecWithTarget(r.mspec) || r.text[k] || '';
+  if (k === 'Item #') return itemWithTargets(r.item, r.mspec) || r.text[k] || '';
+  const n = r.num[k];
+  if (k === 'Thickness Average' && finiteNum(n)) return Number(n.toFixed(3));
+  if (k === 'Thickness Range' && finiteNum(n)) return Number(n.toFixed(1));
+  if (k === 'Density' && finiteNum(n)) return Number(n.toFixed(2));
+  if ((k === 'Cell Count MD' || k === 'Cell Count CD') && finiteNum(n)) return n;
+  if (k === 'Slit/Width' && finiteNum(n)) return Number(n.toFixed(1));
+  return r.text[k] || '';
+}
+function downloadHistoryExcel() {
+  if (!indexedRows.length) { toast('Paste results first'); return; }
+  const rows = getFilteredRows();
+  const headers = TABLE_COLS.concat(['Fail reasons']);
+  const data = rows.map(r => headers.map(k => {
+    if (k === 'Fail reasons') return failDetailsForRow(r.row, lookupSpecs(r.mspec) || {}).map(x => x.detail).join('; ');
+    return histCellValue(r, k);
+  }));
+  const widths = [22, 28, 28, 22, 16, 10, 12, 12, 12, 14, 14, 16, 16, 12, 42];
+  downloadBlob('diegraph-history.xlsx', buildXlsx('History', headers, data, widths), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  toast('Downloaded history');
+}
+function wrapCanvasText(c, text, maxW) {
+  const words = String(text || '').split(/\s+/);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const trial = cur ? cur + ' ' + w : w;
+    if (c.measureText(trial).width > maxW && cur) { lines.push(cur); cur = w; }
+    else cur = trial;
+  }
+  if (cur) lines.push(cur);
+  return lines.length ? lines : [''];
+}
+function downloadCompliancePdf() {
+  if (!indexedRows.length) { toast('Paste results first'); return; }
+  if (!complianceMonday) complianceMonday = mondayOfLocalDate(new Date());
+  const monday = complianceMonday;
+  const sunday = new Date(monday.getTime());
+  sunday.setUTCDate(monday.getUTCDate() + 6);
+  const { year, week } = isoWeekFromMonday(monday);
+  const today = localTodayParts();
+  const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const W = 1224, H = 1584, margin = 48;
+  const dark = isDark();
+  const bg = dark ? '#0c1116' : '#ffffff';
+  const fg = dark ? '#f3f7fb' : '#12202b';
+  const muted = dark ? '#c5d0db' : '#3e4a55';
+  const line = dark ? '#2a3541' : '#d5dde4';
+  const ok = dark ? '#86efac' : '#166534';
+  const bad = dark ? '#fca5a5' : '#991b1b';
+  const badBg = dark ? '#7f1d1d' : '#fee2e2';
+  const idle = dark ? '#0f1620' : '#f8fafc';
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  const pages = [];
+  let y = 0;
+  const snap = () => pages.push({ jpeg: dataUrlToBytes(cv.toDataURL('image/jpeg', 0.86)), w: W, h: H, title: '' });
+  const newPage = () => {
+    c.fillStyle = bg; c.fillRect(0, 0, W, H);
+    y = margin;
+  };
+  const need = (hgt) => { if (y + hgt > H - margin) { snap(); newPage(); } };
+  newPage();
+  c.fillStyle = fg; c.font = '700 28px Atkinson Hyperlegible, Segoe UI, Arial';
+  c.fillText('Compliance', margin, y + 28); y += 40;
+  c.fillStyle = muted; c.font = '700 16px Atkinson Hyperlegible, Segoe UI, Arial';
+  c.fillText(`Week ${week}, ${year}  ·  ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}`, margin, y + 18); y += 36;
+  const legend = [['#22c55e', 'Checked'], ['#9ca3af', 'NO CHECK'], ['#ef4444', 'No checks'], ['transparent', 'Not yet']];
+  c.font = '700 14px Atkinson Hyperlegible, Segoe UI, Arial';
+  let lx = margin;
+  legend.forEach(([color, label]) => {
+    c.fillStyle = color === 'transparent' ? bg : color;
+    c.strokeStyle = line; c.lineWidth = 1;
+    c.beginPath(); c.roundRect ? c.roundRect(lx, y, 14, 14, 3) : c.rect(lx, y, 14, 14); c.fill(); c.stroke();
+    c.fillStyle = muted; c.fillText(label, lx + 20, y + 12);
+    lx += 110;
+  });
+  y += 28;
+  const cell = 18, labelW = 70;
+  for (let d = 0; d < 7; d++) {
+    const day = new Date(monday.getTime());
+    day.setUTCDate(monday.getUTCDate() + d);
+    const hours = dayHourStatuses(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), today);
+    if (d === 0) {
+      c.fillStyle = muted; c.font = '700 10px Atkinson Hyperlegible, Segoe UI, Arial'; c.textAlign = 'center';
+      for (let h = 0; h < 24; h++) c.fillText(String(h).padStart(2, '0'), margin + labelW + h * (cell + 3) + cell / 2, y + 10);
+      c.textAlign = 'left'; y += 16;
+    }
+    c.fillStyle = muted; c.font = '700 12px Atkinson Hyperlegible, Segoe UI, Arial';
+    c.fillText(DAYS[d].slice(0, 3), margin, y + 14);
+    hours.forEach((st, h) => {
+      const x = margin + labelW + h * (cell + 3);
+      c.fillStyle = st === 'check' ? '#22c55e' : st === 'nocheck' ? '#9ca3af' : st === 'miss' ? '#ef4444' : bg;
+      c.strokeStyle = st === 'future' ? 'transparent' : (st === 'check' ? '#15803d' : st === 'nocheck' ? '#6b7280' : st === 'miss' ? '#b91c1c' : line);
+      c.beginPath(); c.roundRect ? c.roundRect(x, y, cell, cell, 4) : c.rect(x, y, cell, cell); c.fill(); c.stroke();
+    });
+    y += cell + 6;
+  }
+  y += 16;
+  for (let d = 0; d < 7; d++) {
+    const day = new Date(monday.getTime());
+    day.setUTCDate(monday.getUTCDate() + d);
+    const ymd = { y: day.getUTCFullYear(), m: day.getUTCMonth() + 1, dd: day.getUTCDate() };
+    const heading = `${DAYS[d]}, ${fmtWeekDate(day)}`;
+    need(48);
+    c.fillStyle = fg; c.font = '700 20px Atkinson Hyperlegible, Segoe UI, Arial';
+    c.fillText(heading, margin, y + 18); y += 28;
+    if (ymdNum(ymd.y, ymd.m, ymd.dd) > ymdNum(today.y, today.m, today.d)) {
+      c.fillStyle = muted; c.font = '400 14px Atkinson Hyperlegible, Segoe UI, Arial';
+      c.fillText('—', margin, y + 14); y += 28;
+      continue;
+    }
+    const hours = dayHourStatuses(ymd.y, ymd.m, ymd.dd, today);
+    const missing = hours.map((st, h) => st === 'miss' ? fmtHourLabel(h) : '').filter(Boolean);
+    const missText = missing.length ? ('Missing checks  ' + missing.join(', ')) : 'No missing hours';
+    const missLines = wrapCanvasText(c, missText, W - margin * 2 - 24);
+    const missH = 16 + missLines.length * 16;
+    need(missH + 8);
+    c.fillStyle = missing.length ? badBg : idle;
+    c.strokeStyle = missing.length ? bad : line;
+    c.beginPath(); c.roundRect ? c.roundRect(margin, y, W - margin * 2, missH, 10) : c.rect(margin, y, W - margin * 2, missH);
+    c.fill(); c.stroke();
+    c.fillStyle = missing.length ? bad : muted;
+    c.font = '700 14px Atkinson Hyperlegible, Segoe UI, Arial';
+    missLines.forEach((ln, i) => c.fillText(ln, margin + 12, y + 18 + i * 16));
+    y += missH + 10;
+    const dayRows = indexedRows.filter(r => r.y === ymd.y && r.m === ymd.m && r.d === ymd.dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
+    if (!dayRows.length) {
+      c.fillStyle = muted; c.font = '400 14px Atkinson Hyperlegible, Segoe UI, Arial';
+      c.fillText('No items', margin, y + 14); y += 26;
+      continue;
+    }
+    const byItem = new Map();
+    for (const r of dayRows) {
+      const key = r.item || '(no item)';
+      if (!byItem.has(key)) byItem.set(key, []);
+      byItem.get(key).push(r);
+    }
+    for (const [item, list] of byItem) {
+      let passed = 0, failed = 0, noCheck = 0;
+      const failLines = [];
+      for (const r of list) {
+        if (isNoCheckPf(r.pf)) { noCheck += 1; continue; }
+        const details = failDetailsForRow(r.row, lookupSpecs(r.mspec) || {});
+        if (details.length || normalizePf(r.pf) === 'Fail') {
+          failed += 1;
+          const when = excelTimeShort(r.serial);
+          details.forEach(x => failLines.push(`${when} ${x.detail}`));
+          if (!details.length) failLines.push(`${when} failed check`);
+        } else passed += 1;
+      }
+      let sum = `${passed} passed`;
+      if (failed) sum = `${passed} passed, ${failed} failed`;
+      else if (noCheck && !passed) sum = `${noCheck} NO CHECK`;
+      else if (noCheck) sum = `${passed} passed, ${noCheck} NO CHECK`;
+      const t1 = excelTimeShort(list[0].serial), t2 = excelTimeShort(list[list.length - 1].serial);
+      const meta = [list[0].desc, list[0].mspec && `MSPEC ${mspecWithTarget(list[0].mspec)}`, t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2)].filter(Boolean).join('  ·  ');
+      const title = itemWithTargets(item, list[0].mspec) || item;
+      c.font = '400 13px Atkinson Hyperlegible, Segoe UI, Arial';
+      const wrapFails = failLines.flatMap(ln => wrapCanvasText(c, ln, W - margin * 2 - 40));
+      const boxH = 48 + wrapFails.length * 16;
+      need(boxH + 8);
+      c.fillStyle = idle; c.strokeStyle = line;
+      c.beginPath(); c.roundRect ? c.roundRect(margin, y, W - margin * 2, boxH, 10) : c.rect(margin, y, W - margin * 2, boxH);
+      c.fill(); c.stroke();
+      c.fillStyle = fg; c.font = '700 16px Atkinson Hyperlegible, Segoe UI, Arial';
+      c.fillText(title, margin + 12, y + 20);
+      c.fillStyle = failed ? bad : ok; c.font = '700 14px Atkinson Hyperlegible, Segoe UI, Arial';
+      c.textAlign = 'right'; c.fillText(sum, W - margin - 12, y + 20); c.textAlign = 'left';
+      c.fillStyle = muted; c.font = '400 13px Atkinson Hyperlegible, Segoe UI, Arial';
+      c.fillText(meta, margin + 12, y + 38);
+      c.fillStyle = bad;
+      wrapFails.forEach((ln, i) => c.fillText(ln, margin + 20, y + 56 + i * 16));
+      y += boxH + 8;
+    }
+  }
+  snap();
+  downloadPdfFile(`diegraph-compliance-week-${week}-${year}.pdf`, pages);
+  toast('Downloaded compliance PDF');
+}
+function dataUrlToBytes(dataUrl) {
+  const b64 = (dataUrl.split(',')[1] || '');
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
+}
+function pdfEscape(s) {
+  return String(s || '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+function buildPdf(pages) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const pushStr = s => chunks.push(encoder.encode(s));
+  const pushBytes = b => chunks.push(b);
+  pushStr('%PDF-1.4\n');
+  const offsets = [0];
+  const objPos = () => chunks.reduce((n, c) => n + c.length, 0);
+  const startObj = (n) => { offsets[n] = objPos(); };
+  const pageCount = pages.length;
+  const imageObjs = [];
+  const pageObjs = [];
+  const contentObjs = [];
+  let next = 3;
+  const fontObj = next++;
+  pages.forEach((page, i) => {
+    const content = next++;
+    const pg = next++;
+    contentObjs[i] = content;
+    pageObjs[i] = pg;
+    let img = 0;
+    if (page.jpeg && page.w && page.h) {
+      img = next++;
+      imageObjs[i] = img;
+      startObj(img);
+      pushStr(`${img} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${page.w} /Height ${page.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${page.jpeg.length} >>\nstream\n`);
+      pushBytes(page.jpeg);
+      pushStr('\nendstream\nendobj\n');
+    }
+    const W = page.pageW || 612, H = page.pageH || 792, margin = 36;
+    const hasImg = !!(page.jpeg && page.w && page.h);
+    const maxW = W - margin * 2, maxH = H - margin * 2 - (page.lines && page.lines.length ? 120 : 36);
+    const scale = hasImg ? Math.min(maxW / page.w, maxH / page.h) : 1;
+    const dw = hasImg ? page.w * scale : 0, dh = hasImg ? page.h * scale : 0;
+    const x = (W - dw) / 2;
+    const y = H - margin - 22 - dh;
+    const textOps = (page.lines || []).map((line, li) => {
+      const yy = hasImg ? y - 16 - li * 11 : (H - margin - 28 - li * 11);
+      return `BT /F1 9 Tf ${margin} ${Math.max(24, yy)} Td (${pdfEscape(line)}) Tj ET`;
+    }).join('\n');
+    const imgOp = hasImg ? `q ${dw.toFixed(2)} 0 0 ${dh.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im${i} Do Q\n` : '';
+    const stream = `BT /F1 13 Tf ${margin} ${H - margin} Td (${pdfEscape(page.title || '')}) Tj ET\n${imgOp}${textOps}`;
+    const streamBytes = encoder.encode(stream);
+    startObj(content);
+    pushStr(`${content} 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n`);
+    pushBytes(streamBytes);
+    pushStr('\nendstream\nendobj\n');
+    startObj(pg);
+    const xobj = hasImg ? ` /XObject << /Im${i} ${img} 0 R >>` : '';
+    pushStr(`${pg} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Contents ${content} 0 R /Resources << /Font << /F1 ${fontObj} 0 R >>${xobj} >> >>\nendobj\n`);
+  });
+  startObj(fontObj);
+  pushStr(`${fontObj} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`);
+  startObj(2);
+  pushStr(`2 0 obj\n<< /Type /Pages /Kids [${pageObjs.map(n => n + ' 0 R').join(' ')}] /Count ${pageCount} >>\nendobj\n`);
+  startObj(1);
+  pushStr(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
+  const xrefAt = objPos();
+  const maxObj = Math.max(...offsets.map((v, i) => (v ? i : 0)));
+  pushStr(`xref\n0 ${maxObj + 1}\n`);
+  pushStr('0000000000 65535 f \n');
+  for (let i = 1; i <= maxObj; i++) {
+    const off = offsets[i] || 0;
+    pushStr(String(off).padStart(10, '0') + ' 00000 n \n');
+  }
+  pushStr(`trailer\n<< /Size ${maxObj + 1} /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF`);
+  const total = chunks.reduce((n, c) => n + c.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const c of chunks) { out.set(c, pos); pos += c.length; }
+  return out;
+}
+function downloadPdfFile(filename, pages) {
+  if (!pages.length) { toast('Nothing to download'); return; }
+  const bytes = buildPdf(pages);
+  downloadBlob(filename, bytes, 'application/pdf');
+}
+function captureCanvasJpeg() {
+  return dataUrlToBytes(canvas.toDataURL('image/jpeg', 0.88));
+}
+let layoutOverride = null;
+let spcChartFlags = { avg: true, range: true, density: true };
+function captureSpcJpeg() {
+  return {
+    jpeg: captureCanvasJpeg(),
+    w: Math.max(1, canvas.width),
+    h: Math.max(1, canvas.height)
+  };
+}
+async function withSpcCapture(w, h, flags, fn) {
+  const prevLayout = layoutOverride;
+  const prevFlags = spcChartFlags;
+  layoutOverride = { w, h };
+  spcChartFlags = flags || spcChartFlags;
+  try {
+    drawSpc();
+    await yieldUi();
+    return fn();
+  } finally {
+    layoutOverride = prevLayout;
+    spcChartFlags = prevFlags;
+  }
+}
+async function downloadCurrentSpcPdf() {
+  if (viewMode !== 'spc') { toast('Open SPC mode first'); return; }
+  const by = document.getElementById('spcBy').value;
+  const val = document.getElementById('spcValue').value;
+  const title = (by === 'mspec' ? 'MSPEC ' : 'Item ') + spcOptionLabel(val, by);
+  const from = document.getElementById('spcFrom').value;
+  const to = document.getElementById('spcTo').value;
+  const flags = spcChartFlags || { avg: true, range: true, density: true };
+  const chartH = 560;
+  const pages = [];
+  const keys = [['avg', flags.avg, 'Average'], ['range', flags.range, 'Range'], ['density', flags.density, 'Density']].filter(x => x[1]);
+  showProgress('Building SPC PDF', 10, '');
+  await yieldUi();
+  try {
+    for (let i = 0; i < keys.length; i++) {
+      const cap = await withSpcCapture(1600, chartH, { avg: keys[i][0] === 'avg', range: keys[i][0] === 'range', density: keys[i][0] === 'density' }, captureSpcJpeg);
+      pages.push({
+        title: `${title} · ${keys[i][2]}`,
+        jpeg: cap.jpeg, w: cap.w, h: cap.h,
+        pageW: 792, pageH: 612,
+        lines: [`${from || ''} to ${to || ''}`]
+      });
+      showProgress('Building SPC PDF', 20 + Math.round(70 * (i + 1) / Math.max(keys.length, 1)), keys[i][2]);
+    }
+  } finally {
+    hideProgress();
+    if (screenName === 'view' && viewMode === 'spc') draw();
+  }
+  downloadPdfFile('diegraph-spc.pdf', pages);
+  toast('Downloaded SPC PDF');
+}
+function openSpcReport() {
+  if (!indexedRows.length) { toast('Paste results first'); return; }
+  const from = document.getElementById('spcFrom').value;
+  const to = document.getElementById('spcTo').value;
+  document.getElementById('rptFrom').value = from;
+  document.getElementById('rptTo').value = to;
+  fillRptItems();
+  document.getElementById('spcReportOverlay').classList.add('show');
+}
+function rptDateRows() {
+  const saveFrom = document.getElementById('spcFrom').value;
+  const saveTo = document.getElementById('spcTo').value;
+  document.getElementById('spcFrom').value = document.getElementById('rptFrom').value;
+  document.getElementById('spcTo').value = document.getElementById('rptTo').value;
+  const rows = spcRowsInDateRange(indexedRows);
+  document.getElementById('spcFrom').value = saveFrom;
+  document.getElementById('spcTo').value = saveTo;
+  return rows;
+}
+function fillRptItems() {
+  const by = document.getElementById('spcBy').value;
+  const values = uniqueSorted([...new Set(rptDateRows().map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
+  const box = document.getElementById('rptItems');
+  box.innerHTML = values.map(v =>
+    `<label><input type="checkbox" data-rpt-val="${esc(v)}" checked> ${esc(spcOptionLabel(v, by))}</label>`
+  ).join('') || '<div class="hist-meta">No items in this date range</div>';
+}
+async function downloadSpcReportPdf() {
+  const by = document.getElementById('spcBy').value;
+  const selected = [...document.querySelectorAll('#rptItems input[data-rpt-val]:checked')].map(c => c.dataset.rptVal);
+  if (!selected.length) { toast('Select at least one item'); return; }
+  const flags = {
+    avg: document.getElementById('rptAvg').checked,
+    range: document.getElementById('rptRange').checked,
+    density: document.getElementById('rptDens').checked
+  };
+  if (!flags.avg && !flags.range && !flags.density) { toast('Select at least one chart'); return; }
+  const includeTable = document.getElementById('rptTable').checked;
+  const prevFlags = spcChartFlags;
+  const prevOut = spcHideOutliers;
+  const prevVal = document.getElementById('spcValue').value;
+  const prevFrom = document.getElementById('spcFrom').value;
+  const prevTo = document.getElementById('spcTo').value;
+  const prevMode = viewMode;
+  const prevScreen = screenName;
+  spcHideOutliers = !document.getElementById('rptOutliers').checked;
+  document.getElementById('spcFrom').value = document.getElementById('rptFrom').value;
+  document.getElementById('spcTo').value = document.getElementById('rptTo').value;
+  const wasSpc = viewMode === 'spc';
+  if (!wasSpc) setViewMode('spc');
+  if (screenName !== 'view') setScreen('view');
+  const chartKeys = [['avg', flags.avg, 'Average'], ['range', flags.range, 'Range'], ['density', flags.density, 'Density']].filter(x => x[1]);
+  const pages = [];
+  showProgress('Building SPC report', 8, '');
+  await yieldUi();
+  try {
+    const total = selected.length * chartKeys.length;
+    let n = 0;
+    for (let i = 0; i < selected.length; i++) {
+      const val = selected[i];
+      document.getElementById('spcValue').value = val;
+      const search = document.getElementById('spcValueSearch');
+      if (search) search.value = spcOptionLabel(val, by);
+      fillSpecPanel(specsFor(by === 'mspec' ? val : mspecForItem(val)), by === 'mspec' ? val : mspecForItem(val));
+      const label = (by === 'mspec' ? 'MSPEC ' : 'Item ') + spcOptionLabel(val, by);
+      const rows = spcSelectedRows();
+      for (const ch of chartKeys) {
+        const cap = await withSpcCapture(1600, 560, { avg: ch[0] === 'avg', range: ch[0] === 'range', density: ch[0] === 'density' }, captureSpcJpeg);
+        pages.push({
+          title: `${label} · ${ch[2]}`,
+          jpeg: cap.jpeg, w: cap.w, h: cap.h,
+          pageW: 792, pageH: 612,
+          lines: [`${document.getElementById('rptFrom').value} to ${document.getElementById('rptTo').value} · ${rows.length} checks`]
+        });
+        n += 1;
+        showProgress('Building SPC report', 10 + Math.round(80 * n / Math.max(total, 1)), `${label} ${ch[2]}`);
+      }
+      if (includeTable && rows.length) {
+        const lines = rows.map(r => `${excelWhen(r.serial)}  avg ${fmtCheck(r.num['Thickness Average'], 3)}  rng ${fmtCheck(r.num['Thickness Range'], 1)}  dens ${fmtCheck(r.num['Density'], 2)}`);
+        for (let s = 0; s < lines.length; s += 42) {
+          pages.push({ title: `${label} · data`, lines: lines.slice(s, s + 42), pageW: 612, pageH: 792 });
+        }
+      }
+    }
+  } finally {
+    spcChartFlags = prevFlags;
+    spcHideOutliers = prevOut;
+    layoutOverride = null;
+    document.getElementById('spcValue').value = prevVal;
+    document.getElementById('spcFrom').value = prevFrom;
+    document.getElementById('spcTo').value = prevTo;
+    const search = document.getElementById('spcValueSearch');
+    if (search) search.value = spcOptionLabel(prevVal, by);
+    if (prevScreen !== 'view') setScreen(prevScreen);
+    if (!wasSpc) setViewMode(prevMode);
+    else { fillSpecPanel(specsFor(by === 'mspec' ? prevVal : mspecForItem(prevVal)), by === 'mspec' ? prevVal : mspecForItem(prevVal)); draw(); }
+    hideProgress();
+  }
+  downloadPdfFile('diegraph-spc-report.pdf', pages);
+  document.getElementById('spcReportOverlay').classList.remove('show');
+  toast('Downloaded SPC report');
 }
 function viewResult(idx) {
   if (!applyHistoryRow(idx)) return;
@@ -2111,7 +2889,10 @@ function layoutCanvas() {
   const stage = canvas.parentElement;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   let sizeW, sizeH;
-  if (viewMode === 'spc') {
+  if (layoutOverride) {
+    sizeW = layoutOverride.w;
+    sizeH = layoutOverride.h;
+  } else if (viewMode === 'spc') {
     sizeW = Math.max(280, Math.floor(stage.clientWidth || 280));
     sizeH = Math.max(360, Math.floor(stage.clientHeight || 360));
   } else {
@@ -2175,10 +2956,20 @@ function drawBolt(c, bolt) {
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(bolt.label, bx, by);
 }
 function updateSummary(avg, range, min, max, rangeSpec) {
-  const avgBad = finiteNum(avg) && (avg < min || avg > max);
-  const rangeBad = finiteNum(range) && range > rangeSpec;
-  const avgOk = finiteNum(avg) && !avgBad;
-  const rangeOk = finiteNum(range) && !rangeBad;
+  let avgPf = judgeBetween(avg, min, max);
+  let rangePf = finiteNum(range) && finiteNum(rangeSpec) ? (range > rangeSpec ? 'Fail' : 'Pass') : '';
+  if (viewingIdx !== 'current' && historyPack && historyPack.rows[Number(viewingIdx)]) {
+    const row = historyPack.rows[Number(viewingIdx)];
+    const specs = lookupSpecs(col(row, 'MSPEC', 'MSPEC #')) || {};
+    const rangeThou = asThousandths(col(row, 'Thickness Range'));
+    const rangeMax = asThousandths(specs.rangeThou != null ? specs.rangeThou : specs.range);
+    avgPf = pickPf(col(row, 'Thickness Average Pass/Fail'), judgeBetween(numVal(col(row, 'Thickness Average')), specs.min, specs.max));
+    rangePf = pickPf(col(row, 'Thickness Range Pass/Fail'), judgeBetween(rangeThou, 0, rangeMax));
+  }
+  const avgBad = avgPf === 'Fail';
+  const rangeBad = rangePf === 'Fail';
+  const avgOk = avgPf === 'Pass';
+  const rangeOk = rangePf === 'Pass';
   const extra = renderChecks(currentCheckItems());
   document.getElementById('summary').innerHTML = `
     <div class="stat ${avgBad ? 'bad' : (avgOk ? 'good' : '')}">Average <b>${finiteNum(avg) ? avg.toFixed(3) : '--'}</b></div>
@@ -2213,15 +3004,17 @@ function fmtSpec(val, digits) {
   if (Math.abs(n) >= 1) return n.toFixed(2);
   return n.toFixed(3);
 }
-function extremeFences(values) {
-  const s = values.filter(finiteNum).map(Number).slice().sort((a, b) => a - b);
-  if (s.length < 4) return { lo: -Infinity, hi: Infinity };
-  const at = p => {
-    const i = (s.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i);
-    return s[lo] + (s[hi] - s[lo]) * (i - lo);
-  };
-  const iqr = at(0.75) - at(0.25);
-  return { lo: at(0.25) - 3 * iqr, hi: at(0.75) + 3 * iqr };
+function specOutlier(v, specMin, specMax) {
+  if (!finiteNum(v)) return false;
+  const lo = finiteNum(specMin) ? Number(specMin) : null;
+  const hi = finiteNum(specMax) ? Number(specMax) : null;
+  if (lo == null && hi == null) return false;
+  let span = (lo != null && hi != null) ? Math.abs(hi - lo) : Math.abs((hi != null ? hi : lo) * 0.15);
+  if (!span) span = Math.abs(Number(v)) * 0.25 || 0.05;
+  const pad = span * 2;
+  if (lo != null && v < lo - pad) return true;
+  if (hi != null && v > hi + pad) return true;
+  return false;
 }
 function rangeAsThousandths(v) {
   const n = parseFloat(v);
@@ -2235,13 +3028,14 @@ function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTar
   ctx.fillStyle = c.canvas; ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); ctx.globalAlpha = 1;
-  ctx.fillStyle = c.text; ctx.font = `700 14px "Atkinson Hyperlegible", Arial`;
+  const titleSize = Math.max(14, Math.min(22, h * 0.055));
+  const labelSize = Math.max(12, Math.min(16, h * 0.038));
+  ctx.fillStyle = c.text; ctx.font = `700 ${titleSize}px "Atkinson Hyperlegible", Arial`;
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText(title + (unit ? '  (' + unit + ')' : ''), x + 10, y + 8);
-  const padL = 56, padR = 72, padT = 30, padB = 28;
+  ctx.fillText(title + (unit ? '  (' + unit + ')' : ''), x + 12, y + 10);
+  const padL = Math.max(56, labelSize * 5), padR = 12, padT = titleSize + 22, padB = labelSize + 22;
   const plot = { x: x + padL, y: y + padT, w: Math.max(20, w - padL - padR), h: Math.max(20, h - padT - padB) };
-  const fences = extremeFences(pts.map(p => p[key]));
-  const flagged = pts.map(p => finiteNum(p[key]) && (p[key] < fences.lo || p[key] > fences.hi));
+  const flagged = pts.map(p => specOutlier(p[key], specMin, specMax));
   const plotVals = pts.filter((p, i) => finiteNum(p[key]) && !(spcHideOutliers && flagged[i])).map(p => p[key]);
   const ym = axisRange(plotVals, [specMin, specMax, specTarget]);
   const span = Math.max(ym.max - ym.min, 1e-9);
@@ -2254,21 +3048,21 @@ function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTar
     ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
     ctx.beginPath(); ctx.moveTo(plot.x, yy); ctx.lineTo(plot.x + plot.w, yy); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = color; ctx.font = `700 11px "Atkinson Hyperlegible", Arial`;
-    ctx.textAlign = 'left';
+    ctx.fillStyle = color; ctx.font = `700 ${labelSize}px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'right';
     ctx.textBaseline = sit === 'below' ? 'top' : 'bottom';
-    const ty = sit === 'below' ? yy + 2 : yy - 2;
-    ctx.fillText(`${label} ${fmtSpec(val, digits)}`, plot.x + plot.w + 6, ty);
+    const ty = sit === 'below' ? yy + 3 : yy - 3;
+    ctx.fillText(`${label} ${fmtSpec(val, digits)}`, plot.x + plot.w - 6, ty);
   };
   specLine(specMax, '#b91c1c', 'Max', 'above');
   specLine(specTarget, '#1d4ed8', 'Target', 'above');
   specLine(specMin, '#166534', 'Min', 'below');
   ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(plot.x, plot.y); ctx.lineTo(plot.x, plot.y + plot.h); ctx.lineTo(plot.x + plot.w, plot.y + plot.h); ctx.stroke();
-  ctx.globalAlpha = 1; ctx.fillStyle = c.muted; ctx.font = `400 11px "Atkinson Hyperlegible", Arial`;
+  ctx.globalAlpha = 1; ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Atkinson Hyperlegible", Arial`;
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
-  ctx.fillText(ym.max.toFixed(digits), plot.x - 6, plot.y);
-  ctx.fillText(ym.min.toFixed(digits), plot.x - 6, plot.y + plot.h);
+  ctx.fillText(ym.max.toFixed(digits), plot.x - 8, plot.y);
+  ctx.fillText(ym.min.toFixed(digits), plot.x - 8, plot.y + plot.h);
   const n = pts.length;
   ctx.strokeStyle = c.text; ctx.globalAlpha = 0.85; ctx.lineWidth = 2; ctx.beginPath();
   let started = false;
@@ -2296,12 +3090,12 @@ function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTar
     spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx, key, title, value: p[key], t: p.t, unit });
   });
   if (n) {
-    ctx.fillStyle = c.muted; ctx.font = `400 11px "Atkinson Hyperlegible", Arial`;
+    ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Atkinson Hyperlegible", Arial`;
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText(excelWhen(pts[0].t), plot.x, plot.y + plot.h + 6);
+    ctx.fillText(excelWhen(pts[0].t), plot.x, plot.y + plot.h + 8);
     ctx.textAlign = 'right';
     const last = excelWhen(pts[n - 1].t);
-    if (last) ctx.fillText(last, plot.x + plot.w, plot.y + plot.h + 6);
+    if (last) ctx.fillText(last, plot.x + plot.w, plot.y + plot.h + 8);
   }
   ctx.restore();
 }
@@ -2328,14 +3122,17 @@ function drawSpc() {
   const specs = specsFor(mspec);
   const panel = readPanelSpecs();
   const selectedIdx = viewingIdx === 'current' ? -1 : Number(viewingIdx);
-  const gap = 8, panelH = (canvasH - gap * 4) / 3;
-  const panels = [0, 1, 2].map(i => ({ x: 8, y: gap + i * (panelH + gap), w: canvasW - 16, h: panelH }));
-  drawSpcPanel(c, panels[0], pts, 'avg', 'Average', 'in',
-    firstFinite(panel.min, specs.min), firstFinite(panel.max, specs.max), firstFinite(panel.target, specs.target), selectedIdx);
-  drawSpcPanel(c, panels[1], pts, 'range', 'Range', '×0.001 in',
-    0, firstFinite(rangeAsThousandths(panel.range), specs.rangeThou), NaN, selectedIdx);
-  drawSpcPanel(c, panels[2], pts, 'density', 'Density', 'pcf',
-    firstFinite(panel.densMin, specs.densMin), firstFinite(panel.densMax, specs.densMax), firstFinite(panel.densTarget, specs.densTarget), selectedIdx);
+  const charts = [];
+  const flags = spcChartFlags || { avg: true, range: true, density: true };
+  if (flags.avg) charts.push({ key: 'avg', title: 'Average', unit: 'in', min: firstFinite(panel.min, specs.min), max: firstFinite(panel.max, specs.max), target: firstFinite(panel.target, specs.target) });
+  if (flags.range) charts.push({ key: 'range', title: 'Range', unit: '×0.001 in', min: 0, max: firstFinite(asThousandths(panel.range), specs.rangeThou), target: NaN });
+  if (flags.density) charts.push({ key: 'density', title: 'Density', unit: 'pcf', min: firstFinite(panel.densMin, specs.densMin), max: firstFinite(panel.densMax, specs.densMax), target: firstFinite(panel.densTarget, specs.densTarget) });
+  if (!charts.length) charts.push({ key: 'avg', title: 'Average', unit: 'in', min: firstFinite(panel.min, specs.min), max: firstFinite(panel.max, specs.max), target: firstFinite(panel.target, specs.target) });
+  const gap = 8, panelH = (canvasH - gap * (charts.length + 1)) / charts.length;
+  charts.forEach((ch, i) => {
+    const box = { x: 8, y: gap + i * (panelH + gap), w: canvasW - 16, h: panelH };
+    drawSpcPanel(c, box, pts, ch.key, ch.title, ch.unit, ch.min, ch.max, ch.target, selectedIdx);
+  });
 }
 function drawCentration() {
   layoutCanvas();
@@ -2507,6 +3304,8 @@ document.getElementById('welcomeEnter').onclick = () => {
   setViewMode('centration'); setScreen('view'); refreshChecks();
 };
 document.getElementById('histSpc').onclick = openSpc;
+document.getElementById('histDownload').onclick = downloadHistoryExcel;
+document.getElementById('complianceDownload').onclick = downloadCompliancePdf;
 document.getElementById('histBack').onclick = () => {
   enterMode = false;
   setViewMode('centration');
@@ -2603,7 +3402,11 @@ document.getElementById('spcValueList').onclick = (e) => {
   const btn = e.target.closest('button[data-val]');
   if (btn) pickSpcValue(btn.dataset.val);
 };
-const redrawSpcDates = () => { if (viewMode === 'spc') requestAnimationFrame(() => draw()); };
+const redrawSpcDates = () => {
+  if (viewMode !== 'spc') return;
+  fillSpcControls();
+  requestAnimationFrame(() => draw());
+};
 document.getElementById('spcFrom').onchange = document.getElementById('spcFrom').oninput = redrawSpcDates;
 document.getElementById('spcTo').onchange = document.getElementById('spcTo').oninput = redrawSpcDates;
 document.getElementById('spcOutliers').onclick = () => {
@@ -2611,6 +3414,13 @@ document.getElementById('spcOutliers').onclick = () => {
   document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
   requestAnimationFrame(() => draw());
 };
+document.getElementById('spcDownloadPdf').onclick = downloadCurrentSpcPdf;
+document.getElementById('spcReportBtn').onclick = openSpcReport;
+document.getElementById('rptCancel').onclick = () => document.getElementById('spcReportOverlay').classList.remove('show');
+document.getElementById('rptDownload').onclick = () => downloadSpcReportPdf();
+document.getElementById('rptFrom').onchange = document.getElementById('rptTo').onchange = fillRptItems;
+document.getElementById('rptSelectAll').onclick = () => document.querySelectorAll('#rptItems input[type="checkbox"]').forEach(c => { c.checked = true; });
+document.getElementById('rptClear').onclick = () => document.querySelectorAll('#rptItems input[type="checkbox"]').forEach(c => { c.checked = false; });
 document.getElementById('histWrap').addEventListener('scroll', () => {
   const wrap = document.getElementById('histWrap');
   const head = document.querySelector('.hist-head-freeze');

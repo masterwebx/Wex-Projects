@@ -146,7 +146,8 @@ assert.match(html, /function specsHaveValues/);
 assert.match(html, /function syncPlotFromInputs/);
 assert.match(html, /leavingSpc && screenName === 'view'/);
 assert.match(html, /syncPlotFromInputs\(\);/);
-assert.match(html, /keeping last specs/);
+assert.match(html, /No Master Sheet row for MSPEC/);
+assert.doesNotMatch(html, /keeping last specs/);
 assert.match(html, /id="spcTip"/);
 assert.match(html, /function showSpcTip/);
 assert.match(html, /spcHits\.push\(\{ x: xx, y: yy, r: 10, idx: p\.idx, key, title, value: p\[key\], t: p\.t, unit \}\)/);
@@ -168,7 +169,7 @@ assert.match(html, /id="spcTo"/);
 assert.match(html, /id="spcOutliers"/);
 assert.match(html, /Show outliers/);
 assert.match(html, /spcHideOutliers = true/);
-assert.match(html, /function extremeFences/);
+assert.match(html, /function specOutlier/);
 assert.match(html, /id="welcomeCompliance"/);
 assert.match(html, /id="screenCompliance"/);
 assert.match(html, /id="histCompliance"/);
@@ -183,7 +184,26 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.5\.0'/);
+assert.match(html, /APP_VERSION = '1\.6\.1'/);
+assert.match(html, /Missing checks/);
+assert.match(html, /function asThousandths/);
+assert.match(html, /function specTargetsText/);
+assert.match(html, /function itemWithTargets/);
+assert.match(html, /function downloadHistoryExcel/);
+assert.match(html, /function downloadCompliancePdf/);
+assert.match(html, /function downloadSpcReportPdf/);
+assert.match(html, /function buildXlsx/);
+assert.match(html, /function isMeasuredFail/);
+assert.match(html, /function densitySpecsFromLookupRow/);
+assert.match(html, /id="histDownload"/);
+assert.match(html, /id="complianceDownload"/);
+assert.match(html, /Download PDF/);
+assert.match(html, /id="spcDownloadPdf"/);
+assert.match(html, /id="spcReportOverlay"/);
+assert.match(html, /id="rptItems"/);
+assert.match(html, /spcRowsInDateRange/);
+assert.match(html, /color-scheme:\s*light/);
+assert.doesNotMatch(html, /snapNum\(snap, 'cellmin'\)/);
 assert.match(html, /function indexHistory/);
 assert.match(html, /function renderHistoryBody/);
 assert.match(html, /id="histSpc"/);
@@ -316,7 +336,9 @@ assert.equal(parseFloat(col(row3000, 'Lower Control')), 0.53);
 assert.equal(parseFloat(col(row3000, 'Density Min')), 1.55);
 assert.match(html, /'Item'/);
 assert.match(html, /'Width'/);
-assert.match(vba, /Master Sheet/);
+assert.match(vba, /A:BH/);
+assert.match(vbaFromS4, /A:BH/);
+assert.match(vbaFromS1, /A:BH/);
 assert.match(vba, /Table7/);
 assert.match(vba, /LookupTableTsv/);
 assert.match(vba, /LinkSources/);
@@ -476,7 +498,12 @@ function failReasonsForRow(row, specs) {
   const cellMd = numVal(col(row, 'Cell Count MD'));
   const cellCd = numVal(col(row, 'Cell Count CD'));
   const width = numVal(col(row, 'Slit/Width'));
-  const failed = (stored, computed) => normalizePf(stored) === 'Fail' || computed === 'Fail';
+  const failed = (stored, computed) => {
+    const pf = normalizePf(stored);
+    if (pf === 'Pass') return false;
+    if (pf === 'Fail') return true;
+    return computed === 'Fail';
+  };
   if (failed(col(row, 'Thickness Average Pass/Fail'), judgeBetween(avg, s.min, s.max))) {
     if (finiteNum(avg) && finiteNum(s.min) && avg < s.min) reasons.push('thickness under');
     else if (finiteNum(avg) && finiteNum(s.max) && avg > s.max) reasons.push('thickness over');
@@ -507,20 +534,42 @@ function failReasonsForRow(row, specs) {
   if (normalizePf(overall) === 'Fail' && !reasons.length) reasons.push('failed check');
   return reasons;
 }
-const failRow = table.rows[1];
-const failReasons = failReasonsForRow(failRow, {
+const failReasons = failReasonsForRow({
+  'Pass/Fail': 'Fail',
+  'Thickness Average': '0.54',
+  'Thickness Average Pass/Fail': 'Fail',
+  'Thickness Range': '50',
+  'Thickness Range Pass/Fail': 'Fail',
+  'Density': '1.8',
+  'Density Pass/Fail': 'Fail'
+}, {
   min: 0.505, max: 0.53, rangeThou: 40, densMin: 1.55, densMax: 1.65, cellMin: 18, cellMax: 24, widthMin: 52
 });
 assert.ok(failReasons.includes('thickness over'));
 assert.ok(failReasons.includes('range over'));
 assert.ok(failReasons.includes('density over') || failReasons.includes('density fail'));
 assert.deepEqual(failReasonsForRow({ 'Pass/Fail': 'NO CHECK', 'Thickness Average Pass/Fail': 'Fail' }, { min: 0.5, max: 0.6 }), []);
-assert.equal(mspecWithTargetFromLookup(m4780), '4780 (0.515)');
+assert.deepEqual(failReasonsForRow({
+  'Pass/Fail': 'Pass',
+  'Thickness Average': '0.529',
+  'Thickness Average Pass/Fail': 'Pass'
+}, { min: 0.24, max: 0.26 }), []);
+assert.equal(mspecWithTargetFromLookup(m4780), '4780 (.515 1.60#)');
 function mspecWithTargetFromLookup(row) {
   const key = String(col(row, 'MSPEC #')).replace(/\.0+$/, '');
   const t = parseFloat(col(row, 'Target'));
-  return `${key} (${t.toFixed(3)})`;
+  const d = parseFloat(col(row, 'Density Target'));
+  const thick = t.toFixed(3).replace(/^0(?=\.)/, '');
+  return `${key} (${thick} ${d.toFixed(2)}#)`;
 }
+function asThousandths(v) {
+  const n = parseFloat(v);
+  if (!isFinite(n)) return NaN;
+  return Math.abs(n) < 1 ? n * 1000 : n;
+}
+assert.equal(asThousandths(40), 40);
+assert.equal(asThousandths(0.04), 40);
+assert.equal(asThousandths(0.036), 36);
 
 const declaredIds = new Set([...html.matchAll(/\bid=["']([^"']+)["']/g)].map(m => m[1]));
 const missingIds = [];

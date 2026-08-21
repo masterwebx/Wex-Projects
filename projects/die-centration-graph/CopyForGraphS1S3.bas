@@ -288,10 +288,9 @@ Private Function LinkedMasterSheetToTsv() As String
     If evalWs Is Nothing Then Set evalWs = ActiveSheet
     
     nC = 0
-    For c = 1 To 22
+    For c = 1 To 60
         v = EvalLinkedIndex(evalWs, ref, 1, c)
-        If IsBlankLink(v) Then Exit For
-        nC = c
+        If Not IsBlankLink(v) Then nC = c
     Next c
     If nC < 6 Then Exit Function
     
@@ -320,7 +319,7 @@ End Function
 
 Private Function EvalLinkedIndex(ByVal ws As Worksheet, ByVal bookRef As String, ByVal r As Long, ByVal c As Long) As Variant
     Dim expr As String
-    expr = "INDEX(" & bookRef & "!A:V," & r & "," & c & ")"
+    expr = "INDEX(" & bookRef & "!A:BH," & r & "," & c & ")"
     On Error Resume Next
     If Not ws Is Nothing Then
         EvalLinkedIndex = ws.Evaluate(expr)

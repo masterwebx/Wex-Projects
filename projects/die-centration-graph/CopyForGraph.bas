@@ -181,8 +181,12 @@ Private Function TsvEscape(ByVal v As Variant) As String
             TsvEscape = IIf(v, "TRUE", "FALSE")
         Case vbByte, vbInteger, vbLong, 20  ' 20 = vbLongLong when available
             TsvEscape = CStr(v)
-        Case vbSingle, vbDouble, vbCurrency, vbDecimal, vbDate
-            TsvEscape = LTrim$(Str$(CDbl(v)))
+        Case vbSingle, vbDouble, vbCurrency, vbDecimal
+            If Abs(CDbl(v) - Round(CDbl(v), 0)) < 0.0000001 Then
+                TsvEscape = CStr(CLng(Round(CDbl(v), 0)))
+            Else
+                TsvEscape = LTrim$(Str$(CDbl(v)))
+            End If
         Case Else
             s = CStr(v)
             s = Replace(s, vbCr, " ")

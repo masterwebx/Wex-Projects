@@ -203,6 +203,13 @@
   #clipCatcher { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
   .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg-elev); padding: 10px 16px; border-radius: 999px; font-weight: 700; display: none; z-index: 30; }
   .toast.show { display: block; }
+  #spcTip {
+    position: fixed; z-index: 40; pointer-events: none;
+    background: #111827; color: #fff; font-size: 12px; line-height: 1.35;
+    padding: 8px 10px; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    max-width: 240px; transform: translate(12px, 12px);
+  }
+  #spcTip[hidden] { display: none; }
   .version {
     position: fixed; right: 12px; bottom: 8px; z-index: 50;
     font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .04em;
@@ -222,6 +229,7 @@
 <body>
 <textarea id="clipCatcher" aria-hidden="true"></textarea>
 <div class="toast" id="toast"></div>
+<div id="spcTip" hidden></div>
 <div class="version" id="appVersion"></div>
 
 <section class="screen" id="screenWelcome">
@@ -274,8 +282,8 @@
     </div>
     <div class="toolbar">
       <button class="secondary" type="button" id="viewBack">Back</button>
-      <button class="secondary results-only" type="button" id="prevResult">Previous result</button>
-      <button class="secondary results-only" type="button" id="nextResult">Next result</button>
+      <button class="secondary" type="button" id="prevResult">Previous result</button>
+      <button class="secondary" type="button" id="nextResult">Next result</button>
       <button class="secondary" type="button" id="modeBtn">SPC mode</button>
       <button class="secondary" type="button" id="themeBtn">Dark mode</button>
       <button class="secondary centration-only" type="button" id="settingsBtn">Settings</button>
@@ -367,7 +375,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.4.2';
+const APP_VERSION = '1.4.3';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -541,7 +549,7 @@ function syncViewChrome() {
   }
   const modeBtn = document.getElementById('modeBtn');
   if (modeBtn) modeBtn.hidden = !hasHist || enterMode;
-  const nav = hasHist && !enterMode && screenName === 'view' && viewMode === 'centration';
+  const nav = hasHist && !enterMode && screenName === 'view';
   const { i, rows } = historyNav();
   const prev = document.getElementById('prevResult');
   const next = document.getElementById('nextResult');
@@ -556,7 +564,7 @@ function setScreen(name) {
   syncViewChrome();
   if (name === 'view') requestAnimationFrame(() => { calculate(); });
 }
-function setViewMode(mode) {
+function setViewMode(mode, fromView) {
   viewMode = mode === 'spc' ? 'spc' : 'centration';
   document.documentElement.setAttribute('data-mode', viewMode);
   document.getElementById('pageTitle').textContent = viewMode === 'spc' ? 'SPC charts' : 'Die Centration Radial Graph';
@@ -565,7 +573,8 @@ function setViewMode(mode) {
   legend.innerHTML = viewMode === 'spc'
     ? `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#c24141"></i>Out of spec</span><span><i class="swatch" style="background:#f59e0b"></i>Outlier</span><span><i class="swatch" style="background:#1d4ed8"></i>Selected</span>`
     : `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#e2b340"></i>Thin</span><span><i class="swatch" style="background:#c24141"></i>Thick</span>`;
-  if (viewMode === 'spc') fillSpcControls();
+  if (viewMode !== 'spc') hideSpcTip();
+  if (viewMode === 'spc') fillSpcControls(fromView);
   syncViewChrome();
 }
 function setArrowVisible(on) {
@@ -644,8 +653,21 @@ function readPanelSpecs() {
     widthTarget: firstFinite(numVal(document.getElementById('widthTargetSpec').value))
   };
 }
+function specsHaveValues(specs) {
+  return !!(specs && Object.values(specs).some(v => finiteNum(v)));
+}
 function fillSpecPanel(specs, mspec) {
   const s = specs || {};
+  const src = document.getElementById('specSource');
+  const key = canonMspec(mspec);
+  if (!specsHaveValues(s)) {
+    if (src) {
+      src.textContent = key
+        ? `No Master Sheet row for MSPEC ${key} — keeping last specs`
+        : 'No MSPEC on this graph — keeping last specs';
+    }
+    return;
+  }
   setSpecInput('minThickness', s.min, 3);
   setSpecInput('targetThickness', s.target, 3);
   setSpecInput('maxThickness', s.max, 3);
@@ -657,11 +679,7 @@ function fillSpecPanel(specs, mspec) {
   setSpecInput('cellMaxSpec', s.cellMax, 0);
   setSpecInput('widthMinSpec', s.widthMin, 1);
   setSpecInput('widthTargetSpec', s.widthTarget, 1);
-  const src = document.getElementById('specSource');
-  if (src) {
-    const key = canonMspec(mspec);
-    src.textContent = key ? `Master Sheet MSPEC ${key}` : '';
-  }
+  if (src) src.textContent = key ? `Master Sheet MSPEC ${key}` : '';
 }
 function applyDieGraphLines(lines) {
   let min = null, max = null, range = null; const tvals = [];
@@ -1198,6 +1216,7 @@ function syncHistHeaderGutter() {
   head.style.paddingRight = Math.max(0, wrap.offsetWidth - wrap.clientWidth) + 'px';
   head.scrollLeft = wrap.scrollLeft;
 }
+function renderHistoryChrome() {
   const head = document.getElementById('histHead');
   const dateTh = `<th class="${isColFiltered('Date/Time') ? 'filtered' : ''}"><div class="th-inner">Date/Time <button class="th-menu${tableSort.col === 'Date/Time' ? ' active' : ''}${isColFiltered('Date/Time') ? ' filtered' : ''}" type="button" data-col="Date/Time" aria-label="Sort Date/Time">▾</button></div><div class="date-slicers">
     <select id="dateYear"></select><select id="dateMonth"></select><select id="dateDay"></select>
@@ -1225,6 +1244,11 @@ function syncHistHeaderGutter() {
     tableFilters['Date/Time'] = { year: df.year, month: df.month, day: document.getElementById('dateDay').value };
     pruneFilters(); filteredDirty = true; renderHistoryChrome(); renderHistoryBody(true);
   };
+  if (histCount() === 0) {
+    document.getElementById('histBody').innerHTML = '<tr><td colspan="20" style="text-align:center;color:var(--muted);padding:28px">No saved graphs yet. Use Copy for Graph in Excel, then paste here.</td></tr>';
+    document.getElementById('histCount').textContent = '0 saved';
+  }
+  updateHistNav();
 }
 function rowHtml(r) {
   const tds = TABLE_COLS.map(k => {
@@ -1370,23 +1394,26 @@ function openFilterMenu(col, anchor) {
     renderHistoryBody(true);
   };
 }
-function fillSpcControls() {
+function spcPreferredFromView() {
+  const by = document.getElementById('spcBy').value;
+  if (viewingIdx !== 'current' && historyPack && historyPack.rows[Number(viewingIdx)]) {
+    const row = historyPack.rows[Number(viewingIdx)];
+    return by === 'mspec' ? canonMspec(col(row, 'MSPEC')) : String(col(row, 'Item #') || '').trim();
+  }
+  return by === 'mspec' ? canonMspec(currentSnapshot.mspec) : String(currentSnapshot.item || '').trim();
+}
+function fillSpcControls(fromView) {
   const by = document.getElementById('spcBy').value;
   const sel = document.getElementById('spcValue');
   document.getElementById('spcValueName').textContent = by === 'mspec' ? 'MSPEC' : 'Item #';
   const values = uniqueSorted([...new Set(indexedRows.map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
-  let preferred = sel.value;
-  if (!preferred) {
-    if (viewingIdx !== 'current' && historyPack && historyPack.rows[Number(viewingIdx)]) {
-      const row = historyPack.rows[Number(viewingIdx)];
-      preferred = by === 'mspec' ? canonMspec(col(row, 'MSPEC')) : String(col(row, 'Item #') || '').trim();
-    } else preferred = by === 'mspec' ? canonMspec(currentSnapshot.mspec) : String(currentSnapshot.item || '').trim();
-  }
+  const fromRow = spcPreferredFromView();
+  let preferred = fromView ? (fromRow || sel.value) : (sel.value || fromRow);
   if (by === 'mspec') preferred = canonMspec(preferred);
   sel.innerHTML = values.map(v => `<option value="${esc(v)}" ${String(v) === String(preferred) ? 'selected' : ''}>${esc(v)}</option>`).join('');
   if (preferred && values.includes(String(preferred))) sel.value = preferred;
   else if (values.length && !sel.value) sel.value = values[0];
-  syncSpcDates(false);
+  syncSpcDates(!!fromView);
   const val = String(sel.value || '').trim();
   const mspec = by === 'mspec' ? val : ((indexedRows.find(r => r.item === val) || {}).mspec || currentSnapshot.mspec);
   fillSpecPanel(specsFor(mspec), mspec);
@@ -1467,27 +1494,42 @@ function refreshViewMeta() {
 }
 function viewPrev() {
   const { rows, i } = historyNav();
-  if (i > 0) viewResult(rows[i - 1].idx);
+  if (i > 0) goHistoryRow(rows[i - 1].idx);
 }
 function viewNext() {
   const { rows, i } = historyNav();
-  if (i >= 0 && i < rows.length - 1) viewResult(rows[i + 1].idx);
-  else if (viewingIdx === 'current' && rows.length) viewResult(rows[0].idx);
+  if (i >= 0 && i < rows.length - 1) goHistoryRow(rows[i + 1].idx);
+  else if (viewingIdx === 'current' && rows.length) goHistoryRow(rows[0].idx);
+}
+function applyHistoryRow(idx) {
+  viewingIdx = idx;
+  enterMode = false;
+  const row = historyPack && historyPack.rows[idx];
+  if (!row) return false;
+  applyPlainNumbers(rowTValues(row));
+  fillSpecPanel(specsFor(col(row, 'MSPEC', 'MSPEC #')), col(row, 'MSPEC', 'MSPEC #'));
+  customArrow = false;
+  return true;
+}
+function selectSpcPoint(idx) {
+  if (!applyHistoryRow(idx)) return;
+  refreshChecks();
+  syncViewChrome();
+  draw();
+}
+function goHistoryRow(idx) {
+  if (viewMode === 'spc') selectSpcPoint(idx);
+  else viewResult(idx);
 }
 function openSpc() {
   if (!indexedRows.length || enterMode) { toast('Paste TableS4 results first'); return; }
-  setViewMode('spc');
+  setViewMode('spc', true);
+  syncSpcDates(true);
   setScreen('view');
   requestAnimationFrame(() => draw());
 }
 function viewResult(idx) {
-  viewingIdx = idx;
-  enterMode = false;
-  const row = historyPack.rows[idx];
-  if (!row) return;
-  applyPlainNumbers(rowTValues(row));
-  fillSpecPanel(specsFor(col(row, 'MSPEC', 'MSPEC #')), col(row, 'MSPEC', 'MSPEC #'));
-  customArrow = false;
+  if (!applyHistoryRow(idx)) return;
   setViewMode('centration');
   setScreen('view');
   refreshChecks();
@@ -1860,7 +1902,7 @@ function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTar
       ctx.fillStyle = selected ? '#2563eb' : (inSpec === 'Fail' ? c.thickDot : c.inDot);
       ctx.fill(); ctx.lineWidth = selected ? 2.5 : 1.4; ctx.strokeStyle = c.pointStroke; ctx.stroke();
     }
-    spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx });
+    spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx, key, title, value: p[key], t: p.t, unit });
   });
   if (n) {
     ctx.fillStyle = c.muted; ctx.font = `400 11px "Atkinson Hyperlegible", Arial`;
@@ -1977,6 +2019,21 @@ function draw() {
   if (screenName !== 'view') return;
   if (viewMode === 'spc') drawSpc(); else drawCentration();
 }
+function hideSpcTip() {
+  const tip = document.getElementById('spcTip');
+  if (tip) tip.hidden = true;
+}
+function showSpcTip(hit, clientX, clientY) {
+  const tip = document.getElementById('spcTip');
+  if (!tip || !hit) return;
+  const when = hit.t != null ? excelWhen(hit.t) : '';
+  const unit = hit.unit ? ` ${hit.unit}` : '';
+  const val = finiteNum(hit.value) ? fmtSpec(hit.value) : '--';
+  tip.innerHTML = `<strong>${esc(hit.title || 'Value')}</strong>${when ? `<br>${esc(when)}` : ''}<br>${esc(val)}${esc(unit)}`;
+  tip.style.left = clientX + 'px';
+  tip.style.top = clientY + 'px';
+  tip.hidden = false;
+}
 function canvasPoint(evt) {
   const r = canvas.getBoundingClientRect(), src = evt.touches ? evt.touches[0] : evt;
   return { x: (src.clientX - r.left) * (canvasW / r.width), y: (src.clientY - r.top) * (canvasH / r.height) };
@@ -2001,15 +2058,30 @@ function onPointerDown(e) {
   const pt = canvasPoint(e);
   if (viewMode === 'spc') {
     const hit = hitSpcPoint(pt);
-    if (hit) { viewResult(hit.idx); setViewMode('spc'); requestAnimationFrame(draw); }
+    if (hit && hit.idx != null) selectSpcPoint(hit.idx);
     return;
   }
   const k = hitHandle(pt); if (!k) return;
   dragKind = k; customArrow = true; canvas.style.cursor = 'grabbing'; e.preventDefault(); draw(); saveState();
 }
 function onPointerMove(e) {
+  const src = e.touches ? e.touches[0] : e;
+  const box = canvas.getBoundingClientRect();
+  if (viewMode === 'spc') {
+    if (!src || src.clientX < box.left || src.clientX > box.right || src.clientY < box.top || src.clientY > box.bottom) {
+      hideSpcTip();
+      return;
+    }
+    const pt = canvasPoint(e);
+    const hit = hitSpcPoint(pt);
+    canvas.style.cursor = hit ? 'pointer' : 'default';
+    if (hit) showSpcTip(hit, src.clientX, src.clientY);
+    else hideSpcTip();
+    return;
+  }
+  hideSpcTip();
   const pt = canvasPoint(e);
-  if (!dragKind) { canvas.style.cursor = hitHandle(pt) || (viewMode === 'spc' && hitSpcPoint(pt)) ? 'pointer' : 'default'; return; }
+  if (!dragKind) { canvas.style.cursor = hitHandle(pt) ? 'pointer' : 'default'; return; }
   e.preventDefault();
   if (dragKind === 'head') arrow.head = { x: pt.x, y: pt.y }; else arrow.tail = { x: pt.x, y: pt.y };
   draw();
@@ -2017,6 +2089,7 @@ function onPointerMove(e) {
 function onPointerUp() { if (!dragKind) return; dragKind = null; canvas.style.cursor = 'default'; draw(); saveState(); }
 
 canvas.addEventListener('mousedown', onPointerDown);
+canvas.addEventListener('mouseleave', hideSpcTip);
 window.addEventListener('mousemove', onPointerMove);
 window.addEventListener('mouseup', onPointerUp);
 canvas.addEventListener('touchstart', onPointerDown, { passive: false });

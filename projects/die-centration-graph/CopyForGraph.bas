@@ -41,11 +41,6 @@ Public Sub CopyForGraph()
     Set wsS4 = SheetByName("S4")
     If wsS4 Is Nothing Then Set wsS4 = ActiveSheet
     
-    If LenB(Trim$(CStr(Nz(wsS4.Range("B3").Value)))) = 0 Then
-        MsgBox "Item # must be filled in", vbExclamation, "Copy for Graph"
-        Exit Sub
-    End If
-    
     Application.Cursor = xlWait
     Application.StatusBar = "Copying for graph..."
     
@@ -281,6 +276,24 @@ Private Function CurrentSection(ByVal wsS4 As Worksheet, ByRef hasPoints As Bool
     head = head & "target=" & CellNum(wsS4.Range("F6")) & vbCrLf
     head = head & "max=" & CellNum(wsS4.Range("G6")) & vbCrLf
     head = head & "range=" & CellNum(wsS4.Range("G7")) & vbCrLf
+    head = head & "densMin=" & CellNum(wsS4.Range("E9")) & vbCrLf
+    head = head & "densTarget=" & CellNum(wsS4.Range("F9")) & vbCrLf
+    head = head & "densMax=" & CellNum(wsS4.Range("G9")) & vbCrLf
+    head = head & "cellMin=" & CellNum(wsS4.Range("G10")) & vbCrLf
+    head = head & "widthMin=" & CellNum(wsS4.Range("E11")) & vbCrLf
+    head = head & "widthTarget=" & CellText(wsS4.Range("F11")) & vbCrLf
+    head = head & "width=" & CellNum(wsS4.Range("B5")) & vbCrLf
+    head = head & "widthPf=" & CellText(wsS4.Range("C5")) & vbCrLf
+    head = head & "cellMd=" & CellNum(wsS4.Range("B8")) & vbCrLf
+    head = head & "cellMdPf=" & CellText(wsS4.Range("C8")) & vbCrLf
+    head = head & "cellCd=" & CellNum(wsS4.Range("B9")) & vbCrLf
+    head = head & "cellCdPf=" & CellText(wsS4.Range("C9")) & vbCrLf
+    head = head & "density=" & CellNum(wsS4.Range("B12")) & vbCrLf
+    head = head & "densityPf=" & CellText(wsS4.Range("C12")) & vbCrLf
+    head = head & "avg=" & CellNum(wsS4.Range("B10")) & vbCrLf
+    head = head & "avgPf=" & CellText(wsS4.Range("C10")) & vbCrLf
+    head = head & "tRange=" & CellNum(wsS4.Range("B11")) & vbCrLf
+    head = head & "tRangePf=" & CellText(wsS4.Range("C11")) & vbCrLf
     If hasPoints Then
         CurrentSection = head & tLines
     Else

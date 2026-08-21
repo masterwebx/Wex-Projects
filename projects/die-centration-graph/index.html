@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-screen="welcome" data-mode="centration">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Die Centration Radial Graph</title>
+<title>Die Centration Graph</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
@@ -24,34 +24,62 @@
     font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif;
     background: var(--bg); color: var(--text); font-size: 18px; overflow: hidden;
   }
-  .app { height: 100dvh; display: grid; grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  .screen { display: none; height: 100dvh; min-height: 0; }
+  html[data-screen="welcome"] #screenWelcome { display: flex; }
+  html[data-screen="history"] #screenHistory { display: grid; }
+  html[data-screen="view"] #screenView { display: grid; }
   header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   h1 { font-size: 24px; margin: 0; }
   .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer;
+    background: var(--accent); color: #fff; font: inherit; font-size: 16px; font-weight: 700; min-height: 44px;
+  }
+  button.secondary { background: var(--bg-elev); color: var(--text); border: 2px solid var(--line); }
+  button.full { width: 100%; }
+  button.copied { background: var(--ok); color: #fff; border-color: var(--ok); }
+  button.icon {
+    width: 40px; min-height: 40px; padding: 0; display: grid; place-items: center;
+    background: var(--idle); color: var(--text); border: 2px solid var(--line);
+  }
+  button.icon:hover { border-color: var(--accent); color: var(--accent); }
+  .card { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); min-height: 0; }
+  #screenWelcome { align-items: center; justify-content: center; padding: 24px; }
+  .welcome { width: min(460px, 100%); padding: 28px; display: grid; gap: 14px; text-align: center; }
+  .welcome p { margin: 0 0 8px; color: var(--muted); }
+  .welcome .actions { display: grid; gap: 10px; }
+  #screenHistory { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  .table-wrap { overflow: auto; padding: 0; }
+  table.results { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+  table.results th, table.results td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; }
+  table.results thead th { position: sticky; top: 0; background: var(--bg-elev); z-index: 2; }
+  table.results thead tr.filters th { top: 34px; background: var(--idle); z-index: 1; font-weight: 400; }
+  table.results select {
+    width: 100%; min-width: 88px; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--bg-elev); color: var(--text); font: inherit; font-size: 13px; padding: 4px;
+  }
+  table.results tbody tr:hover { background: var(--idle); }
+  .pf-pill { font-weight: 700; }
+  .pf-pill.good { color: var(--ok); }
+  .pf-pill.bad { color: var(--thick); }
+  .hist-meta { margin: 0; font-size: 14px; color: var(--muted); }
+  #screenView { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
   .layout {
     min-height: 0;
     display: grid;
-    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr) minmax(250px, 300px);
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr) minmax(250px, 300px);
     gap: 12px;
   }
-  .card { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); min-height: 0; }
   .panel { padding: 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
   .panel h2, .side h2 { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; overflow: auto; flex: 1; min-height: 0; padding-right: 4px; }
   .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
   .field label { font-size: 16px; font-weight: 700; display: flex; gap: 6px; align-items: center; }
-  .field input, .specs input, .modal input, .history select {
-    width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
-    font: inherit; font-size: 18px; background: var(--idle); color: var(--text);
-  }
   .field input, .specs input, .modal input {
-    text-align: center; appearance: textfield; -moz-appearance: textfield;
+    width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
+    font: inherit; font-size: 18px; text-align: center; background: var(--idle); color: var(--text);
+    appearance: textfield; -moz-appearance: textfield;
   }
-  .history select { text-align: left; font-size: 15px; }
-  .history { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
-  .history[hidden] { display: none; }
-  .history label { display: flex; flex-direction: column; gap: 3px; font-size: 14px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-  .histMeta { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.35; }
   .field input::-webkit-outer-spin-button, .field input::-webkit-inner-spin-button,
   .specs input::-webkit-outer-spin-button, .specs input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
   .field.in input { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); font-weight: 700; }
@@ -62,26 +90,24 @@
   .specs { display: grid; gap: 8px; }
   .specs label { font-size: 15px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; }
   .specs input { width: 108px; flex: 0 0 108px; }
-  button {
-    border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer;
-    background: var(--accent); color: #fff; font: inherit; font-size: 16px; font-weight: 700; min-height: 44px;
-  }
-  button.secondary { background: var(--bg-elev); color: var(--text); border: 2px solid var(--line); }
-  button.full { width: 100%; }
-  button.copied { background: var(--ok); color: #fff; border-color: var(--ok); }
   .stat, .alert {
     border-radius: 999px; padding: 14px 18px; font-size: 18px; font-weight: 700;
     line-height: 1.2; border: 2px solid var(--line); background: var(--idle);
   }
-  .stat { display: flex; justify-content: space-between; gap: 12px; }
+  .stat { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .stat.good, .alert.good { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
   .stat.bad, .alert.bad { background: var(--thick-bg); color: var(--thick); border-color: var(--thick); }
+  .stat b.pf { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+  .checks { display: grid; gap: 8px; }
   .canvas-wrap { display: grid; grid-template-rows: auto 1fr; min-height: 0; overflow: hidden; }
   .canvas-head { padding: 8px 12px; font-size: 16px; color: var(--muted); font-weight: 700; display: flex; justify-content: flex-end; border-bottom: 1px solid var(--line); }
   .stage { min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px; }
   canvas { display: block; max-width: 100%; max-height: 100%; }
-  .legend { display: flex; gap: 12px; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; }
   .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  html[data-mode="spc"] .centration-only { display: none !important; }
+  html[data-mode="spc"] .stage { align-items: stretch; }
+  html[data-mode="spc"] canvas { width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
   .overlay.show { display: flex; }
   .modal { width: min(440px, 100%); background: var(--bg-elev); color: var(--text); border-radius: 16px; padding: 18px; border: 1px solid var(--line); }
@@ -101,7 +127,7 @@
   .toast.show { display: block; }
   @media (max-width: 1100px) {
     body { overflow: auto; }
-    .app { height: auto; min-height: 100dvh; overflow: visible; }
+    .screen { height: auto; min-height: 100dvh; }
     .layout { grid-template-columns: 1fr; }
     .panel { max-height: 70dvh; }
     .stage { min-height: 380px; }
@@ -111,35 +137,60 @@
 <body>
 <textarea id="clipCatcher" aria-hidden="true"></textarea>
 <div class="toast" id="toast"></div>
-<div class="app">
+
+<section class="screen" id="screenWelcome">
+  <div class="card welcome">
+    <h1>Die Centration Graph</h1>
+    <p>Paste a Copy for Graph clipboard, or enter thickness points by hand.</p>
+    <div class="actions">
+      <button type="button" id="welcomePaste">Paste from clipboard</button>
+      <button class="secondary" type="button" id="welcomeEnter">Enter results</button>
+    </div>
+    <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
+  </div>
+</section>
+
+<section class="screen" id="screenHistory">
   <header>
-    <h1>Die Centration Radial Graph</h1>
+    <div>
+      <h1>Results history</h1>
+      <p class="hist-meta" id="histMeta"></p>
+    </div>
     <div class="toolbar">
-      <button class="secondary" id="themeBtn" type="button">Dark mode</button>
-      <button class="secondary" id="settingsBtn" type="button">Settings</button>
-      <button class="secondary" id="arrowToggle" type="button">Show arrow</button>
-      <button class="secondary" id="resetArrowBtn" type="button" hidden>Reset arrow</button>
+      <button class="secondary" type="button" id="histBack">Start over</button>
+      <button type="button" id="histPaste">Paste again</button>
+      <button class="secondary" type="button" id="histClearFilters">Clear filters</button>
+      <button class="secondary" type="button" id="histTheme">Dark mode</button>
+    </div>
+  </header>
+  <div class="card table-wrap"><table class="results" id="histTable"></table></div>
+</section>
+
+<section class="screen" id="screenView">
+  <header>
+    <h1 id="pageTitle">Die Centration Radial Graph</h1>
+    <div class="toolbar">
+      <button class="secondary" type="button" id="viewBack">Back to history</button>
+      <button class="secondary" type="button" id="modeBtn">SPC mode</button>
+      <button class="secondary" type="button" id="themeBtn">Dark mode</button>
+      <button class="secondary centration-only" type="button" id="settingsBtn">Settings</button>
+      <button class="secondary centration-only" type="button" id="arrowToggle">Show arrow</button>
+      <button class="secondary centration-only" type="button" id="resetArrowBtn" hidden>Reset arrow</button>
     </div>
   </header>
   <div class="layout">
     <section class="card panel">
-      <div class="history" id="historyBox" hidden>
-        <h2>Past results</h2>
-        <label>Item #<select id="histItem"></select></label>
-        <label>Record<select id="histRecord"></select></label>
-        <p class="histMeta" id="histMeta"></p>
-      </div>
-      <h2>Thickness points</h2>
-      <div class="grid" id="inputs"></div>
+      <h2 class="centration-only">Thickness points</h2>
+      <div class="grid centration-only" id="inputs"></div>
+      <p class="hist-meta" id="spcHint" hidden>SPC charts average, range, and density for this item over time. Green and red lines are min and max spec.</p>
       <div class="actions">
-        <button class="full" id="clipBtn" type="button">Apply from clipboard</button>
-        <button class="secondary full" id="copyBtn" type="button">Copy values</button>
-        <button class="secondary full" id="clearBtn" type="button">Clear values</button>
+        <button class="secondary full centration-only" type="button" id="copyBtn">Copy values</button>
+        <button class="secondary full centration-only" type="button" id="clearBtn">Clear values</button>
       </div>
     </section>
     <section class="card canvas-wrap">
       <div class="canvas-head">
-        <div class="legend">
+        <div class="legend" id="canvasLegend">
           <span><i class="swatch" style="background:#3c9d5a"></i>In spec</span>
           <span><i class="swatch" style="background:#e2b340"></i>Thin</span>
           <span><i class="swatch" style="background:#c24141"></i>Thick</span>
@@ -156,9 +207,12 @@
       </div>
       <h2>Results</h2>
       <div id="summary"></div>
+      <h2>Checks</h2>
+      <div class="checks" id="checks"></div>
     </aside>
   </div>
-</div>
+</section>
+
 <div class="overlay" id="settingsOverlay">
   <div class="modal">
     <h3>Settings</h3>
@@ -174,8 +228,11 @@
     </div>
   </div>
 </div>
+
 <script>
-const STORE = 'dieGraphState.v3';
+const STORE = 'dieGraphState.v4';
+const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
+const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
 const canvas = document.getElementById('dieCanvas');
 const ctx = canvas.getContext('2d');
 const SOUTH = Math.PI / 2, HANDLE_R = 18;
@@ -185,8 +242,15 @@ const points = [], fieldEls = [], markEls = [];
 let showArrow = false, customArrow = false, dragKind = null;
 let lastMin = 0.240, lastMax = 0.260, lastRangeSpec = 0.010, lastValues = [];
 let arrow = { tail: null, head: null };
-let S = 700, center = { x: 350, y: 350 };
+let S = 700, canvasW = 700, canvasH = 700, center = { x: 350, y: 350 };
 let YELLOW_R = 96, GREEN_R = 210, MAX_PLOT_R = 275, POINT_R = 7, LABEL_R = 250, COMPASS_R = 330, ARROW_GAP = 52;
+let viewMode = 'centration', screenName = 'welcome';
+let spcHits = [];
+let historyPack = null;
+let currentSnapshot = {};
+let viewingIdx = 'current';
+let tableFilters = {};
+let pasteIntent = false;
 
 function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
 function palette() {
@@ -206,7 +270,7 @@ function palette() {
 function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
-  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 1600);
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 1800);
 }
 function loadState() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } }
 function saveState() {
@@ -215,14 +279,34 @@ function saveState() {
     showArrow, customArrow, arrow, TOTAL, NUM_BOLTS, startBoltsFromBottom,
     min: document.getElementById('minThickness').value,
     max: document.getElementById('maxThickness').value,
-    range: document.getElementById('rangeSpec').value,
-    values: points.map(p => p.value)
+    range: document.getElementById('rangeSpec').value
   }));
 }
 function applyTheme(theme) {
   const dark = theme === 'dark';
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-  document.getElementById('themeBtn').textContent = dark ? 'Light mode' : 'Dark mode';
+  const label = dark ? 'Light mode' : 'Dark mode';
+  ['themeBtn','welcomeTheme','histTheme'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = label;
+  });
+}
+function setScreen(name) {
+  screenName = name;
+  document.documentElement.setAttribute('data-screen', name);
+  const back = document.getElementById('viewBack');
+  if (back) back.hidden = !(historyPack && historyPack.rows && historyPack.rows.length);
+  if (name === 'view') requestAnimationFrame(() => { calculate(); });
+}
+function setViewMode(mode) {
+  viewMode = mode === 'spc' ? 'spc' : 'centration';
+  document.documentElement.setAttribute('data-mode', viewMode);
+  document.getElementById('pageTitle').textContent = viewMode === 'spc' ? 'SPC charts' : 'Die Centration Radial Graph';
+  document.getElementById('modeBtn').textContent = viewMode === 'spc' ? 'Centration graph' : 'SPC mode';
+  document.getElementById('spcHint').hidden = viewMode !== 'spc';
+  const legend = document.getElementById('canvasLegend');
+  legend.innerHTML = viewMode === 'spc'
+    ? `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#c24141"></i>Out of spec</span><span><i class="swatch" style="background:#1d4ed8"></i>Selected</span>`
+    : `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#e2b340"></i>Thin</span><span><i class="swatch" style="background:#c24141"></i>Thick</span>`;
 }
 function setArrowVisible(on) {
   showArrow = !!on;
@@ -250,9 +334,6 @@ function parseRangeSpec(raw) {
   const n = parseFloat(raw); if (!isFinite(n)) return NaN;
   return Math.abs(n) >= 1 ? n / 1000 : n;
 }
-let historyPack = null;
-let currentSnapshot = { values: [], min: '', max: '', range: '', item: '', mspec: '' };
-
 function applyPlainNumbers(values) {
   for (let i = 0; i < Math.min(values.length, TOTAL); i++) {
     const v = values[i];
@@ -266,15 +347,18 @@ function applySpecFields(min, max, range) {
 }
 function applyDieGraphLines(lines) {
   let min = null, max = null, range = null; const tvals = [];
+  const meta = {};
   let inPoints = false;
   for (const raw of lines) {
     const line = String(raw || '').trim();
-    const m = line.match(/^(min|max|range|target|item|mspec)\s*=\s*(.*)$/i);
+    const m = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.*)$/);
     if (m && !inPoints) {
       const key = m[1].toLowerCase();
-      if (key === 'item' || key === 'mspec' || key === 'target') continue;
-      const num = parseFloat(m[2]); if (!isFinite(num)) continue;
-      if (key === 'min') min = num; else if (key === 'max') max = num; else range = parseRangeSpec(num);
+      meta[key] = m[2].trim();
+      const num = parseFloat(m[2]);
+      if (key === 'min' && isFinite(num)) min = num;
+      else if (key === 'max' && isFinite(num)) max = num;
+      else if (key === 'range' && isFinite(num)) range = parseRangeSpec(num);
       continue;
     }
     if (!line && !inPoints) continue;
@@ -285,11 +369,11 @@ function applyDieGraphLines(lines) {
   }
   applySpecFields(min, max, range);
   if (tvals.some(v => v !== '')) applyPlainNumbers(tvals);
-  return { min, max, range, tvals };
+  return { min, max, range, tvals, meta };
 }
 function applyDieGraph(text) {
   const lines = text.replace(/\r/g, '').split('\n');
-  applyDieGraphLines(lines.slice(1));
+  return applyDieGraphLines(lines.slice(1));
 }
 function parseTsv(lines) {
   const nonempty = lines.map(s => String(s ?? '').replace(/\r/g, '')).filter(l => l.length);
@@ -333,8 +417,7 @@ function excelWhen(v) {
     const d = new Date(Math.round((n - 25569) * 86400 * 1000));
     if (!isNaN(d.getTime())) return d.toLocaleString();
   }
-  const s = String(v || '').trim();
-  return s || '';
+  return String(v || '').trim();
 }
 function lookupSpecs(mspec) {
   if (!historyPack || !historyPack.lookupByMspec) return null;
@@ -344,12 +427,93 @@ function lookupSpecs(mspec) {
   if (!row) return null;
   const min = parseFloat(col(row, 'Lower Control', 'Lower Spec'));
   const max = parseFloat(col(row, 'Upper Control', 'Upper Spec'));
-  const range = parseRangeSpec(col(row, 'Thickness Range Max'));
+  const rangeThou = parseFloat(col(row, 'Thickness Range Max'));
+  const densMin = parseFloat(col(row, 'Density Min'));
+  const densTarget = parseFloat(col(row, 'Density Target'));
+  const densMax = parseFloat(col(row, 'Density Max'));
+  const cellMin = parseFloat(col(row, 'Cell Count Min'));
+  const cellMax = parseFloat(col(row, 'Cell Count Max'));
   return {
     min: isFinite(min) ? min : null,
     max: isFinite(max) ? max : null,
-    range: isFinite(range) ? range : null
+    range: isFinite(rangeThou) ? parseRangeSpec(rangeThou) : null,
+    rangeThou: isFinite(rangeThou) ? rangeThou : null,
+    densMin: isFinite(densMin) ? densMin : null,
+    densTarget: isFinite(densTarget) ? densTarget : null,
+    densMax: isFinite(densMax) ? densMax : null,
+    cellMin: isFinite(cellMin) ? cellMin : null,
+    cellMax: isFinite(cellMax) ? cellMax : null
   };
+}
+function numVal(v) { const n = parseFloat(v); return isFinite(n) ? n : NaN; }
+function snapNum(snap, ...keys) {
+  for (const k of keys) { const n = numVal(snap && snap[k]); if (isFinite(n)) return n; }
+  return NaN;
+}
+function fmtCheck(v, digits) {
+  if (!isFinite(v)) return '--';
+  return v.toFixed(digits);
+}
+function normalizePf(v) {
+  const s = String(v || '').trim().toLowerCase();
+  if (s === 'pass') return 'Pass';
+  if (s === 'fail') return 'Fail';
+  return '';
+}
+function judgeBetween(v, min, max) {
+  if (!isFinite(v)) return '';
+  if (isFinite(min) && v < min) return 'Fail';
+  if (isFinite(max) && v > max) return 'Fail';
+  if (isFinite(min) || isFinite(max)) return 'Pass';
+  return '';
+}
+function pickPf(stored, computed) { return normalizePf(stored) || computed || ''; }
+function checkRow(label, valueText, pf) {
+  const cls = pf === 'Pass' ? 'good' : (pf === 'Fail' ? 'bad' : '');
+  return `<div class="stat ${cls}">${label} <span>${valueText}</span> <b class="pf">${pf || '--'}</b></div>`;
+}
+function checksFromCurrent() {
+  const snap = currentSnapshot || {};
+  const specs = lookupSpecs(snap.mspec) || {};
+  const width = snapNum(snap, 'width');
+  const widthMin = snapNum(snap, 'widthmin', 'widthMin');
+  const cellMd = snapNum(snap, 'cellmd');
+  const cellCd = snapNum(snap, 'cellcd');
+  const cellMin = isFinite(snapNum(snap, 'cellmin')) ? snapNum(snap, 'cellmin') : specs.cellMin;
+  const density = snapNum(snap, 'density');
+  const densMin = isFinite(snapNum(snap, 'densmin')) ? snapNum(snap, 'densmin') : specs.densMin;
+  const densMax = isFinite(snapNum(snap, 'densmax')) ? snapNum(snap, 'densmax') : specs.densMax;
+  return [
+    { label: 'Width', text: fmtCheck(width, 1), pf: pickPf(snap.widthpf, judgeBetween(width, widthMin, NaN)) },
+    { label: 'Cell count MD', text: fmtCheck(cellMd, 0), pf: pickPf(snap.cellmdpf, judgeBetween(cellMd, cellMin, specs.cellMax)) },
+    { label: 'Cell count CD', text: fmtCheck(cellCd, 0), pf: pickPf(snap.cellcdpf, judgeBetween(cellCd, cellMin, specs.cellMax)) },
+    { label: 'Density', text: fmtCheck(density, 2), pf: pickPf(snap.densitypf, judgeBetween(isFinite(density) ? Math.round(density * 100) / 100 : NaN, densMin, densMax)) }
+  ];
+}
+function checksFromTableRow(row) {
+  const specs = lookupSpecs(col(row, 'MSPEC', 'MSPEC #')) || lookupSpecs(currentSnapshot.mspec) || {};
+  const width = numVal(col(row, 'Slit/Width'));
+  const cellMd = numVal(col(row, 'Cell Count MD'));
+  const cellCd = numVal(col(row, 'Cell Count CD'));
+  const density = numVal(col(row, 'Density'));
+  const widthMin = snapNum(currentSnapshot, 'widthmin', 'widthMin');
+  return [
+    { label: 'Width', text: fmtCheck(width, 1), pf: pickPf(col(row, 'Slit/Width Pass/Fail'), judgeBetween(width, widthMin, NaN)) },
+    { label: 'Cell count MD', text: fmtCheck(cellMd, 0), pf: pickPf(col(row, 'Cell Count MD Pass/Fail'), judgeBetween(cellMd, specs.cellMin, specs.cellMax)) },
+    { label: 'Cell count CD', text: fmtCheck(cellCd, 0), pf: pickPf(col(row, 'Cell Count CD Pass/Fail'), judgeBetween(cellCd, specs.cellMin, specs.cellMax)) },
+    { label: 'Density', text: fmtCheck(density, 2), pf: pickPf(col(row, 'Density Pass/Fail'), judgeBetween(isFinite(density) ? Math.round(density * 100) / 100 : NaN, specs.densMin, specs.densMax)) }
+  ];
+}
+function renderChecks(items) {
+  document.getElementById('checks').innerHTML = (items || []).map(c => checkRow(c.label, c.text, c.pf)).join('')
+    || '<div class="alert">No density, cell count, or width on this result</div>';
+}
+function refreshChecks() {
+  if (viewingIdx === 'current') renderChecks(checksFromCurrent());
+  else {
+    const row = historyPack && historyPack.rows[Number(viewingIdx)];
+    renderChecks(row ? checksFromTableRow(row) : checksFromCurrent());
+  }
 }
 function rowTValues(row) {
   const out = [];
@@ -360,149 +524,114 @@ function rowTValues(row) {
   return out;
 }
 function captureCurrentSnapshot(extra) {
-  currentSnapshot = {
-    values: points.map(p => p.value),
-    min: document.getElementById('minThickness').value,
-    max: document.getElementById('maxThickness').value,
-    range: document.getElementById('rangeSpec').value,
-    item: extra && extra.item || currentSnapshot.item || '',
-    mspec: extra && extra.mspec || currentSnapshot.mspec || ''
-  };
+  currentSnapshot = Object.assign({}, extra || {});
+  currentSnapshot.values = points.map(p => p.value);
+  currentSnapshot.min = document.getElementById('minThickness').value;
+  currentSnapshot.max = document.getElementById('maxThickness').value;
+  currentSnapshot.range = document.getElementById('rangeSpec').value;
 }
 function applySnapshot(snap) {
   if (!snap) return;
-  document.getElementById('minThickness').value = snap.min;
-  document.getElementById('maxThickness').value = snap.max;
-  document.getElementById('rangeSpec').value = snap.range;
-  for (let i = 0; i < TOTAL; i++) points[i].value = snap.values[i] || '';
+  if (snap.min) document.getElementById('minThickness').value = snap.min;
+  if (snap.max) document.getElementById('maxThickness').value = snap.max;
+  if (snap.range) document.getElementById('rangeSpec').value = snap.range;
+  applyPlainNumbers(snap.values || []);
 }
-function hideHistory() {
-  historyPack = null;
-  document.getElementById('historyBox').hidden = true;
-  document.getElementById('histItem').innerHTML = '';
-  document.getElementById('histRecord').innerHTML = '';
-  document.getElementById('histMeta').textContent = '';
-}
-function uniqueItems(rows) {
-  const seen = new Set();
-  const items = [];
-  for (const row of rows) {
-    const id = String(col(row, 'Item #')).trim();
-    if (!id || seen.has(id)) continue;
-    seen.add(id);
-    items.push(id);
+function displayCell(key, raw) {
+  if (key === 'Date/Time') return excelWhen(raw) || raw || '';
+  if (key === 'Pass/Fail') {
+    const pf = normalizePf(raw);
+    return pf ? `<span class="pf-pill ${pf === 'Pass' ? 'good' : 'bad'}">${pf}</span>` : esc(raw);
   }
-  items.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-  return items;
+  const n = numVal(raw);
+  if (key === 'Thickness Average' && isFinite(n)) return n.toFixed(3);
+  if (key === 'Thickness Range' && isFinite(n)) return (Math.abs(n) < 1 ? n * 1000 : n).toFixed(1);
+  if (key === 'Density' && isFinite(n)) return n.toFixed(2);
+  if (key === 'Slit/Width' && isFinite(n)) return n.toFixed(1);
+  return esc(raw);
 }
-function recordsForItem(item) {
-  const id = String(item || '').trim();
-  const rows = (historyPack && historyPack.rows || [])
-    .map((row, idx) => ({ row, idx }))
-    .filter(x => String(col(x.row, 'Item #')).trim() === id);
-  rows.sort((a, b) => parseFloat(col(b.row, 'Date/Time')) - parseFloat(col(a.row, 'Date/Time')));
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function hasCurrentSheet() {
+  return !!(currentSnapshot && (currentSnapshot.item || (currentSnapshot.values || []).some(v => v !== '' && v != null)));
+}
+function uniqueValues(rows, key) {
+  const seen = new Set();
+  const out = [];
+  for (const row of rows) {
+    const raw = key === 'Date/Time' ? (excelWhen(col(row, key)) || col(row, key)) : col(row, key);
+    const v = String(raw ?? '').trim();
+    if (!v || seen.has(v)) continue;
+    seen.add(v); out.push(v);
+  }
+  out.sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  return out;
+}
+function sortedHistoryRows() {
+  const rows = (historyPack && historyPack.rows || []).map((row, idx) => ({ row, idx }));
+  rows.sort((a, b) => (numVal(col(b.row, 'Date/Time')) || 0) - (numVal(col(a.row, 'Date/Time')) || 0));
   return rows;
 }
-function fillItemDropdown(preferred) {
-  const sel = document.getElementById('histItem');
-  const items = uniqueItems(historyPack.rows);
-  sel.innerHTML = '';
-  if (preferred && !items.includes(preferred)) {
-    const opt = document.createElement('option');
-    opt.value = preferred; opt.textContent = preferred + ' (current)';
-    sel.appendChild(opt);
-  }
-  for (const id of items) {
-    const opt = document.createElement('option');
-    opt.value = id; opt.textContent = id;
-    sel.appendChild(opt);
-  }
-  if (preferred && (items.includes(preferred) || sel.options.length)) sel.value = preferred;
-  else if (items.length) sel.value = items[0];
-}
-function fillRecordDropdown(selectCurrent) {
-  const item = document.getElementById('histItem').value;
-  const rec = document.getElementById('histRecord');
-  const rows = recordsForItem(item);
-  rec.innerHTML = '';
-  const cur = document.createElement('option');
-  cur.value = '__current__';
-  cur.textContent = 'Current sheet';
-  rec.appendChild(cur);
-  rows.forEach((entry, i) => {
-    const opt = document.createElement('option');
-    opt.value = String(entry.idx);
-    const when = excelWhen(col(entry.row, 'Date/Time')) || 'No date';
-    const bundle = col(entry.row, 'Bundle #') || '—';
-    const user = col(entry.row, 'User') || '';
-    const pf = col(entry.row, 'Pass/Fail') || '';
-    opt.textContent = `${when} · Bundle ${bundle}${user ? ' · ' + user : ''}${pf ? ' · ' + pf : ''}`;
-    rec.appendChild(opt);
-    if (i === 0) opt.dataset.newest = '1';
+function filteredHistoryRows() {
+  return sortedHistoryRows().filter(({ row }) => {
+    return TABLE_COLS.every(key => {
+      const want = tableFilters[key];
+      if (!want) return true;
+      const raw = key === 'Date/Time' ? (excelWhen(col(row, key)) || col(row, key)) : col(row, key);
+      return String(raw ?? '').trim() === want;
+    });
   });
-  rec.value = selectCurrent ? '__current__' : (rows.length ? String(rows[0].idx) : '__current__');
-  document.getElementById('histMeta').textContent = rows.length
-    ? `${rows.length} past result${rows.length === 1 ? '' : 's'} for this item · ${historyPack.rows.length} total in TableS4`
-    : `No past TableS4 rows for this item · ${historyPack.rows.length} total in TableS4`;
 }
-function applyHistorySelection() {
-  const rec = document.getElementById('histRecord');
-  if (!rec.value || rec.value === '__current__') {
-    applySnapshot(currentSnapshot);
-    customArrow = false; calculate(); saveState();
-    return;
-  }
-  const row = historyPack.rows[Number(rec.value)];
+function renderHistoryTable() {
+  const table = document.getElementById('histTable');
+  const all = sortedHistoryRows();
+  const rows = filteredHistoryRows();
+  const head = TABLE_COLS.map(k => `<th>${esc(k)}</th>`).join('');
+  const filters = TABLE_COLS.map(k => {
+    const opts = uniqueValues(all.map(x => x.row), k).map(v =>
+      `<option value="${esc(v)}" ${tableFilters[k] === v ? 'selected' : ''}>${esc(v)}</option>`
+    ).join('');
+    return `<th><select data-col="${esc(k)}"><option value="">All</option>${opts}</select></th>`;
+  }).join('');
+  const currentRow = hasCurrentSheet()
+    ? `<tr><td><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${TABLE_COLS.length - 2}">Values copied from S4</td></tr>`
+    : '';
+  const body = currentRow + rows.map(({ row, idx }) => {
+    const tds = TABLE_COLS.map(k => `<td>${displayCell(k, col(row, k))}</td>`).join('');
+    return `<tr><td><button class="icon" type="button" data-view="${idx}" title="View result">${EYE}</button></td>${tds}</tr>`;
+  }).join('');
+  table.innerHTML = `<thead><tr><th></th>${head}</tr><tr class="filters"><th></th>${filters}</tr></thead><tbody>${body || '<tr><td colspan="20">No rows match the slicers</td></tr>'}</tbody>`;
+  table.querySelectorAll('select[data-col]').forEach(sel => {
+    sel.onchange = () => { tableFilters[sel.dataset.col] = sel.value; renderHistoryTable(); };
+  });
+  table.querySelectorAll('button[data-view]').forEach(btn => {
+    btn.onclick = () => {
+      if (btn.dataset.view === 'current') viewCurrent();
+      else viewResult(Number(btn.dataset.view));
+    };
+  });
+  const meta = document.getElementById('histMeta');
+  meta.textContent = `Showing ${rows.length} of ${all.length} results, newest first`;
+}
+function viewResult(idx) {
+  viewingIdx = idx;
+  const row = historyPack.rows[idx];
   if (!row) return;
-  const tvals = rowTValues(row);
-  applyPlainNumbers(tvals);
+  applyPlainNumbers(rowTValues(row));
   const specs = lookupSpecs(col(row, 'MSPEC', 'MSPEC #')) || lookupSpecs(currentSnapshot.mspec);
   if (specs) applySpecFields(specs.min, specs.max, specs.range);
-  customArrow = false; calculate(); saveState();
+  customArrow = false;
+  setViewMode('centration');
+  setScreen('view');
+  refreshChecks();
 }
-function showHistory(pack, appliedCurrentHasPoints) {
-  historyPack = pack;
-  const box = document.getElementById('historyBox');
-  if (!pack || !pack.rows.length) {
-    box.hidden = true;
-    return;
-  }
-  box.hidden = false;
-  fillItemDropdown(pack.item || '');
-  fillRecordDropdown(appliedCurrentHasPoints);
-  if (!appliedCurrentHasPoints && document.getElementById('histRecord').value !== '__current__') {
-    applyHistorySelection();
-  }
-}
-function parseCurrentMeta(lines) {
-  const meta = { item: '', mspec: '' };
-  for (const raw of lines) {
-    const m = String(raw || '').trim().match(/^(item|mspec)\s*=\s*(.*)$/i);
-    if (m) meta[m[1].toLowerCase()] = m[2].trim();
-  }
-  return meta;
-}
-function applyDieGraph2(text) {
-  const sections = splitDieGraph2(text);
-  const applied = applyDieGraphLines(sections.CURRENT);
-  const meta = parseCurrentMeta(sections.CURRENT);
-  const lookup = parseTsv(sections.LOOKUP);
-  const table = parseTsv(sections.TABLES4);
-  const lookupByMspec = {};
-  for (const row of lookup.rows) {
-    const key = String(col(row, 'MSPEC #', 'MSPEC')).trim();
-    if (key) lookupByMspec[key] = row;
-  }
-  captureCurrentSnapshot(meta);
-  showHistory({
-    item: meta.item,
-    mspec: meta.mspec,
-    rows: table.rows,
-    lookupByMspec
-  }, applied.tvals.length > 0);
-  const n = table.rows.length;
-  toast(n ? `Loaded ${n} past result${n === 1 ? '' : 's'}` : 'Loaded current sheet + lookup');
-  return true;
+function viewCurrent() {
+  viewingIdx = 'current';
+  applySnapshot(currentSnapshot);
+  setViewMode('centration');
+  setScreen('view');
+  refreshChecks();
 }
 async function clearClipboard() {
   catcher.value = '';
@@ -512,22 +641,45 @@ async function clearClipboard() {
     catch { /* ignore */ }
   }
 }
+function applyDieGraph2(text) {
+  const sections = splitDieGraph2(text);
+  const applied = applyDieGraphLines(sections.CURRENT);
+  const meta = Object.assign({}, applied.meta || {});
+  const lookup = parseTsv(sections.LOOKUP);
+  const table = parseTsv(sections.TABLES4);
+  const lookupByMspec = {};
+  for (const row of lookup.rows) {
+    const key = String(col(row, 'MSPEC #', 'MSPEC')).trim();
+    if (key) lookupByMspec[key] = row;
+  }
+  captureCurrentSnapshot(meta);
+  historyPack = { item: meta.item || '', mspec: meta.mspec || '', rows: table.rows, lookupByMspec };
+  tableFilters = {};
+  const n = table.rows.length;
+  toast(n ? `Loaded ${n} past result${n === 1 ? '' : 's'}` : 'Loaded current sheet');
+  if (n) { renderHistoryTable(); setScreen('history'); }
+  else { viewingIdx = 'current'; setScreen('view'); refreshChecks(); }
+  return true;
+}
 function applyClipboardText(text) {
   text = (text || '').trim();
   if (!text) { toast('Clipboard is empty'); return false; }
   if (/^DIEGRAPH2\b/i.test(text)) applyDieGraph2(text);
-  else if (/^DIEGRAPH\b/i.test(text)) { hideHistory(); applyDieGraph(text); }
-  else {
+  else if (/^DIEGRAPH\b/i.test(text)) {
+    historyPack = null; applyDieGraph(text); captureCurrentSnapshot({});
+    viewingIdx = 'current'; setScreen('view'); refreshChecks();
+  } else {
     const values = text.split(/[\s,]+/).map(Number).filter(v => !isNaN(v));
     if (!values.length) { toast('No numbers found'); return false; }
-    hideHistory();
-    applyPlainNumbers(values);
+    historyPack = null; applyPlainNumbers(values); captureCurrentSnapshot({});
+    viewingIdx = 'current'; setScreen('view'); refreshChecks();
   }
   customArrow = false; calculate(); saveState();
   clearClipboard();
+  pasteIntent = false;
   return true;
 }
-function applyFromClipboard() { catcher.focus(); catcher.select(); }
+function applyFromClipboard() { pasteIntent = true; catcher.focus(); catcher.select(); toast('Press Ctrl+V to paste'); }
 async function copyValues() {
   const lines = points.map(p => { const v = parseFloat(p.value); return isFinite(v) ? v.toFixed(3) : ''; }).join('\n').replace(/\n+$/, '');
   const btn = document.getElementById('copyBtn');
@@ -555,12 +707,7 @@ function calculate() {
 }
 function pointAngle(i) { return SOUTH + (i + 0.5) * ANGLE_STEP; }
 function compassAngles() {
-  return [
-    { label: 'N', angle: -Math.PI / 2 },
-    { label: 'E', angle: 0 },
-    { label: 'S', angle: Math.PI / 2 },
-    { label: 'W', angle: Math.PI }
-  ];
+  return [{ label: 'N', angle: -Math.PI / 2 }, { label: 'E', angle: 0 }, { label: 'S', angle: Math.PI / 2 }, { label: 'W', angle: Math.PI }];
 }
 function boltSet() {
   const n = Math.max(4, NUM_BOLTS);
@@ -568,8 +715,7 @@ function boltSet() {
   const start = startBoltsFromBottom ? Math.PI / 2 : -Math.PI / 2;
   const numbered = [];
   for (let i = 0; i < n; i++) numbered.push({ label: String(i + 1), angle: start + i * (2 * Math.PI / n), kind: 'numbered' });
-  const compass = compassAngles().map(b => ({ ...b, kind: 'compass' }));
-  return numbered.concat(compass);
+  return numbered.concat(compassAngles().map(b => ({ ...b, kind: 'compass' })));
 }
 function valueToRadius(val, min, max) {
   if (!isFinite(val)) return (YELLOW_R + GREEN_R) / 2;
@@ -585,12 +731,20 @@ function labelRadius(angle, bolts) {
 }
 function layoutCanvas() {
   const stage = canvas.parentElement;
-  const size = Math.max(280, Math.floor(Math.min(stage.clientWidth, stage.clientHeight)));
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  canvas.width = size * dpr; canvas.height = size * dpr;
-  canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+  let sizeW, sizeH;
+  if (viewMode === 'spc') {
+    sizeW = Math.max(280, Math.floor(stage.clientWidth || 280));
+    sizeH = Math.max(360, Math.floor(stage.clientHeight || 360));
+  } else {
+    const size = Math.max(280, Math.floor(Math.min(stage.clientWidth || 280, stage.clientHeight || 280)));
+    sizeW = size; sizeH = size;
+  }
+  canvas.width = sizeW * dpr; canvas.height = sizeH * dpr;
+  canvas.style.width = sizeW + 'px'; canvas.style.height = sizeH + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  S = size; center = { x: S / 2, y: S / 2 };
+  canvasW = sizeW; canvasH = sizeH; S = Math.min(sizeW, sizeH);
+  center = { x: S / 2, y: S / 2 };
   YELLOW_R = S * 0.14; GREEN_R = S * 0.30; MAX_PLOT_R = S * 0.39;
   POINT_R = Math.max(6, S * 0.011); LABEL_R = GREEN_R + S * 0.048;
   COMPASS_R = S / 2 - 38; ARROW_GAP = Math.max(48, S * 0.08);
@@ -654,10 +808,121 @@ function updateSummary(avg, range, min, max, rangeSpec) {
     ${rangeBad ? `<div class="alert bad">Range exceeds spec</div>` : (rangeOk ? `<div class="alert good">Range is within spec</div>` : `<div class="alert">Range status --</div>`)}
   `;
 }
-function draw() {
+function finiteMinMax(vals) {
+  const xs = vals.filter(v => isFinite(v));
+  if (!xs.length) return { min: 0, max: 1 };
+  let lo = Math.min(...xs), hi = Math.max(...xs);
+  if (lo === hi) { lo -= 1; hi += 1; }
+  const pad = (hi - lo) * 0.12;
+  return { min: lo - pad, max: hi + pad };
+}
+function rangeAsThousandths(v) {
+  const n = parseFloat(v);
+  if (!isFinite(n)) return NaN;
+  return Math.abs(n) < 1 ? n * 1000 : n;
+}
+function spcPointsForItem(item) {
+  const id = String(item || '').trim();
+  return sortedHistoryRows().filter(x => String(col(x.row, 'Item #')).trim() === id).reverse().map(({ row, idx }) => ({
+    idx, row,
+    t: numVal(col(row, 'Date/Time')),
+    avg: numVal(col(row, 'Thickness Average')),
+    range: rangeAsThousandths(col(row, 'Thickness Range')),
+    density: numVal(col(row, 'Density'))
+  }));
+}
+function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTarget, selectedIdx) {
+  const { x, y, w, h } = panel;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.fillStyle = c.canvas; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); ctx.globalAlpha = 1;
+  ctx.fillStyle = c.text; ctx.font = `700 14px "Atkinson Hyperlegible", Arial`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(title + (unit ? '  (' + unit + ')' : ''), x + 10, y + 8);
+  const padL = 52, padR = 14, padT = 28, padB = 28;
+  const plot = { x: x + padL, y: y + padT, w: Math.max(20, w - padL - padR), h: Math.max(20, h - padT - padB) };
+  const values = pts.map(p => p[key]).filter(v => isFinite(v));
+  const ym = finiteMinMax([specMin, specMax, specTarget, ...values]);
+  const yAt = v => plot.y + plot.h - ((v - ym.min) / (ym.max - ym.min)) * plot.h;
+  const xAt = (i, n) => n <= 1 ? plot.x + plot.w / 2 : plot.x + (i / (n - 1)) * plot.w;
+  const specLine = (val, color) => {
+    if (!isFinite(val)) return;
+    const yy = yAt(val);
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(plot.x, yy); ctx.lineTo(plot.x + plot.w, yy); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle = color; ctx.font = `700 11px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText(String(val), plot.x + 4, yy - 2);
+  };
+  specLine(specMin, '#166534'); specLine(specMax, '#b91c1c'); specLine(specTarget, '#1d4ed8');
+  ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(plot.x, plot.y); ctx.lineTo(plot.x, plot.y + plot.h); ctx.lineTo(plot.x + plot.w, plot.y + plot.h); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.fillStyle = c.muted; ctx.font = `400 11px "Atkinson Hyperlegible", Arial`;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const digits = ym.max - ym.min < 1 ? 3 : 1;
+  ctx.fillText(ym.max.toFixed(digits), plot.x - 6, plot.y);
+  ctx.fillText(ym.min.toFixed(digits), plot.x - 6, plot.y + plot.h);
+  const n = pts.length;
+  ctx.strokeStyle = c.text; ctx.globalAlpha = 0.85; ctx.lineWidth = 2; ctx.beginPath();
+  let started = false;
+  pts.forEach((p, i) => {
+    if (!isFinite(p[key])) return;
+    const xx = xAt(i, n), yy = yAt(p[key]);
+    if (!started) { ctx.moveTo(xx, yy); started = true; } else ctx.lineTo(xx, yy);
+  });
+  ctx.stroke(); ctx.globalAlpha = 1;
+  pts.forEach((p, i) => {
+    if (!isFinite(p[key])) return;
+    const xx = xAt(i, n), yy = yAt(p[key]);
+    const inSpec = judgeBetween(p[key], specMin, specMax);
+    const selected = p.idx === selectedIdx;
+    ctx.beginPath(); ctx.arc(xx, yy, selected ? 6 : 4, 0, Math.PI * 2);
+    ctx.fillStyle = selected ? '#2563eb' : (inSpec === 'Fail' ? c.thickDot : c.inDot);
+    ctx.fill(); ctx.lineWidth = selected ? 2.5 : 1.4; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+    spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx });
+  });
+  if (n) {
+    ctx.fillStyle = c.muted; ctx.font = `400 11px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(excelWhen(pts[0].t), plot.x, plot.y + plot.h + 6);
+    ctx.textAlign = 'right';
+    const last = excelWhen(pts[n - 1].t);
+    if (last) ctx.fillText(last, plot.x + plot.w, plot.y + plot.h + 6);
+  }
+  ctx.restore();
+}
+function drawSpc() {
+  layoutCanvas();
+  const c = palette();
+  spcHits = [];
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
+  let item = currentSnapshot.item || '';
+  if (viewingIdx !== 'current' && historyPack) item = col(historyPack.rows[Number(viewingIdx)], 'Item #') || item;
+  const pts = historyPack ? spcPointsForItem(item) : [];
+  if (!pts.length) {
+    ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(item ? 'No TableS4 rows for this item' : 'No item number on this result', canvasW / 2, canvasH / 2);
+    return;
+  }
+  const mspec = col(pts[pts.length - 1].row, 'MSPEC') || currentSnapshot.mspec;
+  const specs = lookupSpecs(mspec) || {};
+  const selectedIdx = viewingIdx === 'current' ? -1 : Number(viewingIdx);
+  const gap = 8, panelH = (canvasH - gap * 4) / 3;
+  const panels = [0, 1, 2].map(i => ({ x: 8, y: gap + i * (panelH + gap), w: canvasW - 16, h: panelH }));
+  drawSpcPanel(c, panels[0], pts, 'avg', 'Average', 'in', specs.min, specs.max, null, selectedIdx);
+  drawSpcPanel(c, panels[1], pts, 'range', 'Range', '×0.001 in', 0, specs.rangeThou, null, selectedIdx);
+  const densMin = isFinite(snapNum(currentSnapshot, 'densmin')) ? snapNum(currentSnapshot, 'densmin') : specs.densMin;
+  const densMax = isFinite(snapNum(currentSnapshot, 'densmax')) ? snapNum(currentSnapshot, 'densmax') : specs.densMax;
+  const densTarget = isFinite(snapNum(currentSnapshot, 'denstarget')) ? snapNum(currentSnapshot, 'denstarget') : specs.densTarget;
+  drawSpcPanel(c, panels[2], pts, 'density', 'Density', 'pcf', densMin, densMax, densTarget, selectedIdx);
+}
+function drawCentration() {
   layoutCanvas();
   const min = lastMin, max = lastMax, values = lastValues, c = palette(), bolts = boltSet();
-  ctx.clearRect(0, 0, S, S); ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, S, S);
+  ctx.clearRect(0, 0, canvasW, canvasH); ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
   ctx.globalAlpha = 0.96;
   ctx.fillStyle = c.yellow; ctx.beginPath(); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = c.green; ctx.beginPath(); ctx.arc(center.x, center.y, GREEN_R, 0, Math.PI * 2); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2, true); ctx.fill();
@@ -693,10 +958,10 @@ function draw() {
     drawHandle(c, arrow.head.x, arrow.head.y, dragKind === 'head');
   }
   for (const p of plot) {
-    let col = c.idleDot;
-    if (isFinite(p.val)) col = p.val < min ? c.thinDot : (p.val > max ? c.thickDot : c.inDot);
+    let fill = c.idleDot;
+    if (isFinite(p.val)) fill = p.val < min ? c.thinDot : (p.val > max ? c.thickDot : c.inDot);
     ctx.beginPath(); ctx.arc(p.x, p.y, POINT_R, 0, Math.PI * 2);
-    ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+    ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = c.pointStroke; ctx.stroke();
   }
   ctx.font = `700 ${Math.max(15, S * 0.024)}px "Atkinson Hyperlegible", Arial`; ctx.textBaseline = 'middle';
   for (let i = 0; i < TOTAL; i++) {
@@ -711,6 +976,7 @@ function draw() {
   }
   for (let i = 0; i < TOTAL; i++) {
     const v = values[i], field = fieldEls[i], mark = markEls[i];
+    if (!field) continue;
     field.classList.remove('in', 'thin', 'thick'); mark.textContent = '';
     if (!isFinite(v)) continue;
     if (v < min) { field.classList.add('thin'); mark.textContent = '↓'; }
@@ -722,25 +988,43 @@ function draw() {
   const range = isFinite(maxVal) && isFinite(minVal) ? maxVal - minVal : NaN;
   updateSummary(avg, range, min, max, lastRangeSpec);
 }
+function draw() {
+  if (screenName !== 'view') return;
+  if (viewMode === 'spc') drawSpc(); else drawCentration();
+}
 function canvasPoint(evt) {
   const r = canvas.getBoundingClientRect(), src = evt.touches ? evt.touches[0] : evt;
-  return { x: (src.clientX - r.left) * (S / r.width), y: (src.clientY - r.top) * (S / r.height) };
+  return { x: (src.clientX - r.left) * (canvasW / r.width), y: (src.clientY - r.top) * (canvasH / r.height) };
 }
 function hitHandle(pt) {
-  if (!showArrow || !arrow.head || !arrow.tail) return null;
+  if (viewMode === 'spc' || !showArrow || !arrow.head || !arrow.tail) return null;
   const dh = Math.hypot(pt.x - arrow.head.x, pt.y - arrow.head.y);
   const dt = Math.hypot(pt.x - arrow.tail.x, pt.y - arrow.tail.y);
   if (dh <= HANDLE_R && dh <= dt) return 'head';
   if (dt <= HANDLE_R) return 'tail';
   return null;
 }
+function hitSpcPoint(pt) {
+  let best = null, bestD = Infinity;
+  for (const h of spcHits) {
+    const d = Math.hypot(pt.x - h.x, pt.y - h.y);
+    if (d <= h.r && d < bestD) { best = h; bestD = d; }
+  }
+  return best;
+}
 function onPointerDown(e) {
-  const k = hitHandle(canvasPoint(e)); if (!k) return;
+  const pt = canvasPoint(e);
+  if (viewMode === 'spc') {
+    const hit = hitSpcPoint(pt);
+    if (hit) { viewResult(hit.idx); setViewMode('spc'); requestAnimationFrame(draw); }
+    return;
+  }
+  const k = hitHandle(pt); if (!k) return;
   dragKind = k; customArrow = true; canvas.style.cursor = 'grabbing'; e.preventDefault(); draw(); saveState();
 }
 function onPointerMove(e) {
   const pt = canvasPoint(e);
-  if (!dragKind) { canvas.style.cursor = hitHandle(pt) ? 'grab' : 'default'; return; }
+  if (!dragKind) { canvas.style.cursor = hitHandle(pt) || (viewMode === 'spc' && hitSpcPoint(pt)) ? 'pointer' : 'default'; return; }
   e.preventDefault();
   if (dragKind === 'head') arrow.head = { x: pt.x, y: pt.y }; else arrow.tail = { x: pt.x, y: pt.y };
   draw();
@@ -753,21 +1037,29 @@ window.addEventListener('mouseup', onPointerUp);
 canvas.addEventListener('touchstart', onPointerDown, { passive: false });
 window.addEventListener('touchmove', onPointerMove, { passive: false });
 window.addEventListener('touchend', onPointerUp);
-window.addEventListener('resize', draw);
-document.getElementById('clipBtn').onclick = applyFromClipboard;
+window.addEventListener('resize', () => { if (screenName === 'view') draw(); });
+document.getElementById('welcomePaste').onclick = applyFromClipboard;
+document.getElementById('histPaste').onclick = applyFromClipboard;
+document.getElementById('welcomeEnter').onclick = () => {
+  historyPack = null; viewingIdx = 'current';
+  points.forEach(p => { p.value = ''; });
+  captureCurrentSnapshot({});
+  setViewMode('centration'); setScreen('view'); refreshChecks();
+};
+document.getElementById('histBack').onclick = () => { historyPack = null; tableFilters = {}; setScreen('welcome'); };
+document.getElementById('viewBack').onclick = () => { if (historyPack && historyPack.rows.length) { renderHistoryTable(); setScreen('history'); } else setScreen('welcome'); };
+document.getElementById('histClearFilters').onclick = () => { tableFilters = {}; renderHistoryTable(); };
 document.getElementById('copyBtn').onclick = copyValues;
 document.getElementById('clearBtn').onclick = clearValues;
-document.getElementById('histItem').onchange = () => {
-  const same = document.getElementById('histItem').value === String(currentSnapshot.item || '');
-  fillRecordDropdown(same);
-  applyHistorySelection();
-};
-document.getElementById('histRecord').onchange = applyHistorySelection;
+document.getElementById('modeBtn').onclick = () => { setViewMode(viewMode === 'spc' ? 'centration' : 'spc'); draw(); };
 document.addEventListener('paste', (e) => {
   const tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' && e.target.id !== 'clipCatcher') return;
+  if (tag === 'SELECT') return;
   const text = (e.clipboardData || window.clipboardData).getData('text');
-  if (applyClipboardText(text)) e.preventDefault();
+  if (pasteIntent || screenName === 'welcome' || screenName === 'history' || e.target.id === 'clipCatcher') {
+    if (applyClipboardText(text)) e.preventDefault();
+  }
 });
 catcher.addEventListener('paste', (e) => {
   const text = (e.clipboardData || window.clipboardData).getData('text');
@@ -777,7 +1069,9 @@ document.getElementById('minThickness').oninput = document.getElementById('maxTh
 document.getElementById('rangeSpec').oninput = calculate;
 document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };
 document.getElementById('arrowToggle').onclick = () => { setArrowVisible(!showArrow); draw(); saveState(); };
-document.getElementById('themeBtn').onclick = () => { applyTheme(isDark() ? 'light' : 'dark'); draw(); saveState(); };
+document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = () => {
+  applyTheme(isDark() ? 'light' : 'dark'); if (screenName === 'view') draw(); saveState();
+};
 document.getElementById('settingsBtn').onclick = () => {
   document.getElementById('setPoints').value = TOTAL;
   document.getElementById('setBolts').value = Math.max(4, NUM_BOLTS);
@@ -806,8 +1100,9 @@ applyTheme(saved.theme || 'light');
 setArrowVisible(!!saved.showArrow);
 customArrow = !!saved.customArrow;
 if (saved.arrow) arrow = saved.arrow;
-setupInputs(saved.values || []);
-calculate();
+setupInputs([]);
+setViewMode('centration');
+setScreen('welcome');
 </script>
 </body>
 </html>

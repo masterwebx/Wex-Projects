@@ -1,0 +1,1899 @@
+<!DOCTYPE html>
+<html lang="en" data-screen="welcome" data-mode="centration">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Die Centration Graph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef1f5; --bg-elev: #ffffff; --text: #12202b; --muted: #3e4a55; --line: #d5dde4;
+    --accent: #1d4ed8; --ok: #166534; --ok-bg: #dcfce7; --thin: #92400e; --thin-bg: #fef3c7;
+    --thick: #991b1b; --thick-bg: #fee2e2; --idle: #f8fafc; --shadow: 0 8px 24px rgba(15, 23, 42, .08);
+  }
+  html[data-theme="dark"] {
+    --bg: #0c1116; --bg-elev: #151c24; --text: #f3f7fb; --muted: #c5d0db; --line: #2a3541;
+    --accent: #3b82f6; --ok: #86efac; --ok-bg: #14532d; --thin: #fcd34d; --thin-bg: #78350f;
+    --thick: #fca5a5; --thick-bg: #7f1d1d; --idle: #0f1620; --shadow: 0 8px 24px rgba(0,0,0,.35);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif;
+    background: var(--bg); color: var(--text); font-size: 18px; overflow: hidden;
+  }
+  .screen { display: none; height: 100dvh; min-height: 0; }
+  html[data-screen="welcome"] #screenWelcome { display: flex; }
+  html[data-screen="history"] #screenHistory { display: grid; }
+  html[data-screen="view"] #screenView { display: grid; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  h1 { font-size: 24px; margin: 0; }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer;
+    background: var(--accent); color: #fff; font: inherit; font-size: 16px; font-weight: 700; min-height: 44px;
+  }
+  button.secondary { background: var(--bg-elev); color: var(--text); border: 2px solid var(--line); }
+  button.full { width: 100%; }
+  button.copied { background: var(--ok); color: #fff; border-color: var(--ok); }
+  button.icon {
+    width: 40px; min-height: 40px; padding: 0; display: grid; place-items: center;
+    background: var(--idle); color: var(--text); border: 2px solid var(--line);
+  }
+  button.icon:hover { border-color: var(--accent); color: var(--accent); }
+  .card { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); min-height: 0; }
+  #screenWelcome { align-items: center; justify-content: center; padding: 24px; }
+  .welcome { width: min(460px, 100%); padding: 28px; display: grid; gap: 14px; text-align: center; }
+  .welcome p { margin: 0 0 8px; color: var(--muted); }
+  .welcome .actions { display: grid; gap: 10px; }
+  #screenHistory { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  .hist-card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0; }
+  .hist-head-freeze { flex: 0 0 auto; overflow-x: auto; overflow-y: hidden; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .hist-head-freeze::-webkit-scrollbar { display: none; }
+  .table-wrap { flex: 1; min-height: 0; overflow: auto; padding: 0; }
+  table.results {
+    width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px;
+    table-layout: fixed;
+  }
+  table.results th, table.results td { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; text-align: left; }
+  table.results tbody td { height: 42px; overflow: hidden; text-overflow: ellipsis; }
+  table.results thead th { position: sticky; top: 0; background: var(--bg-elev); z-index: 3; box-shadow: 0 1px 0 var(--line); height: auto; vertical-align: bottom; overflow: visible; }
+  table.results th:first-child, table.results td:first-child { width: 52px; min-width: 52px; }
+  table.results th:nth-child(2), table.results td:nth-child(2) { width: 260px; min-width: 260px; }
+  table.results th:nth-child(n+3), table.results td:nth-child(n+3) { width: 128px; min-width: 110px; }
+  table.results tbody tr { height: 42px; }
+  table.results tbody tr:hover { background: var(--idle); }
+  table.results tr.spacer { height: auto; }
+  table.results tr.spacer td { height: auto; border: 0; padding: 0; line-height: 0; font-size: 0; }
+  table.results tr.spacer div { width: 1px; }
+  .th-inner { display: flex; align-items: center; gap: 6px; }
+  .th-menu {
+    width: 28px; min-height: 28px; padding: 0; border-radius: 8px; font-size: 14px;
+    background: var(--idle); color: var(--text); border: 1px solid var(--line);
+  }
+  .th-menu.active, .th-menu.filtered { border-color: var(--accent); color: var(--accent); }
+  .date-slicers { display: flex; gap: 4px; margin-top: 4px; }
+  .date-slicers select {
+    flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px;
+    background: var(--idle); color: var(--text); font: inherit; font-size: 12px; padding: 4px;
+  }
+  .filter-pop {
+    position: fixed; z-index: 40; width: min(280px, calc(100vw - 16px));
+    background: var(--bg-elev); color: var(--text); border: 1px solid var(--line);
+    border-radius: 12px; box-shadow: var(--shadow); padding: 10px; display: none;
+  }
+  .filter-pop.show { display: block; }
+  .filter-pop button.sort-btn { width: 100%; margin: 0 0 6px; min-height: 36px; font-size: 14px; }
+  .filter-pop input[type="search"] {
+    width: 100%; margin: 8px 0; padding: 7px 8px; border: 2px solid var(--line);
+    border-radius: 8px; background: var(--idle); color: var(--text); font: inherit; font-size: 15px;
+  }
+  .filter-list { max-height: 220px; overflow: auto; display: grid; gap: 4px; font-size: 14px; }
+  .filter-list label { display: flex; gap: 8px; align-items: center; font-weight: 400; }
+  .spc-only { display: none !important; }
+  html[data-mode="spc"] .spc-only { display: flex !important; flex-direction: column; gap: 8px; }
+  html[data-mode="spc"] .spc-only label {
+    display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  html[data-mode="spc"] .spc-only select, html[data-mode="spc"] .spc-only input[type="date"] {
+    width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
+    font: inherit; font-size: 16px; background: var(--idle); color: var(--text);
+  }
+  .pf-pill { font-weight: 700; }
+  .pf-pill.good { color: var(--ok); }
+  .pf-pill.bad { color: var(--thick); }
+  .hist-meta { margin: 0; font-size: 14px; color: var(--muted); }
+  .view-meta { margin: 4px 0 0; font-size: 15px; color: var(--muted); font-weight: 700; }
+  .progress-track { height: 12px; border-radius: 999px; background: var(--line); overflow: hidden; }
+  .progress-bar { height: 100%; width: 0; background: var(--accent); transition: width .12s linear; }
+  td.tone-in { background: var(--ok-bg); color: var(--ok); font-weight: 700; }
+  td.tone-thin { background: var(--thin-bg); color: var(--thin); font-weight: 700; }
+  td.tone-thick { background: var(--thick-bg); color: var(--thick); font-weight: 700; }
+  html[data-mode="spc"] .results-only { display: none !important; }
+  #screenView { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  .layout {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr) minmax(250px, 300px);
+    gap: 12px;
+  }
+  .panel { padding: 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  .panel h2, .side h2 { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; overflow: auto; flex: 1; min-height: 0; padding-right: 4px; }
+  .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .field label { font-size: 16px; font-weight: 700; display: flex; gap: 6px; align-items: center; }
+  .field input, .specs input, .modal input {
+    width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
+    font: inherit; font-size: 18px; text-align: center; background: var(--idle); color: var(--text);
+    appearance: textfield; -moz-appearance: textfield;
+  }
+  .field input::-webkit-outer-spin-button, .field input::-webkit-inner-spin-button,
+  .specs input::-webkit-outer-spin-button, .specs input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .field.in input { background: var(--ok-bg); border-color: var(--ok); color: var(--ok); font-weight: 700; }
+  .field.thin input { background: var(--thin-bg); border-color: var(--thin); color: var(--thin); font-weight: 700; }
+  .field.thick input { background: var(--thick-bg); border-color: var(--thick); color: var(--thick); font-weight: 700; }
+  .actions { display: grid; gap: 8px; flex-shrink: 0; }
+  .side { padding: 14px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+  .specs { display: grid; gap: 8px; }
+  .specs label { font-size: 15px; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 8px; font-weight: 700; }
+  .specs input { width: 108px; flex: 0 0 108px; }
+  .stat, .alert {
+    border-radius: 999px; padding: 14px 18px; font-size: 18px; font-weight: 700;
+    line-height: 1.2; border: 2px solid var(--line); background: var(--idle);
+  }
+  .stat { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .stat.good, .alert.good { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+  .stat.bad, .alert.bad { background: var(--thick-bg); color: var(--thick); border-color: var(--thick); }
+  .stat b.pf { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; }
+  .checks { display: grid; gap: 8px; }
+  .canvas-wrap { display: grid; grid-template-rows: auto 1fr; min-height: 0; overflow: hidden; }
+  .canvas-head { padding: 8px 12px; font-size: 16px; color: var(--muted); font-weight: 700; display: flex; justify-content: flex-end; border-bottom: 1px solid var(--line); }
+  .stage { min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px; }
+  canvas { display: block; max-width: 100%; max-height: 100%; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+  html[data-mode="spc"] .centration-only { display: none !important; }
+  html[data-mode="spc"] .stage { align-items: stretch; }
+  html[data-mode="spc"] canvas { width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
+  .overlay.show { display: flex; }
+  .modal { width: min(440px, 100%); background: var(--bg-elev); color: var(--text); border-radius: 16px; padding: 18px; border: 1px solid var(--line); }
+  .modal h3 { margin: 0 0 12px; font-size: 22px; }
+  .modal label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; font-weight: 700; }
+  .modal input { width: 100px; }
+  .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 700; margin: 12px 0; }
+  .switch { position: relative; width: 52px; height: 30px; flex: 0 0 52px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--line); border-radius: 999px; cursor: pointer; }
+  .slider:before { content: ""; position: absolute; height: 22px; width: 22px; left: 4px; top: 4px; background: #fff; border-radius: 50%; transition: .15s; }
+  .switch input:checked + .slider { background: var(--accent); }
+  .switch input:checked + .slider:before { transform: translateX(22px); }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; }
+  #clipCatcher { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
+  .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg-elev); padding: 10px 16px; border-radius: 999px; font-weight: 700; display: none; z-index: 30; }
+  .toast.show { display: block; }
+  @media (max-width: 1100px) {
+    body { overflow: auto; }
+    .screen { height: auto; min-height: 100dvh; }
+    .layout { grid-template-columns: 1fr; }
+    .panel { max-height: 70dvh; }
+    .stage { min-height: 380px; }
+  }
+</style>
+</head>
+<body>
+<textarea id="clipCatcher" aria-hidden="true"></textarea>
+<div class="toast" id="toast"></div>
+
+<section class="screen" id="screenWelcome">
+  <div class="card welcome">
+    <h1>Die Centration Graph</h1>
+    <p>Paste a Copy for Graph clipboard, or enter thickness points by hand.</p>
+    <div class="actions">
+      <button type="button" id="welcomePaste">Paste from clipboard</button>
+      <button class="secondary" type="button" id="welcomeEnter">Enter results</button>
+      <button class="secondary" type="button" id="welcomeSpc">SPC mode</button>
+    </div>
+    <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
+  </div>
+</section>
+
+<section class="screen" id="screenHistory">
+  <header>
+    <div>
+      <h1>Results history</h1>
+      <p class="hist-meta" id="histMeta"></p>
+    </div>
+    <div class="toolbar">
+      <button class="secondary" type="button" id="histBack">Start over</button>
+      <button type="button" id="histPaste">Paste again</button>
+      <button class="secondary" type="button" id="histSpc">SPC mode</button>
+      <button class="secondary" type="button" id="histClearFilters">Clear filters</button>
+      <button class="secondary" type="button" id="histTheme">Dark mode</button>
+    </div>
+  </header>
+  <div class="card hist-card">
+    <div class="hist-head-freeze"><table class="results" id="histHeadTable"><thead id="histHead"></thead></table></div>
+    <div class="table-wrap" id="histWrap"><table class="results" id="histTable"><tbody id="histBody"></tbody></table></div>
+  </div>
+</section>
+<div class="filter-pop" id="filterPop"></div>
+
+<section class="screen" id="screenView">
+  <header>
+    <div>
+      <h1 id="pageTitle">Die Centration Radial Graph</h1>
+      <p class="view-meta" id="viewMeta"></p>
+    </div>
+    <div class="toolbar">
+      <button class="secondary" type="button" id="viewBack">Back</button>
+      <button class="secondary results-only" type="button" id="prevResult">Previous result</button>
+      <button class="secondary results-only" type="button" id="nextResult">Next result</button>
+      <button class="secondary" type="button" id="modeBtn">SPC mode</button>
+      <button class="secondary" type="button" id="themeBtn">Dark mode</button>
+      <button class="secondary centration-only" type="button" id="settingsBtn">Settings</button>
+      <button class="secondary centration-only" type="button" id="arrowToggle">Show arrow</button>
+      <button class="secondary centration-only" type="button" id="resetArrowBtn" hidden>Reset arrow</button>
+    </div>
+  </header>
+  <div class="layout">
+    <section class="card panel">
+      <h2 class="centration-only">Thickness points</h2>
+      <div class="grid centration-only" id="inputs"></div>
+      <div class="spc-only" id="spcControls">
+        <h2>SPC series</h2>
+        <label>View by
+          <select id="spcBy">
+            <option value="item">Item #</option>
+            <option value="mspec">MSPEC</option>
+          </select>
+        </label>
+        <label><span id="spcValueName">Item #</span>
+          <select id="spcValue"></select>
+        </label>
+        <label>From <input type="date" id="spcFrom"></label>
+        <label>To <input type="date" id="spcTo"></label>
+        <button class="secondary full" type="button" id="spcOutliers">Show outliers</button>
+        <p class="hist-meta" id="spcHint">Average, range, and density over time with min/max spec lines. Extreme outliers are hidden by default.</p>
+      </div>
+      <div class="actions">
+        <button class="secondary full centration-only" type="button" id="copyBtn">Copy values</button>
+        <button class="secondary full centration-only" type="button" id="clearBtn">Clear values</button>
+      </div>
+    </section>
+    <section class="card canvas-wrap">
+      <div class="canvas-head">
+        <div class="legend" id="canvasLegend">
+          <span><i class="swatch" style="background:#3c9d5a"></i>In spec</span>
+          <span><i class="swatch" style="background:#e2b340"></i>Thin</span>
+          <span><i class="swatch" style="background:#c24141"></i>Thick</span>
+        </div>
+      </div>
+      <div class="stage"><canvas id="dieCanvas" width="700" height="700"></canvas></div>
+    </section>
+    <aside class="card side">
+      <h2>Specs</h2>
+      <div class="specs">
+        <label>Min thickness <input type="number" id="minThickness" step="0.001" value="0.240"></label>
+        <label>Target thickness <input type="number" id="targetThickness" step="0.001" value=""></label>
+        <label>Max thickness <input type="number" id="maxThickness" step="0.001" value="0.260"></label>
+        <label>Range spec max <input type="number" id="rangeSpec" step="0.001" value="0.010"></label>
+        <label>Density min <input type="number" id="densMinSpec" step="0.01" value=""></label>
+        <label>Density target <input type="number" id="densTargetSpec" step="0.01" value=""></label>
+        <label>Density max <input type="number" id="densMaxSpec" step="0.01" value=""></label>
+        <label>Cell count min <input type="number" id="cellMinSpec" step="1" value=""></label>
+        <label>Cell count max <input type="number" id="cellMaxSpec" step="1" value=""></label>
+        <label>Width min <input type="number" id="widthMinSpec" step="0.1" value=""></label>
+        <label>Width target <input type="number" id="widthTargetSpec" step="0.1" value=""></label>
+      </div>
+      <div class="results-only">
+        <h2>Results</h2>
+        <div id="summary"></div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<div class="overlay" id="progressOverlay">
+  <div class="modal">
+    <h3 id="progressTitle">Loading</h3>
+    <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+    <p class="hist-meta" id="progressText"></p>
+  </div>
+</div>
+
+<div class="overlay" id="settingsOverlay">
+  <div class="modal">
+    <h3>Settings</h3>
+    <label>Number of points <input type="number" id="setPoints" min="3" max="36" step="1"></label>
+    <label>Centration bolts <input type="number" id="setBolts" min="4" max="24" step="1"></label>
+    <div class="toggle">
+      <span>Start bolts from bottom</span>
+      <label class="switch"><input type="checkbox" id="setBoltStart"><span class="slider"></span></label>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="saveSettings">Save</button>
+      <button class="secondary" type="button" id="cancelSettings">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORE = 'dieGraphState.v4';
+const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
+const NUM_COLS = new Set(['Item #','MSPEC','Bundle #','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const ROW_H = 42;
+const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+const canvas = document.getElementById('dieCanvas');
+const ctx = canvas.getContext('2d');
+const SOUTH = Math.PI / 2, HANDLE_R = 18;
+const catcher = document.getElementById('clipCatcher');
+let TOTAL = 13, NUM_BOLTS = 4, ANGLE_STEP = (2 * Math.PI) / TOTAL, startBoltsFromBottom = false;
+const points = [], fieldEls = [], markEls = [];
+let showArrow = false, customArrow = false, dragKind = null;
+let lastMin = 0.240, lastMax = 0.260, lastRangeSpec = 0.010, lastValues = [];
+let arrow = { tail: null, head: null };
+let S = 700, canvasW = 700, canvasH = 700, center = { x: 350, y: 350 };
+let YELLOW_R = 96, GREEN_R = 210, MAX_PLOT_R = 275, POINT_R = 7, LABEL_R = 250, COMPASS_R = 330, ARROW_GAP = 52;
+let viewMode = 'centration', screenName = 'welcome';
+let spcHits = [];
+let historyPack = null;
+let currentSnapshot = {};
+let viewingIdx = 'current';
+let tableFilters = {};
+let tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
+let histPaint = 0;
+let histRangeKey = '';
+let indexedRows = [];
+let filteredCache = [];
+let filteredDirty = true;
+let pasteIntent = false;
+let spcHideOutliers = true;
+let openFilterCol = null;
+let enterMode = false;
+
+function finiteNum(v) {
+  if (v == null || v === '') return false;
+  const n = typeof v === 'number' ? v : parseFloat(v);
+  return isFinite(n);
+}
+function firstFinite(...vals) {
+  for (const v of vals) {
+    if (v == null || v === '') continue;
+    const n = typeof v === 'number' ? v : parseFloat(v);
+    if (isFinite(n)) return n;
+  }
+  return NaN;
+}
+function yieldUi() { return new Promise(resolve => setTimeout(resolve, 0)); }
+function showProgress(title, pct, detail) {
+  const ov = document.getElementById('progressOverlay');
+  if (!ov) return;
+  ov.classList.add('show');
+  const t = document.getElementById('progressTitle');
+  const b = document.getElementById('progressBar');
+  const d = document.getElementById('progressText');
+  if (t) t.textContent = title || 'Loading';
+  if (b) b.style.width = Math.max(0, Math.min(100, pct || 0)) + '%';
+  if (d) d.textContent = detail || '';
+}
+function hideProgress() {
+  const ov = document.getElementById('progressOverlay');
+  if (ov) ov.classList.remove('show');
+}
+function isDark() { return document.documentElement.getAttribute('data-theme') === 'dark'; }
+function palette() {
+  if (isDark()) {
+    return {
+      canvas: '#1b2430', yellow: '#c9a227', yellowStroke: '#e0bd55', green: '#2f7d4a', greenStroke: '#5bd08a',
+      text: '#f3f7fb', muted: '#d0dbe6', halo: '#1b2430', arrow: '#f3f6fa', handle: '#1b2430', pointStroke: '#0b0f14',
+      thinDot: '#e2b340', thickDot: '#ef6b6b', inDot: '#4ade80', idleDot: '#7b8a99', lineOk: '#4ade80', lineBad: '#f87171', bolt: '#1f4e63'
+    };
+  }
+  return {
+    canvas: '#f7f9fc', yellow: '#f2c94c', yellowStroke: '#b8860b', green: '#3c9d5a', greenStroke: '#1f7a3a',
+    text: '#12202b', muted: '#3e4a55', halo: '#f7f9fc', arrow: '#111827', handle: '#ffffff', pointStroke: '#111827',
+    thinDot: '#f2c94c', thickDot: '#b91c1c', inDot: '#22c55e', idleDot: '#94a3b8', lineOk: '#166534', lineBad: '#dc2626', bolt: '#0a4d68'
+  };
+}
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => el.classList.remove('show'), 1800);
+}
+function loadState() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } }
+function saveState() {
+  localStorage.setItem(STORE, JSON.stringify({
+    theme: document.documentElement.getAttribute('data-theme') || 'light',
+    showArrow, customArrow, arrow, TOTAL, NUM_BOLTS, startBoltsFromBottom,
+    min: document.getElementById('minThickness').value,
+    max: document.getElementById('maxThickness').value,
+    range: document.getElementById('rangeSpec').value
+  }));
+}
+function applyTheme(theme) {
+  const dark = theme === 'dark';
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+  const label = dark ? 'Light mode' : 'Dark mode';
+  ['themeBtn','welcomeTheme','histTheme'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.textContent = label;
+  });
+}
+function syncViewChrome() {
+  const hasHist = indexedRows.length > 0;
+  const back = document.getElementById('viewBack');
+  if (back) {
+    back.hidden = false;
+    back.textContent = hasHist && !enterMode ? 'Back to history' : 'Back';
+  }
+  const modeBtn = document.getElementById('modeBtn');
+  if (modeBtn) modeBtn.hidden = !hasHist || enterMode;
+  const nav = hasHist && !enterMode && screenName === 'view' && viewMode === 'centration';
+  const { i, rows } = historyNav();
+  const prev = document.getElementById('prevResult');
+  const next = document.getElementById('nextResult');
+  if (prev) { prev.hidden = !nav; prev.disabled = i <= 0; }
+  if (next) { next.hidden = !nav; next.disabled = i < 0 || i >= rows.length - 1; }
+  refreshViewMeta();
+}
+function setScreen(name) {
+  screenName = name;
+  document.documentElement.setAttribute('data-screen', name);
+  syncViewChrome();
+  if (name === 'view') requestAnimationFrame(() => { calculate(); });
+}
+function setViewMode(mode) {
+  viewMode = mode === 'spc' ? 'spc' : 'centration';
+  document.documentElement.setAttribute('data-mode', viewMode);
+  document.getElementById('pageTitle').textContent = viewMode === 'spc' ? 'SPC charts' : 'Die Centration Radial Graph';
+  document.getElementById('modeBtn').textContent = viewMode === 'spc' ? 'Centration graph' : 'SPC mode';
+  const legend = document.getElementById('canvasLegend');
+  legend.innerHTML = viewMode === 'spc'
+    ? `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#c24141"></i>Out of spec</span><span><i class="swatch" style="background:#f59e0b"></i>Outlier</span><span><i class="swatch" style="background:#1d4ed8"></i>Selected</span>`
+    : `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#e2b340"></i>Thin</span><span><i class="swatch" style="background:#c24141"></i>Thick</span>`;
+  if (viewMode === 'spc') fillSpcControls();
+  syncViewChrome();
+}
+function setArrowVisible(on) {
+  showArrow = !!on;
+  document.getElementById('arrowToggle').textContent = showArrow ? 'Hide arrow' : 'Show arrow';
+  document.getElementById('resetArrowBtn').hidden = !showArrow;
+}
+function setupInputs(savedValues) {
+  const container = document.getElementById('inputs');
+  container.innerHTML = '';
+  points.length = 0; fieldEls.length = 0; markEls.length = 0;
+  ANGLE_STEP = (2 * Math.PI) / TOTAL;
+  for (let i = 0; i < TOTAL; i++) {
+    const field = document.createElement('div'); field.className = 'field';
+    const label = document.createElement('label');
+    label.innerHTML = `T${i + 1} <span class="mark"></span>`;
+    const input = document.createElement('input');
+    input.type = 'number'; input.step = '0.001'; input.placeholder = '0.000';
+    if (savedValues && savedValues[i] != null && savedValues[i] !== '') input.value = savedValues[i];
+    input.addEventListener('input', () => { customArrow = false; calculate(); saveState(); });
+    field.append(label, input); container.appendChild(field);
+    points.push(input); fieldEls.push(field); markEls.push(label.querySelector('.mark'));
+  }
+}
+function parseRangeSpec(raw) {
+  const n = parseFloat(raw); if (!isFinite(n)) return NaN;
+  return Math.abs(n) >= 1 ? n / 1000 : n;
+}
+function applyPlainNumbers(values) {
+  for (let i = 0; i < Math.min(values.length, TOTAL); i++) {
+    const v = values[i];
+    points[i].value = (v == null || v === '' || !isFinite(Number(v))) ? '' : Number(v).toFixed(3);
+  }
+}
+function applySpecFields(min, max, range) {
+  if (min != null && finiteNum(min)) document.getElementById('minThickness').value = Number(min).toFixed(3);
+  if (max != null && finiteNum(max)) document.getElementById('maxThickness').value = Number(max).toFixed(3);
+  if (range != null && finiteNum(range)) document.getElementById('rangeSpec').value = Number(range).toFixed(3);
+}
+function setSpecInput(id, value, digits) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = finiteNum(value) ? Number(value).toFixed(digits) : '';
+}
+function specsFor(mspec) {
+  const snap = currentSnapshot || {};
+  const looked = lookupSpecs(mspec) || {};
+  const same = !mspec || String(mspec).trim() === String(snap.mspec || '').trim();
+  const snapMin = same ? snapNum(snap, 'min') : NaN;
+  const snapTarget = same ? snapNum(snap, 'target') : NaN;
+  const snapMax = same ? snapNum(snap, 'max') : NaN;
+  const snapRange = same ? parseRangeSpec(snap.range) : NaN;
+  const snapRangeThou = same ? rangeAsThousandths(snap.range) : NaN;
+  return {
+    min: firstFinite(looked.min, snapMin),
+    target: firstFinite(looked.target, snapTarget),
+    max: firstFinite(looked.max, snapMax),
+    range: firstFinite(looked.range, snapRange),
+    rangeThou: firstFinite(looked.rangeThou, snapRangeThou),
+    densMin: firstFinite(looked.densMin, same ? snapNum(snap, 'densmin') : NaN),
+    densTarget: firstFinite(looked.densTarget, same ? snapNum(snap, 'denstarget') : NaN),
+    densMax: firstFinite(looked.densMax, same ? snapNum(snap, 'densmax') : NaN),
+    cellMin: firstFinite(looked.cellMin, same ? snapNum(snap, 'cellmin') : NaN),
+    cellMax: firstFinite(looked.cellMax),
+    widthMin: firstFinite(same ? snapNum(snap, 'widthmin', 'widthMin') : NaN),
+    widthTarget: firstFinite(same ? snapNum(snap, 'widthtarget', 'widthTarget') : NaN)
+  };
+}
+function readPanelSpecs() {
+  return {
+    min: firstFinite(numVal(document.getElementById('minThickness').value)),
+    target: firstFinite(numVal(document.getElementById('targetThickness').value)),
+    max: firstFinite(numVal(document.getElementById('maxThickness').value)),
+    range: firstFinite(numVal(document.getElementById('rangeSpec').value)),
+    densMin: firstFinite(numVal(document.getElementById('densMinSpec').value)),
+    densTarget: firstFinite(numVal(document.getElementById('densTargetSpec').value)),
+    densMax: firstFinite(numVal(document.getElementById('densMaxSpec').value)),
+    cellMin: firstFinite(numVal(document.getElementById('cellMinSpec').value)),
+    cellMax: firstFinite(numVal(document.getElementById('cellMaxSpec').value)),
+    widthMin: firstFinite(numVal(document.getElementById('widthMinSpec').value)),
+    widthTarget: firstFinite(numVal(document.getElementById('widthTargetSpec').value))
+  };
+}
+function fillSpecPanel(specs) {
+  const s = specs || {};
+  setSpecInput('minThickness', s.min, 3);
+  setSpecInput('targetThickness', s.target, 3);
+  setSpecInput('maxThickness', s.max, 3);
+  setSpecInput('rangeSpec', s.range, 3);
+  setSpecInput('densMinSpec', s.densMin, 2);
+  setSpecInput('densTargetSpec', s.densTarget, 2);
+  setSpecInput('densMaxSpec', s.densMax, 2);
+  setSpecInput('cellMinSpec', s.cellMin, 0);
+  setSpecInput('cellMaxSpec', s.cellMax, 0);
+  setSpecInput('widthMinSpec', s.widthMin, 1);
+  setSpecInput('widthTargetSpec', s.widthTarget, 1);
+}
+function applyDieGraphLines(lines) {
+  let min = null, max = null, range = null; const tvals = [];
+  const meta = {};
+  let inPoints = false;
+  for (const raw of lines) {
+    const line = String(raw || '').trim();
+    const m = line.match(/^([A-Za-z][A-Za-z0-9]*)\s*=\s*(.*)$/);
+    if (m && !inPoints) {
+      const key = m[1].toLowerCase();
+      meta[key] = m[2].trim();
+      const num = parseFloat(m[2]);
+      if (key === 'min' && isFinite(num)) min = num;
+      else if (key === 'max' && isFinite(num)) max = num;
+      else if (key === 'range' && isFinite(num)) range = parseRangeSpec(num);
+      continue;
+    }
+    if (!line && !inPoints) continue;
+    inPoints = true;
+    if (!line) { tvals.push(''); continue; }
+    const num = parseFloat(line);
+    tvals.push(isFinite(num) ? num : '');
+  }
+  applySpecFields(min, max, range);
+  if (tvals.some(v => v !== '')) applyPlainNumbers(tvals);
+  return { min, max, range, tvals, meta };
+}
+function applyDieGraph(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  return applyDieGraphLines(lines.slice(1));
+}
+function parseTsv(lines) {
+  const nonempty = lines.map(s => String(s ?? '').replace(/\r/g, '')).filter(l => l.length);
+  if (!nonempty.length) return { headers: [], rows: [] };
+  const headers = nonempty[0].split('\t').map(s => s.trim());
+  const rows = [];
+  for (let i = 1; i < nonempty.length; i++) {
+    const parts = nonempty[i].split('\t');
+    const obj = {};
+    headers.forEach((h, j) => { obj[h] = parts[j] == null ? '' : parts[j]; });
+    rows.push(obj);
+  }
+  return { headers, rows };
+}
+function splitDieGraph2(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [] };
+  let cur = null;
+  for (const line of lines.slice(1)) {
+    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4)\]$/i);
+    if (m) { cur = m[1].toUpperCase(); continue; }
+    if (cur) sections[cur].push(line);
+  }
+  return sections;
+}
+function col(row, ...names) {
+  if (!row) return '';
+  for (const n of names) {
+    if (row[n] != null && String(row[n]).trim() !== '') return row[n];
+  }
+  const keys = Object.keys(row);
+  for (const n of names) {
+    const hit = keys.find(k => k.toLowerCase() === n.toLowerCase());
+    if (hit && String(row[hit]).trim() !== '') return row[hit];
+  }
+  return '';
+}
+function excelWhen(v) {
+  const n = parseFloat(v);
+  if (isFinite(n) && n > 20000 && n < 90000) {
+    const d = new Date(Math.round((n - 25569) * 86400 * 1000));
+    if (!isNaN(d.getTime())) return d.toLocaleString();
+  }
+  return String(v || '').trim();
+}
+function lookupSpecs(mspec) {
+  if (!historyPack || !historyPack.lookupByMspec) return null;
+  const key = String(mspec || '').trim();
+  if (!key) return null;
+  const row = historyPack.lookupByMspec[key] || historyPack.lookupByMspec[key.replace(/\.0+$/, '')];
+  if (!row) return null;
+  const min = parseFloat(col(row, 'Lower Control', 'Lower Spec'));
+  const target = parseFloat(col(row, 'Target'));
+  const max = parseFloat(col(row, 'Upper Control', 'Upper Spec'));
+  const rangeThou = parseFloat(col(row, 'Thickness Range Max'));
+  const densMin = parseFloat(col(row, 'Density Min'));
+  const densTarget = parseFloat(col(row, 'Density Target'));
+  const densMax = parseFloat(col(row, 'Density Max'));
+  const cellMin = parseFloat(col(row, 'Cell Count Min'));
+  const cellMax = parseFloat(col(row, 'Cell Count Max'));
+  return {
+    min: finiteNum(min) ? min : null,
+    target: finiteNum(target) ? target : null,
+    max: finiteNum(max) ? max : null,
+    range: finiteNum(rangeThou) ? parseRangeSpec(rangeThou) : null,
+    rangeThou: finiteNum(rangeThou) ? rangeThou : null,
+    densMin: finiteNum(densMin) ? densMin : null,
+    densTarget: finiteNum(densTarget) ? densTarget : null,
+    densMax: finiteNum(densMax) ? densMax : null,
+    cellMin: finiteNum(cellMin) ? cellMin : null,
+    cellMax: finiteNum(cellMax) ? cellMax : null
+  };
+}
+function numVal(v) { const n = parseFloat(v); return isFinite(n) ? n : NaN; }
+function snapNum(snap, ...keys) {
+  for (const k of keys) { const n = numVal(snap && snap[k]); if (isFinite(n)) return n; }
+  return NaN;
+}
+function fmtCheck(v, digits) {
+  if (!isFinite(v)) return '--';
+  return v.toFixed(digits);
+}
+function normalizePf(v) {
+  const s = String(v || '').trim().toLowerCase();
+  if (s === 'pass') return 'Pass';
+  if (s === 'fail') return 'Fail';
+  return '';
+}
+function judgeBetween(v, min, max) {
+  if (!isFinite(v)) return '';
+  if (isFinite(min) && v < min) return 'Fail';
+  if (isFinite(max) && v > max) return 'Fail';
+  if (isFinite(min) || isFinite(max)) return 'Pass';
+  return '';
+}
+function pickPf(stored, computed) { return normalizePf(stored) || computed || ''; }
+function specTone(v, min, max) {
+  if (!finiteNum(v)) return '';
+  if (finiteNum(min) && v < min) return 'thin';
+  if (finiteNum(max) && v > max) return 'thick';
+  if (finiteNum(min) || finiteNum(max)) return 'in';
+  return '';
+}
+function checkRow(label, valueText, pf) {
+  const cls = pf === 'Pass' ? 'good' : (pf === 'Fail' ? 'bad' : '');
+  return `<div class="stat ${cls}">${label} <span>${valueText}</span> <b class="pf">${pf || '--'}</b></div>`;
+}
+function checksFromCurrent() {
+  const snap = currentSnapshot || {};
+  const panel = readPanelSpecs();
+  const specs = specsFor(snap.mspec);
+  const width = snapNum(snap, 'width');
+  const widthMin = firstFinite(panel.widthMin, specs.widthMin);
+  const cellMd = snapNum(snap, 'cellmd');
+  const cellCd = snapNum(snap, 'cellcd');
+  const cellMin = firstFinite(panel.cellMin, specs.cellMin);
+  const cellMax = firstFinite(panel.cellMax, specs.cellMax);
+  const density = snapNum(snap, 'density');
+  const densMin = firstFinite(panel.densMin, specs.densMin);
+  const densMax = firstFinite(panel.densMax, specs.densMax);
+  return [
+    { label: 'Width', text: fmtCheck(width, 1), pf: pickPf(snap.widthpf, judgeBetween(width, widthMin, NaN)) },
+    { label: 'Cell count MD', text: fmtCheck(cellMd, 0), pf: pickPf(snap.cellmdpf, judgeBetween(cellMd, cellMin, cellMax)) },
+    { label: 'Cell count CD', text: fmtCheck(cellCd, 0), pf: pickPf(snap.cellcdpf, judgeBetween(cellCd, cellMin, cellMax)) },
+    { label: 'Density', text: fmtCheck(density, 2), pf: pickPf(snap.densitypf, judgeBetween(finiteNum(density) ? Math.round(density * 100) / 100 : NaN, densMin, densMax)) }
+  ];
+}
+function checksFromTableRow(row) {
+  const specs = specsFor(col(row, 'MSPEC', 'MSPEC #'));
+  const panel = readPanelSpecs();
+  const width = numVal(col(row, 'Slit/Width'));
+  const cellMd = numVal(col(row, 'Cell Count MD'));
+  const cellCd = numVal(col(row, 'Cell Count CD'));
+  const density = numVal(col(row, 'Density'));
+  const widthMin = firstFinite(panel.widthMin, specs.widthMin);
+  const cellMin = firstFinite(panel.cellMin, specs.cellMin);
+  const cellMax = firstFinite(panel.cellMax, specs.cellMax);
+  const densMin = firstFinite(panel.densMin, specs.densMin);
+  const densMax = firstFinite(panel.densMax, specs.densMax);
+  return [
+    { label: 'Width', text: fmtCheck(width, 1), pf: pickPf(col(row, 'Slit/Width Pass/Fail'), judgeBetween(width, widthMin, NaN)) },
+    { label: 'Cell count MD', text: fmtCheck(cellMd, 0), pf: pickPf(col(row, 'Cell Count MD Pass/Fail'), judgeBetween(cellMd, cellMin, cellMax)) },
+    { label: 'Cell count CD', text: fmtCheck(cellCd, 0), pf: pickPf(col(row, 'Cell Count CD Pass/Fail'), judgeBetween(cellCd, cellMin, cellMax)) },
+    { label: 'Density', text: fmtCheck(density, 2), pf: pickPf(col(row, 'Density Pass/Fail'), judgeBetween(finiteNum(density) ? Math.round(density * 100) / 100 : NaN, densMin, densMax)) }
+  ];
+}
+function currentCheckItems() {
+  if (viewingIdx === 'current') return checksFromCurrent();
+  const row = historyPack && historyPack.rows[Number(viewingIdx)];
+  return row ? checksFromTableRow(row) : checksFromCurrent();
+}
+function renderChecks(items) {
+  return (items || []).map(c => checkRow(c.label, c.text, c.pf)).join('');
+}
+function refreshChecks() {
+  if (screenName === 'view' && viewMode === 'centration') {
+    const valid = lastValues.filter(v => finiteNum(v));
+    const avg = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : NaN;
+    let maxVal = -Infinity, minVal = Infinity;
+    for (const v of lastValues) {
+      if (!finiteNum(v)) continue;
+      if (v > maxVal) maxVal = v;
+      if (v < minVal) minVal = v;
+    }
+    const range = isFinite(maxVal) && isFinite(minVal) ? maxVal - minVal : NaN;
+    updateSummary(avg, range, lastMin, lastMax, lastRangeSpec);
+  }
+}
+function rowTValues(row) {
+  const out = [];
+  for (let i = 1; i <= TOTAL; i++) {
+    const n = parseFloat(col(row, 'T' + i));
+    out.push(isFinite(n) ? n : '');
+  }
+  return out;
+}
+function captureCurrentSnapshot(extra) {
+  currentSnapshot = Object.assign({}, extra || {});
+  currentSnapshot.values = points.map(p => p.value);
+  currentSnapshot.min = document.getElementById('minThickness').value;
+  currentSnapshot.max = document.getElementById('maxThickness').value;
+  currentSnapshot.range = document.getElementById('rangeSpec').value;
+}
+function applySnapshot(snap) {
+  if (!snap) return;
+  if (snap.min) document.getElementById('minThickness').value = snap.min;
+  if (snap.max) document.getElementById('maxThickness').value = snap.max;
+  if (snap.range) document.getElementById('rangeSpec').value = snap.range;
+  applyPlainNumbers(snap.values || []);
+}
+function displayCell(key, raw) {
+  if (key === 'Date/Time') return excelWhen(raw) || raw || '';
+  if (key === 'Pass/Fail') {
+    const pf = normalizePf(raw);
+    return pf ? `<span class="pf-pill ${pf === 'Pass' ? 'good' : 'bad'}">${pf}</span>` : esc(raw);
+  }
+  const n = numVal(raw);
+  if (key === 'Thickness Average' && isFinite(n)) return n.toFixed(3);
+  if (key === 'Thickness Range' && isFinite(n)) return (Math.abs(n) < 1 ? n * 1000 : n).toFixed(1);
+  if (key === 'Density' && isFinite(n)) return n.toFixed(2);
+  if (key === 'Slit/Width' && isFinite(n)) return n.toFixed(1);
+  return esc(raw);
+}
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+function hasCurrentSheet() {
+  return !!(currentSnapshot && (currentSnapshot.item || (currentSnapshot.values || []).some(v => v !== '' && v != null)));
+}
+function dateParts(serial) {
+  const n = numVal(serial);
+  if (!isFinite(n) || n < 20000) return { y: 0, m: 0, d: 0, serial: n };
+  const dt = new Date(Math.round((n - 25569) * 86400 * 1000));
+  if (isNaN(dt.getTime())) return { y: 0, m: 0, d: 0, serial: n };
+  return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate(), serial: n };
+}
+function isoFromParts(y, m, d) {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+function tonesForRow(row, mspec) {
+  const specs = specsFor(mspec);
+  const avg = numVal(col(row, 'Thickness Average'));
+  const rangeThou = rangeAsThousandths(col(row, 'Thickness Range'));
+  const dens = numVal(col(row, 'Density'));
+  const cellMd = numVal(col(row, 'Cell Count MD'));
+  const cellCd = numVal(col(row, 'Cell Count CD'));
+  const width = numVal(col(row, 'Slit/Width'));
+  return {
+    'Thickness Average': specTone(avg, specs.min, specs.max),
+    'Thickness Range': specTone(rangeThou, 0, specs.rangeThou),
+    'Density': specTone(finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, specs.densMin, specs.densMax),
+    'Cell Count MD': specTone(cellMd, specs.cellMin, specs.cellMax),
+    'Cell Count CD': specTone(cellCd, specs.cellMin, specs.cellMax),
+    'Slit/Width': specTone(width, specs.widthMin, NaN)
+  };
+}
+async function indexHistory(onProg) {
+  const rows = historyPack && historyPack.rows || [];
+  indexedRows = new Array(rows.length);
+  for (let idx = 0; idx < rows.length; idx++) {
+    const row = rows[idx];
+    const parts = dateParts(col(row, 'Date/Time'));
+    const display = {}, num = {}, text = {};
+    const mspec = String(col(row, 'MSPEC', 'MSPEC #') || '').trim();
+    const tone = tonesForRow(row, mspec);
+    for (const k of TABLE_COLS) {
+      const raw = col(row, k);
+      display[k] = displayCell(k, raw);
+      num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw) : numVal(raw);
+      text[k] = String(raw ?? '').trim();
+    }
+    indexedRows[idx] = {
+      idx, row, serial: parts.serial, y: parts.y, m: parts.m, d: parts.d,
+      display, num, text, tone,
+      item: String(col(row, 'Item #') || '').trim(),
+      mspec,
+      desc: String(col(row, 'Item Desc', 'Item Description') || '').trim()
+    };
+    if (onProg && idx % 400 === 0) {
+      onProg(idx, rows.length);
+      await yieldUi();
+    }
+  }
+  filteredDirty = true;
+}
+function rowsMatchingExcept(exceptKey) {
+  const df = dateFilter();
+  return indexedRows.filter(r => {
+    if (exceptKey !== 'Date/Time') {
+      if (df.year && r.y !== +df.year) return false;
+      if (df.month && r.m !== +df.month) return false;
+      if (df.day && r.d !== +df.day) return false;
+    }
+    for (const k of TABLE_COLS) {
+      if (k === 'Date/Time' || k === exceptKey) continue;
+      const sel = tableFilters[k];
+      if (sel instanceof Set && !sel.has(r.text[k])) return false;
+    }
+    return true;
+  });
+}
+function valuesForFilter(colName) {
+  const rows = rowsMatchingExcept(colName);
+  const s = new Set();
+  for (const r of rows) {
+    const v = r.text[colName];
+    if (v) s.add(v);
+  }
+  return uniqueSorted([...s], NUM_COLS.has(colName));
+}
+function pruneFilters() {
+  for (const k of TABLE_COLS) {
+    if (k === 'Date/Time') continue;
+    const sel = tableFilters[k];
+    if (!(sel instanceof Set)) continue;
+    const avail = new Set(valuesForFilter(k));
+    const kept = [...sel].filter(v => avail.has(v));
+    tableFilters[k] = !kept.length || kept.length === avail.size ? null : new Set(kept);
+  }
+}
+function uniqueSorted(values, numeric) {
+  const out = values.slice();
+  out.sort((a, b) => numeric
+    ? (numVal(a) - numVal(b)) || String(a).localeCompare(String(b), undefined, { numeric: true })
+    : String(a).localeCompare(String(b), undefined, { numeric: true }));
+  return out;
+}
+function dateFilter() { return tableFilters['Date/Time'] || { year: '', month: '', day: '' }; }
+function rowMatches(r) {
+  const df = dateFilter();
+  if (df.year && r.y !== +df.year) return false;
+  if (df.month && r.m !== +df.month) return false;
+  if (df.day && r.d !== +df.day) return false;
+  for (const k of TABLE_COLS) {
+    if (k === 'Date/Time') continue;
+    const sel = tableFilters[k];
+    if (sel instanceof Set && !sel.has(r.text[k])) return false;
+  }
+  return true;
+}
+function compareIndexed(a, b) {
+  const col = tableSort.col, dir = tableSort.dir === 'asc' ? 1 : -1, mode = tableSort.mode;
+  if (col === 'Date/Time' || mode === 'date') return dir * ((a.serial || 0) - (b.serial || 0));
+  if (mode === 'num' || (mode !== 'text' && NUM_COLS.has(col))) {
+    const av = a.num[col], bv = b.num[col];
+    const aOk = isFinite(av), bOk = isFinite(bv);
+    if (aOk && bOk && av !== bv) return dir * (av - bv);
+    if (aOk !== bOk) return aOk ? -1 : 1;
+  }
+  return dir * String(a.text[col] || '').localeCompare(String(b.text[col] || ''), undefined, { numeric: true });
+}
+function getFilteredRows() {
+  if (!filteredDirty) return filteredCache;
+  const rows = indexedRows.filter(rowMatches);
+  rows.sort(compareIndexed);
+  filteredCache = rows;
+  filteredDirty = false;
+  return rows;
+}
+function yearsInData() {
+  const s = new Set();
+  for (const r of rowsMatchingExcept('Date/Time')) if (r.y) s.add(r.y);
+  return [...s].sort((a, b) => b - a);
+}
+function monthsInYear(year) {
+  const s = new Set();
+  for (const r of rowsMatchingExcept('Date/Time')) {
+    if (year && r.y !== +year) continue;
+    if (r.m) s.add(r.m);
+  }
+  return [...s].sort((a, b) => a - b);
+}
+function daysInMonth(year, month) {
+  const s = new Set();
+  for (const r of rowsMatchingExcept('Date/Time')) {
+    if (year && r.y !== +year) continue;
+    if (month && r.m !== +month) continue;
+    if (r.d) s.add(r.d);
+  }
+  return [...s].sort((a, b) => a - b);
+}
+function fillDateSlicers() {
+  const df = dateFilter();
+  const yearEl = document.getElementById('dateYear');
+  const monthEl = document.getElementById('dateMonth');
+  const dayEl = document.getElementById('dateDay');
+  if (!yearEl) return;
+  const years = yearsInData();
+  yearEl.innerHTML = `<option value="">All years</option>` + years.map(y => `<option value="${y}" ${df.year == y ? 'selected' : ''}>${y}</option>`).join('');
+  const months = monthsInYear(df.year);
+  monthEl.innerHTML = `<option value="">All months</option>` + months.map(m => `<option value="${m}" ${df.month == m ? 'selected' : ''}>${MONTHS[m - 1]}</option>`).join('');
+  monthEl.disabled = !df.year;
+  const days = daysInMonth(df.year, df.month);
+  dayEl.innerHTML = `<option value="">All days</option>` + days.map(d => `<option value="${d}" ${df.day == d ? 'selected' : ''}>${d}</option>`).join('');
+  dayEl.disabled = !df.year || !df.month;
+}
+function isColFiltered(k) {
+  if (k === 'Date/Time') {
+    const df = dateFilter();
+    return !!(df.year || df.month || df.day);
+  }
+  return !!(tableFilters[k] && tableFilters[k].size);
+}
+function renderHistoryChrome() {
+  const head = document.getElementById('histHead');
+  const dateTh = `<th><div class="th-inner">Date/Time <button class="th-menu${tableSort.col === 'Date/Time' ? ' active' : ''}${isColFiltered('Date/Time') ? ' filtered' : ''}" type="button" data-col="Date/Time" aria-label="Sort Date/Time">▾</button></div><div class="date-slicers">
+    <select id="dateYear"></select><select id="dateMonth"></select><select id="dateDay"></select>
+  </div></th>`;
+  const others = TABLE_COLS.slice(1).map(k => {
+    const sortHint = tableSort.col === k ? (tableSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    const on = isColFiltered(k) || tableSort.col === k ? ' active' : '';
+    const filtered = isColFiltered(k) ? ' filtered' : '';
+    return `<th><div class="th-inner">${esc(k)}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
+  }).join('');
+  head.innerHTML = `<tr><th></th>${dateTh}${others}</tr>`;
+  fillDateSlicers();
+  document.getElementById('dateYear').onchange = () => {
+    tableFilters['Date/Time'] = { year: document.getElementById('dateYear').value, month: '', day: '' };
+    pruneFilters(); filteredDirty = true; fillDateSlicers(); renderHistoryBody(true);
+  };
+  document.getElementById('dateMonth').onchange = () => {
+    const df = dateFilter();
+    tableFilters['Date/Time'] = { year: df.year, month: document.getElementById('dateMonth').value, day: '' };
+    pruneFilters(); filteredDirty = true; fillDateSlicers(); renderHistoryBody(true);
+  };
+  document.getElementById('dateDay').onchange = () => {
+    const df = dateFilter();
+    tableFilters['Date/Time'] = { year: df.year, month: df.month, day: document.getElementById('dateDay').value };
+    pruneFilters(); filteredDirty = true; fillDateSlicers(); renderHistoryBody(true);
+  };
+}
+function rowHtml(r) {
+  const tds = TABLE_COLS.map(k => {
+    const tone = r.tone && r.tone[k] ? ` class="tone-${r.tone[k]}"` : '';
+    return `<td${tone}>${r.display[k]}</td>`;
+  }).join('');
+  return `<tr><td><button class="icon" type="button" data-view="${r.idx}" title="View result">${EYE}</button></td>${tds}</tr>`;
+}
+function spacerRow(h) {
+  return `<tr class="spacer"><td colspan="20"><div style="height:${Math.max(0, h)}px"></div></td></tr>`;
+}
+function renderHistoryBody(force) {
+  const body = document.getElementById('histBody');
+  const wrap = document.getElementById('histWrap');
+  const rows = getFilteredRows();
+  const current = hasCurrentSheet() && !Object.values(tableFilters).some(v => v && (v.size || v.year || v.month || v.day));
+  const extra = current ? 1 : 0;
+  const total = rows.length + extra;
+  const viewH = wrap.clientHeight || 400;
+  const start = Math.max(0, Math.floor(wrap.scrollTop / ROW_H) - 8);
+  const vis = Math.ceil(viewH / ROW_H) + 16;
+  const end = Math.min(total, start + vis);
+  const key = `${start}:${end}:${total}:${tableSort.col}:${tableSort.dir}:${tableSort.mode}`;
+  if (!force && key === histRangeKey) return;
+  histRangeKey = key;
+  const topH = start * ROW_H;
+  const botH = Math.max(0, (total - end) * ROW_H);
+  const parts = [spacerRow(topH)];
+  for (let i = start; i < end; i++) {
+    if (current && i === 0) {
+      parts.push(`<tr><td><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${TABLE_COLS.length - 2}">Values copied from S4</td></tr>`);
+      continue;
+    }
+    const r = rows[i - extra];
+    if (r) parts.push(rowHtml(r));
+  }
+  parts.push(spacerRow(botH));
+  body.innerHTML = parts.join('');
+  const maxScroll = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
+  if (wrap.scrollTop > maxScroll) wrap.scrollTop = maxScroll;
+  document.getElementById('histMeta').textContent = `Showing ${rows.length} of ${indexedRows.length} results`;
+}
+function renderHistoryTable() {
+  filteredDirty = true;
+  histRangeKey = '';
+  renderHistoryChrome();
+  const wrap = document.getElementById('histWrap');
+  wrap.scrollTop = 0;
+  renderHistoryBody(true);
+}
+function closeFilterPop() {
+  document.getElementById('filterPop').classList.remove('show');
+  openFilterCol = null;
+}
+function openFilterMenu(col, anchor) {
+  const pop = document.getElementById('filterPop');
+  if (openFilterCol !== col) pop.dataset.q = '';
+  openFilterCol = col;
+  const numeric = NUM_COLS.has(col);
+  if (col === 'Date/Time') {
+    pop.innerHTML = `<button class="secondary sort-btn" type="button" data-sort="asc" data-mode="date">Sort oldest to newest</button>
+      <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="date">Sort newest to oldest</button>`;
+    const r = anchor.getBoundingClientRect();
+    pop.style.left = Math.min(r.left, window.innerWidth - 300) + 'px';
+    pop.style.top = Math.min(r.bottom + 4, window.innerHeight - 160) + 'px';
+    pop.classList.add('show');
+    pop.querySelectorAll('[data-sort]').forEach(btn => {
+      btn.onclick = () => {
+        tableSort = { col: 'Date/Time', dir: btn.dataset.sort, mode: 'date' };
+        filteredDirty = true;
+        closeFilterPop();
+        renderHistoryChrome();
+        renderHistoryBody(true);
+      };
+    });
+    return;
+  }
+  const selected = tableFilters[col];
+  const q = (pop.dataset.q || '').toLowerCase();
+  let values = valuesForFilter(col);
+  if (q) values = values.filter(v => String(v).toLowerCase().includes(q));
+  const shown = values.slice(0, 250);
+  const sortBtns = `<button class="secondary sort-btn" type="button" data-sort="asc" data-mode="text">Sort A to Z</button>
+       <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="text">Sort Z to A</button>
+       <button class="secondary sort-btn" type="button" data-sort="asc" data-mode="num">Sort smallest to largest</button>
+       <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="num">Sort largest to smallest</button>`;
+  const checks = shown.map(v => {
+    const on = !selected || selected.has(String(v));
+    return `<label><input type="checkbox" data-val="${esc(String(v))}" ${on ? 'checked' : ''}>${esc(String(v))}</label>`;
+  }).join('');
+  pop.innerHTML = `${sortBtns}
+    <input type="search" id="filterSearch" placeholder="Search" value="${esc(pop.dataset.q || '')}">
+    <label><input type="checkbox" id="filterAll" ${!selected ? 'checked' : ''}> (Select All)</label>
+    <div class="filter-list">${checks || '<div>No values</div>'}${values.length > 250 ? '<div>Type to search for more</div>' : ''}</div>
+    <div class="modal-actions"><button type="button" id="filterApply">Apply</button><button class="secondary" type="button" id="filterClear">Clear</button></div>`;
+  const r = anchor.getBoundingClientRect();
+  pop.style.left = Math.min(r.left, window.innerWidth - 300) + 'px';
+  pop.style.top = Math.min(r.bottom + 4, window.innerHeight - 360) + 'px';
+  pop.classList.add('show');
+    pop.querySelectorAll('[data-sort]').forEach(btn => {
+      btn.onclick = () => {
+        tableSort = { col, dir: btn.dataset.sort, mode: btn.dataset.mode || (numeric ? 'num' : 'text') };
+        filteredDirty = true;
+        closeFilterPop();
+        renderHistoryChrome();
+        renderHistoryBody(true);
+      };
+    });
+  document.getElementById('filterSearch').oninput = (e) => {
+    pop.dataset.q = e.target.value;
+    openFilterMenu(col, anchor);
+    document.getElementById('filterSearch').focus();
+    const el = document.getElementById('filterSearch');
+    el.setSelectionRange(el.value.length, el.value.length);
+  };
+  document.getElementById('filterAll').onchange = (e) => {
+    pop.querySelectorAll('.filter-list input[type="checkbox"]').forEach(c => { c.checked = e.target.checked; });
+  };
+  document.getElementById('filterApply').onclick = () => {
+    const boxes = [...pop.querySelectorAll('.filter-list input[type="checkbox"]')];
+    const on = boxes.filter(c => c.checked).map(c => c.dataset.val);
+    const allOn = document.getElementById('filterAll').checked && !pop.dataset.q;
+    tableFilters[col] = (allOn || on.length === valuesForFilter(col).length) ? null : new Set(on);
+    pop.dataset.q = '';
+    pruneFilters();
+    filteredDirty = true;
+    closeFilterPop();
+    renderHistoryChrome();
+    renderHistoryBody(true);
+  };
+  document.getElementById('filterClear').onclick = () => {
+    tableFilters[col] = null;
+    pop.dataset.q = '';
+    filteredDirty = true;
+    closeFilterPop();
+    renderHistoryChrome();
+    renderHistoryBody(true);
+  };
+}
+function fillSpcControls() {
+  const by = document.getElementById('spcBy').value;
+  const sel = document.getElementById('spcValue');
+  document.getElementById('spcValueName').textContent = by === 'mspec' ? 'MSPEC' : 'Item #';
+  const values = uniqueSorted([...new Set(indexedRows.map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
+  let preferred = sel.value;
+  if (!preferred) {
+    if (viewingIdx !== 'current' && historyPack && historyPack.rows[Number(viewingIdx)]) {
+      const row = historyPack.rows[Number(viewingIdx)];
+      preferred = by === 'mspec' ? col(row, 'MSPEC') : col(row, 'Item #');
+    } else preferred = by === 'mspec' ? (currentSnapshot.mspec || '') : (currentSnapshot.item || '');
+  }
+  sel.innerHTML = values.map(v => `<option value="${esc(v)}" ${String(v) === String(preferred) ? 'selected' : ''}>${esc(v)}</option>`).join('');
+  if (preferred && values.includes(String(preferred))) sel.value = preferred;
+  else if (values.length && !sel.value) sel.value = values[0];
+  syncSpcDates(false);
+  const val = String(sel.value || '').trim();
+  const mspec = by === 'mspec' ? val : ((indexedRows.find(r => r.item === val) || {}).mspec || currentSnapshot.mspec);
+  fillSpecPanel(specsFor(mspec));
+  document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
+  refreshViewMeta();
+}
+function spcSelectedRows() {
+  const by = document.getElementById('spcBy').value;
+  const val = String(document.getElementById('spcValue').value || '').trim();
+  let rows = indexedRows.filter(r => (by === 'mspec' ? r.mspec : r.item) === val);
+  const from = document.getElementById('spcFrom').value;
+  const to = document.getElementById('spcTo').value;
+  if (from) {
+    const minS = Date.parse(from + 'T00:00:00') / 86400000 + 25569;
+    rows = rows.filter(r => r.serial >= minS);
+  }
+  if (to) {
+    const maxS = Date.parse(to + 'T23:59:59') / 86400000 + 25569;
+    rows = rows.filter(r => r.serial <= maxS);
+  }
+  rows.sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  return rows;
+}
+function syncSpcDates(force) {
+  const rows = (() => {
+    const by = document.getElementById('spcBy').value;
+    const val = String(document.getElementById('spcValue').value || '').trim();
+    return indexedRows.filter(r => (by === 'mspec' ? r.mspec : r.item) === val);
+  })();
+  const serials = rows.map(r => r.serial).filter(isFinite);
+  if (!serials.length) return;
+  const toIso = s => {
+    const d = new Date(Math.round((s - 25569) * 86400 * 1000));
+    if (isNaN(d.getTime())) return '';
+    return isoFromParts(d.getFullYear(), d.getMonth() + 1, d.getDate());
+  };
+  const fromEl = document.getElementById('spcFrom');
+  const toEl = document.getElementById('spcTo');
+  if (force || !fromEl.value) fromEl.value = toIso(Math.min(...serials));
+  if (force || !toEl.value) toEl.value = toIso(Math.max(...serials));
+}
+function historyNav() {
+  const rows = getFilteredRows();
+  if (viewingIdx === 'current') return { rows, i: -1 };
+  const i = rows.findIndex(r => r.idx === Number(viewingIdx));
+  return { rows, i };
+}
+function refreshViewMeta() {
+  const el = document.getElementById('viewMeta');
+  if (!el) return;
+  if (screenName !== 'view') { el.textContent = ''; return; }
+  if (viewMode === 'spc') {
+    const by = document.getElementById('spcBy');
+    const val = document.getElementById('spcValue');
+    el.textContent = by && val && val.value ? `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${val.value}` : '';
+    return;
+  }
+  if (viewingIdx === 'current') {
+    const snap = currentSnapshot || {};
+    const parts = ['Current sheet', snap.item && `Item ${snap.item}`, snap.mspec && `MSPEC ${snap.mspec}`].filter(Boolean);
+    el.textContent = parts.join(' · ');
+    return;
+  }
+  const row = historyPack && historyPack.rows[Number(viewingIdx)];
+  if (!row) { el.textContent = ''; return; }
+  const when = excelWhen(col(row, 'Date/Time'));
+  const item = col(row, 'Item #');
+  const desc = col(row, 'Item Desc', 'Item Description');
+  const mspec = col(row, 'MSPEC', 'MSPEC #');
+  el.textContent = [when, item && `Item ${item}`, desc, mspec && `MSPEC ${mspec}`].filter(Boolean).join(' · ');
+}
+function viewPrev() {
+  const { rows, i } = historyNav();
+  if (i > 0) viewResult(rows[i - 1].idx);
+}
+function viewNext() {
+  const { rows, i } = historyNav();
+  if (i >= 0 && i < rows.length - 1) viewResult(rows[i + 1].idx);
+  else if (viewingIdx === 'current' && rows.length) viewResult(rows[0].idx);
+}
+function openSpc() {
+  if (!indexedRows.length || enterMode) { toast('Paste TableS4 results first'); return; }
+  setViewMode('spc');
+  setScreen('view');
+}
+function viewResult(idx) {
+  viewingIdx = idx;
+  enterMode = false;
+  const row = historyPack.rows[idx];
+  if (!row) return;
+  applyPlainNumbers(rowTValues(row));
+  fillSpecPanel(specsFor(col(row, 'MSPEC', 'MSPEC #')));
+  customArrow = false;
+  setViewMode('centration');
+  setScreen('view');
+  refreshChecks();
+}
+function viewCurrent() {
+  viewingIdx = 'current';
+  applySnapshot(currentSnapshot);
+  fillSpecPanel(specsFor(currentSnapshot.mspec));
+  setViewMode('centration');
+  setScreen('view');
+  refreshChecks();
+}
+async function clearClipboard() {
+  catcher.value = '';
+  try { await navigator.clipboard.writeText(''); }
+  catch {
+    try { catcher.value = ' '; catcher.select(); document.execCommand('copy'); catcher.value = ''; }
+    catch { /* ignore */ }
+  }
+}
+async function parseTsvAsync(lines, onProg) {
+  const nonempty = [];
+  for (let i = 0; i < lines.length; i++) {
+    const l = String(lines[i] ?? '').replace(/\r/g, '');
+    if (l.length) nonempty.push(l);
+    if (onProg && i && i % 2000 === 0) { onProg(i, lines.length); await yieldUi(); }
+  }
+  if (!nonempty.length) return { headers: [], rows: [] };
+  const headers = nonempty[0].split('\t').map(s => s.trim());
+  const rows = new Array(nonempty.length - 1);
+  for (let i = 1; i < nonempty.length; i++) {
+    const parts = nonempty[i].split('\t');
+    const obj = {};
+    headers.forEach((h, j) => { obj[h] = parts[j] == null ? '' : parts[j]; });
+    rows[i - 1] = obj;
+    if (onProg && i % 400 === 0) { onProg(i, nonempty.length); await yieldUi(); }
+  }
+  return { headers, rows };
+}
+async function applyDieGraph2(text) {
+  showProgress('Reading clipboard', 8, 'Parsing Copy for Graph data');
+  await yieldUi();
+  const sections = splitDieGraph2(text);
+  showProgress('Reading clipboard', 18, 'Current sheet');
+  const applied = applyDieGraphLines(sections.CURRENT);
+  const meta = Object.assign({}, applied.meta || {});
+  showProgress('Loading lookup', 28, 'MSPEC specs');
+  await yieldUi();
+  const lookup = await parseTsvAsync(sections.LOOKUP);
+  showProgress('Loading history', 40, `${sections.TABLES4.length.toLocaleString()} lines`);
+  const table = await parseTsvAsync(sections.TABLES4, (i, n) => {
+    showProgress('Loading history', 40 + Math.round(30 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()} rows`);
+  });
+  const lookupByMspec = {};
+  for (const row of lookup.rows) {
+    const key = String(col(row, 'MSPEC #', 'MSPEC')).trim();
+    if (key) lookupByMspec[key] = row;
+  }
+  captureCurrentSnapshot(meta);
+  historyPack = { item: meta.item || '', mspec: meta.mspec || '', rows: table.rows, lookupByMspec };
+  tableFilters = {};
+  tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
+  enterMode = false;
+  showProgress('Indexing results', 72, `${table.rows.length.toLocaleString()} results`);
+  await indexHistory((i, n) => {
+    showProgress('Indexing results', 72 + Math.round(22 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
+  });
+  fillSpecPanel(specsFor(meta.mspec));
+  const n = table.rows.length;
+  showProgress('Drawing table', 98, '');
+  await yieldUi();
+  hideProgress();
+  toast(n ? `Loaded ${n} past result${n === 1 ? '' : 's'}` : 'Loaded current sheet');
+  if (n) {
+    setScreen('history');
+    requestAnimationFrame(() => renderHistoryTable());
+  } else {
+    viewingIdx = 'current';
+    setScreen('view');
+    refreshChecks();
+  }
+  return true;
+}
+async function applyClipboardText(text) {
+  text = (text || '').trim();
+  if (!text) { toast('Clipboard is empty'); hideProgress(); return false; }
+  try {
+    if (/^DIEGRAPH2\b/i.test(text)) await applyDieGraph2(text);
+    else if (/^DIEGRAPH\b/i.test(text)) {
+      hideProgress();
+      historyPack = null; indexedRows = []; enterMode = false;
+      applyDieGraph(text); captureCurrentSnapshot({});
+      viewingIdx = 'current'; setViewMode('centration'); setScreen('view'); refreshChecks();
+    } else {
+      hideProgress();
+      const values = text.split(/[\s,]+/).map(Number).filter(v => !isNaN(v));
+      if (!values.length) { toast('No numbers found'); return false; }
+      historyPack = null; indexedRows = []; enterMode = false;
+      applyPlainNumbers(values); captureCurrentSnapshot({});
+      viewingIdx = 'current'; setViewMode('centration'); setScreen('view'); refreshChecks();
+    }
+    customArrow = false; calculate(); saveState();
+    clearClipboard();
+    pasteIntent = false;
+    return true;
+  } catch (err) {
+    hideProgress();
+    toast('Could not load clipboard data');
+    return false;
+  }
+}
+async function applyFromClipboard() {
+  showProgress('Reading clipboard', 4, '');
+  await yieldUi();
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const text = await navigator.clipboard.readText();
+      await applyClipboardText(text);
+      return;
+    }
+  } catch { /* fall through */ }
+  hideProgress();
+  pasteIntent = true;
+  catcher.focus();
+  catcher.select();
+  toast('Clipboard blocked — press Ctrl+V');
+}
+async function copyValues() {
+  const lines = points.map(p => { const v = parseFloat(p.value); return isFinite(v) ? v.toFixed(3) : ''; }).join('\n').replace(/\n+$/, '');
+  const btn = document.getElementById('copyBtn');
+  try {
+    await navigator.clipboard.writeText(lines ? lines + '\n' : '');
+    btn.textContent = 'Copied!'; btn.classList.add('copied'); toast('Values copied');
+    setTimeout(() => { btn.textContent = 'Copy values'; btn.classList.remove('copied'); }, 1500);
+  } catch {
+    catcher.value = lines; catcher.select();
+    const ok = document.execCommand('copy');
+    btn.textContent = ok ? 'Copied!' : 'Copy failed'; btn.classList.toggle('copied', ok);
+    if (ok) toast('Values copied');
+    setTimeout(() => { btn.textContent = 'Copy values'; btn.classList.remove('copied'); }, 1500);
+  }
+}
+function clearValues() { points.forEach(p => { p.value = ''; }); customArrow = false; calculate(); saveState(); }
+function calculate() {
+  lastMin = parseFloat(document.getElementById('minThickness').value);
+  lastMax = parseFloat(document.getElementById('maxThickness').value);
+  lastRangeSpec = parseFloat(document.getElementById('rangeSpec').value);
+  if (!isFinite(lastMin)) lastMin = 0;
+  if (!isFinite(lastMax) || lastMax <= lastMin) lastMax = lastMin + 0.001;
+  lastValues = points.map(p => { const v = parseFloat(p.value); return isNaN(v) ? NaN : v; });
+  draw(); saveState();
+}
+function pointAngle(i) { return SOUTH + (i + 0.5) * ANGLE_STEP; }
+function compassAngles() {
+  return [{ label: 'N', angle: -Math.PI / 2 }, { label: 'E', angle: 0 }, { label: 'S', angle: Math.PI / 2 }, { label: 'W', angle: Math.PI }];
+}
+function boltSet() {
+  const n = Math.max(4, NUM_BOLTS);
+  if (n === 4) return compassAngles().map(b => ({ ...b, kind: 'cardinal' }));
+  const start = startBoltsFromBottom ? Math.PI / 2 : -Math.PI / 2;
+  const numbered = [];
+  for (let i = 0; i < n; i++) numbered.push({ label: String(i + 1), angle: start + i * (2 * Math.PI / n), kind: 'numbered' });
+  return numbered.concat(compassAngles().map(b => ({ ...b, kind: 'compass' })));
+}
+function valueToRadius(val, min, max) {
+  if (!isFinite(val)) return (YELLOW_R + GREEN_R) / 2;
+  if (val <= min) return min <= 0 ? 0 : Math.max(0, (val / min) * YELLOW_R);
+  const px = (GREEN_R - YELLOW_R) / Math.max(max - min, 1e-6);
+  return Math.min(MAX_PLOT_R, YELLOW_R + (val - min) * px);
+}
+function angDist(a, b) { let d = Math.abs(a - b) % (Math.PI * 2); if (d > Math.PI) d = Math.PI * 2 - d; return d; }
+function labelRadius(angle, bolts) {
+  let r = LABEL_R;
+  for (const b of bolts) if (b.kind !== 'compass' && angDist(angle, b.angle) < 0.28) r = GREEN_R + S * 0.028;
+  return r;
+}
+function layoutCanvas() {
+  const stage = canvas.parentElement;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  let sizeW, sizeH;
+  if (viewMode === 'spc') {
+    sizeW = Math.max(280, Math.floor(stage.clientWidth || 280));
+    sizeH = Math.max(360, Math.floor(stage.clientHeight || 360));
+  } else {
+    const size = Math.max(280, Math.floor(Math.min(stage.clientWidth || 280, stage.clientHeight || 280)));
+    sizeW = size; sizeH = size;
+  }
+  canvas.width = sizeW * dpr; canvas.height = sizeH * dpr;
+  canvas.style.width = sizeW + 'px'; canvas.style.height = sizeH + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  canvasW = sizeW; canvasH = sizeH; S = Math.min(sizeW, sizeH);
+  center = { x: S / 2, y: S / 2 };
+  YELLOW_R = S * 0.14; GREEN_R = S * 0.30; MAX_PLOT_R = S * 0.39;
+  POINT_R = Math.max(6, S * 0.011); LABEL_R = GREEN_R + S * 0.048;
+  COMPASS_R = S / 2 - 38; ARROW_GAP = Math.max(48, S * 0.08);
+}
+function defaultArrowEnds(plot, maxIdx, minIdx) {
+  if (maxIdx < 0 || minIdx < 0 || maxIdx === minIdx) return { tail: null, head: null };
+  const thick = plot[maxIdx], thin = plot[minIdx];
+  const dx = thick.x - thin.x, dy = thick.y - thin.y, dist = Math.hypot(dx, dy) || 1;
+  const gap = Math.min(ARROW_GAP, dist * 0.28);
+  if (dist < gap * 2 + 8) return { tail: { x: thin.x, y: thin.y }, head: { x: thick.x, y: thick.y } };
+  return { tail: { x: thin.x + dx / dist * gap, y: thin.y + dy / dist * gap }, head: { x: thick.x - dx / dist * gap, y: thick.y - dy / dist * gap } };
+}
+function drawArrow(c, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy); if (len < 16) return;
+  const ux = dx / len, uy = dy / len, px = -uy, py = ux;
+  const shaftHalf = Math.max(5, S * 0.008);
+  let headLen = Math.max(22, S * 0.038), headHalf = headLen * 0.52;
+  if (len < headLen + 24) { headLen = Math.max(16, len * 0.32); headHalf = headLen * 0.5; }
+  const bx = x2 - ux * headLen, by = y2 - uy * headLen;
+  ctx.fillStyle = c.arrow; ctx.beginPath();
+  ctx.moveTo(x1 + px * shaftHalf, y1 + py * shaftHalf);
+  ctx.lineTo(bx + px * shaftHalf, by + py * shaftHalf);
+  ctx.lineTo(bx + px * headHalf, by + py * headHalf);
+  ctx.lineTo(x2, y2);
+  ctx.lineTo(bx - px * headHalf, by - py * headHalf);
+  ctx.lineTo(bx - px * shaftHalf, by - py * shaftHalf);
+  ctx.lineTo(x1 - px * shaftHalf, y1 - py * shaftHalf);
+  ctx.closePath(); ctx.fill();
+}
+function drawHandle(c, x, y, on) {
+  ctx.beginPath(); ctx.arc(x, y, Math.max(7, S * 0.012), 0, Math.PI * 2);
+  ctx.fillStyle = on ? '#60a5fa' : c.handle; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = c.arrow; ctx.stroke();
+}
+function drawBolt(c, bolt) {
+  const r = bolt.kind === 'compass' ? COMPASS_R + Math.max(18, S * 0.032) : COMPASS_R;
+  const bx = center.x + Math.cos(bolt.angle) * r;
+  const by = center.y + Math.sin(bolt.angle) * r;
+  if (bolt.kind === 'compass') {
+    ctx.font = `700 ${Math.max(14, S * 0.024)}px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4; ctx.strokeStyle = c.halo; ctx.strokeText(bolt.label, bx, by);
+    ctx.fillStyle = c.text; ctx.fillText(bolt.label, bx, by);
+    return;
+  }
+  const s = Math.max(14, S * 0.026);
+  ctx.fillStyle = c.bolt; ctx.beginPath();
+  if (ctx.roundRect) ctx.roundRect(bx - s, by - s, s * 2, s * 2, 8); else ctx.rect(bx - s, by - s, s * 2, s * 2);
+  ctx.fill(); ctx.fillStyle = '#fff';
+  ctx.font = `700 ${Math.max(14, S * 0.024)}px "Atkinson Hyperlegible", Arial`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(bolt.label, bx, by);
+}
+function updateSummary(avg, range, min, max, rangeSpec) {
+  const avgBad = finiteNum(avg) && (avg < min || avg > max);
+  const rangeBad = finiteNum(range) && range > rangeSpec;
+  const avgOk = finiteNum(avg) && !avgBad;
+  const rangeOk = finiteNum(range) && !rangeBad;
+  const extra = renderChecks(currentCheckItems());
+  document.getElementById('summary').innerHTML = `
+    <div class="stat ${avgBad ? 'bad' : (avgOk ? 'good' : '')}">Average <b>${finiteNum(avg) ? avg.toFixed(3) : '--'}</b></div>
+    <div class="stat ${rangeBad ? 'bad' : (rangeOk ? 'good' : '')}">Range <b>${finiteNum(range) ? range.toFixed(3) : '--'}</b></div>
+    ${avgBad ? `<div class="alert bad">Average is out of spec</div>` : (avgOk ? `<div class="alert good">Average is in spec</div>` : `<div class="alert">Average status --</div>`)}
+    ${rangeBad ? `<div class="alert bad">Range exceeds spec</div>` : (rangeOk ? `<div class="alert good">Range is within spec</div>` : `<div class="alert">Range status --</div>`)}
+    ${extra}
+  `;
+}
+function axisRange(plotVals, specVals) {
+  const data = (plotVals || []).filter(finiteNum).map(Number);
+  const specs = (specVals || []).filter(finiteNum).map(Number);
+  const all = data.concat(specs);
+  if (!all.length) return { min: 0, max: 1 };
+  let lo = Math.min(...all), hi = Math.max(...all);
+  if (lo === hi) {
+    const pad0 = Math.max(Math.abs(lo) * 0.08, 0.02);
+    lo -= pad0; hi += pad0;
+  } else {
+    const pad = (hi - lo) * 0.18;
+    lo -= pad; hi += pad;
+  }
+  if (lo < 0) lo = 0;
+  if (hi <= lo) hi = lo + 1;
+  return { min: lo, max: hi };
+}
+function fmtSpec(val, digits) {
+  if (!finiteNum(val)) return '';
+  const n = Number(val);
+  if (digits != null) return n.toFixed(digits);
+  if (Math.abs(n) >= 10) return n.toFixed(1);
+  if (Math.abs(n) >= 1) return n.toFixed(2);
+  return n.toFixed(3);
+}
+function extremeFences(values) {
+  const s = values.filter(finiteNum).map(Number).slice().sort((a, b) => a - b);
+  if (s.length < 4) return { lo: -Infinity, hi: Infinity };
+  const at = p => {
+    const i = (s.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i);
+    return s[lo] + (s[hi] - s[lo]) * (i - lo);
+  };
+  const iqr = at(0.75) - at(0.25);
+  return { lo: at(0.25) - 3 * iqr, hi: at(0.75) + 3 * iqr };
+}
+function rangeAsThousandths(v) {
+  const n = parseFloat(v);
+  if (!finiteNum(n)) return NaN;
+  return Math.abs(n) < 1 ? n * 1000 : n;
+}
+function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTarget, selectedIdx) {
+  const { x, y, w, h } = panel;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+  ctx.fillStyle = c.canvas; ctx.fillRect(x, y, w, h);
+  ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); ctx.globalAlpha = 1;
+  ctx.fillStyle = c.text; ctx.font = `700 14px "Atkinson Hyperlegible", Arial`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(title + (unit ? '  (' + unit + ')' : ''), x + 10, y + 8);
+  const padL = 56, padR = 72, padT = 30, padB = 28;
+  const plot = { x: x + padL, y: y + padT, w: Math.max(20, w - padL - padR), h: Math.max(20, h - padT - padB) };
+  const fences = extremeFences(pts.map(p => p[key]));
+  const flagged = pts.map(p => finiteNum(p[key]) && (p[key] < fences.lo || p[key] > fences.hi));
+  const plotVals = pts.filter((p, i) => finiteNum(p[key]) && !(spcHideOutliers && flagged[i])).map(p => p[key]);
+  const ym = axisRange(plotVals, [specMin, specMax, specTarget]);
+  const span = Math.max(ym.max - ym.min, 1e-9);
+  const yAt = v => plot.y + plot.h - ((v - ym.min) / span) * plot.h;
+  const xAt = (i, n) => n <= 1 ? plot.x + plot.w / 2 : plot.x + (i / (n - 1)) * plot.w;
+  const digits = span < 1 ? 3 : (span < 10 ? 2 : 1);
+  const specLine = (val, color, label, sit) => {
+    if (!finiteNum(val)) return;
+    const yy = Math.min(plot.y + plot.h - 1, Math.max(plot.y + 1, yAt(Number(val))));
+    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+    ctx.beginPath(); ctx.moveTo(plot.x, yy); ctx.lineTo(plot.x + plot.w, yy); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.font = `700 11px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = sit === 'below' ? 'top' : 'bottom';
+    const ty = sit === 'below' ? yy + 2 : yy - 2;
+    ctx.fillText(`${label} ${fmtSpec(val, digits)}`, plot.x + plot.w + 6, ty);
+  };
+  specLine(specMax, '#b91c1c', 'Max', 'above');
+  specLine(specTarget, '#1d4ed8', 'Target', 'above');
+  specLine(specMin, '#166534', 'Min', 'below');
+  ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(plot.x, plot.y); ctx.lineTo(plot.x, plot.y + plot.h); ctx.lineTo(plot.x + plot.w, plot.y + plot.h); ctx.stroke();
+  ctx.globalAlpha = 1; ctx.fillStyle = c.muted; ctx.font = `400 11px "Atkinson Hyperlegible", Arial`;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  ctx.fillText(ym.max.toFixed(digits), plot.x - 6, plot.y);
+  ctx.fillText(ym.min.toFixed(digits), plot.x - 6, plot.y + plot.h);
+  const n = pts.length;
+  ctx.strokeStyle = c.text; ctx.globalAlpha = 0.85; ctx.lineWidth = 2; ctx.beginPath();
+  let started = false;
+  pts.forEach((p, i) => {
+    if (!finiteNum(p[key]) || (spcHideOutliers && flagged[i])) return;
+    const xx = xAt(i, n), yy = yAt(p[key]);
+    if (!started) { ctx.moveTo(xx, yy); started = true; } else ctx.lineTo(xx, yy);
+  });
+  ctx.stroke(); ctx.globalAlpha = 1;
+  pts.forEach((p, i) => {
+    if (!finiteNum(p[key])) return;
+    if (spcHideOutliers && flagged[i]) return;
+    const xx = xAt(i, n), yy = yAt(p[key]);
+    const outlier = flagged[i];
+    const inSpec = judgeBetween(p[key], specMin, specMax);
+    const selected = p.idx === selectedIdx;
+    if (outlier && !spcHideOutliers) {
+      ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(xx - 5, yy - 5); ctx.lineTo(xx + 5, yy + 5); ctx.moveTo(xx + 5, yy - 5); ctx.lineTo(xx - 5, yy + 5); ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(xx, yy, selected ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle = selected ? '#2563eb' : (inSpec === 'Fail' ? c.thickDot : c.inDot);
+      ctx.fill(); ctx.lineWidth = selected ? 2.5 : 1.4; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+    }
+    spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx });
+  });
+  if (n) {
+    ctx.fillStyle = c.muted; ctx.font = `400 11px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(excelWhen(pts[0].t), plot.x, plot.y + plot.h + 6);
+    ctx.textAlign = 'right';
+    const last = excelWhen(pts[n - 1].t);
+    if (last) ctx.fillText(last, plot.x + plot.w, plot.y + plot.h + 6);
+  }
+  ctx.restore();
+}
+function drawSpc() {
+  layoutCanvas();
+  const c = palette();
+  spcHits = [];
+  ctx.clearRect(0, 0, canvasW, canvasH);
+  ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
+  const pts = spcSelectedRows().map(r => ({
+    idx: r.idx, row: r.row, t: r.serial,
+    avg: r.num['Thickness Average'],
+    range: r.num['Thickness Range'],
+    density: r.num['Density']
+  }));
+  if (!pts.length) {
+    ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(indexedRows.length ? 'No rows for this series / time frame' : 'Paste TableS4 data to see SPC', canvasW / 2, canvasH / 2);
+    return;
+  }
+  const by = document.getElementById('spcBy').value;
+  const mspec = by === 'mspec' ? document.getElementById('spcValue').value : (col(pts[pts.length - 1].row, 'MSPEC') || currentSnapshot.mspec);
+  const specs = specsFor(mspec);
+  const panel = readPanelSpecs();
+  const selectedIdx = viewingIdx === 'current' ? -1 : Number(viewingIdx);
+  const gap = 8, panelH = (canvasH - gap * 4) / 3;
+  const panels = [0, 1, 2].map(i => ({ x: 8, y: gap + i * (panelH + gap), w: canvasW - 16, h: panelH }));
+  drawSpcPanel(c, panels[0], pts, 'avg', 'Average', 'in',
+    firstFinite(panel.min, specs.min), firstFinite(panel.max, specs.max), firstFinite(panel.target, specs.target), selectedIdx);
+  drawSpcPanel(c, panels[1], pts, 'range', 'Range', '×0.001 in',
+    0, firstFinite(rangeAsThousandths(panel.range), specs.rangeThou), NaN, selectedIdx);
+  drawSpcPanel(c, panels[2], pts, 'density', 'Density', 'pcf',
+    firstFinite(panel.densMin, specs.densMin), firstFinite(panel.densMax, specs.densMax), firstFinite(panel.densTarget, specs.densTarget), selectedIdx);
+}
+function drawCentration() {
+  layoutCanvas();
+  const min = lastMin, max = lastMax, values = lastValues, c = palette(), bolts = boltSet();
+  ctx.clearRect(0, 0, canvasW, canvasH); ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
+  ctx.globalAlpha = 0.96;
+  ctx.fillStyle = c.yellow; ctx.beginPath(); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c.green; ctx.beginPath(); ctx.arc(center.x, center.y, GREEN_R, 0, Math.PI * 2); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2, true); ctx.fill();
+  ctx.globalAlpha = 1; ctx.lineWidth = 2;
+  ctx.strokeStyle = c.greenStroke; ctx.beginPath(); ctx.arc(center.x, center.y, GREEN_R, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = c.yellowStroke; ctx.beginPath(); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = c.text; ctx.beginPath(); ctx.arc(center.x, center.y, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c.muted; ctx.font = `700 ${Math.max(14, S * 0.022)}px "Atkinson Hyperlegible", Arial`;
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('0', center.x + 10, center.y);
+  bolts.forEach(b => drawBolt(c, b));
+  const plot = [];
+  for (let i = 0; i < TOTAL; i++) {
+    const a = pointAngle(i), v = values[i], r = valueToRadius(v, min, max);
+    plot.push({ idx: i, val: v, x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r });
+  }
+  ctx.lineWidth = Math.max(2, S * 0.004);
+  for (let i = 0; i < TOTAL; i++) {
+    const a = plot[i], b = plot[(i + 1) % TOTAL];
+    const ok = isFinite(a.val) && isFinite(b.val) && a.val >= min && a.val <= max && b.val >= min && b.val <= max;
+    ctx.strokeStyle = ok ? c.lineOk : c.lineBad;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+  let maxVal = -Infinity, minVal = Infinity, maxIdx = -1, minIdx = -1;
+  for (const p of plot) {
+    if (!isFinite(p.val)) continue;
+    if (p.val > maxVal) { maxVal = p.val; maxIdx = p.idx; }
+    if (p.val < minVal) { minVal = p.val; minIdx = p.idx; }
+  }
+  if (!customArrow) arrow = defaultArrowEnds(plot, maxIdx, minIdx);
+  if (showArrow && arrow.head && arrow.tail) {
+    drawArrow(c, arrow.tail.x, arrow.tail.y, arrow.head.x, arrow.head.y);
+    drawHandle(c, arrow.tail.x, arrow.tail.y, dragKind === 'tail');
+    drawHandle(c, arrow.head.x, arrow.head.y, dragKind === 'head');
+  }
+  for (const p of plot) {
+    let fill = c.idleDot;
+    if (isFinite(p.val)) fill = p.val < min ? c.thinDot : (p.val > max ? c.thickDot : c.inDot);
+    ctx.beginPath(); ctx.arc(p.x, p.y, POINT_R, 0, Math.PI * 2);
+    ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+  }
+  ctx.font = `700 ${Math.max(15, S * 0.024)}px "Atkinson Hyperlegible", Arial`; ctx.textBaseline = 'middle';
+  for (let i = 0; i < TOTAL; i++) {
+    const ang = pointAngle(i), ca = Math.cos(ang), sa = Math.sin(ang), r = labelRadius(ang, bolts);
+    const tx = center.x + ca * r, ty = center.y + sa * r;
+    ctx.textAlign = Math.abs(ca) < 0.25 ? 'center' : (ca > 0 ? 'left' : 'right');
+    const v = values[i], extra = !isFinite(v) ? '' : (v < min ? ' ↓' : (v > max ? ' ↑' : ''));
+    const text = `T${i + 1} ${isFinite(v) ? v.toFixed(3) : '--'}${extra}`;
+    ctx.lineWidth = 5; ctx.strokeStyle = c.halo; ctx.strokeText(text, tx, ty);
+    ctx.fillStyle = isFinite(v) ? (v < min ? '#d97706' : (v > max ? (isDark() ? '#fca5a5' : '#b91c1c') : c.text)) : c.muted;
+    ctx.fillText(text, tx, ty);
+  }
+  for (let i = 0; i < TOTAL; i++) {
+    const v = values[i], field = fieldEls[i], mark = markEls[i];
+    if (!field) continue;
+    field.classList.remove('in', 'thin', 'thick'); mark.textContent = '';
+    if (!isFinite(v)) continue;
+    if (v < min) { field.classList.add('thin'); mark.textContent = '↓'; }
+    else if (v > max) { field.classList.add('thick'); mark.textContent = '↑'; }
+    else { field.classList.add('in'); mark.textContent = '✓'; }
+  }
+  const valid = values.filter(v => isFinite(v));
+  const avg = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : NaN;
+  const range = isFinite(maxVal) && isFinite(minVal) ? maxVal - minVal : NaN;
+  updateSummary(avg, range, min, max, lastRangeSpec);
+}
+function draw() {
+  if (screenName !== 'view') return;
+  if (viewMode === 'spc') drawSpc(); else drawCentration();
+}
+function canvasPoint(evt) {
+  const r = canvas.getBoundingClientRect(), src = evt.touches ? evt.touches[0] : evt;
+  return { x: (src.clientX - r.left) * (canvasW / r.width), y: (src.clientY - r.top) * (canvasH / r.height) };
+}
+function hitHandle(pt) {
+  if (viewMode === 'spc' || !showArrow || !arrow.head || !arrow.tail) return null;
+  const dh = Math.hypot(pt.x - arrow.head.x, pt.y - arrow.head.y);
+  const dt = Math.hypot(pt.x - arrow.tail.x, pt.y - arrow.tail.y);
+  if (dh <= HANDLE_R && dh <= dt) return 'head';
+  if (dt <= HANDLE_R) return 'tail';
+  return null;
+}
+function hitSpcPoint(pt) {
+  let best = null, bestD = Infinity;
+  for (const h of spcHits) {
+    const d = Math.hypot(pt.x - h.x, pt.y - h.y);
+    if (d <= h.r && d < bestD) { best = h; bestD = d; }
+  }
+  return best;
+}
+function onPointerDown(e) {
+  const pt = canvasPoint(e);
+  if (viewMode === 'spc') {
+    const hit = hitSpcPoint(pt);
+    if (hit) { viewResult(hit.idx); setViewMode('spc'); requestAnimationFrame(draw); }
+    return;
+  }
+  const k = hitHandle(pt); if (!k) return;
+  dragKind = k; customArrow = true; canvas.style.cursor = 'grabbing'; e.preventDefault(); draw(); saveState();
+}
+function onPointerMove(e) {
+  const pt = canvasPoint(e);
+  if (!dragKind) { canvas.style.cursor = hitHandle(pt) || (viewMode === 'spc' && hitSpcPoint(pt)) ? 'pointer' : 'default'; return; }
+  e.preventDefault();
+  if (dragKind === 'head') arrow.head = { x: pt.x, y: pt.y }; else arrow.tail = { x: pt.x, y: pt.y };
+  draw();
+}
+function onPointerUp() { if (!dragKind) return; dragKind = null; canvas.style.cursor = 'default'; draw(); saveState(); }
+
+canvas.addEventListener('mousedown', onPointerDown);
+window.addEventListener('mousemove', onPointerMove);
+window.addEventListener('mouseup', onPointerUp);
+canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+window.addEventListener('touchmove', onPointerMove, { passive: false });
+window.addEventListener('touchend', onPointerUp);
+window.addEventListener('resize', () => {
+  if (screenName === 'view') draw();
+  if (screenName === 'history') { histRangeKey = ''; renderHistoryBody(true); }
+});
+document.getElementById('welcomePaste').onclick = applyFromClipboard;
+document.getElementById('histPaste').onclick = applyFromClipboard;
+document.getElementById('welcomeEnter').onclick = () => {
+  enterMode = true;
+  historyPack = null; indexedRows = []; viewingIdx = 'current';
+  points.forEach(p => { p.value = ''; });
+  captureCurrentSnapshot({});
+  setViewMode('centration'); setScreen('view'); refreshChecks();
+};
+document.getElementById('welcomeSpc').onclick = document.getElementById('histSpc').onclick = openSpc;
+document.getElementById('histBack').onclick = () => {
+  enterMode = false; historyPack = null; tableFilters = {}; indexedRows = []; setScreen('welcome');
+};
+document.getElementById('viewBack').onclick = () => {
+  if (indexedRows.length && !enterMode) {
+    setViewMode('centration');
+    setScreen('history');
+    requestAnimationFrame(() => renderHistoryBody(true));
+  } else {
+    enterMode = false;
+    setViewMode('centration');
+    setScreen('welcome');
+  }
+};
+document.getElementById('prevResult').onclick = viewPrev;
+document.getElementById('nextResult').onclick = viewNext;
+document.getElementById('histClearFilters').onclick = () => {
+  tableFilters = {}; tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' }; renderHistoryTable();
+};
+document.getElementById('copyBtn').onclick = copyValues;
+document.getElementById('clearBtn').onclick = clearValues;
+document.getElementById('modeBtn').onclick = () => {
+  if (viewMode === 'spc') { setViewMode('centration'); draw(); }
+  else openSpc();
+};
+document.getElementById('spcBy').onchange = () => {
+  document.getElementById('spcValue').value = '';
+  fillSpcControls();
+  syncSpcDates(true);
+  draw();
+};
+document.getElementById('spcValue').onchange = () => { syncSpcDates(true); draw(); };
+document.getElementById('spcFrom').onchange = document.getElementById('spcTo').onchange = () => draw();
+document.getElementById('spcOutliers').onclick = () => {
+  spcHideOutliers = !spcHideOutliers;
+  document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
+  draw();
+};
+document.getElementById('histWrap').addEventListener('scroll', () => {
+  const wrap = document.getElementById('histWrap');
+  const head = document.querySelector('.hist-head-freeze');
+  if (head) head.scrollLeft = wrap.scrollLeft;
+  if (histPaint) return;
+  histPaint = requestAnimationFrame(() => { histPaint = 0; renderHistoryBody(); });
+}, { passive: true });
+document.getElementById('histBody').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-view]');
+  if (!btn) return;
+  if (btn.dataset.view === 'current') viewCurrent();
+  else viewResult(Number(btn.dataset.view));
+});
+document.getElementById('histHead').addEventListener('click', (e) => {
+  const btn = e.target.closest('.th-menu');
+  if (!btn) return;
+  e.stopPropagation();
+  if (openFilterCol === btn.dataset.col) closeFilterPop();
+  else openFilterMenu(btn.dataset.col, btn);
+});
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('#filterPop') && !e.target.closest('.th-menu')) closeFilterPop();
+});
+document.addEventListener('paste', (e) => {
+  const tag = (e.target && e.target.tagName) || '';
+  if (tag === 'INPUT' && e.target.id !== 'clipCatcher') return;
+  if (tag === 'SELECT') return;
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  if (pasteIntent || screenName === 'welcome' || screenName === 'history' || e.target.id === 'clipCatcher') {
+    e.preventDefault();
+    applyClipboardText(text);
+  }
+});
+catcher.addEventListener('paste', (e) => {
+  const text = (e.clipboardData || window.clipboardData).getData('text');
+  e.preventDefault(); applyClipboardText(text);
+});
+document.getElementById('minThickness').oninput = document.getElementById('maxThickness').oninput = () => { customArrow = false; calculate(); };
+document.getElementById('rangeSpec').oninput = document.getElementById('targetThickness').oninput = calculate;
+['densMinSpec','densTargetSpec','densMaxSpec','cellMinSpec','cellMaxSpec','widthMinSpec','widthTargetSpec'].forEach(id => {
+  document.getElementById(id).oninput = () => { if (viewMode === 'spc') draw(); else refreshChecks(); };
+});
+document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };
+document.getElementById('arrowToggle').onclick = () => { setArrowVisible(!showArrow); draw(); saveState(); };
+document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = () => {
+  applyTheme(isDark() ? 'light' : 'dark'); if (screenName === 'view') draw(); saveState();
+};
+document.getElementById('settingsBtn').onclick = () => {
+  document.getElementById('setPoints').value = TOTAL;
+  document.getElementById('setBolts').value = Math.max(4, NUM_BOLTS);
+  document.getElementById('setBoltStart').checked = startBoltsFromBottom;
+  document.getElementById('settingsOverlay').classList.add('show');
+};
+document.getElementById('cancelSettings').onclick = () => document.getElementById('settingsOverlay').classList.remove('show');
+document.getElementById('saveSettings').onclick = () => {
+  const n = Math.max(3, Math.min(36, parseInt(document.getElementById('setPoints').value, 10) || 13));
+  const b = Math.max(4, Math.min(24, parseInt(document.getElementById('setBolts').value, 10) || 4));
+  const old = points.map(p => p.value);
+  TOTAL = n; NUM_BOLTS = b; startBoltsFromBottom = document.getElementById('setBoltStart').checked; customArrow = false;
+  setupInputs(old);
+  document.getElementById('settingsOverlay').classList.remove('show');
+  calculate();
+};
+
+const saved = loadState();
+if (saved.TOTAL) TOTAL = saved.TOTAL;
+NUM_BOLTS = Math.max(4, saved.NUM_BOLTS || 4);
+startBoltsFromBottom = !!saved.startBoltsFromBottom;
+if (saved.min) document.getElementById('minThickness').value = saved.min;
+if (saved.max) document.getElementById('maxThickness').value = saved.max;
+if (saved.range) document.getElementById('rangeSpec').value = saved.range;
+applyTheme(saved.theme || 'light');
+setArrowVisible(!!saved.showArrow);
+customArrow = !!saved.customArrow;
+if (saved.arrow) arrow = saved.arrow;
+setupInputs([]);
+setViewMode('centration');
+setScreen('welcome');
+</script>
+</body>
+</html>

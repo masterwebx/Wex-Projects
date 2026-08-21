@@ -25,6 +25,7 @@ Option Explicit
 
 Private Const CF_UNICODETEXT As Long = 13
 Private Const GMEM_MOVEABLE As Long = &H2
+Private Const GRAPH_HTML As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\centration.html"
 
 ' Button name: Copy for Graph
 ' Copies current S4 values (if any), lookup specs from the same Master Sheet
@@ -63,6 +64,7 @@ Public Sub CopyForGraph()
     End If
     
     PutTextOnClipboard payload
+    OpenGraphHtml
     
     Application.StatusBar = "Copied for graph (current + lookup + TableS4)"
     Application.Cursor = xlDefault
@@ -72,6 +74,39 @@ ErrHandler:
     Application.Cursor = xlDefault
     Application.StatusBar = False
     MsgBox "Copy for graph failed: " & Err.Description, vbCritical, "Copy for Graph"
+End Sub
+
+Private Function GraphHtmlPath() As String
+    Dim p As String
+    p = GRAPH_HTML
+    If FileExists(p) Then
+        GraphHtmlPath = p
+        Exit Function
+    End If
+    p = ThisWorkbook.Path & Application.PathSeparator & "centration.html"
+    If FileExists(p) Then GraphHtmlPath = p
+End Function
+
+Private Function FileExists(ByVal p As String) As Boolean
+    On Error Resume Next
+    FileExists = (LenB(Trim$(p)) > 0 And LenB(Dir$(p, vbNormal)) > 0)
+End Function
+
+Private Sub OpenGraphHtml()
+    Dim p As String
+    Dim sh As Object
+    p = GraphHtmlPath()
+    If LenB(p) = 0 Then
+        MsgBox "Copied for graph. Could not find:" & vbCrLf & GRAPH_HTML & vbCrLf & vbCrLf & "Open the graph and paste (Ctrl+V).", vbInformation, "Copy for Graph"
+        Exit Sub
+    End If
+    On Error GoTo Fallback
+    Set sh = CreateObject("WScript.Shell")
+    sh.Run """" & p & """", 1, False
+    Exit Sub
+Fallback:
+    On Error Resume Next
+    ThisWorkbook.FollowHyperlink Address:=p, NewWindow:=True
 End Sub
 
 Private Function SheetByName(ByVal sheetName As String) As Worksheet

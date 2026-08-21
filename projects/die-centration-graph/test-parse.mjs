@@ -8,6 +8,8 @@ const dir = path.dirname(fileURLToPath(import.meta.url));
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
 const vba = fs.readFileSync(path.join(dir, 'CopyForGraph.bas'), 'utf8');
 const vbaS1 = fs.readFileSync(path.join(dir, 'CopyForGraphS1S3.bas'), 'utf8');
+const vbaFromS4 = fs.readFileSync(path.join(dir, 'CopyForGraphFromS4.bas'), 'utf8');
+const vbaFromS1 = fs.readFileSync(path.join(dir, 'CopyForGraphFromS1S3.bas'), 'utf8');
 const payload = fs.readFileSync(path.join(dir, 'fixtures/sample-diegraph2.txt'), 'utf8');
 const payloadS1 = fs.readFileSync(path.join(dir, 'fixtures/sample-diegraph2-s1s3.txt'), 'utf8');
 
@@ -71,6 +73,22 @@ assert.match(vbaS1, /Range\("B12"\)/);
 assert.match(vbaS1, /Range\("B10"\)/);
 assert.doesNotMatch(vbaS1, /Data S4/);
 assert.doesNotMatch(vbaS1, /SheetByName\("S4"\)/);
+
+assert.match(vbaFromS4, /Attribute VB_Name = "CopyForGraphFromS4"/);
+assert.match(vbaFromS4, /Files\\S4\.xlsm/);
+assert.match(vbaFromS4, /FileCopy src, dest/);
+assert.match(vbaFromS4, /Workbooks\.Open/);
+assert.match(vbaFromS4, /w\.Visible = False/);
+assert.match(vbaFromS4, /CopyForGraph\.CopyForGraph/);
+assert.match(vbaFromS4, /NOT into S4\.xlsm/);
+assert.doesNotMatch(vbaFromS4, /Private Declare/);
+
+assert.match(vbaFromS1, /Attribute VB_Name = "CopyForGraphFromS1S3"/);
+assert.match(vbaFromS1, /Files\\S1 S3\.xlsm/);
+assert.match(vbaFromS1, /FileCopy src, dest/);
+assert.match(vbaFromS1, /CopyForGraphS1S3\.CopyForGraph/);
+assert.match(vbaFromS1, /NOT into S1 S3\.xlsm/);
+assert.doesNotMatch(vbaFromS1, /Private Declare/);
 
 assert.match(html, /data-screen="welcome"/);
 assert.match(html, /S1 S3 quality check sheet/);

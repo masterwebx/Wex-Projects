@@ -34,6 +34,7 @@ Private Const GRAPH_HTML As String = "G:\Shipping\100% Inspection Sheets\Product
 ' S1 S3 VLOOKUPs (Quality AIO / linked workbook, not the stale local copy),
 ' and the full Data S1 S3 TableS1S3 table as DIEGRAPH2 text for the HTML graph.
 ' History is tagged [TABLES4] so the same graph parser can ingest S4 and S1 S3.
+' To copy from S1 S3.xlsm without opening it, import CopyForGraphFromS1S3.bas into Personal.xlsb.
 Public Sub CopyForGraph()
     Dim wsForm As Worksheet
     Dim payload As String

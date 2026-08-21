@@ -32,7 +32,7 @@ Private Const GRAPH_HTML As String = "G:\Shipping\100% Inspection Sheets\Product
 ' S4 VLOOKUPs (Quality AIO / linked workbook, not the stale local copy),
 ' and the full Data S4 TableS4 table as DIEGRAPH2 text for the HTML graph.
 ' For the S1 S3 quality check workbook, import CopyForGraphS1S3.bas instead.
-' To copy from S4.xlsm without opening it, import CopyForGraphFromS4.bas into Personal.xlsb.
+' Internal CopyForGraph.bas is optional if you use CopyForGraphFromS4.bas from Personal.xlsb.
 Public Sub CopyForGraph()
     Dim wsS4 As Worksheet
     Dim payload As String

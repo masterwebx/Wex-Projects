@@ -61,7 +61,15 @@ assert.match(html, /function persistPack/);
 assert.match(html, /function canonMspec/);
 assert.match(html, /Lower Control/);
 assert.match(html, /id="histTable"/);
-assert.match(html, /Clear filters/);
+assert.match(html, /Reset filters/);
+assert.match(html, /id="filterBar"/);
+assert.match(html, /id="histResetFilters"/);
+assert.match(html, /function resetFilters/);
+assert.match(html, /timeZone:\s*'UTC'/);
+assert.match(html, /getUTCFullYear/);
+assert.match(html, /excelSerialDate/);
+assert.match(html, /isoToExcelSerial/);
+assert.doesNotMatch(html, /id="histClearFilters"/);
 assert.match(html, /data-view/);
 assert.match(html, /Back to history/);
 assert.match(html, /SPC mode/);
@@ -241,5 +249,25 @@ const dupes = [
 ];
 const firstWins = buildLookupMap(dupes);
 assert.equal(parseFloat(col(firstWins['4540'], 'Upper Control')), 0.53);
+
+function excelSerialDate(n) {
+  return new Date(Math.round((Number(n) - 25569) * 86400000));
+}
+function excelWhen(v) {
+  const n = parseFloat(v);
+  const d = excelSerialDate(n);
+  return d.toLocaleString('en-US', { timeZone: 'UTC' });
+}
+const nineTwentyFour = 25569 + 9 / 24 + 24 / (24 * 60);
+const shown = excelWhen(nineTwentyFour);
+assert.match(shown, /9:24/);
+assert.doesNotMatch(shown, /2:24/);
+const d924 = excelSerialDate(nineTwentyFour);
+assert.equal(d924.getUTCHours(), 9);
+assert.equal(d924.getUTCMinutes(), 24);
+const sampleWhen = parseFloat(col(table.rows[3], 'Date/Time'));
+const sampleDt = excelSerialDate(sampleWhen);
+assert.equal(sampleDt.getUTCFullYear(), 2026);
+assert.equal(sampleDt.getUTCHours(), Math.floor((sampleWhen - Math.floor(sampleWhen)) * 24 + 1e-9));
 
 console.log('parse-diegraph tests passed');

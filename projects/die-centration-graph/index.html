@@ -12,11 +12,13 @@
     --bg: #eef1f5; --bg-elev: #ffffff; --text: #12202b; --muted: #3e4a55; --line: #d5dde4;
     --accent: #1d4ed8; --ok: #166534; --ok-bg: #dcfce7; --thin: #92400e; --thin-bg: #fef3c7;
     --thick: #991b1b; --thick-bg: #fee2e2; --idle: #f8fafc; --shadow: 0 8px 24px rgba(15, 23, 42, .08);
+    --filter-bg: #dbeafe; --filter-text: #1e40af;
   }
   html[data-theme="dark"] {
     --bg: #0c1116; --bg-elev: #151c24; --text: #f3f7fb; --muted: #c5d0db; --line: #2a3541;
     --accent: #3b82f6; --ok: #86efac; --ok-bg: #14532d; --thin: #fcd34d; --thin-bg: #78350f;
     --thick: #fca5a5; --thick-bg: #7f1d1d; --idle: #0f1620; --shadow: 0 8px 24px rgba(0,0,0,.35);
+    --filter-bg: #1e3a5f; --filter-text: #93c5fd;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -73,12 +75,40 @@
     width: 28px; min-height: 28px; padding: 0; border-radius: 8px; font-size: 14px;
     background: var(--idle); color: var(--text); border: 1px solid var(--line);
   }
-  .th-menu.active, .th-menu.filtered { border-color: var(--accent); color: var(--accent); }
+  .th-menu.active { border-color: var(--accent); color: var(--accent); }
+  .th-menu.filtered {
+    background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 700;
+  }
+  table.results thead th.filtered {
+    background: var(--filter-bg); color: var(--filter-text);
+    box-shadow: inset 0 -3px 0 var(--accent);
+  }
   .date-slicers { display: flex; gap: 4px; margin-top: 4px; }
   .date-slicers select {
     flex: 1; min-width: 0; border: 1px solid var(--line); border-radius: 8px;
     background: var(--idle); color: var(--text); font: inherit; font-size: 12px; padding: 4px;
   }
+  .date-slicers select.on {
+    border-color: var(--accent); background: var(--filter-bg); color: var(--filter-text); font-weight: 700;
+  }
+  .filter-bar {
+    display: none; flex-wrap: wrap; gap: 8px; align-items: center; padding: 8px 12px;
+    border-bottom: 1px solid var(--line); background: var(--filter-bg); color: var(--filter-text);
+    flex: 0 0 auto;
+  }
+  .filter-bar.show { display: flex; }
+  .filter-bar b { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
+  .filter-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--bg-elev); color: var(--filter-text); border: 1px solid var(--accent);
+    border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 700;
+  }
+  .filter-chip button {
+    width: 22px; min-height: 22px; padding: 0; border-radius: 50%;
+    background: var(--accent); color: #fff; font-size: 14px; line-height: 1;
+  }
+  #histResetFilters, #histResetFiltersBar { min-height: 36px; padding: 6px 12px; margin-left: auto; }
+  #histResetFilters:disabled { opacity: .4; cursor: default; }
   .filter-pop {
     position: fixed; z-index: 40; width: min(280px, calc(100vw - 16px));
     background: var(--bg-elev); color: var(--text); border: 1px solid var(--line);
@@ -223,11 +253,16 @@
       <button class="secondary" type="button" id="histBack">Go to main</button>
       <button type="button" id="histPaste">Paste more data</button>
       <button class="secondary" type="button" id="histSpc">SPC mode</button>
-      <button class="secondary" type="button" id="histClearFilters">Clear filters</button>
+      <button type="button" id="histResetFilters" disabled>Reset filters</button>
       <button class="secondary" type="button" id="histTheme">Dark mode</button>
     </div>
   </header>
   <div class="card hist-card">
+    <div class="filter-bar" id="filterBar">
+      <b>Active filters</b>
+      <span id="filterChips"></span>
+      <button type="button" id="histResetFiltersBar">Reset filters</button>
+    </div>
     <div class="hist-head-freeze"><table class="results" id="histHeadTable"><thead id="histHead"></thead></table></div>
     <div class="table-wrap" id="histWrap"><table class="results" id="histTable"><tbody id="histBody"></tbody></table></div>
   </div>
@@ -335,7 +370,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -711,11 +746,14 @@ function canonMspec(v) {
   }
   return s.replace(/\.0+$/, '').toUpperCase();
 }
+function excelSerialDate(n) {
+  return new Date(Math.round((Number(n) - 25569) * 86400000));
+}
 function excelWhen(v) {
   const n = parseFloat(v);
   if (isFinite(n) && n > 20000 && n < 90000) {
-    const d = new Date(Math.round((n - 25569) * 86400 * 1000));
-    if (!isNaN(d.getTime())) return d.toLocaleString();
+    const d = excelSerialDate(n);
+    if (!isNaN(d.getTime())) return d.toLocaleString(undefined, { timeZone: 'UTC' });
   }
   return String(v || '').trim();
 }
@@ -912,12 +950,23 @@ function hasCurrentSheet() {
 function dateParts(serial) {
   const n = numVal(serial);
   if (!isFinite(n) || n < 20000) return { y: 0, m: 0, d: 0, serial: n };
-  const dt = new Date(Math.round((n - 25569) * 86400 * 1000));
+  const dt = excelSerialDate(n);
   if (isNaN(dt.getTime())) return { y: 0, m: 0, d: 0, serial: n };
-  return { y: dt.getFullYear(), m: dt.getMonth() + 1, d: dt.getDate(), serial: n };
+  return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate(), serial: n };
 }
 function isoFromParts(y, m, d) {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+function isoToExcelSerial(iso, endOfDay) {
+  const parts = String(iso || '').split('-').map(Number);
+  if (parts.length < 3 || !parts[0]) return NaN;
+  const utc = Date.UTC(parts[0], parts[1] - 1, parts[2], endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
+  return utc / 86400000 + 25569;
+}
+function excelSerialToIso(s) {
+  const d = excelSerialDate(s);
+  if (isNaN(d.getTime())) return '';
+  return isoFromParts(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate());
 }
 function tonesForRow(row, mspec) {
   const specs = lookupSpecs(mspec);
@@ -1070,12 +1119,15 @@ function fillDateSlicers() {
   if (!yearEl) return;
   const years = yearsInData();
   yearEl.innerHTML = `<option value="">All years</option>` + years.map(y => `<option value="${y}" ${df.year == y ? 'selected' : ''}>${y}</option>`).join('');
+  yearEl.classList.toggle('on', !!df.year);
   const months = monthsInYear(df.year);
   monthEl.innerHTML = `<option value="">All months</option>` + months.map(m => `<option value="${m}" ${df.month == m ? 'selected' : ''}>${MONTHS[m - 1]}</option>`).join('');
   monthEl.disabled = !df.year;
+  monthEl.classList.toggle('on', !!df.month);
   const days = daysInMonth(df.year, df.month);
   dayEl.innerHTML = `<option value="">All days</option>` + days.map(d => `<option value="${d}" ${df.day == d ? 'selected' : ''}>${d}</option>`).join('');
   dayEl.disabled = !df.year || !df.month;
+  dayEl.classList.toggle('on', !!df.day);
 }
 function isColFiltered(k) {
   if (k === 'Date/Time') {
@@ -1084,32 +1136,75 @@ function isColFiltered(k) {
   }
   return !!(tableFilters[k] && tableFilters[k].size);
 }
+function hasActiveFilters() {
+  if (isColFiltered('Date/Time')) return true;
+  return TABLE_COLS.some(k => k !== 'Date/Time' && isColFiltered(k));
+}
+function activeFilterSummaries() {
+  const out = [];
+  const df = dateFilter();
+  if (df.year || df.month || df.day) {
+    const bits = [df.year, df.month && MONTHS[+df.month - 1], df.day].filter(Boolean);
+    out.push({ col: 'Date/Time', text: bits.join(' ') });
+  }
+  for (const k of TABLE_COLS) {
+    if (k === 'Date/Time') continue;
+    const sel = tableFilters[k];
+    if (!(sel instanceof Set) || !sel.size) continue;
+    const vals = [...sel];
+    const shown = vals.slice(0, 2).join(', ');
+    out.push({ col: k, text: `${k} ${shown}${vals.length > 2 ? ` +${vals.length - 2}` : ''}` });
+  }
+  return out;
+}
+function resetFilters() {
+  tableFilters = {};
+  tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
+  renderHistoryTable();
+}
+function syncFilterBar() {
+  const on = hasActiveFilters();
+  const bar = document.getElementById('filterBar');
+  const chips = document.getElementById('filterChips');
+  const btn = document.getElementById('histResetFilters');
+  const barBtn = document.getElementById('histResetFiltersBar');
+  if (bar) bar.classList.toggle('show', on);
+  if (btn) {
+    btn.disabled = !on;
+    btn.classList.toggle('secondary', !on);
+  }
+  if (chips) {
+    chips.innerHTML = activeFilterSummaries().map(f =>
+      `<span class="filter-chip">${esc(f.text)}<button type="button" data-clear-col="${esc(f.col)}" aria-label="Remove ${esc(f.col)} filter">×</button></span>`
+    ).join('');
+  }
+}
 function renderHistoryChrome() {
   const head = document.getElementById('histHead');
-  const dateTh = `<th><div class="th-inner">Date/Time <button class="th-menu${tableSort.col === 'Date/Time' ? ' active' : ''}${isColFiltered('Date/Time') ? ' filtered' : ''}" type="button" data-col="Date/Time" aria-label="Sort Date/Time">▾</button></div><div class="date-slicers">
+  const dateTh = `<th class="${isColFiltered('Date/Time') ? 'filtered' : ''}"><div class="th-inner">Date/Time <button class="th-menu${tableSort.col === 'Date/Time' ? ' active' : ''}${isColFiltered('Date/Time') ? ' filtered' : ''}" type="button" data-col="Date/Time" aria-label="Sort Date/Time">▾</button></div><div class="date-slicers">
     <select id="dateYear"></select><select id="dateMonth"></select><select id="dateDay"></select>
   </div></th>`;
   const others = TABLE_COLS.slice(1).map(k => {
     const sortHint = tableSort.col === k ? (tableSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
-    const on = isColFiltered(k) || tableSort.col === k ? ' active' : '';
+    const on = tableSort.col === k ? ' active' : '';
     const filtered = isColFiltered(k) ? ' filtered' : '';
-    return `<th><div class="th-inner">${esc(k)}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
+    return `<th class="${isColFiltered(k) ? 'filtered' : ''}"><div class="th-inner">${esc(k)}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
   }).join('');
   head.innerHTML = `<tr><th></th>${dateTh}${others}</tr>`;
   fillDateSlicers();
   document.getElementById('dateYear').onchange = () => {
     tableFilters['Date/Time'] = { year: document.getElementById('dateYear').value, month: '', day: '' };
-    pruneFilters(); filteredDirty = true; fillDateSlicers(); renderHistoryBody(true);
+    pruneFilters(); filteredDirty = true; renderHistoryChrome(); renderHistoryBody(true);
   };
   document.getElementById('dateMonth').onchange = () => {
     const df = dateFilter();
     tableFilters['Date/Time'] = { year: df.year, month: document.getElementById('dateMonth').value, day: '' };
-    pruneFilters(); filteredDirty = true; fillDateSlicers(); renderHistoryBody(true);
+    pruneFilters(); filteredDirty = true; renderHistoryChrome(); renderHistoryBody(true);
   };
   document.getElementById('dateDay').onchange = () => {
     const df = dateFilter();
     tableFilters['Date/Time'] = { year: df.year, month: df.month, day: document.getElementById('dateDay').value };
-    pruneFilters(); filteredDirty = true; fillDateSlicers(); renderHistoryBody(true);
+    pruneFilters(); filteredDirty = true; renderHistoryChrome(); renderHistoryBody(true);
   };
 }
 function rowHtml(r) {
@@ -1151,7 +1246,11 @@ function renderHistoryBody(force) {
   body.innerHTML = parts.join('');
   const maxScroll = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
   if (wrap.scrollTop > maxScroll) wrap.scrollTop = maxScroll;
-  document.getElementById('histMeta').textContent = `Showing ${rows.length} of ${indexedRows.length} results`;
+  const on = hasActiveFilters();
+  document.getElementById('histMeta').textContent = on
+    ? `Showing ${rows.length} of ${indexedRows.length} results · filters on`
+    : `Showing ${rows.length} of ${indexedRows.length} results`;
+  syncFilterBar();
 }
 function renderHistoryTable() {
   filteredDirty = true;
@@ -1280,12 +1379,12 @@ function spcSelectedRows() {
   const from = document.getElementById('spcFrom').value;
   const to = document.getElementById('spcTo').value;
   if (from) {
-    const minS = Date.parse(from + 'T00:00:00') / 86400000 + 25569;
-    rows = rows.filter(r => r.serial >= minS);
+    const minS = isoToExcelSerial(from, false);
+    if (isFinite(minS)) rows = rows.filter(r => r.serial >= minS);
   }
   if (to) {
-    const maxS = Date.parse(to + 'T23:59:59') / 86400000 + 25569;
-    rows = rows.filter(r => r.serial <= maxS);
+    const maxS = isoToExcelSerial(to, true);
+    if (isFinite(maxS)) rows = rows.filter(r => r.serial <= maxS);
   }
   rows.sort((a, b) => (a.serial || 0) - (b.serial || 0));
   return rows;
@@ -1299,9 +1398,7 @@ function syncSpcDates(force) {
   const serials = rows.map(r => r.serial).filter(isFinite);
   if (!serials.length) return;
   const toIso = s => {
-    const d = new Date(Math.round((s - 25569) * 86400 * 1000));
-    if (isNaN(d.getTime())) return '';
-    return isoFromParts(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    return excelSerialToIso(s);
   };
   const fromEl = document.getElementById('spcFrom');
   const toEl = document.getElementById('spcTo');
@@ -1931,8 +2028,14 @@ document.getElementById('viewBack').onclick = () => {
 };
 document.getElementById('prevResult').onclick = viewPrev;
 document.getElementById('nextResult').onclick = viewNext;
-document.getElementById('histClearFilters').onclick = () => {
-  tableFilters = {}; tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' }; renderHistoryTable();
+document.getElementById('histResetFilters').onclick = resetFilters;
+document.getElementById('histResetFiltersBar').onclick = resetFilters;
+document.getElementById('filterChips').onclick = (e) => {
+  const btn = e.target.closest('button[data-clear-col]');
+  if (!btn) return;
+  tableFilters[btn.dataset.clearCol] = null;
+  filteredDirty = true;
+  renderHistoryTable();
 };
 document.getElementById('copyBtn').onclick = copyValues;
 document.getElementById('clearBtn').onclick = clearValues;

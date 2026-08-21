@@ -175,6 +175,13 @@
   #clipCatcher { position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0; }
   .toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg-elev); padding: 10px 16px; border-radius: 999px; font-weight: 700; display: none; z-index: 30; }
   .toast.show { display: block; }
+  .version {
+    position: fixed; right: 12px; bottom: 8px; z-index: 50;
+    font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .04em;
+    pointer-events: none;
+  }
+  .welcome-extra { display: none; gap: 10px; }
+  html[data-has-history="1"] .welcome-extra { display: grid; }
   @media (max-width: 1100px) {
     body { overflow: auto; }
     .screen { height: auto; min-height: 100dvh; }
@@ -187,15 +194,19 @@
 <body>
 <textarea id="clipCatcher" aria-hidden="true"></textarea>
 <div class="toast" id="toast"></div>
+<div class="version" id="appVersion"></div>
 
 <section class="screen" id="screenWelcome">
   <div class="card welcome">
     <h1>Die Centration Graph</h1>
-    <p>Paste a Copy for Graph clipboard, or enter thickness points by hand.</p>
+    <p>Paste inspection results from Excel, or type thickness points yourself.</p>
     <div class="actions">
-      <button type="button" id="welcomePaste">Paste from clipboard</button>
-      <button class="secondary" type="button" id="welcomeEnter">Enter results</button>
-      <button class="secondary" type="button" id="welcomeSpc">SPC mode</button>
+      <button type="button" id="welcomePaste">Paste results</button>
+      <div class="welcome-extra">
+        <button type="button" id="welcomePasteMore">Paste more data</button>
+        <button class="secondary" type="button" id="welcomeHistory">View history</button>
+      </div>
+      <button class="secondary" type="button" id="welcomeEnter">Enter points by hand</button>
     </div>
     <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
   </div>
@@ -208,8 +219,8 @@
       <p class="hist-meta" id="histMeta"></p>
     </div>
     <div class="toolbar">
-      <button class="secondary" type="button" id="histBack">Start over</button>
-      <button type="button" id="histPaste">Paste again</button>
+      <button class="secondary" type="button" id="histBack">Go to main</button>
+      <button type="button" id="histPaste">Paste more data</button>
       <button class="secondary" type="button" id="histSpc">SPC mode</button>
       <button class="secondary" type="button" id="histClearFilters">Clear filters</button>
       <button class="secondary" type="button" id="histTheme">Dark mode</button>
@@ -322,8 +333,18 @@
 </div>
 
 <script>
-const STORE = 'dieGraphState.v4';
+const APP_VERSION = '1.3.0';
+const STORE = 'dieGraphState.v5';
+const PACK_DB = 'dieGraphPack';
+const PACK_STORE = 'pack';
 const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
+const COL_ALIASES = {
+  'Item #': ['Item #', 'Item', 'Item Number'],
+  'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription'],
+  'MSPEC': ['MSPEC', 'MSPEC #', 'M-Spec Number', 'MSpec'],
+  'Slit/Width': ['Slit/Width', 'Width', 'Slit Width'],
+  'Slit/Width Pass/Fail': ['Slit/Width Pass/Fail', 'Width Pass/Fail']
+};
 const NUM_COLS = new Set(['Item #','MSPEC','Bundle #','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const ROW_H = 42;
@@ -415,6 +436,57 @@ function saveState() {
     range: document.getElementById('rangeSpec').value
   }));
 }
+function openPackDb() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PACK_DB, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(PACK_STORE)) req.result.createObjectStore(PACK_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+async function persistPack() {
+  if (!historyPack) return;
+  try {
+    const db = await openPackDb();
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction(PACK_STORE, 'readwrite');
+      tx.objectStore(PACK_STORE).put({
+        rows: historyPack.rows,
+        lookupRows: historyPack.lookupRows || [],
+        snapshot: currentSnapshot,
+        savedAt: Date.now(),
+        version: APP_VERSION
+      }, 'current');
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch { /* quota or private mode */ }
+}
+async function restorePack() {
+  try {
+    const db = await openPackDb();
+    const data = await new Promise((resolve, reject) => {
+      const tx = db.transaction(PACK_STORE, 'readonly');
+      const req = tx.objectStore(PACK_STORE).get('current');
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => reject(req.error);
+    });
+    db.close();
+    return data;
+  } catch { return null; }
+}
+function syncWelcome() {
+  document.documentElement.setAttribute('data-has-history', indexedRows.length ? '1' : '0');
+}
+function rowIdentity(row) {
+  return [
+    col(row, 'Date/Time'), canonMspec(col(row, 'MSPEC')), col(row, 'Item #'),
+    col(row, 'Bundle #'), col(row, 'Thickness Average'), col(row, 'Density'), col(row, 'User')
+  ].join('|');
+}
 function applyTheme(theme) {
   const dark = theme === 'dark';
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
@@ -443,6 +515,7 @@ function syncViewChrome() {
 function setScreen(name) {
   screenName = name;
   document.documentElement.setAttribute('data-screen', name);
+  syncWelcome();
   syncViewChrome();
   if (name === 'view') requestAnimationFrame(() => { calculate(); });
 }
@@ -503,18 +576,13 @@ function setSpecInput(id, value, digits) {
 function specsFor(mspec) {
   const snap = currentSnapshot || {};
   const looked = lookupSpecs(mspec) || {};
-  const same = !mspec || String(mspec).trim() === String(snap.mspec || '').trim();
-  const snapMin = same ? snapNum(snap, 'min') : NaN;
-  const snapTarget = same ? snapNum(snap, 'target') : NaN;
-  const snapMax = same ? snapNum(snap, 'max') : NaN;
-  const snapRange = same ? parseRangeSpec(snap.range) : NaN;
-  const snapRangeThou = same ? rangeAsThousandths(snap.range) : NaN;
+  const same = !!(mspec && snap.mspec && canonMspec(mspec) === canonMspec(snap.mspec));
   return {
-    min: firstFinite(looked.min, snapMin),
-    target: firstFinite(looked.target, snapTarget),
-    max: firstFinite(looked.max, snapMax),
-    range: firstFinite(looked.range, snapRange),
-    rangeThou: firstFinite(looked.rangeThou, snapRangeThou),
+    min: firstFinite(looked.min, same ? snapNum(snap, 'min') : NaN),
+    target: firstFinite(looked.target, same ? snapNum(snap, 'target') : NaN),
+    max: firstFinite(looked.max, same ? snapNum(snap, 'max') : NaN),
+    range: firstFinite(looked.range, same ? parseRangeSpec(snap.range) : NaN),
+    rangeThou: firstFinite(looked.rangeThou, same ? rangeAsThousandths(snap.range) : NaN),
     densMin: firstFinite(looked.densMin, same ? snapNum(snap, 'densmin') : NaN),
     densTarget: firstFinite(looked.densTarget, same ? snapNum(snap, 'denstarget') : NaN),
     densMax: firstFinite(looked.densMax, same ? snapNum(snap, 'densmax') : NaN),
@@ -609,15 +677,30 @@ function splitDieGraph2(text) {
 }
 function col(row, ...names) {
   if (!row) return '';
+  const all = [];
   for (const n of names) {
+    (COL_ALIASES[n] || [n]).forEach(a => { if (!all.includes(a)) all.push(a); });
+  }
+  for (const n of all) {
     if (row[n] != null && String(row[n]).trim() !== '') return row[n];
   }
   const keys = Object.keys(row);
-  for (const n of names) {
+  for (const n of all) {
     const hit = keys.find(k => k.toLowerCase() === n.toLowerCase());
     if (hit && String(row[hit]).trim() !== '') return row[hit];
   }
   return '';
+}
+function canonMspec(v) {
+  let s = String(v ?? '').trim();
+  if (!s || /^#(N\/A|DIV\/0|VALUE|REF|NAME|NULL)/i.test(s)) return '';
+  s = s.replace(/,/g, '');
+  const n = parseFloat(s);
+  if (isFinite(n) && /^[-+]?\d*\.?\d+(e[-+]?\d+)?$/i.test(s)) {
+    if (Math.abs(n - Math.round(n)) < 1e-6) return String(Math.round(n));
+    return String(n);
+  }
+  return s.replace(/\.0+$/, '').toUpperCase();
 }
 function excelWhen(v) {
   const n = parseFloat(v);
@@ -629,13 +712,13 @@ function excelWhen(v) {
 }
 function lookupSpecs(mspec) {
   if (!historyPack || !historyPack.lookupByMspec) return null;
-  const key = String(mspec || '').trim();
+  const key = canonMspec(mspec);
   if (!key) return null;
-  const row = historyPack.lookupByMspec[key] || historyPack.lookupByMspec[key.replace(/\.0+$/, '')];
+  const row = historyPack.lookupByMspec[key];
   if (!row) return null;
-  const min = parseFloat(col(row, 'Lower Control', 'Lower Spec'));
+  const min = parseFloat(col(row, 'Lower Control'));
   const target = parseFloat(col(row, 'Target'));
-  const max = parseFloat(col(row, 'Upper Control', 'Upper Spec'));
+  const max = parseFloat(col(row, 'Upper Control'));
   const rangeThou = parseFloat(col(row, 'Thickness Range Max'));
   const densMin = parseFloat(col(row, 'Density Min'));
   const densTarget = parseFloat(col(row, 'Density Target'));
@@ -655,7 +738,20 @@ function lookupSpecs(mspec) {
     cellMax: finiteNum(cellMax) ? cellMax : null
   };
 }
-function numVal(v) { const n = parseFloat(v); return isFinite(n) ? n : NaN; }
+function buildLookupMap(rows) {
+  const map = {};
+  for (const row of rows || []) {
+    const keys = [canonMspec(col(row, 'MSPEC #', 'MSPEC'))].filter(Boolean);
+    for (const k of keys) map[k] = row;
+  }
+  return map;
+}
+function numVal(v) {
+  const s = String(v ?? '').trim();
+  if (!s || s[0] === '#') return NaN;
+  const n = parseFloat(s);
+  return isFinite(n) ? n : NaN;
+}
 function snapNum(snap, ...keys) {
   for (const k of keys) { const n = numVal(snap && snap[k]); if (isFinite(n)) return n; }
   return NaN;
@@ -802,7 +898,8 @@ function isoFromParts(y, m, d) {
   return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 function tonesForRow(row, mspec) {
-  const specs = specsFor(mspec);
+  const specs = lookupSpecs(mspec);
+  if (!specs) return {};
   const avg = numVal(col(row, 'Thickness Average'));
   const rangeThou = rangeAsThousandths(col(row, 'Thickness Range'));
   const dens = numVal(col(row, 'Density'));
@@ -815,7 +912,7 @@ function tonesForRow(row, mspec) {
     'Density': specTone(finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, specs.densMin, specs.densMax),
     'Cell Count MD': specTone(cellMd, specs.cellMin, specs.cellMax),
     'Cell Count CD': specTone(cellCd, specs.cellMin, specs.cellMax),
-    'Slit/Width': specTone(width, specs.widthMin, NaN)
+    'Slit/Width': specTone(width, NaN, NaN)
   };
 }
 async function indexHistory(onProg) {
@@ -825,7 +922,7 @@ async function indexHistory(onProg) {
     const row = rows[idx];
     const parts = dateParts(col(row, 'Date/Time'));
     const display = {}, num = {}, text = {};
-    const mspec = String(col(row, 'MSPEC', 'MSPEC #') || '').trim();
+    const mspec = canonMspec(col(row, 'MSPEC', 'MSPEC #'));
     const tone = tonesForRow(row, mspec);
     for (const k of TABLE_COLS) {
       const raw = col(row, k);
@@ -1140,9 +1237,10 @@ function fillSpcControls() {
   if (!preferred) {
     if (viewingIdx !== 'current' && historyPack && historyPack.rows[Number(viewingIdx)]) {
       const row = historyPack.rows[Number(viewingIdx)];
-      preferred = by === 'mspec' ? col(row, 'MSPEC') : col(row, 'Item #');
-    } else preferred = by === 'mspec' ? (currentSnapshot.mspec || '') : (currentSnapshot.item || '');
+      preferred = by === 'mspec' ? canonMspec(col(row, 'MSPEC')) : String(col(row, 'Item #') || '').trim();
+    } else preferred = by === 'mspec' ? canonMspec(currentSnapshot.mspec) : String(currentSnapshot.item || '').trim();
   }
+  if (by === 'mspec') preferred = canonMspec(preferred);
   sel.innerHTML = values.map(v => `<option value="${esc(v)}" ${String(v) === String(preferred) ? 'selected' : ''}>${esc(v)}</option>`).join('');
   if (preferred && values.includes(String(preferred))) sel.value = preferred;
   else if (values.length && !sel.value) sel.value = values[0];
@@ -1279,41 +1377,52 @@ async function parseTsvAsync(lines, onProg) {
   }
   return { headers, rows };
 }
-async function applyDieGraph2(text) {
-  showProgress('Reading clipboard', 8, 'Parsing Copy for Graph data');
+async function applyDieGraph2(text, append) {
+  showProgress(append ? 'Adding new results' : 'Reading clipboard', 8, 'Parsing Copy for Graph data');
   await yieldUi();
   const sections = splitDieGraph2(text);
-  showProgress('Reading clipboard', 18, 'Current sheet');
+  showProgress(append ? 'Adding new results' : 'Reading clipboard', 18, 'Current sheet');
   const applied = applyDieGraphLines(sections.CURRENT);
   const meta = Object.assign({}, applied.meta || {});
-  showProgress('Loading lookup', 28, 'MSPEC specs');
+  showProgress('Loading lookup', 28, 'Master Sheet specs');
   await yieldUi();
   const lookup = await parseTsvAsync(sections.LOOKUP);
   showProgress('Loading history', 40, `${sections.TABLES4.length.toLocaleString()} lines`);
   const table = await parseTsvAsync(sections.TABLES4, (i, n) => {
     showProgress('Loading history', 40 + Math.round(30 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()} rows`);
   });
-  const lookupByMspec = {};
-  for (const row of lookup.rows) {
-    const key = String(col(row, 'MSPEC #', 'MSPEC')).trim();
-    if (key) lookupByMspec[key] = row;
+  const incomingLookup = buildLookupMap(lookup.rows);
+  let rows = table.rows || [];
+  let lookupRows = lookup.rows || [];
+  let added = rows.length;
+  if (append && historyPack && historyPack.rows && historyPack.rows.length) {
+    const have = new Set(historyPack.rows.map(rowIdentity));
+    const fresh = rows.filter(r => !have.has(rowIdentity(r)));
+    added = fresh.length;
+    rows = historyPack.rows.concat(fresh);
+    const merged = Object.assign({}, historyPack.lookupByMspec, incomingLookup);
+    lookupRows = Object.values(merged);
   }
   captureCurrentSnapshot(meta);
-  historyPack = { item: meta.item || '', mspec: meta.mspec || '', rows: table.rows, lookupByMspec };
+  historyPack = {
+    item: meta.item || '', mspec: canonMspec(meta.mspec),
+    rows, lookupRows, lookupByMspec: buildLookupMap(lookupRows)
+  };
   tableFilters = {};
   tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
   enterMode = false;
-  showProgress('Indexing results', 72, `${table.rows.length.toLocaleString()} results`);
+  showProgress('Indexing results', 72, `${rows.length.toLocaleString()} results`);
   await indexHistory((i, n) => {
     showProgress('Indexing results', 72 + Math.round(22 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
   });
-  fillSpecPanel(specsFor(meta.mspec));
-  const n = table.rows.length;
+  fillSpecPanel(specsFor(canonMspec(meta.mspec)));
+  await persistPack();
   showProgress('Drawing table', 98, '');
   await yieldUi();
   hideProgress();
-  toast(n ? `Loaded ${n} past result${n === 1 ? '' : 's'}` : 'Loaded current sheet');
-  if (n) {
+  if (append) toast(added ? `Added ${added} new result${added === 1 ? '' : 's'}` : 'No new rows to add');
+  else toast(rows.length ? `Loaded ${rows.length} past result${rows.length === 1 ? '' : 's'}` : 'Loaded current sheet');
+  if (rows.length) {
     setScreen('history');
     requestAnimationFrame(() => renderHistoryTable());
   } else {
@@ -1323,21 +1432,21 @@ async function applyDieGraph2(text) {
   }
   return true;
 }
-async function applyClipboardText(text) {
+async function applyClipboardText(text, append) {
   text = (text || '').trim();
   if (!text) { toast('Clipboard is empty'); hideProgress(); return false; }
   try {
-    if (/^DIEGRAPH2\b/i.test(text)) await applyDieGraph2(text);
+    if (/^DIEGRAPH2\b/i.test(text)) await applyDieGraph2(text, append);
     else if (/^DIEGRAPH\b/i.test(text)) {
       hideProgress();
-      historyPack = null; indexedRows = []; enterMode = false;
+      enterMode = false;
       applyDieGraph(text); captureCurrentSnapshot({});
       viewingIdx = 'current'; setViewMode('centration'); setScreen('view'); refreshChecks();
     } else {
       hideProgress();
       const values = text.split(/[\s,]+/).map(Number).filter(v => !isNaN(v));
       if (!values.length) { toast('No numbers found'); return false; }
-      historyPack = null; indexedRows = []; enterMode = false;
+      enterMode = false;
       applyPlainNumbers(values); captureCurrentSnapshot({});
       viewingIdx = 'current'; setViewMode('centration'); setScreen('view'); refreshChecks();
     }
@@ -1351,18 +1460,18 @@ async function applyClipboardText(text) {
     return false;
   }
 }
-async function applyFromClipboard() {
-  showProgress('Reading clipboard', 4, '');
+async function applyFromClipboard(append) {
+  showProgress(append ? 'Adding new results' : 'Reading clipboard', 4, '');
   await yieldUi();
   try {
     if (navigator.clipboard && navigator.clipboard.readText) {
       const text = await navigator.clipboard.readText();
-      await applyClipboardText(text);
+      await applyClipboardText(text, append === true);
       return;
     }
   } catch { /* fall through */ }
   hideProgress();
-  pasteIntent = true;
+  pasteIntent = append === true ? 'append' : true;
   catcher.focus();
   catcher.select();
   toast('Clipboard blocked — press Ctrl+V');
@@ -1768,18 +1877,25 @@ window.addEventListener('resize', () => {
   if (screenName === 'view') draw();
   if (screenName === 'history') { histRangeKey = ''; renderHistoryBody(true); }
 });
-document.getElementById('welcomePaste').onclick = applyFromClipboard;
-document.getElementById('histPaste').onclick = applyFromClipboard;
+document.getElementById('welcomePaste').onclick = () => applyFromClipboard(false);
+document.getElementById('welcomePasteMore').onclick = () => applyFromClipboard(true);
+document.getElementById('histPaste').onclick = () => applyFromClipboard(true);
+document.getElementById('welcomeHistory').onclick = () => {
+  if (!indexedRows.length) { toast('Paste results first'); return; }
+  setViewMode('centration'); setScreen('history');
+  requestAnimationFrame(() => renderHistoryTable());
+};
 document.getElementById('welcomeEnter').onclick = () => {
   enterMode = true;
-  historyPack = null; indexedRows = []; viewingIdx = 'current';
+  viewingIdx = 'current';
   points.forEach(p => { p.value = ''; });
-  captureCurrentSnapshot({});
   setViewMode('centration'); setScreen('view'); refreshChecks();
 };
-document.getElementById('welcomeSpc').onclick = document.getElementById('histSpc').onclick = openSpc;
+document.getElementById('histSpc').onclick = openSpc;
 document.getElementById('histBack').onclick = () => {
-  enterMode = false; historyPack = null; tableFilters = {}; indexedRows = []; setScreen('welcome');
+  enterMode = false;
+  setViewMode('centration');
+  setScreen('welcome');
 };
 document.getElementById('viewBack').onclick = () => {
   if (indexedRows.length && !enterMode) {
@@ -1846,12 +1962,12 @@ document.addEventListener('paste', (e) => {
   const text = (e.clipboardData || window.clipboardData).getData('text');
   if (pasteIntent || screenName === 'welcome' || screenName === 'history' || e.target.id === 'clipCatcher') {
     e.preventDefault();
-    applyClipboardText(text);
+    applyClipboardText(text, pasteIntent === 'append');
   }
 });
 catcher.addEventListener('paste', (e) => {
   const text = (e.clipboardData || window.clipboardData).getData('text');
-  e.preventDefault(); applyClipboardText(text);
+  e.preventDefault(); applyClipboardText(text, pasteIntent === 'append');
 });
 document.getElementById('minThickness').oninput = document.getElementById('maxThickness').oninput = () => { customArrow = false; calculate(); };
 document.getElementById('rangeSpec').oninput = document.getElementById('targetThickness').oninput = calculate;
@@ -1894,6 +2010,20 @@ if (saved.arrow) arrow = saved.arrow;
 setupInputs([]);
 setViewMode('centration');
 setScreen('welcome');
+document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
+restorePack().then(async data => {
+  if (!data || !Array.isArray(data.rows) || !data.rows.length) return;
+  if (data.snapshot) currentSnapshot = data.snapshot;
+  historyPack = {
+    item: (data.snapshot && data.snapshot.item) || '',
+    mspec: canonMspec(data.snapshot && data.snapshot.mspec),
+    rows: data.rows,
+    lookupRows: data.lookupRows || [],
+    lookupByMspec: buildLookupMap(data.lookupRows || [])
+  };
+  await indexHistory();
+  syncWelcome();
+});
 </script>
 </body>
 </html>

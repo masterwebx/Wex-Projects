@@ -50,8 +50,16 @@ assert.match(vba, /cellMd=/);
 assert.match(vba, /width=/);
 
 assert.match(html, /data-screen="welcome"/);
-assert.match(html, /Paste from clipboard/);
-assert.match(html, /Enter results/);
+assert.match(html, /Paste results/);
+assert.match(html, /Enter points by hand/);
+assert.match(html, /Paste more data/);
+assert.match(html, /Go to main/);
+assert.match(html, /id="welcomeHistory"/);
+assert.doesNotMatch(html, /id="welcomeSpc"/);
+assert.match(html, /APP_VERSION/);
+assert.match(html, /function persistPack/);
+assert.match(html, /function canonMspec/);
+assert.match(html, /Lower Control/);
 assert.match(html, /id="histTable"/);
 assert.match(html, /Clear filters/);
 assert.match(html, /data-view/);
@@ -78,7 +86,6 @@ assert.match(html, /spcHideOutliers = true/);
 assert.match(html, /function extremeFences/);
 assert.match(html, /function indexHistory/);
 assert.match(html, /function renderHistoryBody/);
-assert.match(html, /id="welcomeSpc"/);
 assert.match(html, /id="histSpc"/);
 assert.match(html, /id="modeBtn"/);
 assert.doesNotMatch(html, /id="modeBtn"[^>]*hidden/);
@@ -153,5 +160,38 @@ function extremeFences(values) {
 const fences = extremeFences([1, 2, 2, 3, 3, 3, 4, 100]);
 assert.ok(100 > fences.hi);
 assert.ok(3 < fences.hi);
+
+const m4780 = lookup.rows.find(r => String(col(r, 'MSPEC #')).replace(/\.0+$/, '') === '4780');
+assert.ok(m4780);
+assert.equal(parseFloat(col(m4780, 'Lower Control')), 0.5);
+assert.equal(parseFloat(col(m4780, 'Upper Control')), 0.525);
+assert.notEqual(parseFloat(col(m4780, 'Lower Control')), 0.032);
+
+const row3000 = {
+  'MSPEC #': '3000', AF: 'AF500', 'Lower Control': '0.530', Target: '0.540',
+  'Upper Control': '0.555', 'Thickness Range Max': '40', 'Cell Count Min': '18',
+  'Cell Count Max': '24', 'Density Min': '1.55', 'Density Target': '1.6', 'Density Max': '1.65'
+};
+assert.equal(parseFloat(col(row3000, 'Lower Control')), 0.53);
+assert.equal(parseFloat(col(row3000, 'Density Min')), 1.55);
+assert.match(html, /'Item'/);
+assert.match(html, /'Width'/);
+assert.match(vba, /Master Sheet/);
+assert.match(vba, /Table7/);
+
+function canonMspec(v) {
+  let s = String(v ?? '').trim();
+  if (!s || s[0] === '#') return '';
+  s = s.replace(/,/g, '');
+  const n = parseFloat(s);
+  if (isFinite(n) && /^[-+]?\d*\.?\d+(e[-+]?\d+)?$/i.test(s)) {
+    if (Math.abs(n - Math.round(n)) < 1e-6) return String(Math.round(n));
+    return String(n);
+  }
+  return s.replace(/\.0+$/, '').toUpperCase();
+}
+assert.equal(canonMspec('3000.0'), '3000');
+assert.equal(canonMspec('4780'), '4780');
+assert.equal(canonMspec('#N/A'), '');
 
 console.log('parse-diegraph tests passed');

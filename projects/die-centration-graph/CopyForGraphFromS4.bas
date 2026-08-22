@@ -217,88 +217,240 @@ End Function
 Private Function LookupTableTsv() As String
     Dim ws As Worksheet
     Dim tsv As String
+    Dim aioWb As Workbook
+    Dim openedAio As Boolean
     
-    ' 1) Any open Quality AIO / Master Sheet (link path may not match OneDrive vs network)
-    Set ws = OpenMasterSheetAny()
-    If Not ws Is Nothing Then
-        LookupTableTsv = MasterSheetRangeToTsv(ws)
-        If LenB(LookupTableTsv) > 0 Then Exit Function
+    ' S4 VLOOKUPs read Quality AIO Master Sheet (density is K/L/M). The local
+    ' S4 Master Sheet copy is stale and usually has empty density columns.
+    Set aioWb = FindOrOpenQualityAio(openedAio)
+    If Not aioWb Is Nothing Then
+        On Error Resume Next
+        Set ws = aioWb.Worksheets("Master Sheet")
+        On Error GoTo 0
+        tsv = MasterSheetRangeToTsv(ws)
+        If LookupTsvHasDensity(tsv) Then
+            LookupTableTsv = tsv
+            GoTo DoneLookup
+        End If
+        If LenB(tsv) > 0 Then LookupTableTsv = tsv
     End If
     
-    ' 2) Workbook S4 VLOOKUPs, if it is already open
-    Set ws = LinkedMasterSheetIfOpen()
-    If Not ws Is Nothing Then
-        LookupTableTsv = MasterSheetRangeToTsv(ws)
-        If LenB(LookupTableTsv) > 0 Then Exit Function
-    End If
-    
-    ' 3) Same [n]Master Sheet cache S4 uses, so specs match E6/G6 even if AIO is closed
-    tsv = LinkedMasterSheetToTsv()
-    If LenB(tsv) > 0 Then
+    Set ws = BestOpenMasterSheet()
+    tsv = MasterSheetRangeToTsv(ws)
+    If LookupTsvHasDensity(tsv) Then
         LookupTableTsv = tsv
-        Exit Function
+        GoTo DoneLookup
+    End If
+    If LenB(LookupTableTsv) = 0 And LenB(tsv) > 0 Then LookupTableTsv = tsv
+    
+    tsv = LinkedMasterSheetToTsv()
+    If LookupTsvHasDensity(tsv) Then
+        LookupTableTsv = tsv
+        GoTo DoneLookup
+    End If
+    If LenB(LookupTableTsv) = 0 And LenB(tsv) > 0 Then LookupTableTsv = tsv
+    
+    If LenB(LookupTableTsv) = 0 Then
+        LookupTableTsv = MasterSheetRangeToTsv(SheetByName("Master Sheet"))
     End If
     
-    ' 4) Local Master Sheet (Quality AIO itself, or last-resort stale copy)
-    LookupTableTsv = MasterSheetRangeToTsv(SheetByName("Master Sheet"))
+DoneLookup:
+    If openedAio Then
+        On Error Resume Next
+        aioWb.Close SaveChanges:=False
+        On Error GoTo 0
+    End If
 End Function
 
-Private Function OpenMasterSheetAny() As Worksheet
+Private Function IsAioWorkbookName(ByVal n As String) As Boolean
+    IsAioWorkbookName = (InStr(1, n, "Quality AIO", vbTextCompare) > 0)
+End Function
+
+Private Function HostLinkSources() As Variant
+    On Error Resume Next
+    If Not TargetWorkbook Is Nothing Then
+        HostLinkSources = TargetWorkbook.LinkSources(xlExcelLinks)
+    End If
+    If IsEmpty(HostLinkSources) Then HostLinkSources = ThisWorkbook.LinkSources(xlExcelLinks)
+End Function
+
+Private Function FindOrOpenQualityAio(ByRef opened As Boolean) As Workbook
+    Dim wb As Workbook
+    Dim links As Variant
+    Dim i As Long
+    Dim p As String
+    Dim fname As String
+    
+    opened = False
+    For Each wb In Application.Workbooks
+        If IsAioWorkbookName(wb.Name) Then
+            Set FindOrOpenQualityAio = wb
+            Exit Function
+        End If
+    Next wb
+    
+    links = HostLinkSources()
+    If Not IsArray(links) Then Exit Function
+    
+    For i = LBound(links) To UBound(links)
+        p = CStr(links(i))
+        fname = LinkFileName(p)
+        If IsAioWorkbookName(fname) Or InStr(1, p, "Quality AIO", vbTextCompare) > 0 Or InStr(1, p, "Quality%20AIO", vbTextCompare) > 0 Then
+            For Each wb In Application.Workbooks
+                If WorkbookMatchesLink(wb, p, fname) Then
+                    Set FindOrOpenQualityAio = wb
+                    Exit Function
+                End If
+            Next wb
+            On Error Resume Next
+            Set wb = Workbooks.Open(Filename:=p, UpdateLinks:=0, ReadOnly:=True, IgnoreReadOnlyRecommended:=True, AddToMru:=False)
+            On Error GoTo 0
+            If Not wb Is Nothing Then
+                opened = True
+                Set FindOrOpenQualityAio = wb
+                Exit Function
+            End If
+        End If
+    Next i
+End Function
+
+Private Function BestOpenMasterSheet() As Worksheet
     Dim wb As Workbook
     Dim ws As Worksheet
-    Dim lo As ListObject
+    Dim best As Worksheet
+    Dim bestScore As Long
+    Dim score As Long
     
+    bestScore = -1
     For Each wb In Application.Workbooks
-        If StrComp(wb.Name, ThisWorkbook.Name, vbTextCompare) = 0 Then GoTo NextWb
+        If StrComp(wb.Name, ThisWorkbook.Name, vbTextCompare) = 0 Then GoTo NextBest
         If Not dataWb Is Nothing Then
-            If StrComp(wb.Name, dataWb.Name, vbTextCompare) = 0 Then GoTo NextWb
+            If StrComp(wb.Name, dataWb.Name, vbTextCompare) = 0 Then GoTo NextBest
         End If
         On Error Resume Next
         Set ws = wb.Worksheets("Master Sheet")
         On Error GoTo 0
         If Not ws Is Nothing Then
-            Set lo = MspecListObject(ws)
-            If Not lo Is Nothing Then
-                Set OpenMasterSheetAny = ws
-                Exit Function
+            If Not MspecListObject(ws) Is Nothing Then
+                score = ScoreMasterSheet(ws)
+                If score > bestScore Then
+                    bestScore = score
+                    Set best = ws
+                End If
             End If
         End If
         Set ws = Nothing
-NextWb:
+NextBest:
     Next wb
+    Set BestOpenMasterSheet = best
+End Function
+
+Private Function ScoreMasterSheet(ByVal ws As Worksheet) As Long
+    Dim lo As ListObject
+    Dim hdr As Range
+    Dim densCol As Long
+    Dim r As Long
+    Dim n As Long
+    
+    If ws Is Nothing Then Exit Function
+    If IsAioWorkbookName(ws.Parent.Name) Then ScoreMasterSheet = 10000
+    Set lo = MspecListObject(ws)
+    If lo Is Nothing Then Exit Function
+    Set hdr = lo.HeaderRowRange
+    For n = 1 To hdr.Columns.Count
+        If StrComp(Trim$(CStr(Nz(hdr.Cells(1, n).Value))), "Density Target", vbTextCompare) = 0 Then
+            densCol = n
+            Exit For
+        End If
+    Next n
+    If densCol = 0 Or lo.DataBodyRange Is Nothing Then Exit Function
+    For r = 1 To Application.Min(lo.DataBodyRange.Rows.Count, 120)
+        If Not IsBlankLink(lo.DataBodyRange.Cells(r, densCol).Value) Then
+            ScoreMasterSheet = ScoreMasterSheet + 1
+        End If
+    Next r
+End Function
+
+Private Function LookupTsvHasDensity(ByVal tsv As String) As Boolean
+    Dim lines() As String
+    Dim heads() As String
+    Dim parts() As String
+    Dim i As Long
+    Dim densIdx As Long
+    Dim n As Long
+    Dim v As Double
+    
+    If LenB(tsv) = 0 Then Exit Function
+    lines = Split(tsv, vbCrLf)
+    If UBound(lines) < 1 Then Exit Function
+    heads = Split(lines(0), vbTab)
+    densIdx = -1
+    For i = LBound(heads) To UBound(heads)
+        If StrComp(Trim$(heads(i)), "Density Target", vbTextCompare) = 0 Then
+            densIdx = i
+            Exit For
+        End If
+    Next i
+    If densIdx < 0 Then Exit Function
+    For i = 1 To UBound(lines)
+        If LenB(lines(i)) = 0 Then GoTo NextDensLine
+        parts = Split(lines(i), vbTab)
+        If UBound(parts) >= densIdx Then
+            If LenB(Trim$(parts(densIdx))) > 0 And IsNumeric(parts(densIdx)) Then
+                v = CDbl(parts(densIdx))
+                If v > 0 And Abs(v - 1) > 0.02 Then n = n + 1
+            End If
+        End If
+NextDensLine:
+    Next i
+    LookupTsvHasDensity = (n >= 8)
+End Function
+
+Private Function FindMspecHeaderRow(ByVal ws As Worksheet) As Long
+    Dim r As Long
+    If ws Is Nothing Then Exit Function
+    For r = 1 To 12
+        If StrComp(Trim$(CStr(Nz(ws.Cells(r, 1).Value))), "MSPEC #", vbTextCompare) = 0 Then
+            FindMspecHeaderRow = r
+            Exit Function
+        End If
+    Next r
 End Function
 
 Private Function MasterSheetRangeToTsv(ByVal ws As Worksheet) As String
     Dim lo As ListObject
+    Dim hdrRow As Long
+    Dim firstCol As Long
     Dim lastCol As Long
     Dim lastRow As Long
     Dim c As Long
-    Dim r As Long
     Dim nC As Long
     
     If ws Is Nothing Then Exit Function
-    
-    lastCol = 17
-    lastRow = 1
     Set lo = MspecListObject(ws)
     If Not lo Is Nothing Then
-        lastRow = Application.Max(lastRow, lo.Range.Row + lo.Range.Rows.Count - 1)
-        lastCol = Application.Max(lastCol, lo.Range.Column + lo.Range.Columns.Count - 1)
+        hdrRow = lo.HeaderRowRange.Row
+        firstCol = lo.Range.Column
+        lastCol = lo.Range.Column + lo.Range.Columns.Count - 1
+        lastRow = lo.Range.Row + lo.Range.Rows.Count - 1
+    Else
+        hdrRow = FindMspecHeaderRow(ws)
+        If hdrRow = 0 Then Exit Function
+        firstCol = 1
+        lastCol = 17
+        On Error Resume Next
+        lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+        On Error GoTo 0
     End If
     
     nC = 0
     For c = 1 To 60
-        If Not IsBlankLink(ws.Cells(1, c).Value) Then nC = c
+        If Not IsBlankLink(ws.Cells(hdrRow, c).Value) Then nC = c
     Next c
     If nC > lastCol Then lastCol = nC
     If lastCol > 60 Then lastCol = 60
-    
-    On Error Resume Next
-    r = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
-    On Error GoTo 0
-    If r > lastRow Then lastRow = r
-    If lastRow < 2 Or lastCol < 6 Then Exit Function
-    MasterSheetRangeToTsv = RangeToTsv(ws.Range(ws.Cells(1, 1), ws.Cells(lastRow, lastCol)))
+    If lastRow <= hdrRow Or lastCol < 6 Then Exit Function
+    MasterSheetRangeToTsv = RangeToTsv(ws.Range(ws.Cells(hdrRow, firstCol), ws.Cells(lastRow, lastCol)))
 End Function
 
 Private Function MspecListObject(ByVal ws As Worksheet) As ListObject

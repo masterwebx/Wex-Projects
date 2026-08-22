@@ -20,12 +20,20 @@ function parseRangeSpec(raw) {
 function parseTsv(lines) {
   const nonempty = lines.map(s => String(s ?? '').replace(/\r/g, '')).filter(l => l.length);
   if (!nonempty.length) return { headers: [], rows: [] };
-  const headers = nonempty[0].split('\t').map(s => s.trim());
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(nonempty.length, 8); i++) {
+    const heads = nonempty[i].split('\t').map(s => s.trim());
+    if (heads.some(h => /^(mspec#?|mspec)$/i.test(String(h).replace(/\s+/g, '')) || /^mspec\s*#?$/i.test(h))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  const headers = nonempty[headerIdx].split('\t').map(s => s.trim());
   const rows = [];
-  for (let i = 1; i < nonempty.length; i++) {
+  for (let i = headerIdx + 1; i < nonempty.length; i++) {
     const parts = nonempty[i].split('\t');
     const obj = {};
-    headers.forEach((h, j) => { obj[h] = parts[j] == null ? '' : parts[j]; });
+    headers.forEach((h, j) => { if (h) obj[h] = parts[j] == null ? '' : parts[j]; });
     rows.push(obj);
   }
   return { headers, rows };
@@ -185,7 +193,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.6\.3'/);
+assert.match(html, /APP_VERSION = '1\.6\.4'/);
 assert.match(html, /Missing checks/);
 assert.match(html, /function asThousandths/);
 assert.match(html, /function specTargetsText/);
@@ -236,13 +244,18 @@ assert.match(html, /MSPEC_COL_W/);
 assert.match(html, /function applyMspecColgroup/);
 assert.match(html, /setLineDash\(\[7, 6\]\)/);
 assert.match(html, /class="card comp-chart"/);
-assert.match(vba, /OpenMasterSheetAny/);
+assert.match(vba, /FindOrOpenQualityAio/);
+assert.match(vba, /LookupTsvHasDensity/);
+assert.match(vba, /Quality AIO/);
 assert.match(vba, /MasterSheetRangeToTsv/);
+assert.match(vba, /FindMspecHeaderRow/);
 assert.match(vba, /For r = 1 To 2000/);
 assert.match(vbaS1, /A:BH/);
-assert.match(vbaS1, /OpenMasterSheetAny/);
-assert.match(vbaFromS4, /OpenMasterSheetAny/);
-assert.match(vbaFromS1, /MasterSheetRangeToTsv/);
+assert.match(vbaS1, /FindOrOpenQualityAio/);
+assert.match(vbaFromS4, /FindOrOpenQualityAio/);
+assert.match(vbaFromS1, /LookupTsvHasDensity/);
+assert.match(html, /headerIdx/);
+assert.match(html, /incomingHasDens/);
 assert.match(html, /Cell count min/);
 assert.match(html, /Target thickness/);
 assert.match(html, /function axisRange/);
@@ -376,7 +389,8 @@ assert.match(html, /dieGraphPack\.v2/);
 assert.match(html, /id="specSource"/);
 assert.match(html, /Master Sheet MSPEC/);
 assert.doesNotMatch(html, /Object\.assign\(\{\}, historyPack\.lookupByMspec/);
-assert.match(html, /if \(!lookupRows\.length && historyPack && historyPack\.lookupRows\)/);
+assert.match(html, /incomingHasMspec/);
+assert.match(html, /buildLookupMap\(lookupRows\)/);
 
 function canonMspec(v) {
   let s = String(v ?? '').trim();
@@ -619,6 +633,21 @@ assert.equal(col(row4460, 'Filename'), '4460 S3-6.0 Richter-AF500 2.0#');
 assert.equal(String(col(row4460, 'Density Max') || ''), '');
 assert.equal(densityFromFilename(row4460), 2);
 assert.equal(col(dump4460.rows[1], 'Filename'), '5000 S1 9.3 die AF030 2.1# Rev 7-25-13');
+const titled = parseTsv([
+  '\t\tThickness',
+  'MSPEC #\tAF#\tLower Control\tTarget\tUpper Control\tDensity Min\tDensity Target\tDensity Max\tFilename',
+  '4460\tAF500\t.505\t.515\t.52\t2\t2.1\t2.2\t4460 S3-6.0 Richter-AF500 2.0#'
+]);
+assert.equal(col(titled.rows[0], 'MSPEC #'), '4460');
+assert.equal(parseFloat(col(titled.rows[0], 'Density Target')), 2.1);
+assert.equal(parseFloat(col(titled.rows[0], 'Density Min')), 2);
+const aioLike = parseTsv([
+  'MSPEC #\tAF#\tLower Control\tTarget\tUpper Control\tCell Count Min\tCell Count Max\tDensity Min\tDensity Target\tDensity Max\tFilename',
+  '4005\tAF060\t.057\t.062\t.067\t24\t28\t1.1\t1.2\t1.3\t4005 S1 AF060 1.2# DOW',
+  '4460\tAF500\t.505\t.515\t.52\t18\t22\t2\t2.1\t2.2\t4460 S3-6.0 Richter-AF500 2.0#'
+]);
+assert.equal(parseFloat(col(aioLike.rows.find(r => col(r, 'MSPEC #') === '4005'), 'Density Target')), 1.2);
+assert.equal(parseFloat(col(aioLike.rows.find(r => col(r, 'MSPEC #') === '4460'), 'Density Max')), 2.2);
 assert.equal(densityFromFilename({ Filename: '4005 S1  5.8 Die 26 Mandrel AF060 1.2# DOW' }), 1.2);
 assert.equal(isDummyDensityTriple(NaN, 1, 1), true);
 assert.equal(isDummyDensityTriple(1.1, 1.2, 1.3), false);

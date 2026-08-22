@@ -568,7 +568,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.6.3';
+const APP_VERSION = '1.6.4';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -3035,14 +3035,22 @@ async function parseTsvAsync(lines, onProg) {
     if (onProg && i && i % 2000 === 0) { onProg(i, lines.length); await yieldUi(); }
   }
   if (!nonempty.length) return { headers: [], rows: [] };
-  const headers = nonempty[0].split('\t').map(s => s.trim());
-  const rows = new Array(nonempty.length - 1);
-  for (let i = 1; i < nonempty.length; i++) {
+  let headerIdx = 0;
+  for (let i = 0; i < Math.min(nonempty.length, 8); i++) {
+    const heads = nonempty[i].split('\t').map(s => s.trim());
+    if (heads.some(h => /^(mspec#?|mspec)$/i.test(String(h).replace(/\s+/g, '')) || /^mspec\s*#?$/i.test(h))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  const headers = nonempty[headerIdx].split('\t').map(s => s.trim());
+  const rows = [];
+  for (let i = headerIdx + 1; i < nonempty.length; i++) {
     const parts = nonempty[i].split('\t');
     const obj = {};
-    headers.forEach((h, j) => { obj[h] = parts[j] == null ? '' : parts[j]; });
-    rows[i - 1] = obj;
-    if (onProg && i % 400 === 0) { onProg(i, nonempty.length); await yieldUi(); }
+    headers.forEach((h, j) => { if (h) obj[h] = parts[j] == null ? '' : parts[j]; });
+    rows.push(obj);
+    if (onProg && (i - headerIdx) % 400 === 0) { onProg(i, nonempty.length); await yieldUi(); }
   }
   return { headers, rows };
 }
@@ -3070,7 +3078,20 @@ async function applyDieGraph2(text, append) {
     added = fresh.length;
     rows = historyPack.rows.concat(fresh);
   }
-  if (!lookupRows.length && historyPack && historyPack.lookupRows) lookupRows = historyPack.lookupRows;
+  const incomingHasMspec = Object.keys(incomingLookup).length > 0;
+  const incomingHasDens = lookupRows.some(r => {
+    const t = numVal(col(r, 'Density Target'));
+    const n = numVal(col(r, 'Density Min'));
+    return (finiteNum(t) && Math.abs(t - 1) > 0.02) || (finiteNum(n) && Math.abs(n - 1) > 0.02);
+  });
+  if (historyPack && historyPack.lookupRows && historyPack.lookupRows.length) {
+    const prevHasDens = historyPack.lookupRows.some(r => {
+      const t = numVal(col(r, 'Density Target'));
+      const n = numVal(col(r, 'Density Min'));
+      return (finiteNum(t) && Math.abs(t - 1) > 0.02) || (finiteNum(n) && Math.abs(n - 1) > 0.02);
+    });
+    if (!incomingHasMspec || (prevHasDens && !incomingHasDens)) lookupRows = historyPack.lookupRows;
+  }
   const specPatches = Object.assign({}, (append && historyPack && historyPack.specPatches) || {});
   const patchKey = canonMspec(meta.mspec);
   const patch = currentSpecPatch(meta);
@@ -3079,7 +3100,7 @@ async function applyDieGraph2(text, append) {
   historyPack = {
     item: meta.item || '', mspec: canonMspec(meta.mspec),
     rows, lookupRows, specPatches,
-    lookupByMspec: incomingLookup && Object.keys(incomingLookup).length ? incomingLookup : buildLookupMap(lookupRows)
+    lookupByMspec: buildLookupMap(lookupRows)
   };
   tableFilters = {};
   tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };

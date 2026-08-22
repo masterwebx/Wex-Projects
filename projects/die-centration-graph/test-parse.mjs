@@ -193,7 +193,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.6\.5'/);
+assert.match(html, /APP_VERSION = '1\.6\.6'/);
 assert.match(html, /Missing checks/);
 assert.match(html, /function asThousandths/);
 assert.match(html, /function specTargetsText/);
@@ -224,7 +224,16 @@ assert.match(html, /function densityFromFilename/);
 assert.match(html, /function failLineForCheck/);
 assert.match(html, /function openMspecs/);
 assert.match(html, /function openComplianceReport/);
-assert.match(html, /id="complianceMissWeek"/);
+assert.doesNotMatch(html, /id="complianceMissWeek"/);
+assert.match(html, /function formatHourRanges/);
+assert.match(html, /Pass\*/);
+assert.match(html, /function displayOverallPf/);
+assert.match(html, /id="complianceJumpDate"/);
+assert.match(html, /id="compRptLines"/);
+assert.match(html, /sticky-eye/);
+assert.match(html, /hasHistory/);
+assert.match(html, /YELLOW_R - t \* \(YELLOW_R - inner\)/);
+assert.match(html, /downloadCompliancePdf\(days, lines\)/);
 assert.match(html, /id="complianceReportOverlay"/);
 assert.match(html, /id="progressOverlay"/);
 assert.match(html, /id="prevResult"/);
@@ -684,7 +693,8 @@ for (const m of html.matchAll(/getElementById\(\s*['"]([^'"]+)['"]\s*\)/g)) {
 }
 assert.deepEqual(missingIds, [], `getElementById missing in markup: ${missingIds.join(', ')}`);
 
-const script = html.match(/<script>([\s\S]*)<\/script>/);
+const scripts = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)];
+const script = scripts[scripts.length - 1];
 assert.ok(script, 'inline script present');
 const tmpJs = path.join(dir, '.script-check.js');
 fs.writeFileSync(tmpJs, script[1]);
@@ -702,5 +712,25 @@ const pdfBytes = pdfApi.writePdf(pdfDoc);
 assert.equal(Buffer.from(pdfBytes.subarray(0, 8)).toString(), '%PDF-1.4');
 assert.ok(pdfBytes.length > 400);
 assert.ok(!Buffer.from(pdfBytes).includes(Buffer.from('/DCTDecode')));
+
+function fmtHourLabel(h) {
+  const hr = ((h + 11) % 12) + 1;
+  return `${hr}:00 ${h < 12 ? 'AM' : 'PM'}`;
+}
+function formatHourRanges(hours) {
+  const sorted = [...new Set((hours || []).map(Number).filter(h => h >= 0 && h < 24))].sort((a, b) => a - b);
+  if (!sorted.length) return '';
+  const ranges = [];
+  let start = sorted[0], prev = sorted[0];
+  for (let i = 1; i <= sorted.length; i++) {
+    const h = sorted[i];
+    if (h === prev + 1) { prev = h; continue; }
+    ranges.push(start === prev ? fmtHourLabel(start) : `${fmtHourLabel(start)}–${fmtHourLabel(prev)}`);
+    start = prev = h;
+  }
+  return ranges.join(', ');
+}
+assert.equal(formatHourRanges([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,23]), '12:00 AM–2:00 PM, 11:00 PM');
+assert.equal(formatHourRanges([12]), '12:00 PM');
 
 console.log('parse-diegraph tests passed');

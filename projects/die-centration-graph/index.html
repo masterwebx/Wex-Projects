@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Die Centration Graph</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%231d4ed8'/><circle cx='16' cy='16' r='10' fill='%233c9d5a'/><circle cx='16' cy='16' r='4' fill='%23e2b340'/></svg>">
+<script>
+try {
+  var _dgBoot = JSON.parse(localStorage.getItem('dieGraphState.v5') || '{}');
+  if (_dgBoot && _dgBoot.hasHistory) document.documentElement.setAttribute('data-screen', 'history');
+} catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
@@ -69,7 +75,13 @@
   .hist-card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0; }
   .hist-head-freeze { flex: 0 0 auto; overflow-x: auto; overflow-y: hidden; border-bottom: 1px solid var(--line); scrollbar-width: none; }
   .hist-head-freeze::-webkit-scrollbar { display: none; }
-  .table-wrap { flex: 1; min-height: 0; overflow: auto; padding: 0; }
+  .table-wrap { flex: 1; min-height: 0; overflow: auto; padding: 0; scrollbar-gutter: stable; }
+  table.results th.sticky-eye, table.results td.sticky-eye {
+    position: sticky; left: 0; z-index: 4; background: var(--bg-elev);
+    box-shadow: 1px 0 0 var(--line);
+  }
+  table.results thead th.sticky-eye { z-index: 5; }
+  table.results tbody tr:hover td.sticky-eye { background: var(--idle); }
   table.results {
     width: max-content; border-collapse: separate; border-spacing: 0; font-size: 14px;
     table-layout: fixed;
@@ -214,6 +226,7 @@
   .comp-sum { font-size: 14px; font-weight: 700; text-align: right; max-width: 280px; }
   .comp-sum.good { color: var(--ok); }
   .comp-sum.bad { color: var(--thick); }
+  .comp-sum.warn { color: var(--thin); }
   .comp-sum.gray { color: #9ca3af; }
   .comp-empty { color: var(--muted); font-size: 14px; margin: 0; }
   .rpt-list { max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 4px; }
@@ -227,7 +240,21 @@
   .pf-pill { font-weight: 700; }
   .pf-pill.good { color: var(--ok); }
   .pf-pill.bad { color: var(--thick); }
+  .pf-pill.warn { color: var(--thin); }
   .pf-pill.gray { color: #9ca3af; }
+  .stat.warn, .alert.warn { background: var(--thin-bg); color: var(--thin); border-color: var(--thin); }
+  .cal-jump {
+    position: relative; width: 40px; min-height: 40px; display: grid; place-items: center;
+    border: 2px solid var(--line); border-radius: 12px; background: var(--idle); color: var(--text);
+    cursor: pointer; flex: 0 0 40px;
+  }
+  .cal-jump:hover { border-color: var(--accent); color: var(--accent); }
+  .cal-jump input[type="date"] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    border: 0; padding: 0; margin: 0;
+  }
+  .cal-jump svg { width: 20px; height: 20px; pointer-events: none; }
+  .date-slicers .cal-jump { width: 32px; min-height: 32px; flex: 0 0 32px; border-radius: 8px; }
   .hist-meta { margin: 0; font-size: 14px; color: var(--muted); }
   .view-meta { margin: 4px 0 0; font-size: 15px; color: var(--muted); font-weight: 700; }
   .progress-track { height: 12px; border-radius: 999px; background: var(--line); overflow: hidden; }
@@ -384,6 +411,10 @@
       <button class="secondary" type="button" id="compliancePrevWeek">Previous week</button>
       <button class="secondary" type="button" id="complianceThisWeek">This week</button>
       <button class="secondary" type="button" id="complianceNextWeek">Next week</button>
+      <label class="cal-jump" title="Jump to date">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        <input type="date" id="complianceJumpDate" aria-label="Jump to date">
+      </label>
       <label class="line-filter">Line <select id="complianceLine"></select></label>
       <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
       <button type="button" id="complianceDownload">Download PDF</button>
@@ -400,19 +431,24 @@
     <div class="comp-hours" id="complianceHours"></div>
   </div>
   <div class="card comp-scroll">
-    <div id="complianceMissWeek"></div>
     <div id="complianceDays"></div>
   </div>
 </section>
 <div class="overlay" id="complianceReportOverlay">
   <div class="modal">
     <h3>Compliance PDF</h3>
-    <p class="hist-meta">Choose the days to include. Each day stays on its own page.</p>
+    <p class="hist-meta">Choose the days and lines to include. Each day stays on its own page.</p>
     <div class="modal-actions">
       <button class="secondary" type="button" id="compRptAll">Whole week</button>
       <button class="secondary" type="button" id="compRptClear">Clear</button>
     </div>
     <div class="rpt-opts" id="compRptDays"></div>
+    <p class="hist-meta">Lines</p>
+    <div class="modal-actions">
+      <button class="secondary" type="button" id="compRptAllLines">All lines</button>
+      <button class="secondary" type="button" id="compRptClearLines">Clear lines</button>
+    </div>
+    <div class="rpt-opts" id="compRptLines"></div>
     <div class="modal-actions">
       <button type="button" id="compRptDownload">Download PDF</button>
       <button class="secondary" type="button" id="compRptCancel">Cancel</button>
@@ -575,7 +611,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.6.5';
+const APP_VERSION = '1.6.6';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -640,6 +676,7 @@ let spcComboHi = -1;
 let activeLine = '';
 let spcPointSelected = false;
 let resizeTimer = 0;
+let lastHistH = 0;
 let layoutOverride = null;
 let spcChartFlags = { avg: true, range: true, density: true };
 
@@ -694,13 +731,22 @@ function toast(msg) {
 }
 function loadState() { try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch { return {}; } }
 function saveState() {
+  const prev = loadState();
   localStorage.setItem(STORE, JSON.stringify({
     theme: document.documentElement.getAttribute('data-theme') || 'light',
     showArrow, customArrow, arrow, TOTAL, NUM_BOLTS, startBoltsFromBottom,
     min: document.getElementById('minThickness').value,
     max: document.getElementById('maxThickness').value,
-    range: document.getElementById('rangeSpec').value
+    range: document.getElementById('rangeSpec').value,
+    hasHistory: indexedRows.length > 0 || !!prev.hasHistory
   }));
+}
+function markHasHistory(on) {
+  try {
+    const prev = loadState();
+    prev.hasHistory = !!on;
+    localStorage.setItem(STORE, JSON.stringify(prev));
+  } catch { /* ignore */ }
 }
 function openPackDb() {
   return new Promise((resolve, reject) => {
@@ -1391,12 +1437,14 @@ function judgeBetween(v, min, max) {
   if (isFinite(min) || isFinite(max)) return 'Pass';
   return '';
 }
-function pickPf(stored, computed) { return normalizePf(stored) || computed || ''; }
+function pickPf(stored, computed) {
+  const s = normalizePf(stored);
+  if (s === 'Pass' && computed === 'Fail') return 'Pass*';
+  return s || computed || '';
+}
 function isMeasuredFail(stored, computed) {
-  const pf = normalizePf(stored);
-  if (pf === 'Pass') return false;
-  if (pf === 'Fail') return true;
-  return computed === 'Fail';
+  if (computed === 'Fail') return true;
+  return normalizePf(stored) === 'Fail';
 }
 function specTone(v, min, max) {
   if (!finiteNum(v)) return '';
@@ -1406,16 +1454,36 @@ function specTone(v, min, max) {
   return '';
 }
 function specToneFromStored(stored, v, min, max) {
+  const computed = specTone(v, min, max);
+  if (computed === 'thin' || computed === 'thick') return computed;
   const pf = normalizePf(stored);
   if (pf === 'Pass') return 'in';
   if (pf === 'Fail') {
     if (finiteNum(v) && finiteNum(min) && v < min) return 'thin';
     return 'thick';
   }
-  return specTone(v, min, max);
+  return computed;
+}
+function formatPfPill(pf) {
+  if (pf === 'NO CHECK') return '<span class="pf-pill gray">NO CHECK</span>';
+  if (pf === 'Pass*') return '<span class="pf-pill warn">Pass*</span>';
+  if (pf === 'Pass') return '<span class="pf-pill good">Pass</span>';
+  if (pf === 'Fail') return '<span class="pf-pill bad">Fail</span>';
+  return esc(pf || '');
+}
+function displayOverallPf(row, specs) {
+  const raw = col(row, 'Pass/Fail');
+  if (isNoCheckPf(raw)) return 'NO CHECK';
+  const stored = normalizePf(raw);
+  const mismatches = failDetailsForRow(row, specs || {});
+  if (stored === 'Pass' && mismatches.length) return 'Pass*';
+  if (stored === 'Fail') return 'Fail';
+  if (stored === 'Pass') return 'Pass';
+  if (mismatches.length) return 'Fail';
+  return stored || '';
 }
 function checkRow(label, valueText, pf) {
-  const cls = pf === 'Pass' ? 'good' : (pf === 'Fail' ? 'bad' : '');
+  const cls = pf === 'Pass' ? 'good' : (pf === 'Fail' ? 'bad' : (pf === 'Pass*' ? 'warn' : ''));
   return `<div class="stat ${cls}">${label} <span>${valueText}</span> <b class="pf">${pf || '--'}</b></div>`;
 }
 function checksFromCurrent() {
@@ -1502,11 +1570,7 @@ function applySnapshot(snap) {
 }
 function displayCell(key, raw) {
   if (key === 'Date/Time') return excelWhen(raw) || raw || '';
-  if (key === 'Pass/Fail') {
-    if (isNoCheckPf(raw)) return '<span class="pf-pill gray">NO CHECK</span>';
-    const pf = normalizePf(raw);
-    return pf ? `<span class="pf-pill ${pf === 'Pass' ? 'good' : 'bad'}">${pf}</span>` : esc(raw);
-  }
+  if (key === 'Pass/Fail') return formatPfPill(isNoCheckPf(raw) ? 'NO CHECK' : (normalizePf(raw) || raw));
   const n = numVal(raw);
   if (key === 'Thickness Average' && isFinite(n)) return n.toFixed(3);
   if (key === 'Thickness Range' && isFinite(n)) return (Math.abs(n) < 1 ? n * 1000 : n).toFixed(1);
@@ -1576,10 +1640,12 @@ async function indexHistory(onProg) {
     const display = {}, num = {}, text = {};
     const mspec = canonMspec(col(row, 'MSPEC', 'MSPEC #'));
     const tone = tonesForRow(row, mspec);
+    const pfLabel = displayOverallPf(row, lookupSpecs(mspec) || {});
     for (const k of TABLE_COLS) {
       const raw = col(row, k);
       display[k] = k === 'MSPEC' ? esc(mspecWithTarget(mspec) || raw)
         : k === 'Item #' ? esc(itemWithTargets(String(col(row, 'Item #') || '').trim(), mspec) || raw)
+        : k === 'Pass/Fail' ? formatPfPill(pfLabel)
         : displayCell(k, raw);
       num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw) : numVal(raw);
       text[k] = String(raw ?? '').trim();
@@ -1590,7 +1656,7 @@ async function indexHistory(onProg) {
       item: String(col(row, 'Item #') || '').trim(),
       mspec,
       desc: String(col(row, 'Item Desc', 'Item Description') || '').trim(),
-      pf: String(col(row, 'Pass/Fail') || '').trim(),
+      pf: pfLabel,
       line: String(col(row, 'Line') || '').trim()
     };
     if (onProg && idx % 400 === 0) {
@@ -1654,11 +1720,11 @@ function preferredLine() {
   }
   return best;
 }
-function lineFilteredRows(rows) {
+function lineFilteredRows(rows, line) {
   const src = rows || indexedRows;
-  const line = String(activeLine || '').trim();
-  if (!line) return src;
-  return src.filter(r => r.line === line);
+  const want = line !== undefined ? String(line || '').trim() : String(activeLine || '').trim();
+  if (!want) return src;
+  return src.filter(r => r.line === want);
 }
 function fillLineSelects() {
   const lines = lineChoices();
@@ -1868,6 +1934,7 @@ function syncMspecHeaderGutter() {
 function renderHistoryChrome() {
   const head = document.getElementById('histHead');
   const dateTh = `<th class="${isColFiltered('Date/Time') ? 'filtered' : ''}"><div class="th-inner">Date/Time <button class="th-menu${tableSort.col === 'Date/Time' ? ' active' : ''}${isColFiltered('Date/Time') ? ' filtered' : ''}" type="button" data-col="Date/Time" aria-label="Sort Date/Time">▾</button></div><div class="date-slicers">
+    <label class="cal-jump" title="Jump to date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><input type="date" id="histJumpDate" aria-label="Jump to date"></label>
     <select id="dateYear"></select><select id="dateMonth"></select><select id="dateDay"></select>
   </div></th>`;
   const others = TABLE_COLS.slice(1).map(k => {
@@ -1880,7 +1947,7 @@ function renderHistoryChrome() {
     const filtered = isColFiltered(k) ? ' filtered' : '';
     return `<th class="${isColFiltered(k) ? 'filtered' : ''}"><div class="th-inner">${esc(k)}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
   }).join('');
-  head.innerHTML = `<tr><th></th>${dateTh}${others}</tr>`;
+  head.innerHTML = `<tr><th class="sticky-eye"></th>${dateTh}${others}</tr>`;
   applyHistColgroup(document.getElementById('histHeadTable'));
   fillDateSlicers();
   document.getElementById('dateYear').onchange = () => {
@@ -1897,13 +1964,24 @@ function renderHistoryChrome() {
     tableFilters['Date/Time'] = { year: df.year, month: df.month, day: document.getElementById('dateDay').value };
     pruneFilters(); filteredDirty = true; renderHistoryChrome(); renderHistoryBody(true);
   };
+  const jump = document.getElementById('histJumpDate');
+  if (jump) {
+    const df = dateFilter();
+    if (df.year && df.month && df.day) jump.value = `${df.year}-${String(df.month).padStart(2, '0')}-${String(df.day).padStart(2, '0')}`;
+    jump.onchange = () => {
+      const parts = String(jump.value || '').split('-');
+      if (parts.length < 3 || !parts[0]) return;
+      tableFilters['Date/Time'] = { year: String(+parts[0]), month: String(+parts[1]), day: String(+parts[2]) };
+      pruneFilters(); filteredDirty = true; renderHistoryChrome(); renderHistoryBody(true);
+    };
+  }
 }
 function rowHtml(r) {
   const tds = TABLE_COLS.map(k => {
     const tone = r.tone && r.tone[k] ? ` class="tone-${r.tone[k]}"` : '';
     return `<td${tone}>${r.display[k]}</td>`;
   }).join('');
-  return `<tr><td><button class="icon" type="button" data-view="${r.idx}" title="View result">${EYE}</button></td>${tds}</tr>`;
+  return `<tr><td class="sticky-eye"><button class="icon" type="button" data-view="${r.idx}" title="View result">${EYE}</button></td>${tds}</tr>`;
 }
 function spacerRow(h) {
   return `<tr class="spacer"><td colspan="20"><div style="height:${Math.max(0, h)}px"></div></td></tr>`;
@@ -1927,7 +2005,7 @@ function renderHistoryBody(force) {
   const parts = [spacerRow(topH)];
   for (let i = start; i < end; i++) {
     if (current && i === 0) {
-      parts.push(`<tr><td><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${TABLE_COLS.length - 2}">Values copied from ${esc(currentSheetSourceLabel())}</td></tr>`);
+      parts.push(`<tr><td class="sticky-eye"><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${TABLE_COLS.length - 2}">Values copied from ${esc(currentSheetSourceLabel())}</td></tr>`);
       continue;
     }
     const r = rows[i - extra];
@@ -1942,6 +2020,7 @@ function renderHistoryBody(force) {
     ? `Showing ${rows.length} of ${indexedRows.length} results · filters on`
     : `Showing ${rows.length} of ${indexedRows.length} results`;
   applyHistColgroup(document.getElementById('histTable'));
+  lastHistH = wrap.clientHeight || 0;
   syncHistHeaderGutter();
   syncFilterBar();
 }
@@ -2270,8 +2349,9 @@ function renderCompliance() {
   const next = document.getElementById('complianceNextWeek');
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
   renderComplianceHours(monday);
-  renderComplianceMissWeek(monday);
   renderComplianceDays(monday);
+  const jump = document.getElementById('complianceJumpDate');
+  if (jump) jump.value = isoFromParts(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate());
 }
 function renderComplianceHours(monday) {
   const el = document.getElementById('complianceHours');
@@ -2304,34 +2384,28 @@ function renderComplianceHours(monday) {
   html += '</div>';
   el.innerHTML = html;
 }
-function renderComplianceMissWeek(monday) {
-  const el = document.getElementById('complianceMissWeek');
-  if (!el) return;
-  const today = localTodayParts();
-  const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  const bits = [];
-  for (let d = 0; d < 7; d++) {
-    const day = new Date(monday.getTime());
-    day.setUTCDate(monday.getUTCDate() + d);
-    const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, dd = day.getUTCDate();
-    if (ymdNum(y, m, dd) > ymdNum(today.y, today.m, today.d)) continue;
-    const hours = dayHourStatuses(y, m, dd, today);
-    const missing = hours.map((st, h) => st === 'miss' ? fmtHourLabel(h) : '').filter(Boolean);
-    if (missing.length) {
-      bits.push(`<div class="comp-miss week"><b>Missing checks — ${esc(DAYS[d])}, ${esc(fmtWeekDate(day))}</b>${esc(missing.join(', '))}</div>`);
-    }
-  }
-  el.innerHTML = bits.join('') || '<p class="comp-empty">No missing hours this week</p>';
-}
 function fmtHourLabel(h) {
   const hr = ((h + 11) % 12) + 1;
   return `${hr}:00 ${h < 12 ? 'AM' : 'PM'}`;
 }
-function dayHourStatuses(y, m, dd, today) {
+function formatHourRanges(hours) {
+  const sorted = [...new Set((hours || []).map(Number).filter(h => h >= 0 && h < 24))].sort((a, b) => a - b);
+  if (!sorted.length) return '';
+  const ranges = [];
+  let start = sorted[0], prev = sorted[0];
+  for (let i = 1; i <= sorted.length; i++) {
+    const h = sorted[i];
+    if (h === prev + 1) { prev = h; continue; }
+    ranges.push(start === prev ? fmtHourLabel(start) : `${fmtHourLabel(start)}–${fmtHourLabel(prev)}`);
+    start = prev = h;
+  }
+  return ranges.join(', ');
+}
+function dayHourStatuses(y, m, dd, today, line) {
   const todayN = ymdNum(today.y, today.m, today.d);
   const dayN = ymdNum(y, m, dd);
   const futureDay = dayN > todayN;
-  const dayRows = futureDay ? [] : lineFilteredRows().filter(r => r.y === y && r.m === m && r.d === dd);
+  const dayRows = futureDay ? [] : lineFilteredRows(null, line).filter(r => r.y === y && r.m === m && r.d === dd);
   const byHour = Array.from({ length: 24 }, () => []);
   for (const r of dayRows) {
     const hour = serialHour(r.serial);
@@ -2356,9 +2430,9 @@ function renderComplianceDays(monday) {
       continue;
     }
     const hours = dayHourStatuses(y, m, dd, today);
-    const missing = hours.map((st, h) => st === 'miss' ? fmtHourLabel(h) : '').filter(Boolean);
+    const missing = hours.map((st, h) => st === 'miss' ? h : '').filter(h => h !== '');
     const missHtml = missing.length
-      ? `<div class="comp-miss"><b>Missing checks</b>${esc(missing.join(', '))}</div>`
+      ? `<div class="comp-miss"><b>Missing checks</b>${esc(formatHourRanges(missing))}</div>`
       : `<p class="comp-empty">No missing hours</p>`;
     const rows = lineFilteredRows().filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
     if (!rows.length) {
@@ -2381,30 +2455,34 @@ function renderComplianceDays(monday) {
       g.rows.push(r);
     }
     const itemsHtml = groups.map(g => {
-      let passed = 0, failed = 0, noCheck = 0;
+      let passed = 0, failed = 0, starred = 0, noCheck = 0;
       const failLines = [];
       for (const r of g.rows) {
-        if (isNoCheckPf(r.pf)) { noCheck += 1; continue; }
+        if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf)) { noCheck += 1; continue; }
         const specs = lookupSpecs(r.mspec) || specsFor(r.mspec) || {};
         const details = failDetailsForRow(r.row, specs);
-        if (details.length || normalizePf(r.pf) === 'Fail') {
+        if (r.pf === 'Fail') {
           failed += 1;
+          failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
+        } else if (r.pf === 'Pass*') {
+          starred += 1;
           failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
         } else passed += 1;
       }
       const t1 = excelTimeShort(g.first);
       const t2 = excelTimeShort(g.last);
       const period = t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2);
-      let sumCls = 'good', sumText = `${passed} passed`;
-      if (failed) {
-        sumCls = 'bad';
-        sumText = `${passed} passed, ${failed} failed`;
-      } else if (noCheck && !passed) {
-        sumCls = 'gray';
-        sumText = `${noCheck} NO CHECK`;
-      } else if (noCheck) {
-        sumText = `${passed} passed, ${noCheck} NO CHECK`;
-      }
+      const bits = [];
+      if (passed) bits.push(`${passed} passed`);
+      if (starred) bits.push(`${starred} Pass*`);
+      if (failed) bits.push(`${failed} failed`);
+      if (noCheck && !passed && !starred && !failed) bits.push(`${noCheck} NO CHECK`);
+      else if (noCheck) bits.push(`${noCheck} NO CHECK`);
+      let sumCls = 'good';
+      if (failed) sumCls = 'bad';
+      else if (starred) sumCls = 'warn';
+      else if (noCheck && !passed) sumCls = 'gray';
+      const sumText = bits.join(', ') || '—';
       const failHtml = failLines.length ? `<ul class="comp-fail-list">${failLines.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
       const viewBtn = g.item
         ? `<button type="button" data-comp-item="${esc(g.item)}" data-comp-y="${y}" data-comp-m="${m}" data-comp-d="${dd}">View</button>`
@@ -2643,6 +2721,7 @@ function buildXlsx(sheetName, headers, rows, widths) {
 }
 function histCellValue(r, k) {
   if (k === 'Date/Time') return excelWhen(r.serial) || r.text[k] || '';
+  if (k === 'Pass/Fail') return r.pf || r.text[k] || '';
   if (k === 'MSPEC') return mspecWithTarget(r.mspec) || r.text[k] || '';
   if (k === 'Item #') return itemWithTargets(r.item, r.mspec) || r.text[k] || '';
   const n = r.num[k];
@@ -2905,8 +2984,8 @@ function pdfHeader(page, title, subtitle) {
   if (subtitle) pdfText(page, 40, 52, subtitle, { size: 9, color: '#3e4a55' });
   pdfLine(page, 40, 58, page.w - 40, 58, '#d5dde4', 0.8);
 }
-function complianceDayGroups(y, m, dd) {
-  const dayRows = lineFilteredRows().filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
+function complianceDayGroups(y, m, dd, line) {
+  const dayRows = lineFilteredRows(null, line).filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
   const byItem = new Map();
   const groups = [];
   for (const r of dayRows) {
@@ -2923,29 +3002,34 @@ function complianceDayGroups(y, m, dd) {
     g.rows.push(r);
   }
   return groups.map(g => {
-    let passed = 0, failed = 0, noCheck = 0;
+    let passed = 0, failed = 0, starred = 0, noCheck = 0;
     const failLines = [];
     for (const r of g.rows) {
-      if (isNoCheckPf(r.pf)) { noCheck += 1; continue; }
+      if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf)) { noCheck += 1; continue; }
       const details = failDetailsForRow(r.row, lookupSpecs(r.mspec) || {});
-      if (details.length || normalizePf(r.pf) === 'Fail') {
+      if (r.pf === 'Fail') {
         failed += 1;
+        failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
+      } else if (r.pf === 'Pass*') {
+        starred += 1;
         failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
       } else passed += 1;
     }
-    let sum = `${passed} passed`;
-    if (failed) sum = `${passed} passed, ${failed} failed`;
-    else if (noCheck && !passed) sum = `${noCheck} NO CHECK`;
-    else if (noCheck) sum = `${passed} passed, ${noCheck} NO CHECK`;
+    const bits = [];
+    if (passed) bits.push(`${passed} passed`);
+    if (starred) bits.push(`${starred} Pass*`);
+    if (failed) bits.push(`${failed} failed`);
+    if (noCheck) bits.push(`${noCheck} NO CHECK`);
     const t1 = excelTimeShort(g.first), t2 = excelTimeShort(g.last);
     return {
       item: itemWithTargets(g.item, g.mspec) || g.item || '--',
       desc: g.desc || '',
       mspec: g.mspec ? mspecWithTarget(g.mspec) : '',
       period: t1 && t2 && t1 !== t2 ? `${t1} - ${t2}` : (t1 || t2 || ''),
-      result: sum,
+      result: bits.join(', ') || '--',
       fails: failLines.join('; '),
-      failed
+      failed,
+      starred
     };
   });
 }
@@ -2959,12 +3043,21 @@ function openComplianceReport() {
     day.setUTCDate(complianceMonday.getUTCDate() + i);
     return `<label><input type="checkbox" data-comp-day="${i}" checked> ${name}, ${fmtWeekDate(day)}</label>`;
   }).join('');
+  const lines = lineChoices();
+  const lineBox = document.getElementById('compRptLines');
+  if (lineBox) {
+    lineBox.innerHTML = lines.map(l =>
+      `<label><input type="checkbox" data-comp-line="${esc(l)}" checked> ${esc(l)}</label>`
+    ).join('') || '<div class="hist-meta">No lines in this paste</div>';
+  }
   document.getElementById('complianceReportOverlay').classList.add('show');
 }
-function downloadCompliancePdf(dayIdxs) {
+function downloadCompliancePdf(dayIdxs, lines) {
   if (!indexedRows.length) { toast('Paste results first'); return; }
   if (!complianceMonday) complianceMonday = mondayOfLocalDate(new Date());
   const selected = (dayIdxs && dayIdxs.length) ? dayIdxs.slice().sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6];
+  const lineList = (lines && lines.length) ? lines.slice() : (activeLine ? [activeLine] : lineChoices());
+  if (!lineList.length) lineList.push('');
   const monday = complianceMonday;
   const sunday = new Date(monday.getTime());
   sunday.setUTCDate(monday.getUTCDate() + 6);
@@ -2973,37 +3066,6 @@ function downloadCompliancePdf(dayIdxs) {
   const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const doc = newPdfDoc(612, 792);
-  let page = pdfAddPage(doc);
-  const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (activeLine ? `  |  Line ${activeLine}` : '');
-  pdfHeader(page, 'Compliance report', subtitle);
-  let y = 72;
-  const legend = [['#22c55e', 'Checked'], ['#9ca3af', 'NO CHECK'], ['#ef4444', 'No checks'], ['#ffffff', 'Not yet']];
-  let lx = 40;
-  legend.forEach(([color, label]) => {
-    pdfFillStrokeRect(page, lx, y, 10, 10, color, color === '#ffffff' ? '#d5dde4' : color, 0.5);
-    pdfText(page, lx + 14, y + 9, label, { size: 8, color: '#3e4a55' });
-    lx += 88;
-  });
-  y += 22;
-  const cell = 14, labelW = 28, gap = 2;
-  pdfText(page, 40, y + 8, '', { size: 6 });
-  for (let h = 0; h < 24; h++) {
-    pdfText(page, 40 + labelW + h * (cell + gap) + cell / 2, y + 8, String(h).padStart(2, '0'), { size: 6, color: '#3e4a55', align: 'center' });
-  }
-  y += 12;
-  for (let d = 0; d < 7; d++) {
-    const day = new Date(monday.getTime());
-    day.setUTCDate(monday.getUTCDate() + d);
-    const hours = dayHourStatuses(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), today);
-    pdfText(page, 40, y + 11, SHORT[d], { size: 8, color: '#3e4a55', bold: true });
-    hours.forEach((st, h) => {
-      const fill = st === 'check' ? '#22c55e' : st === 'nocheck' ? '#9ca3af' : st === 'miss' ? '#ef4444' : '#ffffff';
-      const stroke = st === 'future' ? '#e5e7eb' : (st === 'check' ? '#15803d' : st === 'nocheck' ? '#6b7280' : st === 'miss' ? '#b91c1c' : '#d5dde4');
-      pdfFillStrokeRect(page, 40 + labelW + h * (cell + gap), y, cell, cell, fill, stroke, 0.5);
-    });
-    y += cell + 4;
-  }
-  y += 10;
   const cols = [
     { title: 'Item', w: 92 },
     { title: 'Description', w: 118 },
@@ -3012,53 +3074,86 @@ function downloadCompliancePdf(dayIdxs) {
     { title: 'Result', w: 88 },
     { title: 'Fail notes', w: 94 }
   ];
-  for (const d of selected) {
-    const day = new Date(monday.getTime());
-    day.setUTCDate(monday.getUTCDate() + d);
-    const ymd = { y: day.getUTCFullYear(), m: day.getUTCMonth() + 1, dd: day.getUTCDate() };
-    const heading = `${DAYS[d]}, ${fmtWeekDate(day)}`;
-    if (y + 54 > page.h - 40) {
-      page = pdfAddPage(doc);
-      pdfHeader(page, 'Compliance report', subtitle);
-      y = 72;
-    }
-    pdfText(page, 40, y + 12, heading, { size: 12, bold: true });
-    y += 18;
-    if (ymdNum(ymd.y, ymd.m, ymd.dd) > ymdNum(today.y, today.m, today.d)) {
-      pdfText(page, 40, y + 10, 'Not yet', { size: 9, color: '#3e4a55' });
-      y += 18;
-      continue;
-    }
-    const hours = dayHourStatuses(ymd.y, ymd.m, ymd.dd, today);
-    const missing = hours.map((st, h) => st === 'miss' ? fmtHourLabel(h) : '').filter(Boolean);
-    const missText = missing.length ? ('Missing checks  ' + missing.join(', ')) : 'No missing hours';
-    const missLines = pdfWrap(missText, 8, 532);
-    const missH = 8 + missLines.length * 11;
-    if (y + missH + 8 > page.h - 40) {
-      page = pdfAddPage(doc);
-      pdfHeader(page, 'Compliance report', subtitle);
-      y = 72;
-    }
-    pdfFillStrokeRect(page, 40, y, 532, missH, missing.length ? '#fee2e2' : '#f8fafc', missing.length ? '#991b1b' : '#d5dde4', 0.6);
-    missLines.forEach((ln, i) => pdfText(page, 48, y + 12 + i * 11, ln, { size: 8, color: missing.length ? '#991b1b' : '#3e4a55', bold: true }));
-    y += missH + 8;
-    const groups = complianceDayGroups(ymd.y, ymd.m, ymd.dd);
-    if (!groups.length) {
-      pdfText(page, 40, y + 10, 'No items', { size: 9, color: '#3e4a55' });
-      y += 18;
-      continue;
-    }
-    const tableRows = groups.map(g => {
-      const row = [g.item, g.desc, g.mspec, g.period, g.result, g.fails];
-      if (g.failed) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
-      return row;
+  lineList.forEach((line, li) => {
+    let page = pdfAddPage(doc);
+    const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (line ? `  |  Line ${line}` : '');
+    pdfHeader(page, 'Compliance report', subtitle);
+    let y = 72;
+    const legend = [['#22c55e', 'Checked'], ['#9ca3af', 'NO CHECK'], ['#ef4444', 'No checks'], ['#ffffff', 'Not yet']];
+    let lx = 40;
+    legend.forEach(([color, label]) => {
+      pdfFillStrokeRect(page, lx, y, 10, 10, color, color === '#ffffff' ? '#d5dde4' : color, 0.5);
+      pdfText(page, lx + 14, y + 9, label, { size: 8, color: '#3e4a55' });
+      lx += 88;
     });
-    const drawn = pdfDrawTable(doc, page, y, cols, tableRows, { margin: 40, size: 8 });
-    page = drawn.page;
-    y = drawn.y + 14;
-  }
+    y += 22;
+    const cell = 14, labelW = 28, gap = 2;
+    for (let h = 0; h < 24; h++) {
+      pdfText(page, 40 + labelW + h * (cell + gap) + cell / 2, y + 8, String(h).padStart(2, '0'), { size: 6, color: '#3e4a55', align: 'center' });
+    }
+    y += 12;
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(monday.getTime());
+      day.setUTCDate(monday.getUTCDate() + d);
+      const hours = dayHourStatuses(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), today, line);
+      pdfText(page, 40, y + 11, SHORT[d], { size: 8, color: '#3e4a55', bold: true });
+      hours.forEach((st, h) => {
+        const fill = st === 'check' ? '#22c55e' : st === 'nocheck' ? '#9ca3af' : st === 'miss' ? '#ef4444' : '#ffffff';
+        const stroke = st === 'future' ? '#e5e7eb' : (st === 'check' ? '#15803d' : st === 'nocheck' ? '#6b7280' : st === 'miss' ? '#b91c1c' : '#d5dde4');
+        pdfFillStrokeRect(page, 40 + labelW + h * (cell + gap), y, cell, cell, fill, stroke, 0.5);
+      });
+      y += cell + 4;
+    }
+    y += 10;
+    for (const d of selected) {
+      const day = new Date(monday.getTime());
+      day.setUTCDate(monday.getUTCDate() + d);
+      const ymd = { y: day.getUTCFullYear(), m: day.getUTCMonth() + 1, dd: day.getUTCDate() };
+      const heading = `${DAYS[d]}, ${fmtWeekDate(day)}`;
+      if (y + 54 > page.h - 40) {
+        page = pdfAddPage(doc);
+        pdfHeader(page, 'Compliance report', subtitle);
+        y = 72;
+      }
+      pdfText(page, 40, y + 12, heading, { size: 12, bold: true });
+      y += 18;
+      if (ymdNum(ymd.y, ymd.m, ymd.dd) > ymdNum(today.y, today.m, today.d)) {
+        pdfText(page, 40, y + 10, 'Not yet', { size: 9, color: '#3e4a55' });
+        y += 18;
+        continue;
+      }
+      const hours = dayHourStatuses(ymd.y, ymd.m, ymd.dd, today, line);
+      const missing = hours.map((st, h) => st === 'miss' ? h : '').filter(h => h !== '');
+      const missText = missing.length ? ('Missing checks  ' + formatHourRanges(missing)) : 'No missing hours';
+      const missLines = pdfWrap(missText, 8, 532);
+      const missH = 8 + missLines.length * 11;
+      if (y + missH + 8 > page.h - 40) {
+        page = pdfAddPage(doc);
+        pdfHeader(page, 'Compliance report', subtitle);
+        y = 72;
+      }
+      pdfFillStrokeRect(page, 40, y, 532, missH, missing.length ? '#fee2e2' : '#f8fafc', missing.length ? '#991b1b' : '#d5dde4', 0.6);
+      missLines.forEach((ln, i) => pdfText(page, 48, y + 12 + i * 11, ln, { size: 8, color: missing.length ? '#991b1b' : '#3e4a55', bold: true }));
+      y += missH + 8;
+      const groups = complianceDayGroups(ymd.y, ymd.m, ymd.dd, line);
+      if (!groups.length) {
+        pdfText(page, 40, y + 10, 'No items', { size: 9, color: '#3e4a55' });
+        y += 18;
+        continue;
+      }
+      const tableRows = groups.map(g => {
+        const row = [g.item, g.desc, g.mspec, g.period, g.result, g.fails];
+        if (g.failed) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
+        else if (g.starred) { row._color = '#92400e'; row._bg = '#fff7ed'; }
+        return row;
+      });
+      const drawn = pdfDrawTable(doc, page, y, cols, tableRows, { margin: 40, size: 8 });
+      page = drawn.page;
+      y = drawn.y + 14;
+    }
+  });
   downloadPdfDoc(`diegraph-compliance-week-${week}-${year}.pdf`, doc);
-  toast('Downloaded compliance PDF');
+  toast(lineList.length > 1 ? `Downloaded compliance PDF (${lineList.length} lines)` : 'Downloaded compliance PDF');
 }
 function spcExportRows(rows, charts) {
   const raw = rows.map(r => ({
@@ -3306,6 +3401,7 @@ async function applyDieGraph2(text, append) {
   fillLineSelects();
   fillSpecPanel(specsFor(canonMspec(meta.mspec)), meta.mspec);
   await persistPack();
+  markHasHistory(true);
   showProgress('Drawing table', 98, '');
   await yieldUi();
   hideProgress();
@@ -3408,9 +3504,18 @@ function boltSet() {
 }
 function valueToRadius(val, min, max) {
   if (!isFinite(val)) return (YELLOW_R + GREEN_R) / 2;
-  if (val <= min) return min <= 0 ? 0 : Math.max(0, (val / min) * YELLOW_R);
-  const px = (GREEN_R - YELLOW_R) / Math.max(max - min, 1e-6);
-  return Math.min(MAX_PLOT_R, YELLOW_R + (val - min) * px);
+  const lo = Number(min), hi = Number(max);
+  const span = Math.max(hi - lo, 1e-6);
+  if (val < lo) {
+    const inner = Math.max(S * 0.05, YELLOW_R * 0.28);
+    const t = Math.min(1, (lo - val) / span);
+    return Math.max(inner, YELLOW_R - t * (YELLOW_R - inner));
+  }
+  if (val > hi) {
+    const t = Math.min(1, (val - hi) / span);
+    return Math.min(MAX_PLOT_R, GREEN_R + t * (MAX_PLOT_R - GREEN_R));
+  }
+  return YELLOW_R + ((val - lo) / span) * (GREEN_R - YELLOW_R);
 }
 function angDist(a, b) { let d = Math.abs(a - b) % (Math.PI * 2); if (d > Math.PI) d = Math.PI * 2 - d; return d; }
 function labelRadius(angle, bolts) {
@@ -3437,7 +3542,7 @@ function layoutCanvas() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   canvasW = sizeW; canvasH = sizeH; S = Math.min(sizeW, sizeH);
   center = { x: S / 2, y: S / 2 };
-  YELLOW_R = S * 0.14; GREEN_R = S * 0.30; MAX_PLOT_R = S * 0.39;
+  YELLOW_R = S * 0.18; GREEN_R = S * 0.36; MAX_PLOT_R = S * 0.45;
   POINT_R = Math.max(6, S * 0.011); LABEL_R = GREEN_R + S * 0.048;
   COMPASS_R = S / 2 - 38; ARROW_GAP = Math.max(48, S * 0.08);
 }
@@ -3501,14 +3606,16 @@ function updateSummary(avg, range, min, max, rangeSpec) {
   }
   const avgBad = avgPf === 'Fail';
   const rangeBad = rangePf === 'Fail';
+  const avgStar = avgPf === 'Pass*';
+  const rangeStar = rangePf === 'Pass*';
   const avgOk = avgPf === 'Pass';
   const rangeOk = rangePf === 'Pass';
   const extra = renderChecks(currentCheckItems());
   document.getElementById('summary').innerHTML = `
-    <div class="stat ${avgBad ? 'bad' : (avgOk ? 'good' : '')}">Average <b>${finiteNum(avg) ? avg.toFixed(3) : '--'}</b></div>
-    <div class="stat ${rangeBad ? 'bad' : (rangeOk ? 'good' : '')}">Range <b>${finiteNum(range) ? range.toFixed(3) : '--'}</b></div>
-    ${avgBad ? `<div class="alert bad">Average is out of spec</div>` : (avgOk ? `<div class="alert good">Average is in spec</div>` : `<div class="alert">Average status --</div>`)}
-    ${rangeBad ? `<div class="alert bad">Range exceeds spec</div>` : (rangeOk ? `<div class="alert good">Range is within spec</div>` : `<div class="alert">Range status --</div>`)}
+    <div class="stat ${avgBad ? 'bad' : (avgStar ? 'warn' : (avgOk ? 'good' : ''))}">Average <b>${finiteNum(avg) ? avg.toFixed(3) : '--'}</b></div>
+    <div class="stat ${rangeBad ? 'bad' : (rangeStar ? 'warn' : (rangeOk ? 'good' : ''))}">Range <b>${finiteNum(range) ? range.toFixed(3) : '--'}</b></div>
+    ${avgBad ? `<div class="alert bad">Average is out of spec</div>` : (avgStar ? `<div class="alert warn">Average is Pass*</div>` : (avgOk ? `<div class="alert good">Average is in spec</div>` : `<div class="alert">Average status --</div>`))}
+    ${rangeBad ? `<div class="alert bad">Range exceeds spec</div>` : (rangeStar ? `<div class="alert warn">Range is Pass*</div>` : (rangeOk ? `<div class="alert good">Range is within spec</div>` : `<div class="alert">Range status --</div>`))}
     ${extra}
   `;
 }
@@ -3851,9 +3958,18 @@ window.addEventListener('resize', () => {
   resizeTimer = setTimeout(() => {
     resizeTimer = 0;
     if (screenName === 'view') draw();
-    if (screenName === 'history') { histRangeKey = ''; renderHistoryBody(true); syncHistHeaderGutter(); }
+    if (screenName === 'history') {
+      const wrap = document.getElementById('histWrap');
+      const h = wrap ? wrap.clientHeight : 0;
+      if (Math.abs(h - lastHistH) > 12) {
+        lastHistH = h;
+        histRangeKey = '';
+        renderHistoryBody();
+      }
+      syncHistHeaderGutter();
+    }
     if (screenName === 'mspecs') syncMspecHeaderGutter();
-  }, 80);
+  }, 160);
 });
 document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histPaste').onclick = () => applyFromClipboard(true);
@@ -3873,11 +3989,15 @@ document.getElementById('mspecSearch').oninput = renderMspecTable;
 document.getElementById('compRptCancel').onclick = () => document.getElementById('complianceReportOverlay').classList.remove('show');
 document.getElementById('compRptAll').onclick = () => document.querySelectorAll('#compRptDays input[type="checkbox"]').forEach(c => { c.checked = true; });
 document.getElementById('compRptClear').onclick = () => document.querySelectorAll('#compRptDays input[type="checkbox"]').forEach(c => { c.checked = false; });
+document.getElementById('compRptAllLines').onclick = () => document.querySelectorAll('#compRptLines input[type="checkbox"]').forEach(c => { c.checked = true; });
+document.getElementById('compRptClearLines').onclick = () => document.querySelectorAll('#compRptLines input[type="checkbox"]').forEach(c => { c.checked = false; });
 document.getElementById('compRptDownload').onclick = () => {
   const days = [...document.querySelectorAll('#compRptDays input[data-comp-day]:checked')].map(c => +c.dataset.compDay);
   if (!days.length) { toast('Select at least one day'); return; }
+  const lines = [...document.querySelectorAll('#compRptLines input[data-comp-line]:checked')].map(c => c.dataset.compLine);
+  if (!lines.length) { toast('Select at least one line'); return; }
   document.getElementById('complianceReportOverlay').classList.remove('show');
-  downloadCompliancePdf(days);
+  downloadCompliancePdf(days, lines);
 };
 document.getElementById('complianceBack').onclick = () => {
   setViewMode('centration');
@@ -3896,6 +4016,14 @@ document.getElementById('complianceNextWeek').onclick = () => {
 };
 document.getElementById('complianceThisWeek').onclick = () => {
   complianceMonday = mondayOfLocalDate(new Date());
+  renderCompliance();
+};
+document.getElementById('complianceJumpDate').onchange = () => {
+  const raw = document.getElementById('complianceJumpDate').value;
+  if (!raw) return;
+  const parts = raw.split('-').map(Number);
+  if (!parts[0]) return;
+  complianceMonday = mondayOfLocalDate(new Date(parts[0], parts[1] - 1, parts[2]));
   renderCompliance();
 };
 document.getElementById('complianceDays').onclick = (e) => {
@@ -4088,10 +4216,21 @@ customArrow = !!saved.customArrow;
 if (saved.arrow) arrow = saved.arrow;
 setupInputs([]);
 setViewMode('centration');
-setScreen('welcome');
+if (saved.hasHistory) {
+  screenName = 'history';
+  document.documentElement.setAttribute('data-screen', 'history');
+  syncWelcome();
+  syncViewChrome();
+} else {
+  setScreen('welcome');
+}
 document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
 restorePack().then(async data => {
-  if (!data || !Array.isArray(data.rows) || !data.rows.length) return;
+  if (!data || !Array.isArray(data.rows) || !data.rows.length) {
+    markHasHistory(false);
+    if (screenName !== 'welcome') setScreen('welcome');
+    return;
+  }
   if (data.snapshot) currentSnapshot = data.snapshot;
   historyPack = {
     item: (data.snapshot && data.snapshot.item) || '',
@@ -4104,6 +4243,7 @@ restorePack().then(async data => {
   await indexHistory();
   fillLineSelects();
   syncWelcome();
+  markHasHistory(true);
   setScreen('history');
   requestAnimationFrame(() => renderHistoryTable());
 });

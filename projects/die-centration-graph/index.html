@@ -3074,7 +3074,7 @@ function downloadCompliancePdf(dayIdxs, lines) {
     { title: 'Result', w: 88 },
     { title: 'Fail notes', w: 94 }
   ];
-  lineList.forEach((line, li) => {
+  lineList.forEach(line => {
     let page = pdfAddPage(doc);
     const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (line ? `  |  Line ${line}` : '');
     pdfHeader(page, 'Compliance report', subtitle);

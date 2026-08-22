@@ -163,21 +163,32 @@
   }
   .combo-list button:hover, .combo-list button.active { background: var(--filter-bg); color: var(--filter-text); }
   .combo-list .hist-meta { padding: 10px; }
-  #screenCompliance { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  #screenCompliance { grid-template-rows: auto auto minmax(0, 1fr); padding: 10px 12px; gap: 8px; height: 100dvh; }
   #screenMspecs { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
-  .comp-scroll { overflow: auto; padding: 16px; display: grid; gap: 20px; }
+  .line-filter {
+    display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--muted);
+  }
+  .line-filter select {
+    border: 2px solid var(--line); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 16px;
+    background: var(--idle); color: var(--text); min-width: 88px;
+  }
+  .comp-chart {
+    padding: 12px 16px 10px; display: grid; gap: 10px; overflow: auto; min-height: 160px;
+  }
+  .comp-scroll { overflow: auto; padding: 16px; display: grid; gap: 20px; min-height: 0; }
   .comp-week { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-  .comp-hours { overflow-x: auto; }
+  .comp-hours { overflow-x: auto; min-width: 0; }
   .comp-grid {
-    display: grid; grid-template-columns: 92px repeat(24, 22px); gap: 4px; align-items: center;
-    min-width: 92px;
+    display: grid; grid-template-columns: 72px repeat(24, minmax(16px, 1fr)); gap: 4px; align-items: center;
+    width: 100%; min-width: 560px;
     font-size: 12px; font-weight: 700; color: var(--muted);
   }
   .comp-hlabel { text-align: center; font-size: 11px; }
   .comp-hour {
-    width: 22px; height: 22px; border-radius: 5px; border: 1px solid var(--line);
+    width: auto; min-width: 16px; aspect-ratio: 1; height: auto; border-radius: 5px; border: 1px solid var(--line);
     background: transparent;
   }
+  table.results td.wrap, table.results th.wrap { white-space: normal; line-height: 1.25; overflow: visible; text-overflow: clip; }
   .comp-hour.check { background: #22c55e; border-color: #15803d; }
   .comp-hour.nocheck { background: #9ca3af; border-color: #6b7280; }
   .comp-hour.miss { background: #ef4444; border-color: #b91c1c; }
@@ -263,7 +274,7 @@
   .checks { display: grid; gap: 8px; }
   .canvas-wrap { display: grid; grid-template-rows: auto 1fr; min-height: 0; overflow: hidden; }
   .canvas-head { padding: 8px 12px; font-size: 16px; color: var(--muted); font-weight: 700; display: flex; justify-content: flex-end; border-bottom: 1px solid var(--line); }
-  .stage { min-height: 0; display: flex; align-items: center; justify-content: center; padding: 6px; }
+  .stage { min-height: 280px; display: flex; align-items: center; justify-content: center; padding: 6px; }
   canvas { display: block; max-width: 100%; max-height: 100%; }
   .legend { display: flex; gap: 12px; flex-wrap: wrap; }
   .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 6px; }
@@ -349,7 +360,7 @@
       <span id="filterChips"></span>
       <button type="button" id="histResetFiltersBar">Reset filters</button>
     </div>
-    <div class="hist-head-freeze"><table class="results" id="histHeadTable"><thead id="histHead"></thead></table></div>
+    <div class="hist-head-freeze" id="histHeadFreeze"><table class="results" id="histHeadTable"><thead id="histHead"></thead></table></div>
     <div class="table-wrap" id="histWrap"><table class="results" id="histTable"><tbody id="histBody"></tbody></table></div>
   </div>
 </section>
@@ -366,12 +377,13 @@
       <button class="secondary" type="button" id="compliancePrevWeek">Previous week</button>
       <button class="secondary" type="button" id="complianceThisWeek">This week</button>
       <button class="secondary" type="button" id="complianceNextWeek">Next week</button>
+      <label class="line-filter">Line <select id="complianceLine"></select></label>
       <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
       <button type="button" id="complianceDownload">Download PDF</button>
       <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
     </div>
   </header>
-  <div class="card comp-scroll">
+  <div class="card comp-chart">
     <div class="comp-legend" id="complianceLegend">
       <span><i style="background:#22c55e"></i>Checked</span>
       <span><i style="background:#9ca3af"></i>NO CHECK</span>
@@ -379,6 +391,8 @@
       <span><i style="background:transparent"></i>Not yet</span>
     </div>
     <div class="comp-hours" id="complianceHours"></div>
+  </div>
+  <div class="card comp-scroll">
     <div id="complianceMissWeek"></div>
     <div id="complianceDays"></div>
   </div>
@@ -415,7 +429,7 @@
     <div class="filter-bar show" style="background:transparent;color:inherit;border-bottom:1px solid var(--line)">
       <input type="search" id="mspecSearch" placeholder="Search MSPEC, AF#, filename" style="flex:1;min-width:160px;border:2px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--idle);color:var(--text)">
     </div>
-    <div class="hist-head-freeze"><table class="results" id="mspecHeadTable"><thead id="mspecHead"></thead></table></div>
+    <div class="hist-head-freeze" id="mspecHeadFreeze"><table class="results" id="mspecHeadTable"><thead id="mspecHead"></thead></table></div>
     <div class="table-wrap" id="mspecWrap"><table class="results" id="mspecTable"><tbody id="mspecBody"></tbody></table></div>
   </div>
 </section>
@@ -456,6 +470,9 @@
             <div class="combo-list" id="spcValueList"></div>
           </div>
         </label>
+        <label>Line
+          <select id="spcLine"></select>
+        </label>
         <label>From <input type="date" id="spcFrom"></label>
         <label>To <input type="date" id="spcTo"></label>
         <p class="hist-meta" id="spcDateHint">Date range limits the Item/MSPEC list to what ran in that period.</p>
@@ -492,8 +509,6 @@
         <label>Density max <input type="number" id="densMaxSpec" step="0.01" value=""></label>
         <label>Cell count min <input type="number" id="cellMinSpec" step="1" value=""></label>
         <label>Cell count max <input type="number" id="cellMaxSpec" step="1" value=""></label>
-        <label>Width min <input type="number" id="widthMinSpec" step="0.1" value=""></label>
-        <label>Width target <input type="number" id="widthTargetSpec" step="0.1" value=""></label>
       </div>
       <div class="results-only">
         <h2>Results</h2>
@@ -553,13 +568,14 @@
 </div>
 
 <script>
-const APP_VERSION = '1.6.2';
+const APP_VERSION = '1.6.3';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
 const PACK_STORE = 'pack';
 const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
 const HIST_COL_W = [52, 280, 180, 240, 170, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120];
+const MSPEC_COL_W = [80, 80, 90, 100, 90, 70, 80, 80, 80, 90, 90, 110, 280, 240];
 const COL_ALIASES = {
   'Item #': ['Item #', 'Item', 'Item Number'],
   'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription'],
@@ -613,6 +629,9 @@ let enterMode = false;
 let complianceMonday = null;
 let complianceBackTo = 'welcome';
 let spcComboHi = -1;
+let activeLine = '';
+let spcPointSelected = false;
+let resizeTimer = 0;
 
 function finiteNum(v) {
   if (v == null || v === '') return false;
@@ -742,7 +761,10 @@ function syncViewChrome() {
     back.textContent = hasHist && !enterMode ? 'Back to history' : 'Back';
   }
   const modeBtn = document.getElementById('modeBtn');
-  if (modeBtn) modeBtn.hidden = !hasHist || enterMode;
+  if (modeBtn) {
+    if (viewMode === 'spc') modeBtn.hidden = !spcPointSelected;
+    else modeBtn.hidden = !hasHist || enterMode;
+  }
   const nav = hasHist && !enterMode && screenName === 'view';
   const { i, rows } = historyNav();
   const prev = document.getElementById('prevResult');
@@ -940,9 +962,7 @@ function readPanelSpecs() {
     densTarget: firstFinite(numVal(document.getElementById('densTargetSpec').value)),
     densMax: firstFinite(numVal(document.getElementById('densMaxSpec').value)),
     cellMin: firstFinite(numVal(document.getElementById('cellMinSpec').value)),
-    cellMax: firstFinite(numVal(document.getElementById('cellMaxSpec').value)),
-    widthMin: firstFinite(numVal(document.getElementById('widthMinSpec').value)),
-    widthTarget: firstFinite(numVal(document.getElementById('widthTargetSpec').value))
+    cellMax: firstFinite(numVal(document.getElementById('cellMaxSpec').value))
   };
 }
 function specsHaveValues(specs) {
@@ -962,8 +982,6 @@ function fillSpecPanel(specs, mspec) {
   setSpecInput('densMaxSpec', s.densMax, 2);
   setSpecInput('cellMinSpec', s.cellMin, 0);
   setSpecInput('cellMaxSpec', s.cellMax, 0);
-  setSpecInput('widthMinSpec', s.widthMin, 1);
-  setSpecInput('widthTargetSpec', s.widthTarget, 1);
   if (src) {
     src.textContent = has
       ? (key ? `Master Sheet MSPEC ${mspecWithTarget(key)}` : '')
@@ -1510,7 +1528,8 @@ async function indexHistory(onProg) {
       item: String(col(row, 'Item #') || '').trim(),
       mspec,
       desc: String(col(row, 'Item Desc', 'Item Description') || '').trim(),
-      pf: String(col(row, 'Pass/Fail') || '').trim()
+      pf: String(col(row, 'Pass/Fail') || '').trim(),
+      line: String(col(row, 'Line') || '').trim()
     };
     if (onProg && idx % 400 === 0) {
       onProg(idx, rows.length);
@@ -1552,6 +1571,50 @@ function pruneFilters() {
     const avail = new Set(valuesForFilter(k));
     const kept = [...sel].filter(v => avail.has(v));
     tableFilters[k] = !kept.length || kept.length === avail.size ? null : new Set(kept);
+  }
+}
+function lineChoices() {
+  return uniqueSorted([...new Set(indexedRows.map(r => r.line).filter(Boolean))], false);
+}
+function preferredLine() {
+  const lines = lineChoices();
+  const cur = String((currentSnapshot && currentSnapshot.line) || '').trim();
+  if (cur && lines.includes(cur)) return cur;
+  const counts = {};
+  for (const r of indexedRows) {
+    if (!r.line) continue;
+    counts[r.line] = (counts[r.line] || 0) + 1;
+  }
+  let best = lines[0] || '';
+  let n = 0;
+  for (const [k, v] of Object.entries(counts)) {
+    if (v > n) { n = v; best = k; }
+  }
+  return best;
+}
+function lineFilteredRows(rows) {
+  const src = rows || indexedRows;
+  const line = String(activeLine || '').trim();
+  if (!line) return src;
+  return src.filter(r => r.line === line);
+}
+function fillLineSelects() {
+  const lines = lineChoices();
+  if (!activeLine || !lines.includes(activeLine)) activeLine = preferredLine();
+  ['complianceLine', 'spcLine'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = lines.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('') || '<option value="">No line</option>';
+    el.value = activeLine;
+  });
+}
+function setActiveLine(line, from) {
+  activeLine = String(line || '').trim();
+  fillLineSelects();
+  if (from === 'compliance' || screenName === 'compliance') renderCompliance();
+  if (from === 'spc' || viewMode === 'spc') {
+    fillSpcControls();
+    redrawSpc();
   }
 }
 function uniqueSorted(values, numeric) {
@@ -1697,12 +1760,32 @@ function applyHistColgroup(table) {
   table.style.width = histTableWidth() + 'px';
   table.style.minWidth = histTableWidth() + 'px';
 }
-function syncHistHeaderGutter() {
-  const wrap = document.getElementById('histWrap');
-  const head = document.querySelector('.hist-head-freeze');
+function syncHeadGutter(wrapId, headId) {
+  const wrap = document.getElementById(wrapId);
+  const head = document.getElementById(headId);
   if (!wrap || !head) return;
   head.style.paddingRight = Math.max(0, wrap.offsetWidth - wrap.clientWidth) + 'px';
   head.scrollLeft = wrap.scrollLeft;
+}
+function syncHistHeaderGutter() {
+  syncHeadGutter('histWrap', 'histHeadFreeze');
+}
+function mspecTableWidth() {
+  return MSPEC_COL_W.reduce((a, b) => a + b, 0);
+}
+function applyMspecColgroup(table) {
+  if (!table) return;
+  let cg = table.querySelector('colgroup');
+  if (!cg) {
+    cg = document.createElement('colgroup');
+    table.insertBefore(cg, table.firstChild);
+  }
+  cg.innerHTML = MSPEC_COL_W.map(w => `<col style="width:${w}px">`).join('');
+  table.style.width = mspecTableWidth() + 'px';
+  table.style.minWidth = mspecTableWidth() + 'px';
+}
+function syncMspecHeaderGutter() {
+  syncHeadGutter('mspecWrap', 'mspecHeadFreeze');
 }
 function renderHistoryChrome() {
   const head = document.getElementById('histHead');
@@ -1919,7 +2002,7 @@ function spcOptionLabel(v, by) {
   return by === 'mspec' ? mspecWithTarget(v) : itemWithTargets(v, mspecForItem(v));
 }
 function spcRowsInDateRange(rows) {
-  let out = rows || indexedRows;
+  let out = lineFilteredRows(rows || indexedRows);
   const fromEl = document.getElementById('spcFrom');
   const toEl = document.getElementById('spcTo');
   const from = fromEl && fromEl.value;
@@ -1968,6 +2051,8 @@ function pickSpcValue(v) {
   const search = document.getElementById('spcValueSearch');
   if (search) search.value = spcOptionLabel(v, by);
   hideSpcValueList();
+  spcPointSelected = false;
+  syncViewChrome();
   redrawSpc();
 }
 function redrawSpc() {
@@ -1982,7 +2067,7 @@ function redrawSpc() {
 function spcSelectedRows() {
   const by = document.getElementById('spcBy').value;
   const val = String(document.getElementById('spcValue').value || '').trim();
-  let rows = indexedRows.filter(r => (by === 'mspec' ? r.mspec : r.item) === val);
+  let rows = lineFilteredRows().filter(r => (by === 'mspec' ? r.mspec : r.item) === val);
   const from = document.getElementById('spcFrom').value;
   const to = document.getElementById('spcTo').value;
   if (from) {
@@ -2056,6 +2141,7 @@ function applyHistoryRow(idx) {
 }
 function selectSpcPoint(idx) {
   if (!applyHistoryRow(idx)) return;
+  spcPointSelected = true;
   refreshChecks();
   syncViewChrome();
   draw();
@@ -2066,15 +2152,19 @@ function goHistoryRow(idx) {
 }
 function openSpc() {
   if (!indexedRows.length || enterMode) { toast('Paste TableS4 results first'); return; }
+  spcPointSelected = false;
+  fillLineSelects();
   setViewMode('spc', true);
   syncSpcDates(true);
   setScreen('view');
+  syncViewChrome();
   requestAnimationFrame(() => draw());
 }
 function openCompliance(from) {
   if (!indexedRows.length) { toast('Paste results first'); return; }
   complianceBackTo = from === 'history' ? 'history' : 'welcome';
   complianceMonday = mondayOfLocalDate(new Date());
+  fillLineSelects();
   setViewMode('centration');
   setScreen('compliance');
   renderCompliance();
@@ -2086,7 +2176,7 @@ function renderCompliance() {
   sunday.setUTCDate(monday.getUTCDate() + 6);
   const { year, week } = isoWeekFromMonday(monday);
   const label = document.getElementById('complianceWeekLabel');
-  if (label) label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}`;
+  if (label) label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}` + (activeLine ? ` · Line ${activeLine}` : '');
   const thisMon = mondayOfLocalDate(new Date());
   const next = document.getElementById('complianceNextWeek');
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
@@ -2109,7 +2199,7 @@ function renderComplianceHours(monday) {
     const dayN = ymdNum(y, m, dd);
     const futureDay = dayN > todayN;
     html += `<div>${DAYS[d]}</div>`;
-    const dayRows = futureDay ? [] : indexedRows.filter(r => r.y === y && r.m === m && r.d === dd);
+    const dayRows = futureDay ? [] : lineFilteredRows().filter(r => r.y === y && r.m === m && r.d === dd);
     const byHour = Array.from({ length: 24 }, () => []);
     for (const r of dayRows) {
       const h = serialHour(r.serial);
@@ -2152,7 +2242,7 @@ function dayHourStatuses(y, m, dd, today) {
   const todayN = ymdNum(today.y, today.m, today.d);
   const dayN = ymdNum(y, m, dd);
   const futureDay = dayN > todayN;
-  const dayRows = futureDay ? [] : indexedRows.filter(r => r.y === y && r.m === m && r.d === dd);
+  const dayRows = futureDay ? [] : lineFilteredRows().filter(r => r.y === y && r.m === m && r.d === dd);
   const byHour = Array.from({ length: 24 }, () => []);
   for (const r of dayRows) {
     const hour = serialHour(r.serial);
@@ -2181,7 +2271,7 @@ function renderComplianceDays(monday) {
     const missHtml = missing.length
       ? `<div class="comp-miss"><b>Missing checks</b>${esc(missing.join(', '))}</div>`
       : `<p class="comp-empty">No missing hours</p>`;
-    const rows = indexedRows.filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
+    const rows = lineFilteredRows().filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
     if (!rows.length) {
       parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}<p class="comp-empty">No items</p></div>`);
       continue;
@@ -2290,12 +2380,15 @@ function renderMspecTable() {
   const head = document.getElementById('mspecHead');
   const body = document.getElementById('mspecBody');
   if (head) {
-    head.innerHTML = `<tr>${MSPEC_AUDIT_COLS.map(h => `<th>${esc(h)}</th>`).join('')}</tr>`;
+    head.innerHTML = `<tr>${MSPEC_AUDIT_COLS.map((h, i) => `<th${i >= 12 ? ' class="wrap"' : ''}>${esc(h)}</th>`).join('')}</tr>`;
   }
   if (body) {
-    body.innerHTML = rows.map(r => `<tr>${r.values.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')
+    body.innerHTML = rows.map(r => `<tr>${r.values.map((v, i) => `<td${i >= 12 ? ' class="wrap"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')
       || `<tr><td colspan="${MSPEC_AUDIT_COLS.length}">No Master Sheet rows. Paste Copy for Graph first.</td></tr>`;
   }
+  applyMspecColgroup(document.getElementById('mspecHeadTable'));
+  applyMspecColgroup(document.getElementById('mspecTable'));
+  syncMspecHeaderGutter();
 }
 function openMspecs() {
   if (!historyPack || !(historyPack.lookupRows || []).length) { toast('Paste results first'); return; }
@@ -2552,7 +2645,7 @@ function downloadCompliancePdf(dayIdxs) {
   c.fillStyle = fg; c.font = '700 28px Atkinson Hyperlegible, Segoe UI, Arial';
   c.fillText('Compliance', margin, y + 28); y += 40;
   c.fillStyle = muted; c.font = '700 16px Atkinson Hyperlegible, Segoe UI, Arial';
-  c.fillText(`Week ${week}, ${year}  ·  ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}`, margin, y + 18); y += 36;
+  c.fillText(`Week ${week}, ${year}  ·  ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}` + (activeLine ? `  ·  Line ${activeLine}` : ''), margin, y + 18); y += 36;
   const legend = [['#22c55e', 'Checked'], ['#9ca3af', 'NO CHECK'], ['#ef4444', 'No checks'], ['transparent', 'Not yet']];
   c.font = '700 14px Atkinson Hyperlegible, Segoe UI, Arial';
   let lx = margin;
@@ -2614,7 +2707,7 @@ function downloadCompliancePdf(dayIdxs) {
     c.font = '700 14px Atkinson Hyperlegible, Segoe UI, Arial';
     missLines.forEach((ln, i) => c.fillText(ln, margin + 12, y + 18 + i * 16));
     y += missH + 10;
-    const dayRows = indexedRows.filter(r => r.y === ymd.y && r.m === ymd.m && r.d === ymd.dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
+    const dayRows = lineFilteredRows().filter(r => r.y === ymd.y && r.m === ymd.m && r.d === ymd.dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
     if (!dayRows.length) {
       c.fillStyle = muted; c.font = '400 14px Atkinson Hyperlegible, Segoe UI, Arial';
       c.fillText('No items', margin, y + 14); y += 26;
@@ -2995,6 +3088,7 @@ async function applyDieGraph2(text, append) {
   await indexHistory((i, n) => {
     showProgress('Indexing results', 72 + Math.round(22 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
   });
+  fillLineSelects();
   fillSpecPanel(specsFor(canonMspec(meta.mspec)), meta.mspec);
   await persistPack();
   showProgress('Drawing table', 98, '');
@@ -3043,9 +3137,19 @@ async function applyClipboardText(text, append) {
 async function applyFromClipboard(append) {
   const shouldAppend = append !== false && !!(historyPack && historyPack.rows && historyPack.rows.length);
   pasteIntent = shouldAppend ? 'append' : true;
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      const text = await navigator.clipboard.readText();
+      if (text && String(text).trim()) {
+        await applyClipboardText(text, shouldAppend);
+        return;
+      }
+    }
+  } catch { /* file:// or permission denied */ }
   catcher.value = '';
   catcher.focus();
   catcher.select();
+  toast(shouldAppend ? 'Press Ctrl+V to paste more data' : 'Press Ctrl+V to paste');
 }
 async function copyValues() {
   const lines = points.map(p => { const v = parseFloat(p.value); return isFinite(v) ? v.toFixed(3) : ''; }).join('\n').replace(/\n+$/, '');
@@ -3358,6 +3462,16 @@ function drawCentration() {
   ctx.globalAlpha = 1; ctx.lineWidth = 2;
   ctx.strokeStyle = c.greenStroke; ctx.beginPath(); ctx.arc(center.x, center.y, GREEN_R, 0, Math.PI * 2); ctx.stroke();
   ctx.strokeStyle = c.yellowStroke; ctx.beginPath(); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2); ctx.stroke();
+  const targetThick = numVal(document.getElementById('targetThickness').value);
+  if (finiteNum(targetThick) && finiteNum(min) && finiteNum(max) && max > min && targetThick >= min && targetThick <= max) {
+    const targetR = valueToRadius(targetThick, min, max);
+    ctx.save();
+    ctx.setLineDash([7, 6]);
+    ctx.lineWidth = Math.max(2, S * 0.004);
+    ctx.strokeStyle = isDark() ? '#f8fafc' : '#14532d';
+    ctx.beginPath(); ctx.arc(center.x, center.y, targetR, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
   ctx.fillStyle = c.text; ctx.beginPath(); ctx.arc(center.x, center.y, 3, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = c.muted; ctx.font = `700 ${Math.max(14, S * 0.022)}px "Atkinson Hyperlegible", Arial`;
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('0', center.x + 10, center.y);
@@ -3498,8 +3612,13 @@ canvas.addEventListener('touchstart', onPointerDown, { passive: false });
 window.addEventListener('touchmove', onPointerMove, { passive: false });
 window.addEventListener('touchend', onPointerUp);
 window.addEventListener('resize', () => {
-  if (screenName === 'view') draw();
-  if (screenName === 'history') { histRangeKey = ''; renderHistoryBody(true); syncHistHeaderGutter(); }
+  if (resizeTimer) clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    resizeTimer = 0;
+    if (screenName === 'view') draw();
+    if (screenName === 'history') { histRangeKey = ''; renderHistoryBody(true); syncHistHeaderGutter(); }
+    if (screenName === 'mspecs') syncMspecHeaderGutter();
+  }, 80);
 });
 document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histPaste').onclick = () => applyFromClipboard(true);
@@ -3579,6 +3698,8 @@ document.getElementById('modeBtn').onclick = () => {
 };
 document.getElementById('spcBy').onchange = () => {
   document.getElementById('spcValue').value = '';
+  spcPointSelected = false;
+  syncViewChrome();
   fillSpcControls();
   syncSpcDates(true);
   redrawSpc();
@@ -3614,6 +3735,8 @@ document.getElementById('spcValueList').onclick = (e) => {
 };
 const redrawSpcDates = () => {
   if (viewMode !== 'spc') return;
+  spcPointSelected = false;
+  syncViewChrome();
   fillSpcControls();
   requestAnimationFrame(() => draw());
 };
@@ -3633,16 +3756,32 @@ document.getElementById('rptSelectAll').onclick = () => document.querySelectorAl
 document.getElementById('rptClear').onclick = () => document.querySelectorAll('#rptItems input[type="checkbox"]').forEach(c => { c.checked = false; });
 document.getElementById('histWrap').addEventListener('scroll', () => {
   const wrap = document.getElementById('histWrap');
-  const head = document.querySelector('.hist-head-freeze');
+  const head = document.getElementById('histHeadFreeze');
   if (head) head.scrollLeft = wrap.scrollLeft;
   if (histPaint) return;
   histPaint = requestAnimationFrame(() => { histPaint = 0; renderHistoryBody(); });
 }, { passive: true });
-document.querySelector('.hist-head-freeze').addEventListener('scroll', () => {
+document.getElementById('histHeadFreeze').addEventListener('scroll', () => {
   const wrap = document.getElementById('histWrap');
-  const head = document.querySelector('.hist-head-freeze');
+  const head = document.getElementById('histHeadFreeze');
   if (wrap && head) wrap.scrollLeft = head.scrollLeft;
 }, { passive: true });
+document.getElementById('mspecWrap').addEventListener('scroll', () => {
+  const wrap = document.getElementById('mspecWrap');
+  const head = document.getElementById('mspecHeadFreeze');
+  if (head) head.scrollLeft = wrap.scrollLeft;
+}, { passive: true });
+document.getElementById('mspecHeadFreeze').addEventListener('scroll', () => {
+  const wrap = document.getElementById('mspecWrap');
+  const head = document.getElementById('mspecHeadFreeze');
+  if (wrap && head) wrap.scrollLeft = head.scrollLeft;
+}, { passive: true });
+document.getElementById('complianceLine').onchange = () => setActiveLine(document.getElementById('complianceLine').value, 'compliance');
+document.getElementById('spcLine').onchange = () => {
+  spcPointSelected = false;
+  syncViewChrome();
+  setActiveLine(document.getElementById('spcLine').value, 'spc');
+};
 document.getElementById('histBody').addEventListener('click', (e) => {
   const btn = e.target.closest('button[data-view]');
   if (!btn) return;
@@ -3676,7 +3815,7 @@ catcher.addEventListener('paste', (e) => {
 });
 document.getElementById('minThickness').oninput = document.getElementById('maxThickness').oninput = () => { customArrow = false; calculate(); };
 document.getElementById('rangeSpec').oninput = document.getElementById('targetThickness').oninput = calculate;
-['densMinSpec','densTargetSpec','densMaxSpec','cellMinSpec','cellMaxSpec','widthMinSpec','widthTargetSpec'].forEach(id => {
+['densMinSpec','densTargetSpec','densMaxSpec','cellMinSpec','cellMaxSpec'].forEach(id => {
   document.getElementById(id).oninput = () => { if (viewMode === 'spc') draw(); else refreshChecks(); };
 });
 document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };
@@ -3728,6 +3867,7 @@ restorePack().then(async data => {
   };
   if (data.specPatches) historyPack.specPatches = data.specPatches;
   await indexHistory();
+  fillLineSelects();
   syncWelcome();
   setScreen('history');
   requestAnimationFrame(() => renderHistoryTable());

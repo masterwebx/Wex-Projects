@@ -185,7 +185,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.6\.2'/);
+assert.match(html, /APP_VERSION = '1\.6\.3'/);
 assert.match(html, /Missing checks/);
 assert.match(html, /function asThousandths/);
 assert.match(html, /function specTargetsText/);
@@ -211,7 +211,7 @@ assert.match(html, /id="histSpc"/);
 assert.match(html, /id="modeBtn"/);
 assert.doesNotMatch(html, /id="modeBtn"[^>]*hidden/);
 assert.match(html, /option value="mspec"/);
-assert.doesNotMatch(html, /navigator\.clipboard\.readText/);
+assert.match(html, /navigator\.clipboard\.readText/);
 assert.match(html, /function densityFromFilename/);
 assert.match(html, /function failLineForCheck/);
 assert.match(html, /function openMspecs/);
@@ -223,7 +223,26 @@ assert.match(html, /id="prevResult"/);
 assert.match(html, /id="nextResult"/);
 assert.match(html, /id="viewMeta"/);
 assert.match(html, /Density min/);
-assert.match(html, /Width min/);
+assert.doesNotMatch(html, /id="widthMinSpec"/);
+assert.doesNotMatch(html, /id="widthTargetSpec"/);
+assert.doesNotMatch(html, />Width min</);
+assert.doesNotMatch(html, />Width target</);
+assert.match(html, /id="complianceLine"/);
+assert.match(html, /id="spcLine"/);
+assert.match(html, /function lineFilteredRows/);
+assert.match(html, /function fillLineSelects/);
+assert.match(html, /spcPointSelected/);
+assert.match(html, /MSPEC_COL_W/);
+assert.match(html, /function applyMspecColgroup/);
+assert.match(html, /setLineDash\(\[7, 6\]\)/);
+assert.match(html, /class="card comp-chart"/);
+assert.match(vba, /OpenMasterSheetAny/);
+assert.match(vba, /MasterSheetRangeToTsv/);
+assert.match(vba, /For r = 1 To 2000/);
+assert.match(vbaS1, /A:BH/);
+assert.match(vbaS1, /OpenMasterSheetAny/);
+assert.match(vbaFromS4, /OpenMasterSheetAny/);
+assert.match(vbaFromS1, /MasterSheetRangeToTsv/);
 assert.match(html, /Cell count min/);
 assert.match(html, /Target thickness/);
 assert.match(html, /function axisRange/);
@@ -589,6 +608,17 @@ function isDummyDensityTriple(min, target, max) {
   if (hasBand) return false;
   return nums.every(n => Math.abs(n - 1) < 0.02);
 }
+const dump4460 = parseTsv([
+  'MSPEC #\tAF#\tLower Spec\tLower Control\tTarget\tUpper Control\tUpper Spec\tThickness Range Max\tCell Count Min\tCell Count Max\tDensity Min\tDensity Target\tDensity Max\tWeight Min\tWeight Target\tWeight Max\tFilename',
+  '4460\tAF500\t\t.505\t.515\t.52\t\t30\t18\t22\t\t\t\t\t\t\t4460 S3-6.0 Richter-AF500 2.0#',
+  '5000\tAF030\t\t.032\t.035\t.038\t\t10\t28\t32\t\t\t\t\t\t\t5000 S1 9.3 die AF030 2.1# Rev 7-25-13'
+]);
+const row4460 = dump4460.rows[0];
+assert.equal(col(row4460, 'MSPEC #'), '4460');
+assert.equal(col(row4460, 'Filename'), '4460 S3-6.0 Richter-AF500 2.0#');
+assert.equal(String(col(row4460, 'Density Max') || ''), '');
+assert.equal(densityFromFilename(row4460), 2);
+assert.equal(col(dump4460.rows[1], 'Filename'), '5000 S1 9.3 die AF030 2.1# Rev 7-25-13');
 assert.equal(densityFromFilename({ Filename: '4005 S1  5.8 Die 26 Mandrel AF060 1.2# DOW' }), 1.2);
 assert.equal(isDummyDensityTriple(NaN, 1, 1), true);
 assert.equal(isDummyDensityTriple(1.1, 1.2, 1.3), false);

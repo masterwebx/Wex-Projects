@@ -216,29 +216,89 @@ End Function
 
 Private Function LookupTableTsv() As String
     Dim ws As Worksheet
-    Dim lo As ListObject
     Dim tsv As String
     
-    ' 1) Quality AIO (or whichever workbook S4 VLOOKUPs) if it is already open
-    Set ws = LinkedMasterSheetIfOpen()
+    ' 1) Any open Quality AIO / Master Sheet (link path may not match OneDrive vs network)
+    Set ws = OpenMasterSheetAny()
     If Not ws Is Nothing Then
-        Set lo = MspecListObject(ws)
-        If Not lo Is Nothing Then
-            LookupTableTsv = ListObjectToTsv(lo)
-            If LenB(LookupTableTsv) > 0 Then Exit Function
-        End If
+        LookupTableTsv = MasterSheetRangeToTsv(ws)
+        If LenB(LookupTableTsv) > 0 Then Exit Function
     End If
     
-    ' 2) Same [n]Master Sheet cache S4 uses, so specs match E6/G6 even if AIO is closed
+    ' 2) Workbook S4 VLOOKUPs, if it is already open
+    Set ws = LinkedMasterSheetIfOpen()
+    If Not ws Is Nothing Then
+        LookupTableTsv = MasterSheetRangeToTsv(ws)
+        If LenB(LookupTableTsv) > 0 Then Exit Function
+    End If
+    
+    ' 3) Same [n]Master Sheet cache S4 uses, so specs match E6/G6 even if AIO is closed
     tsv = LinkedMasterSheetToTsv()
     If LenB(tsv) > 0 Then
         LookupTableTsv = tsv
         Exit Function
     End If
     
-    ' 3) Local Master Sheet Table7 (Quality AIO itself, or last-resort stale copy)
-    Set lo = MspecListObject(SheetByName("Master Sheet"))
-    LookupTableTsv = ListObjectToTsv(lo)
+    ' 4) Local Master Sheet (Quality AIO itself, or last-resort stale copy)
+    LookupTableTsv = MasterSheetRangeToTsv(SheetByName("Master Sheet"))
+End Function
+
+Private Function OpenMasterSheetAny() As Worksheet
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim lo As ListObject
+    
+    For Each wb In Application.Workbooks
+        If StrComp(wb.Name, ThisWorkbook.Name, vbTextCompare) = 0 Then GoTo NextWb
+        If Not dataWb Is Nothing Then
+            If StrComp(wb.Name, dataWb.Name, vbTextCompare) = 0 Then GoTo NextWb
+        End If
+        On Error Resume Next
+        Set ws = wb.Worksheets("Master Sheet")
+        On Error GoTo 0
+        If Not ws Is Nothing Then
+            Set lo = MspecListObject(ws)
+            If Not lo Is Nothing Then
+                Set OpenMasterSheetAny = ws
+                Exit Function
+            End If
+        End If
+        Set ws = Nothing
+NextWb:
+    Next wb
+End Function
+
+Private Function MasterSheetRangeToTsv(ByVal ws As Worksheet) As String
+    Dim lo As ListObject
+    Dim lastCol As Long
+    Dim lastRow As Long
+    Dim c As Long
+    Dim r As Long
+    Dim nC As Long
+    
+    If ws Is Nothing Then Exit Function
+    
+    lastCol = 17
+    lastRow = 1
+    Set lo = MspecListObject(ws)
+    If Not lo Is Nothing Then
+        lastRow = Application.Max(lastRow, lo.Range.Row + lo.Range.Rows.Count - 1)
+        lastCol = Application.Max(lastCol, lo.Range.Column + lo.Range.Columns.Count - 1)
+    End If
+    
+    nC = 0
+    For c = 1 To 60
+        If Not IsBlankLink(ws.Cells(1, c).Value) Then nC = c
+    Next c
+    If nC > lastCol Then lastCol = nC
+    If lastCol > 60 Then lastCol = 60
+    
+    On Error Resume Next
+    r = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
+    On Error GoTo 0
+    If r > lastRow Then lastRow = r
+    If lastRow < 2 Or lastCol < 6 Then Exit Function
+    MasterSheetRangeToTsv = RangeToTsv(ws.Range(ws.Cells(1, 1), ws.Cells(lastRow, lastCol)))
 End Function
 
 Private Function MspecListObject(ByVal ws As Worksheet) As ListObject
@@ -352,6 +412,7 @@ Private Function LinkedMasterSheetToTsv() As String
     Dim c As Long
     Dim nC As Long
     Dim nLines As Long
+    Dim blankRun As Long
     Dim v As Variant
     Dim lines() As String
     Dim parts() As String
@@ -370,12 +431,21 @@ Private Function LinkedMasterSheetToTsv() As String
     Next c
     If nC < 6 Then Exit Function
     
-    ReDim lines(1 To 200)
-    For r = 1 To 200
+    ReDim lines(1 To 2000)
+    For r = 1 To 2000
         v = EvalLinkedIndex(evalWs, ref, r, 1)
         If r > 1 Then
-            If IsBlankLink(v) Then Exit For
-            If Not IsNumeric(v) Then Exit For
+            If IsBlankLink(v) Then
+                blankRun = blankRun + 1
+                If blankRun >= 25 Then Exit For
+                GoTo NextLinkedRow
+            End If
+            If Not IsNumeric(v) Then
+                blankRun = blankRun + 1
+                If blankRun >= 25 Then Exit For
+                GoTo NextLinkedRow
+            End If
+            blankRun = 0
         End If
         ReDim parts(1 To nC)
         For c = 1 To nC
@@ -387,6 +457,7 @@ Private Function LinkedMasterSheetToTsv() As String
         Next c
         nLines = nLines + 1
         lines(nLines) = Join(parts, vbTab)
+NextLinkedRow:
     Next r
     If nLines < 2 Then Exit Function
     ReDim Preserve lines(1 To nLines)

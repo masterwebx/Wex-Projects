@@ -173,19 +173,20 @@
     background: var(--idle); color: var(--text); min-width: 88px;
   }
   .comp-chart {
-    padding: 12px 16px 10px; display: grid; gap: 10px; overflow: auto; min-height: 160px;
+    padding: 10px 14px 8px; display: grid; gap: 8px; overflow: auto; min-height: 0;
+    align-content: start; flex: 0 0 auto;
   }
   .comp-scroll { overflow: auto; padding: 16px; display: grid; gap: 20px; min-height: 0; }
   .comp-week { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .comp-hours { overflow-x: auto; min-width: 0; }
   .comp-grid {
-    display: grid; grid-template-columns: 72px repeat(24, minmax(16px, 1fr)); gap: 4px; align-items: center;
-    width: 100%; min-width: 560px;
-    font-size: 12px; font-weight: 700; color: var(--muted);
+    display: grid; grid-template-columns: 52px repeat(24, 18px); gap: 3px; align-items: center;
+    width: max-content; max-width: 100%;
+    font-size: 11px; font-weight: 700; color: var(--muted);
   }
-  .comp-hlabel { text-align: center; font-size: 11px; }
+  .comp-hlabel { text-align: center; font-size: 10px; }
   .comp-hour {
-    width: auto; min-width: 16px; aspect-ratio: 1; height: auto; border-radius: 5px; border: 1px solid var(--line);
+    width: 18px; height: 18px; min-width: 18px; border-radius: 4px; border: 1px solid var(--line);
     background: transparent;
   }
   table.results td.wrap, table.results th.wrap { white-space: normal; line-height: 1.25; overflow: visible; text-overflow: clip; }
@@ -287,6 +288,12 @@
   .modal h3 { margin: 0 0 12px; font-size: 22px; }
   .modal label { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 10px 0; font-weight: 700; }
   .modal input { width: 100px; }
+  .modal input[type="date"] {
+    width: 200px; min-width: 200px; flex: 0 0 200px; text-align: left; padding: 7px 8px;
+  }
+  #spcReportOverlay .modal input[type="date"] {
+    width: 220px; min-width: 220px; flex: 0 0 220px;
+  }
   .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 700; margin: 12px 0; }
   .switch { position: relative; width: 52px; height: 30px; flex: 0 0 52px; }
   .switch input { opacity: 0; width: 0; height: 0; }
@@ -427,7 +434,7 @@
   </header>
   <div class="card hist-card">
     <div class="filter-bar show" style="background:transparent;color:inherit;border-bottom:1px solid var(--line)">
-      <input type="search" id="mspecSearch" placeholder="Search MSPEC, AF#, filename" style="flex:1;min-width:160px;border:2px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--idle);color:var(--text)">
+      <input type="search" id="mspecSearch" placeholder="Search MSPEC, AF#" style="flex:1;min-width:160px;border:2px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--idle);color:var(--text)">
     </div>
     <div class="hist-head-freeze" id="mspecHeadFreeze"><table class="results" id="mspecHeadTable"><thead id="mspecHead"></thead></table></div>
     <div class="table-wrap" id="mspecWrap"><table class="results" id="mspecTable"><tbody id="mspecBody"></tbody></table></div>
@@ -568,14 +575,14 @@
 </div>
 
 <script>
-const APP_VERSION = '1.6.4';
+const APP_VERSION = '1.6.5';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
 const PACK_STORE = 'pack';
 const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
 const HIST_COL_W = [52, 280, 180, 240, 170, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120];
-const MSPEC_COL_W = [80, 80, 90, 100, 90, 70, 80, 80, 80, 90, 90, 110, 280, 240];
+const MSPEC_COL_W = [90, 80, 96, 108, 96, 74, 84, 84, 88, 100, 88];
 const COL_ALIASES = {
   'Item #': ['Item #', 'Item', 'Item Number'],
   'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription'],
@@ -596,6 +603,7 @@ const COL_ALIASES = {
   'Filename': ['Filename', 'File Name', 'File', 'File Name / Description']
 };
 const NUM_COLS = new Set(['Item #','MSPEC','Bundle #','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
+const TONE_COLS = new Set(['Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const ROW_H = 42;
 const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -632,6 +640,8 @@ let spcComboHi = -1;
 let activeLine = '';
 let spcPointSelected = false;
 let resizeTimer = 0;
+let layoutOverride = null;
+let spcChartFlags = { avg: true, range: true, density: true };
 
 function finiteNum(v) {
   if (v == null || v === '') return false;
@@ -765,7 +775,7 @@ function syncViewChrome() {
     if (viewMode === 'spc') modeBtn.hidden = !spcPointSelected;
     else modeBtn.hidden = !hasHist || enterMode;
   }
-  const nav = hasHist && !enterMode && screenName === 'view';
+  const nav = hasHist && !enterMode && screenName === 'view' && viewMode !== 'spc';
   const { i, rows } = historyNav();
   const prev = document.getElementById('prevResult');
   const next = document.getElementById('nextResult');
@@ -1108,6 +1118,58 @@ function excelWhen(v) {
     if (!isNaN(d.getTime())) return d.toLocaleString(undefined, { timeZone: 'UTC' });
   }
   return String(v || '').trim();
+}
+function excelDatePartsFromSerial(v) {
+  const n = parseFloat(v);
+  if (!isFinite(n) || n < 20000 || n > 90000) return null;
+  const d = excelSerialDate(n);
+  if (isNaN(d.getTime())) return null;
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), serial: n };
+}
+function excelDateOnly(v) {
+  const p = excelDatePartsFromSerial(v);
+  if (!p) return String(v || '').replace(/\s+\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AP]M)?/i, '').trim();
+  return `${MONTHS[p.m - 1].slice(0, 3)} ${p.d}, ${p.y}`;
+}
+function excelDateShort(v) {
+  const p = excelDatePartsFromSerial(v);
+  if (!p) return excelDateOnly(v);
+  return `${MONTHS[p.m - 1].slice(0, 3)} ${p.d}`;
+}
+function excelMonthOnly(v) {
+  const p = excelDatePartsFromSerial(v);
+  if (!p) return excelDateOnly(v);
+  return `${MONTHS[p.m - 1].slice(0, 3)} ${p.y}`;
+}
+function spcAxisTicks(pts) {
+  if (!pts.length) return [];
+  const span = (Number(pts[pts.length - 1].t) || 0) - (Number(pts[0].t) || 0);
+  const monthKeys = new Set();
+  for (const p of pts) {
+    const dp = excelDatePartsFromSerial(p.t);
+    if (dp) monthKeys.add(dp.y + '-' + dp.m);
+  }
+  const byMonth = monthKeys.size >= 2 && span > 40;
+  const ticks = [];
+  const seen = new Set();
+  pts.forEach((p, i) => {
+    const dp = excelDatePartsFromSerial(p.t);
+    const key = dp ? (byMonth ? dp.y + '-' + dp.m : dp.y + '-' + dp.m + '-' + dp.d) : 'i' + i;
+    if (seen.has(key)) return;
+    seen.add(key);
+    ticks.push({ i, label: byMonth ? excelMonthOnly(p.t) : excelDateShort(p.t) });
+  });
+  const maxTicks = 10;
+  if (ticks.length <= maxTicks) return ticks;
+  const out = [ticks[0]];
+  const step = (ticks.length - 1) / (maxTicks - 1);
+  for (let k = 1; k < maxTicks - 1; k++) {
+    const pick = ticks[Math.round(k * step)];
+    if (pick && pick.i !== out[out.length - 1].i) out.push(pick);
+  }
+  const last = ticks[ticks.length - 1];
+  if (last && last.i !== out[out.length - 1].i) out.push(last);
+  return out;
 }
 function applySpecPatch(base, patch) {
   if (!patch) return base;
@@ -1637,8 +1699,24 @@ function rowMatches(r) {
   }
   return true;
 }
+function toneRank(tone, first) {
+  const order = first === 'thin' ? { thin: 0, in: 1, thick: 2 }
+    : first === 'thick' ? { thick: 0, in: 1, thin: 2 }
+    : { in: 0, thin: 1, thick: 2 };
+  return order[tone] != null ? order[tone] : 3;
+}
 function compareIndexed(a, b) {
   const col = tableSort.col, dir = tableSort.dir === 'asc' ? 1 : -1, mode = tableSort.mode;
+  if (mode === 'tone') {
+    const av = toneRank(a.tone && a.tone[col], tableSort.dir);
+    const bv = toneRank(b.tone && b.tone[col], tableSort.dir);
+    if (av !== bv) return av - bv;
+    const an = a.num[col], bn = b.num[col];
+    const aOk = isFinite(an), bOk = isFinite(bn);
+    if (aOk && bOk && an !== bn) return an - bn;
+    if (aOk !== bOk) return aOk ? -1 : 1;
+    return (a.serial || 0) - (b.serial || 0);
+  }
   if (col === 'Date/Time' || mode === 'date') return dir * ((a.serial || 0) - (b.serial || 0));
   if (mode === 'num' || (mode !== 'text' && NUM_COLS.has(col))) {
     const av = a.num[col], bv = b.num[col];
@@ -1793,7 +1871,11 @@ function renderHistoryChrome() {
     <select id="dateYear"></select><select id="dateMonth"></select><select id="dateDay"></select>
   </div></th>`;
   const others = TABLE_COLS.slice(1).map(k => {
-    const sortHint = tableSort.col === k ? (tableSort.dir === 'asc' ? ' ▲' : ' ▼') : '';
+    const sortHint = tableSort.col === k
+      ? (tableSort.mode === 'tone'
+        ? (tableSort.dir === 'in' ? ' ✓' : tableSort.dir === 'thin' ? ' ↓' : ' ↑')
+        : (tableSort.dir === 'asc' ? ' ▲' : ' ▼'))
+      : '';
     const on = tableSort.col === k ? ' active' : '';
     const filtered = isColFiltered(k) ? ' filtered' : '';
     return `<th class="${isColFiltered(k) ? 'filtered' : ''}"><div class="th-inner">${esc(k)}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
@@ -1903,10 +1985,15 @@ function openFilterMenu(col, anchor) {
   let values = valuesForFilter(col);
   if (q) values = values.filter(v => String(v).toLowerCase().includes(q));
   const shown = values.slice(0, 250);
+  const toneBtns = TONE_COLS.has(col)
+    ? `<button class="secondary sort-btn" type="button" data-sort="in" data-mode="tone">Sort all passing</button>
+       <button class="secondary sort-btn" type="button" data-sort="thin" data-mode="tone">Sort all under</button>
+       <button class="secondary sort-btn" type="button" data-sort="thick" data-mode="tone">Sort all over</button>`
+    : '';
   const sortBtns = `<button class="secondary sort-btn" type="button" data-sort="asc" data-mode="text">Sort A to Z</button>
        <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="text">Sort Z to A</button>
        <button class="secondary sort-btn" type="button" data-sort="asc" data-mode="num">Sort smallest to largest</button>
-       <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="num">Sort largest to smallest</button>`;
+       <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="num">Sort largest to smallest</button>${toneBtns}`;
   const checks = shown.map(v => {
     const on = !selected || selected.has(String(v));
     const label = (col === 'MSPEC')
@@ -1921,7 +2008,7 @@ function openFilterMenu(col, anchor) {
     <div class="modal-actions"><button type="button" id="filterApply">Apply</button><button class="secondary" type="button" id="filterClear">Clear</button></div>`;
   const r = anchor.getBoundingClientRect();
   pop.style.left = Math.min(r.left, window.innerWidth - 300) + 'px';
-  pop.style.top = Math.min(r.bottom + 4, window.innerHeight - 360) + 'px';
+    pop.style.top = Math.min(r.bottom + 4, window.innerHeight - (TONE_COLS.has(col) ? 460 : 360)) + 'px';
   pop.classList.add('show');
     pop.querySelectorAll('[data-sort]').forEach(btn => {
       btn.onclick = () => {
@@ -2120,10 +2207,12 @@ function refreshViewMeta() {
   el.textContent = [when, item && `Item ${itemWithTargets(item, mspec)}`, desc, mspec && `MSPEC ${mspecWithTarget(mspec)}`].filter(Boolean).join(' · ');
 }
 function viewPrev() {
+  if (viewMode === 'spc') return;
   const { rows, i } = historyNav();
   if (i > 0) goHistoryRow(rows[i - 1].idx);
 }
 function viewNext() {
+  if (viewMode === 'spc') return;
   const { rows, i } = historyNav();
   if (i >= 0 && i < rows.length - 1) goHistoryRow(rows[i + 1].idx);
   else if (viewingIdx === 'current' && rows.length) goHistoryRow(rows[0].idx);
@@ -2327,7 +2416,7 @@ function renderComplianceDays(monday) {
   }
   el.innerHTML = parts.join('');
 }
-const MSPEC_AUDIT_COLS = ['MSPEC','AF#','Thick min','Thick target','Thick max','Range','Cell min','Cell max','Dens min','Dens target','Dens max','Dens used','Filename','Note'];
+const MSPEC_AUDIT_COLS = ['MSPEC','AF#','Thick min','Thick target','Thick max','Range','Cell min','Cell max','Dens min','Dens target','Dens max'];
 function fmtAuditNum(v, digits) {
   return finiteNum(v) ? Number(v).toFixed(digits) : '';
 }
@@ -2342,13 +2431,6 @@ function mspecAuditRows() {
     const rawDensMin = specCell(row, COL_ALIASES['Density Min']);
     const rawDensTarget = specCell(row, COL_ALIASES['Density Target']);
     const rawDensMax = specCell(row, COL_ALIASES['Density Max']);
-    const fileName = specCell(row, COL_ALIASES['Filename']) || '';
-    const notes = [];
-    if (used.densFromFile) notes.push('filename ' + Number(used.densFromFile).toFixed(2) + '#');
-    if (historyPack.specPatches && historyPack.specPatches[key] && finiteNum(historyPack.specPatches[key].densTarget)) notes.push('current sheet density');
-    if (!finiteNum(used.densMin) && !finiteNum(used.densMax) && finiteNum(used.densTarget)) notes.push('density min/max missing');
-    if (!finiteNum(used.densTarget) && !finiteNum(used.densMin)) notes.push('no density spec');
-    const usedDens = [fmtAuditNum(used.densMin, 2), fmtAuditNum(used.densTarget, 2), fmtAuditNum(used.densMax, 2)].filter(Boolean).join(' / ');
     out.push({
       key,
       values: [
@@ -2362,10 +2444,7 @@ function mspecAuditRows() {
         fmtAuditNum(used.cellMax, 0),
         String(rawDensMin || ''),
         String(rawDensTarget || ''),
-        String(rawDensMax || ''),
-        usedDens,
-        fileName,
-        notes.join('; ')
+        String(rawDensMax || '')
       ]
     });
   }
@@ -2380,10 +2459,10 @@ function renderMspecTable() {
   const head = document.getElementById('mspecHead');
   const body = document.getElementById('mspecBody');
   if (head) {
-    head.innerHTML = `<tr>${MSPEC_AUDIT_COLS.map((h, i) => `<th${i >= 12 ? ' class="wrap"' : ''}>${esc(h)}</th>`).join('')}</tr>`;
+    head.innerHTML = `<tr>${MSPEC_AUDIT_COLS.map(h => `<th>${esc(h)}</th>`).join('')}</tr>`;
   }
   if (body) {
-    body.innerHTML = rows.map(r => `<tr>${r.values.map((v, i) => `<td${i >= 12 ? ' class="wrap"' : ''}>${esc(v)}</td>`).join('')}</tr>`).join('')
+    body.innerHTML = rows.map(r => `<tr>${r.values.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')
       || `<tr><td colspan="${MSPEC_AUDIT_COLS.length}">No Master Sheet rows. Paste Copy for Graph first.</td></tr>`;
   }
   applyMspecColgroup(document.getElementById('mspecHeadTable'));
@@ -2398,7 +2477,7 @@ function openMspecs() {
 function downloadMspecExcel() {
   const rows = mspecAuditRows();
   if (!rows.length) { toast('No MSPEC rows'); return; }
-  downloadBlob('diegraph-mspecs.xlsx', buildXlsx('MSPECs', MSPEC_AUDIT_COLS, rows.map(r => r.values), [12, 10, 12, 12, 12, 10, 10, 10, 12, 12, 12, 16, 42, 28]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  downloadBlob('diegraph-mspecs.xlsx', buildXlsx('MSPECs', MSPEC_AUDIT_COLS, rows.map(r => r.values), [12, 10, 12, 12, 12, 10, 10, 10, 12, 12, 12]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   toast('Downloaded MSPEC table');
 }
 function openHistoryForItemDay(item, y, m, d) {
@@ -2586,17 +2665,289 @@ function downloadHistoryExcel() {
   downloadBlob('diegraph-history.xlsx', buildXlsx('History', headers, data, widths), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   toast('Downloaded history');
 }
-function wrapCanvasText(c, text, maxW) {
-  const words = String(text || '').split(/\s+/);
+function pdfSafe(s) {
+  return String(s ?? '')
+    .replace(/[·•]/g, '-')
+    .replace(/[–—]/g, '-')
+    .replace(/×/g, 'x')
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/…/g, '...')
+    .replace(/\u00a0/g, ' ')
+    .replace(/[^\x20-\x7E]/g, '?');
+}
+function pdfEscape(s) {
+  return pdfSafe(s).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+const PDF_HELV = [278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,222,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+const PDF_HELVB = [278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,222,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+function pdfTextWidth(text, size, bold) {
+  const table = bold ? PDF_HELVB : PDF_HELV;
+  const s = pdfSafe(text);
+  let w = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    w += (c >= 32 && c <= 126) ? table[c - 32] : 500;
+  }
+  return w * size / 1000;
+}
+function pdfWrap(text, size, maxW, bold) {
+  const words = pdfSafe(text).split(/\s+/);
   const lines = [];
   let cur = '';
-  for (const w of words) {
-    const trial = cur ? cur + ' ' + w : w;
-    if (c.measureText(trial).width > maxW && cur) { lines.push(cur); cur = w; }
+  for (const word of words) {
+    const trial = cur ? cur + ' ' + word : word;
+    if (pdfTextWidth(trial, size, bold) > maxW && cur) { lines.push(cur); cur = word; }
     else cur = trial;
   }
   if (cur) lines.push(cur);
   return lines.length ? lines : [''];
+}
+function pdfRgb(hex) {
+  const n = String(hex || '#000000').replace('#', '');
+  const full = n.length === 3 ? n.split('').map(ch => ch + ch).join('') : n;
+  return [0, 2, 4].map(i => (parseInt(full.slice(i, i + 2), 16) / 255).toFixed(3)).join(' ');
+}
+function newPdfDoc(w, h) { return { w: w || 612, h: h || 792, pages: [] }; }
+function pdfAddPage(doc, w, h) {
+  const page = { w: w || doc.w, h: h || doc.h, ops: [] };
+  doc.pages.push(page);
+  return page;
+}
+function pdfY(page, yTop) { return page.h - yTop; }
+function pdfFillRect(page, x, yTop, w, h, hex) {
+  if (w <= 0 || h <= 0) return;
+  page.ops.push(`${pdfRgb(hex)} rg ${x.toFixed(2)} ${pdfY(page, yTop + h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f`);
+}
+function pdfStrokeRect(page, x, yTop, w, h, hex, lw) {
+  page.ops.push(`${(lw == null ? 0.6 : lw).toFixed(2)} w ${pdfRgb(hex)} RG ${x.toFixed(2)} ${pdfY(page, yTop + h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re S`);
+}
+function pdfFillStrokeRect(page, x, yTop, w, h, fill, stroke, lw) {
+  page.ops.push(`${(lw == null ? 0.6 : lw).toFixed(2)} w ${pdfRgb(fill)} rg ${pdfRgb(stroke)} RG ${x.toFixed(2)} ${pdfY(page, yTop + h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re B`);
+}
+function pdfLine(page, x1, y1, x2, y2, hex, lw, dash) {
+  const d = dash && dash.length ? `[${dash.join(' ')}] 0 d` : '[] 0 d';
+  page.ops.push(`${d} ${(lw == null ? 1 : lw).toFixed(2)} w ${pdfRgb(hex)} RG ${x1.toFixed(2)} ${pdfY(page, y1).toFixed(2)} m ${x2.toFixed(2)} ${pdfY(page, y2).toFixed(2)} l S [] 0 d`);
+}
+function pdfCircle(page, cx, cy, r, fill, stroke, lw) {
+  const k = 0.552284749831;
+  const y = pdfY(page, cy);
+  const parts = [];
+  if (stroke) parts.push(`${(lw == null ? 1 : lw).toFixed(2)} w ${pdfRgb(stroke)} RG`);
+  if (fill) parts.push(`${pdfRgb(fill)} rg`);
+  parts.push(`${cx.toFixed(2)} ${(y + r).toFixed(2)} m`);
+  parts.push(`${(cx + k * r).toFixed(2)} ${(y + r).toFixed(2)} ${(cx + r).toFixed(2)} ${(y + k * r).toFixed(2)} ${(cx + r).toFixed(2)} ${y.toFixed(2)} c`);
+  parts.push(`${(cx + r).toFixed(2)} ${(y - k * r).toFixed(2)} ${(cx + k * r).toFixed(2)} ${(y - r).toFixed(2)} ${cx.toFixed(2)} ${(y - r).toFixed(2)} c`);
+  parts.push(`${(cx - k * r).toFixed(2)} ${(y - r).toFixed(2)} ${(cx - r).toFixed(2)} ${(y - k * r).toFixed(2)} ${(cx - r).toFixed(2)} ${y.toFixed(2)} c`);
+  parts.push(`${(cx - r).toFixed(2)} ${(y + k * r).toFixed(2)} ${(cx - k * r).toFixed(2)} ${(y + r).toFixed(2)} ${cx.toFixed(2)} ${(y + r).toFixed(2)} c`);
+  parts.push(fill && stroke ? 'B' : (fill ? 'f' : 'S'));
+  page.ops.push(parts.join(' '));
+}
+function pdfText(page, x, yTop, text, opts) {
+  opts = opts || {};
+  const size = opts.size || 10;
+  const bold = !!opts.bold;
+  const s = pdfSafe(text);
+  let tx = x;
+  if (opts.align === 'right') tx = x - pdfTextWidth(s, size, bold);
+  else if (opts.align === 'center') tx = x - pdfTextWidth(s, size, bold) / 2;
+  page.ops.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${pdfRgb(opts.color || '#12202b')} rg 1 0 0 1 ${tx.toFixed(2)} ${(pdfY(page, yTop) - size * 0.22).toFixed(2)} Tm (${pdfEscape(s)}) Tj ET`);
+}
+function writePdf(doc) {
+  const encoder = new TextEncoder();
+  const chunks = [];
+  const pushStr = s => chunks.push(encoder.encode(s));
+  pushStr('%PDF-1.4\n');
+  const offsets = [0];
+  const objPos = () => chunks.reduce((n, c) => n + c.length, 0);
+  const startObj = n => { offsets[n] = objPos(); };
+  const pages = doc.pages;
+  const pageCount = pages.length;
+  const pageObjs = [];
+  const contentObjs = [];
+  let next = 3;
+  const fontObj = next++;
+  const fontBoldObj = next++;
+  pages.forEach((page, i) => {
+    const content = next++;
+    const pg = next++;
+    contentObjs[i] = content;
+    pageObjs[i] = pg;
+    const stream = page.ops.join('\n');
+    const streamBytes = encoder.encode(stream);
+    startObj(content);
+    pushStr(`${content} 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n`);
+    chunks.push(streamBytes);
+    pushStr('\nendstream\nendobj\n');
+    startObj(pg);
+    pushStr(`${pg} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${page.w} ${page.h}] /Contents ${content} 0 R /Resources << /Font << /F1 ${fontObj} 0 R /F2 ${fontBoldObj} 0 R >> >> >>\nendobj\n`);
+  });
+  startObj(fontObj);
+  pushStr(`${fontObj} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`);
+  startObj(fontBoldObj);
+  pushStr(`${fontBoldObj} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>\nendobj\n`);
+  startObj(2);
+  pushStr(`2 0 obj\n<< /Type /Pages /Kids [${pageObjs.map(n => n + ' 0 R').join(' ')}] /Count ${pageCount} >>\nendobj\n`);
+  startObj(1);
+  pushStr(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
+  const xrefAt = objPos();
+  const maxObj = Math.max(...offsets.map((v, i) => (v ? i : 0)));
+  pushStr(`xref\n0 ${maxObj + 1}\n`);
+  pushStr('0000000000 65535 f \n');
+  for (let i = 1; i <= maxObj; i++) pushStr(String(offsets[i] || 0).padStart(10, '0') + ' 00000 n \n');
+  pushStr(`trailer\n<< /Size ${maxObj + 1} /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF`);
+  const total = chunks.reduce((n, c) => n + c.length, 0);
+  const out = new Uint8Array(total);
+  let pos = 0;
+  for (const c of chunks) { out.set(c, pos); pos += c.length; }
+  return out;
+}
+function downloadPdfDoc(filename, doc) {
+  if (!doc.pages.length) { toast('Nothing to download'); return; }
+  downloadBlob(filename, writePdf(doc), 'application/pdf');
+}
+function pdfDrawTable(doc, page, y, columns, rows, opts) {
+  opts = opts || {};
+  const margin = opts.margin == null ? 40 : opts.margin;
+  const headerH = 18;
+  const font = opts.size || 8;
+  const headerBg = '#eef2f6';
+  const drawHeader = (pg, yy) => {
+    let x = margin;
+    columns.forEach(col => {
+      pdfFillStrokeRect(pg, x, yy, col.w, headerH, headerBg, '#c5ced6', 0.4);
+      const tx = col.align === 'right' ? x + col.w - 4 : (col.align === 'center' ? x + col.w / 2 : x + 4);
+      pdfText(pg, tx, yy + 12, col.title, { size: font, bold: true, color: '#3e4a55', align: col.align || 'left' });
+      x += col.w;
+    });
+    return yy + headerH;
+  };
+  if (y + headerH + 16 > page.h - margin) {
+    page = pdfAddPage(doc, page.w, page.h);
+    y = margin;
+  }
+  y = drawHeader(page, y);
+  for (const row of rows) {
+    const wraps = columns.map((col, i) => pdfWrap(row[i] == null ? '' : String(row[i]), font, Math.max(12, col.w - 8), false));
+    const linesN = Math.max(1, ...wraps.map(w => w.length));
+    const rh = Math.max(16, linesN * 11 + 6);
+    if (y + rh > page.h - margin) {
+      page = pdfAddPage(doc, page.w, page.h);
+      y = margin;
+      y = drawHeader(page, y);
+    }
+    let x = margin;
+    columns.forEach((col, i) => {
+      pdfFillStrokeRect(page, x, y, col.w, rh, row._bg || '#ffffff', '#d5dde4', 0.35);
+      wraps[i].forEach((ln, li) => {
+        const tx = col.align === 'right' ? x + col.w - 4 : (col.align === 'center' ? x + col.w / 2 : x + 4);
+        pdfText(page, tx, y + 12 + li * 11, ln, { size: font, color: row._color || '#12202b', align: col.align || 'left', bold: !!row._bold });
+      });
+      x += col.w;
+    });
+    y += rh;
+  }
+  return { page, y };
+}
+function pdfDrawSpcChart(page, box, pts, flagged, ch) {
+  const x = box.x, y = box.y, w = box.w, h = box.h;
+  pdfStrokeRect(page, x, y, w, h, '#d5dde4', 0.7);
+  pdfText(page, x + 10, y + 14, ch.title + (ch.unit ? '  (' + ch.unit + ')' : ''), { size: 11, bold: true });
+  const padL = 48, padR = 10, padT = 24, padB = 22;
+  const plot = { x: x + padL, y: y + padT, w: Math.max(20, w - padL - padR), h: Math.max(20, h - padT - padB) };
+  const plotVals = pts.filter((p, i) => finiteNum(p[ch.key]) && !(spcHideOutliers && flagged[i])).map(p => p[ch.key]);
+  const ym = axisRange(plotVals, [ch.min, ch.max, ch.target]);
+  const span = Math.max(ym.max - ym.min, 1e-9);
+  const digits = span < 1 ? 3 : (span < 10 ? 2 : 1);
+  const yAt = v => plot.y + plot.h - ((Number(v) - ym.min) / span) * plot.h;
+  const xAt = (i, n) => n <= 1 ? plot.x + plot.w / 2 : plot.x + (i / (n - 1)) * plot.w;
+  const specPdf = (val, color, label, sit) => {
+    if (!finiteNum(val)) return;
+    const yy = Math.min(plot.y + plot.h - 1, Math.max(plot.y + 1, yAt(val)));
+    pdfLine(page, plot.x, yy, plot.x + plot.w, yy, color, 0.8, [4, 3]);
+    pdfText(page, plot.x + plot.w - 3, sit === 'below' ? yy + 9 : yy - 2, `${label} ${fmtSpec(val, digits)}`, { size: 7, color, align: 'right', bold: true });
+  };
+  specPdf(ch.max, '#b91c1c', 'Max', 'above');
+  specPdf(ch.target, '#1d4ed8', 'Target', 'above');
+  specPdf(ch.min, '#166534', 'Min', 'below');
+  pdfLine(page, plot.x, plot.y, plot.x, plot.y + plot.h, '#94a3b8', 0.6);
+  pdfLine(page, plot.x, plot.y + plot.h, plot.x + plot.w, plot.y + plot.h, '#94a3b8', 0.6);
+  pdfText(page, plot.x - 6, plot.y + 3, ym.max.toFixed(digits), { size: 7, color: '#3e4a55', align: 'right' });
+  pdfText(page, plot.x - 6, plot.y + plot.h + 3, ym.min.toFixed(digits), { size: 7, color: '#3e4a55', align: 'right' });
+  const n = pts.length;
+  let last = null;
+  pts.forEach((p, i) => {
+    if (!finiteNum(p[ch.key]) || (spcHideOutliers && flagged[i])) return;
+    const xx = xAt(i, n), yy = yAt(p[ch.key]);
+    if (last) pdfLine(page, last.x, last.y, xx, yy, '#12202b', 1);
+    last = { x: xx, y: yy };
+  });
+  pts.forEach((p, i) => {
+    if (!finiteNum(p[ch.key]) || (spcHideOutliers && flagged[i])) return;
+    const xx = xAt(i, n), yy = yAt(p[ch.key]);
+    const fail = judgeBetween(p[ch.key], ch.min, ch.max) === 'Fail';
+    if (flagged[i] && !spcHideOutliers) {
+      pdfLine(page, xx - 3, yy - 3, xx + 3, yy + 3, '#d97706', 1);
+      pdfLine(page, xx + 3, yy - 3, xx - 3, yy + 3, '#d97706', 1);
+    } else {
+      pdfCircle(page, xx, yy, 2.2, fail ? '#dc2626' : '#16a34a', '#ffffff', 0.5);
+    }
+  });
+  const ticks = spcAxisTicks(pts);
+  ticks.forEach((tick, ti) => {
+    const xx = xAt(tick.i, n);
+    const align = ti === 0 ? 'left' : (ti === ticks.length - 1 ? 'right' : 'center');
+    pdfText(page, xx, plot.y + plot.h + 12, tick.label, { size: 7, color: '#3e4a55', align });
+  });
+}
+function pdfHeader(page, title, subtitle) {
+  pdfText(page, 40, 36, title, { size: 16, bold: true });
+  if (subtitle) pdfText(page, 40, 52, subtitle, { size: 9, color: '#3e4a55' });
+  pdfLine(page, 40, 58, page.w - 40, 58, '#d5dde4', 0.8);
+}
+function complianceDayGroups(y, m, dd) {
+  const dayRows = lineFilteredRows().filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  const byItem = new Map();
+  const groups = [];
+  for (const r of dayRows) {
+    const key = r.item || '(no item)';
+    if (!byItem.has(key)) {
+      const g = { item: r.item, desc: r.desc, mspec: r.mspec, first: r.serial, last: r.serial, rows: [] };
+      byItem.set(key, g);
+      groups.push(g);
+    }
+    const g = byItem.get(key);
+    g.last = r.serial;
+    if (!g.desc && r.desc) g.desc = r.desc;
+    if (!g.mspec && r.mspec) g.mspec = r.mspec;
+    g.rows.push(r);
+  }
+  return groups.map(g => {
+    let passed = 0, failed = 0, noCheck = 0;
+    const failLines = [];
+    for (const r of g.rows) {
+      if (isNoCheckPf(r.pf)) { noCheck += 1; continue; }
+      const details = failDetailsForRow(r.row, lookupSpecs(r.mspec) || {});
+      if (details.length || normalizePf(r.pf) === 'Fail') {
+        failed += 1;
+        failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
+      } else passed += 1;
+    }
+    let sum = `${passed} passed`;
+    if (failed) sum = `${passed} passed, ${failed} failed`;
+    else if (noCheck && !passed) sum = `${noCheck} NO CHECK`;
+    else if (noCheck) sum = `${passed} passed, ${noCheck} NO CHECK`;
+    const t1 = excelTimeShort(g.first), t2 = excelTimeShort(g.last);
+    return {
+      item: itemWithTargets(g.item, g.mspec) || g.item || '--',
+      desc: g.desc || '',
+      mspec: g.mspec ? mspecWithTarget(g.mspec) : '',
+      period: t1 && t2 && t1 !== t2 ? `${t1} - ${t2}` : (t1 || t2 || ''),
+      result: sum,
+      fails: failLines.join('; '),
+      failed
+    };
+  });
 }
 function openComplianceReport() {
   if (!indexedRows.length) { toast('Paste results first'); return; }
@@ -2620,256 +2971,132 @@ function downloadCompliancePdf(dayIdxs) {
   const { year, week } = isoWeekFromMonday(monday);
   const today = localTodayParts();
   const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
-  const W = 1224, H = 1584, margin = 48;
-  const dark = isDark();
-  const bg = dark ? '#0c1116' : '#ffffff';
-  const fg = dark ? '#f3f7fb' : '#12202b';
-  const muted = dark ? '#c5d0db' : '#3e4a55';
-  const line = dark ? '#2a3541' : '#d5dde4';
-  const ok = dark ? '#86efac' : '#166534';
-  const bad = dark ? '#fca5a5' : '#991b1b';
-  const badBg = dark ? '#7f1d1d' : '#fee2e2';
-  const idle = dark ? '#0f1620' : '#f8fafc';
-  const cv = document.createElement('canvas');
-  cv.width = W; cv.height = H;
-  const c = cv.getContext('2d');
-  const pages = [];
-  let y = 0;
-  const snap = () => pages.push({ jpeg: dataUrlToBytes(cv.toDataURL('image/jpeg', 0.86)), w: W, h: H, title: '' });
-  const newPage = () => {
-    c.fillStyle = bg; c.fillRect(0, 0, W, H);
-    y = margin;
-  };
-  const need = (hgt) => { if (y + hgt > H - margin) { snap(); newPage(); } };
-  newPage();
-  c.fillStyle = fg; c.font = '700 28px Atkinson Hyperlegible, Segoe UI, Arial';
-  c.fillText('Compliance', margin, y + 28); y += 40;
-  c.fillStyle = muted; c.font = '700 16px Atkinson Hyperlegible, Segoe UI, Arial';
-  c.fillText(`Week ${week}, ${year}  ·  ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}` + (activeLine ? `  ·  Line ${activeLine}` : ''), margin, y + 18); y += 36;
-  const legend = [['#22c55e', 'Checked'], ['#9ca3af', 'NO CHECK'], ['#ef4444', 'No checks'], ['transparent', 'Not yet']];
-  c.font = '700 14px Atkinson Hyperlegible, Segoe UI, Arial';
-  let lx = margin;
+  const SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const doc = newPdfDoc(612, 792);
+  let page = pdfAddPage(doc);
+  const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (activeLine ? `  |  Line ${activeLine}` : '');
+  pdfHeader(page, 'Compliance report', subtitle);
+  let y = 72;
+  const legend = [['#22c55e', 'Checked'], ['#9ca3af', 'NO CHECK'], ['#ef4444', 'No checks'], ['#ffffff', 'Not yet']];
+  let lx = 40;
   legend.forEach(([color, label]) => {
-    c.fillStyle = color === 'transparent' ? bg : color;
-    c.strokeStyle = line; c.lineWidth = 1;
-    c.beginPath(); c.roundRect ? c.roundRect(lx, y, 14, 14, 3) : c.rect(lx, y, 14, 14); c.fill(); c.stroke();
-    c.fillStyle = muted; c.fillText(label, lx + 20, y + 12);
-    lx += 110;
+    pdfFillStrokeRect(page, lx, y, 10, 10, color, color === '#ffffff' ? '#d5dde4' : color, 0.5);
+    pdfText(page, lx + 14, y + 9, label, { size: 8, color: '#3e4a55' });
+    lx += 88;
   });
-  y += 28;
-  const cell = 18, labelW = 70;
+  y += 22;
+  const cell = 14, labelW = 28, gap = 2;
+  pdfText(page, 40, y + 8, '', { size: 6 });
+  for (let h = 0; h < 24; h++) {
+    pdfText(page, 40 + labelW + h * (cell + gap) + cell / 2, y + 8, String(h).padStart(2, '0'), { size: 6, color: '#3e4a55', align: 'center' });
+  }
+  y += 12;
   for (let d = 0; d < 7; d++) {
     const day = new Date(monday.getTime());
     day.setUTCDate(monday.getUTCDate() + d);
     const hours = dayHourStatuses(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), today);
-    if (d === 0) {
-      c.fillStyle = muted; c.font = '700 10px Atkinson Hyperlegible, Segoe UI, Arial'; c.textAlign = 'center';
-      for (let h = 0; h < 24; h++) c.fillText(String(h).padStart(2, '0'), margin + labelW + h * (cell + 3) + cell / 2, y + 10);
-      c.textAlign = 'left'; y += 16;
-    }
-    c.fillStyle = muted; c.font = '700 12px Atkinson Hyperlegible, Segoe UI, Arial';
-    c.fillText(DAYS[d].slice(0, 3), margin, y + 14);
+    pdfText(page, 40, y + 11, SHORT[d], { size: 8, color: '#3e4a55', bold: true });
     hours.forEach((st, h) => {
-      const x = margin + labelW + h * (cell + 3);
-      c.fillStyle = st === 'check' ? '#22c55e' : st === 'nocheck' ? '#9ca3af' : st === 'miss' ? '#ef4444' : bg;
-      c.strokeStyle = st === 'future' ? 'transparent' : (st === 'check' ? '#15803d' : st === 'nocheck' ? '#6b7280' : st === 'miss' ? '#b91c1c' : line);
-      c.beginPath(); c.roundRect ? c.roundRect(x, y, cell, cell, 4) : c.rect(x, y, cell, cell); c.fill(); c.stroke();
+      const fill = st === 'check' ? '#22c55e' : st === 'nocheck' ? '#9ca3af' : st === 'miss' ? '#ef4444' : '#ffffff';
+      const stroke = st === 'future' ? '#e5e7eb' : (st === 'check' ? '#15803d' : st === 'nocheck' ? '#6b7280' : st === 'miss' ? '#b91c1c' : '#d5dde4');
+      pdfFillStrokeRect(page, 40 + labelW + h * (cell + gap), y, cell, cell, fill, stroke, 0.5);
     });
-    y += cell + 6;
+    y += cell + 4;
   }
-  y += 16;
+  y += 10;
+  const cols = [
+    { title: 'Item', w: 92 },
+    { title: 'Description', w: 118 },
+    { title: 'MSPEC', w: 70 },
+    { title: 'Period', w: 70 },
+    { title: 'Result', w: 88 },
+    { title: 'Fail notes', w: 94 }
+  ];
   for (const d of selected) {
-    snap();
-    newPage();
     const day = new Date(monday.getTime());
     day.setUTCDate(monday.getUTCDate() + d);
     const ymd = { y: day.getUTCFullYear(), m: day.getUTCMonth() + 1, dd: day.getUTCDate() };
     const heading = `${DAYS[d]}, ${fmtWeekDate(day)}`;
-    need(48);
-    c.fillStyle = fg; c.font = '700 20px Atkinson Hyperlegible, Segoe UI, Arial';
-    c.fillText(heading, margin, y + 18); y += 28;
+    if (y + 54 > page.h - 40) {
+      page = pdfAddPage(doc);
+      pdfHeader(page, 'Compliance report', subtitle);
+      y = 72;
+    }
+    pdfText(page, 40, y + 12, heading, { size: 12, bold: true });
+    y += 18;
     if (ymdNum(ymd.y, ymd.m, ymd.dd) > ymdNum(today.y, today.m, today.d)) {
-      c.fillStyle = muted; c.font = '400 14px Atkinson Hyperlegible, Segoe UI, Arial';
-      c.fillText('—', margin, y + 14); y += 28;
+      pdfText(page, 40, y + 10, 'Not yet', { size: 9, color: '#3e4a55' });
+      y += 18;
       continue;
     }
     const hours = dayHourStatuses(ymd.y, ymd.m, ymd.dd, today);
     const missing = hours.map((st, h) => st === 'miss' ? fmtHourLabel(h) : '').filter(Boolean);
     const missText = missing.length ? ('Missing checks  ' + missing.join(', ')) : 'No missing hours';
-    const missLines = wrapCanvasText(c, missText, W - margin * 2 - 24);
-    const missH = 16 + missLines.length * 16;
-    need(missH + 8);
-    c.fillStyle = missing.length ? badBg : idle;
-    c.strokeStyle = missing.length ? bad : line;
-    c.beginPath(); c.roundRect ? c.roundRect(margin, y, W - margin * 2, missH, 10) : c.rect(margin, y, W - margin * 2, missH);
-    c.fill(); c.stroke();
-    c.fillStyle = missing.length ? bad : muted;
-    c.font = '700 14px Atkinson Hyperlegible, Segoe UI, Arial';
-    missLines.forEach((ln, i) => c.fillText(ln, margin + 12, y + 18 + i * 16));
-    y += missH + 10;
-    const dayRows = lineFilteredRows().filter(r => r.y === ymd.y && r.m === ymd.m && r.d === ymd.dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
-    if (!dayRows.length) {
-      c.fillStyle = muted; c.font = '400 14px Atkinson Hyperlegible, Segoe UI, Arial';
-      c.fillText('No items', margin, y + 14); y += 26;
+    const missLines = pdfWrap(missText, 8, 532);
+    const missH = 8 + missLines.length * 11;
+    if (y + missH + 8 > page.h - 40) {
+      page = pdfAddPage(doc);
+      pdfHeader(page, 'Compliance report', subtitle);
+      y = 72;
+    }
+    pdfFillStrokeRect(page, 40, y, 532, missH, missing.length ? '#fee2e2' : '#f8fafc', missing.length ? '#991b1b' : '#d5dde4', 0.6);
+    missLines.forEach((ln, i) => pdfText(page, 48, y + 12 + i * 11, ln, { size: 8, color: missing.length ? '#991b1b' : '#3e4a55', bold: true }));
+    y += missH + 8;
+    const groups = complianceDayGroups(ymd.y, ymd.m, ymd.dd);
+    if (!groups.length) {
+      pdfText(page, 40, y + 10, 'No items', { size: 9, color: '#3e4a55' });
+      y += 18;
       continue;
     }
-    const byItem = new Map();
-    for (const r of dayRows) {
-      const key = r.item || '(no item)';
-      if (!byItem.has(key)) byItem.set(key, []);
-      byItem.get(key).push(r);
-    }
-    for (const [item, list] of byItem) {
-      let passed = 0, failed = 0, noCheck = 0;
-      const failLines = [];
-      for (const r of list) {
-        if (isNoCheckPf(r.pf)) { noCheck += 1; continue; }
-        const details = failDetailsForRow(r.row, lookupSpecs(r.mspec) || {});
-        if (details.length || normalizePf(r.pf) === 'Fail') {
-          failed += 1;
-          failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
-        } else passed += 1;
-      }
-      let sum = `${passed} passed`;
-      if (failed) sum = `${passed} passed, ${failed} failed`;
-      else if (noCheck && !passed) sum = `${noCheck} NO CHECK`;
-      else if (noCheck) sum = `${passed} passed, ${noCheck} NO CHECK`;
-      const t1 = excelTimeShort(list[0].serial), t2 = excelTimeShort(list[list.length - 1].serial);
-      const meta = [list[0].desc, list[0].mspec && `MSPEC ${mspecWithTarget(list[0].mspec)}`, t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2)].filter(Boolean).join('  ·  ');
-      const title = itemWithTargets(item, list[0].mspec) || item;
-      c.font = '400 13px Atkinson Hyperlegible, Segoe UI, Arial';
-      const wrapFails = failLines.flatMap(ln => wrapCanvasText(c, ln, W - margin * 2 - 40));
-      const boxH = 48 + wrapFails.length * 16;
-      need(boxH + 8);
-      c.fillStyle = idle; c.strokeStyle = line;
-      c.beginPath(); c.roundRect ? c.roundRect(margin, y, W - margin * 2, boxH, 10) : c.rect(margin, y, W - margin * 2, boxH);
-      c.fill(); c.stroke();
-      c.fillStyle = fg; c.font = '700 16px Atkinson Hyperlegible, Segoe UI, Arial';
-      c.fillText(title, margin + 12, y + 20);
-      c.fillStyle = failed ? bad : ok; c.font = '700 14px Atkinson Hyperlegible, Segoe UI, Arial';
-      c.textAlign = 'right'; c.fillText(sum, W - margin - 12, y + 20); c.textAlign = 'left';
-      c.fillStyle = muted; c.font = '400 13px Atkinson Hyperlegible, Segoe UI, Arial';
-      c.fillText(meta, margin + 12, y + 38);
-      c.fillStyle = bad;
-      wrapFails.forEach((ln, i) => c.fillText(ln, margin + 20, y + 56 + i * 16));
-      y += boxH + 8;
-    }
+    const tableRows = groups.map(g => {
+      const row = [g.item, g.desc, g.mspec, g.period, g.result, g.fails];
+      if (g.failed) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
+      return row;
+    });
+    const drawn = pdfDrawTable(doc, page, y, cols, tableRows, { margin: 40, size: 8 });
+    page = drawn.page;
+    y = drawn.y + 14;
   }
-  snap();
-  downloadPdfFile(`diegraph-compliance-week-${week}-${year}.pdf`, pages);
+  downloadPdfDoc(`diegraph-compliance-week-${week}-${year}.pdf`, doc);
   toast('Downloaded compliance PDF');
 }
-function dataUrlToBytes(dataUrl) {
-  const b64 = (dataUrl.split(',')[1] || '');
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return bytes;
+function spcExportRows(rows, charts) {
+  const raw = rows.map(r => ({
+    idx: r.idx, row: r.row, t: r.serial,
+    avg: r.num['Thickness Average'],
+    range: r.num['Thickness Range'],
+    density: r.num['Density'],
+    pf: r.pf
+  }));
+  return applySharedOutliers(raw, charts);
 }
-function pdfEscape(s) {
-  return String(s || '').replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
-}
-function buildPdf(pages) {
-  const encoder = new TextEncoder();
-  const chunks = [];
-  const pushStr = s => chunks.push(encoder.encode(s));
-  const pushBytes = b => chunks.push(b);
-  pushStr('%PDF-1.4\n');
-  const offsets = [0];
-  const objPos = () => chunks.reduce((n, c) => n + c.length, 0);
-  const startObj = (n) => { offsets[n] = objPos(); };
-  const pageCount = pages.length;
-  const imageObjs = [];
-  const pageObjs = [];
-  const contentObjs = [];
-  let next = 3;
-  const fontObj = next++;
-  pages.forEach((page, i) => {
-    const content = next++;
-    const pg = next++;
-    contentObjs[i] = content;
-    pageObjs[i] = pg;
-    let img = 0;
-    if (page.jpeg && page.w && page.h) {
-      img = next++;
-      imageObjs[i] = img;
-      startObj(img);
-      pushStr(`${img} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${page.w} /Height ${page.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${page.jpeg.length} >>\nstream\n`);
-      pushBytes(page.jpeg);
-      pushStr('\nendstream\nendobj\n');
-    }
-    const W = page.pageW || 612, H = page.pageH || 792, margin = 36;
-    const hasImg = !!(page.jpeg && page.w && page.h);
-    const maxW = W - margin * 2, maxH = H - margin * 2 - (page.lines && page.lines.length ? 120 : 36);
-    const scale = hasImg ? Math.min(maxW / page.w, maxH / page.h) : 1;
-    const dw = hasImg ? page.w * scale : 0, dh = hasImg ? page.h * scale : 0;
-    const x = (W - dw) / 2;
-    const y = H - margin - 22 - dh;
-    const textOps = (page.lines || []).map((line, li) => {
-      const yy = hasImg ? y - 16 - li * 11 : (H - margin - 28 - li * 11);
-      return `BT /F1 9 Tf ${margin} ${Math.max(24, yy)} Td (${pdfEscape(line)}) Tj ET`;
-    }).join('\n');
-    const imgOp = hasImg ? `q ${dw.toFixed(2)} 0 0 ${dh.toFixed(2)} ${x.toFixed(2)} ${y.toFixed(2)} cm /Im${i} Do Q\n` : '';
-    const stream = `BT /F1 13 Tf ${margin} ${H - margin} Td (${pdfEscape(page.title || '')}) Tj ET\n${imgOp}${textOps}`;
-    const streamBytes = encoder.encode(stream);
-    startObj(content);
-    pushStr(`${content} 0 obj\n<< /Length ${streamBytes.length} >>\nstream\n`);
-    pushBytes(streamBytes);
-    pushStr('\nendstream\nendobj\n');
-    startObj(pg);
-    const xobj = hasImg ? ` /XObject << /Im${i} ${img} 0 R >>` : '';
-    pushStr(`${pg} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Contents ${content} 0 R /Resources << /Font << /F1 ${fontObj} 0 R >>${xobj} >> >>\nendobj\n`);
-  });
-  startObj(fontObj);
-  pushStr(`${fontObj} 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`);
-  startObj(2);
-  pushStr(`2 0 obj\n<< /Type /Pages /Kids [${pageObjs.map(n => n + ' 0 R').join(' ')}] /Count ${pageCount} >>\nendobj\n`);
-  startObj(1);
-  pushStr(`1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`);
-  const xrefAt = objPos();
-  const maxObj = Math.max(...offsets.map((v, i) => (v ? i : 0)));
-  pushStr(`xref\n0 ${maxObj + 1}\n`);
-  pushStr('0000000000 65535 f \n');
-  for (let i = 1; i <= maxObj; i++) {
-    const off = offsets[i] || 0;
-    pushStr(String(off).padStart(10, '0') + ' 00000 n \n');
+function appendSpcPdfSection(doc, label, rangeText, rows, charts, includeTable) {
+  const { pts, flagged } = spcExportRows(rows, charts);
+  const subtitle = `${rangeText}  |  ${pts.length} check${pts.length === 1 ? '' : 's'}` + (activeLine ? `  |  Line ${activeLine}` : '');
+  const tableCols = [
+    { title: 'Date', w: 120 },
+    { title: 'Average', w: 100, align: 'right' },
+    { title: 'Range', w: 100, align: 'right' },
+    { title: 'Density', w: 100, align: 'right' },
+    { title: 'Pass/Fail', w: 112 }
+  ];
+  const tableRows = pts.map(p => [excelDateOnly(p.t), fmtCheck(p.avg, 3), fmtCheck(p.range, 1), fmtCheck(p.density, 2), p.pf || '']);
+  if (!charts.length && includeTable) {
+    const page = pdfAddPage(doc);
+    pdfHeader(page, label + '  -  data', subtitle);
+    pdfDrawTable(doc, page, 70, tableCols, tableRows, { margin: 40, size: 8 });
+    return;
   }
-  pushStr(`trailer\n<< /Size ${maxObj + 1} /Root 1 0 R >>\nstartxref\n${xrefAt}\n%%EOF`);
-  const total = chunks.reduce((n, c) => n + c.length, 0);
-  const out = new Uint8Array(total);
-  let pos = 0;
-  for (const c of chunks) { out.set(c, pos); pos += c.length; }
-  return out;
-}
-function downloadPdfFile(filename, pages) {
-  if (!pages.length) { toast('Nothing to download'); return; }
-  const bytes = buildPdf(pages);
-  downloadBlob(filename, bytes, 'application/pdf');
-}
-function captureCanvasJpeg() {
-  return dataUrlToBytes(canvas.toDataURL('image/jpeg', 0.88));
-}
-let layoutOverride = null;
-let spcChartFlags = { avg: true, range: true, density: true };
-function captureSpcJpeg() {
-  return {
-    jpeg: captureCanvasJpeg(),
-    w: Math.max(1, canvas.width),
-    h: Math.max(1, canvas.height)
-  };
-}
-async function withSpcCapture(w, h, flags, fn) {
-  const prevLayout = layoutOverride;
-  const prevFlags = spcChartFlags;
-  layoutOverride = { w, h };
-  spcChartFlags = flags || spcChartFlags;
-  try {
-    drawSpc();
-    await yieldUi();
-    return fn();
-  } finally {
-    layoutOverride = prevLayout;
-    spcChartFlags = prevFlags;
+  for (const ch of charts) {
+    const page = pdfAddPage(doc);
+    pdfHeader(page, label + '  -  ' + ch.title, subtitle);
+    if (!pts.length) pdfText(page, 40, 80, 'No points to plot for this series / time frame.', { size: 10, color: '#3e4a55' });
+    else pdfDrawSpcChart(page, { x: 40, y: 70, w: 532, h: 280 }, pts, flagged, ch);
+  }
+  if (includeTable && tableRows.length) {
+    const page = pdfAddPage(doc);
+    pdfHeader(page, label + '  -  data', subtitle);
+    pdfDrawTable(doc, page, 70, tableCols, tableRows, { margin: 40, size: 8 });
   }
 }
 async function downloadCurrentSpcPdf() {
@@ -2879,28 +3106,18 @@ async function downloadCurrentSpcPdf() {
   const title = (by === 'mspec' ? 'MSPEC ' : 'Item ') + spcOptionLabel(val, by);
   const from = document.getElementById('spcFrom').value;
   const to = document.getElementById('spcTo').value;
-  const flags = spcChartFlags || { avg: true, range: true, density: true };
-  const chartH = 560;
-  const pages = [];
-  const keys = [['avg', flags.avg, 'Average'], ['range', flags.range, 'Range'], ['density', flags.density, 'Density']].filter(x => x[1]);
-  showProgress('Building SPC PDF', 10, '');
+  const mspec = by === 'mspec' ? val : mspecForItem(val);
+  const charts = spcChartDefs(mspec);
+  const rows = spcSelectedRows();
+  const doc = newPdfDoc(612, 792);
+  showProgress('Building SPC PDF', 20, '');
   await yieldUi();
   try {
-    for (let i = 0; i < keys.length; i++) {
-      const cap = await withSpcCapture(1600, chartH, { avg: keys[i][0] === 'avg', range: keys[i][0] === 'range', density: keys[i][0] === 'density' }, captureSpcJpeg);
-      pages.push({
-        title: `${title} · ${keys[i][2]}`,
-        jpeg: cap.jpeg, w: cap.w, h: cap.h,
-        pageW: 792, pageH: 612,
-        lines: [`${from || ''} to ${to || ''}`]
-      });
-      showProgress('Building SPC PDF', 20 + Math.round(70 * (i + 1) / Math.max(keys.length, 1)), keys[i][2]);
-    }
+    appendSpcPdfSection(doc, title, `${from || ''} to ${to || ''}`, rows, charts, true);
   } finally {
     hideProgress();
-    if (screenName === 'view' && viewMode === 'spc') draw();
   }
-  downloadPdfFile('diegraph-spc.pdf', pages);
+  downloadPdfDoc('diegraph-spc.pdf', doc);
   toast('Downloaded SPC PDF');
 }
 function openSpcReport() {
@@ -2941,67 +3158,44 @@ async function downloadSpcReportPdf() {
   };
   if (!flags.avg && !flags.range && !flags.density) { toast('Select at least one chart'); return; }
   const includeTable = document.getElementById('rptTable').checked;
-  const prevFlags = spcChartFlags;
   const prevOut = spcHideOutliers;
   const prevVal = document.getElementById('spcValue').value;
   const prevFrom = document.getElementById('spcFrom').value;
   const prevTo = document.getElementById('spcTo').value;
-  const prevMode = viewMode;
-  const prevScreen = screenName;
   spcHideOutliers = !document.getElementById('rptOutliers').checked;
   document.getElementById('spcFrom').value = document.getElementById('rptFrom').value;
   document.getElementById('spcTo').value = document.getElementById('rptTo').value;
-  const wasSpc = viewMode === 'spc';
-  if (!wasSpc) setViewMode('spc');
-  if (screenName !== 'view') setScreen('view');
-  const chartKeys = [['avg', flags.avg, 'Average'], ['range', flags.range, 'Range'], ['density', flags.density, 'Density']].filter(x => x[1]);
-  const pages = [];
+  const rangeText = `${document.getElementById('rptFrom').value || ''} to ${document.getElementById('rptTo').value || ''}`;
+  const doc = newPdfDoc(612, 792);
   showProgress('Building SPC report', 8, '');
   await yieldUi();
   try {
-    const total = selected.length * chartKeys.length;
-    let n = 0;
     for (let i = 0; i < selected.length; i++) {
       const val = selected[i];
       document.getElementById('spcValue').value = val;
-      const search = document.getElementById('spcValueSearch');
-      if (search) search.value = spcOptionLabel(val, by);
-      fillSpecPanel(specsFor(by === 'mspec' ? val : mspecForItem(val)), by === 'mspec' ? val : mspecForItem(val));
+      const mspec = by === 'mspec' ? val : mspecForItem(val);
+      fillSpecPanel(specsFor(mspec), mspec);
       const label = (by === 'mspec' ? 'MSPEC ' : 'Item ') + spcOptionLabel(val, by);
       const rows = spcSelectedRows();
-      for (const ch of chartKeys) {
-        const cap = await withSpcCapture(1600, 560, { avg: ch[0] === 'avg', range: ch[0] === 'range', density: ch[0] === 'density' }, captureSpcJpeg);
-        pages.push({
-          title: `${label} · ${ch[2]}`,
-          jpeg: cap.jpeg, w: cap.w, h: cap.h,
-          pageW: 792, pageH: 612,
-          lines: [`${document.getElementById('rptFrom').value} to ${document.getElementById('rptTo').value} · ${rows.length} checks`]
-        });
-        n += 1;
-        showProgress('Building SPC report', 10 + Math.round(80 * n / Math.max(total, 1)), `${label} ${ch[2]}`);
-      }
-      if (includeTable && rows.length) {
-        const lines = rows.map(r => `${excelWhen(r.serial)}  avg ${fmtCheck(r.num['Thickness Average'], 3)}  rng ${fmtCheck(r.num['Thickness Range'], 1)}  dens ${fmtCheck(r.num['Density'], 2)}`);
-        for (let s = 0; s < lines.length; s += 42) {
-          pages.push({ title: `${label} · data`, lines: lines.slice(s, s + 42), pageW: 612, pageH: 792 });
-        }
-      }
+      const charts = spcChartDefs(mspec, flags);
+      appendSpcPdfSection(doc, label, rangeText, rows, charts, includeTable);
+      showProgress('Building SPC report', 10 + Math.round(80 * (i + 1) / Math.max(selected.length, 1)), label);
+      await yieldUi();
     }
   } finally {
-    spcChartFlags = prevFlags;
     spcHideOutliers = prevOut;
-    layoutOverride = null;
     document.getElementById('spcValue').value = prevVal;
     document.getElementById('spcFrom').value = prevFrom;
     document.getElementById('spcTo').value = prevTo;
     const search = document.getElementById('spcValueSearch');
     if (search) search.value = spcOptionLabel(prevVal, by);
-    if (prevScreen !== 'view') setScreen(prevScreen);
-    if (!wasSpc) setViewMode(prevMode);
-    else { fillSpecPanel(specsFor(by === 'mspec' ? prevVal : mspecForItem(prevVal)), by === 'mspec' ? prevVal : mspecForItem(prevVal)); draw(); }
+    if (viewMode === 'spc') {
+      fillSpecPanel(specsFor(by === 'mspec' ? prevVal : mspecForItem(prevVal)), by === 'mspec' ? prevVal : mspecForItem(prevVal));
+      draw();
+    }
     hideProgress();
   }
-  downloadPdfFile('diegraph-spc-report.pdf', pages);
+  downloadPdfDoc('diegraph-spc-report.pdf', doc);
   document.getElementById('spcReportOverlay').classList.remove('show');
   toast('Downloaded SPC report');
 }
@@ -3360,7 +3554,33 @@ function rangeAsThousandths(v) {
   if (!finiteNum(n)) return NaN;
   return Math.abs(n) < 1 ? n * 1000 : n;
 }
-function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTarget, selectedIdx) {
+function spcPointRows() {
+  return spcSelectedRows().map(r => ({
+    idx: r.idx, row: r.row, t: r.serial,
+    avg: r.num['Thickness Average'],
+    range: r.num['Thickness Range'],
+    density: r.num['Density'],
+    pf: r.pf
+  }));
+}
+function spcChartDefs(mspec, flags) {
+  const specs = specsFor(mspec);
+  const panel = readPanelSpecs();
+  const on = flags || spcChartFlags || { avg: true, range: true, density: true };
+  const charts = [];
+  if (on.avg) charts.push({ key: 'avg', title: 'Average', unit: 'in', min: firstFinite(panel.min, specs.min), max: firstFinite(panel.max, specs.max), target: firstFinite(panel.target, specs.target) });
+  if (on.range) charts.push({ key: 'range', title: 'Range', unit: 'x0.001 in', min: 0, max: firstFinite(asThousandths(panel.range), specs.rangeThou), target: NaN });
+  if (on.density) charts.push({ key: 'density', title: 'Density', unit: 'pcf', min: firstFinite(panel.densMin, specs.densMin), max: firstFinite(panel.densMax, specs.densMax), target: firstFinite(panel.densTarget, specs.densTarget) });
+  if (!charts.length) charts.push({ key: 'avg', title: 'Average', unit: 'in', min: firstFinite(panel.min, specs.min), max: firstFinite(panel.max, specs.max), target: firstFinite(panel.target, specs.target) });
+  return charts;
+}
+function applySharedOutliers(pts, charts) {
+  const flagged = pts.map(p => charts.some(ch => specOutlier(p[ch.key], ch.min, ch.max)));
+  if (!spcHideOutliers) return { pts, flagged };
+  const kept = pts.filter((_, i) => !flagged[i]);
+  return { pts: kept, flagged: kept.map(() => false) };
+}
+function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax, specTarget, selectedIdx) {
   const { x, y, w, h } = panel;
   ctx.save();
   ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
@@ -3368,13 +3588,12 @@ function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTar
   ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); ctx.globalAlpha = 1;
   const titleSize = Math.max(14, Math.min(22, h * 0.055));
-  const labelSize = Math.max(12, Math.min(16, h * 0.038));
+  const labelSize = Math.max(11, Math.min(15, h * 0.036));
   ctx.fillStyle = c.text; ctx.font = `700 ${titleSize}px "Atkinson Hyperlegible", Arial`;
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText(title + (unit ? '  (' + unit + ')' : ''), x + 12, y + 10);
-  const padL = Math.max(56, labelSize * 5), padR = 12, padT = titleSize + 22, padB = labelSize + 22;
+  const padL = Math.max(56, labelSize * 5), padR = 12, padT = titleSize + 22, padB = labelSize + 28;
   const plot = { x: x + padL, y: y + padT, w: Math.max(20, w - padL - padR), h: Math.max(20, h - padT - padB) };
-  const flagged = pts.map(p => specOutlier(p[key], specMin, specMax));
   const plotVals = pts.filter((p, i) => finiteNum(p[key]) && !(spcHideOutliers && flagged[i])).map(p => p[key]);
   const ym = axisRange(plotVals, [specMin, specMax, specTarget]);
   const span = Math.max(ym.max - ym.min, 1e-9);
@@ -3428,14 +3647,14 @@ function drawSpcPanel(c, panel, pts, key, title, unit, specMin, specMax, specTar
     }
     spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx, key, title, value: p[key], t: p.t, unit });
   });
-  if (n) {
-    ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Atkinson Hyperlegible", Arial`;
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText(excelWhen(pts[0].t), plot.x, plot.y + plot.h + 8);
-    ctx.textAlign = 'right';
-    const last = excelWhen(pts[n - 1].t);
-    if (last) ctx.fillText(last, plot.x + plot.w, plot.y + plot.h + 8);
-  }
+  const ticks = spcAxisTicks(pts);
+  ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Atkinson Hyperlegible", Arial`;
+  ctx.textBaseline = 'top';
+  ticks.forEach((tick, ti) => {
+    const xx = xAt(tick.i, n);
+    ctx.textAlign = ti === 0 ? 'left' : (ti === ticks.length - 1 ? 'right' : 'center');
+    ctx.fillText(tick.label, xx, plot.y + plot.h + 8);
+  });
   ctx.restore();
 }
 function drawSpc() {
@@ -3444,33 +3663,28 @@ function drawSpc() {
   spcHits = [];
   ctx.clearRect(0, 0, canvasW, canvasH);
   ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
-  const pts = spcSelectedRows().map(r => ({
-    idx: r.idx, row: r.row, t: r.serial,
-    avg: r.num['Thickness Average'],
-    range: r.num['Thickness Range'],
-    density: r.num['Density']
-  }));
-  if (!pts.length) {
+  const rawPts = spcPointRows();
+  if (!rawPts.length) {
     ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(indexedRows.length ? 'No rows for this series / time frame' : 'Paste TableS4 data to see SPC', canvasW / 2, canvasH / 2);
     return;
   }
   const by = document.getElementById('spcBy').value;
-  const mspec = by === 'mspec' ? document.getElementById('spcValue').value : (col(pts[pts.length - 1].row, 'MSPEC') || currentSnapshot.mspec);
-  const specs = specsFor(mspec);
-  const panel = readPanelSpecs();
+  const mspec = by === 'mspec' ? document.getElementById('spcValue').value : (col(rawPts[rawPts.length - 1].row, 'MSPEC') || currentSnapshot.mspec);
   const selectedIdx = viewingIdx === 'current' ? -1 : Number(viewingIdx);
-  const charts = [];
-  const flags = spcChartFlags || { avg: true, range: true, density: true };
-  if (flags.avg) charts.push({ key: 'avg', title: 'Average', unit: 'in', min: firstFinite(panel.min, specs.min), max: firstFinite(panel.max, specs.max), target: firstFinite(panel.target, specs.target) });
-  if (flags.range) charts.push({ key: 'range', title: 'Range', unit: '×0.001 in', min: 0, max: firstFinite(asThousandths(panel.range), specs.rangeThou), target: NaN });
-  if (flags.density) charts.push({ key: 'density', title: 'Density', unit: 'pcf', min: firstFinite(panel.densMin, specs.densMin), max: firstFinite(panel.densMax, specs.densMax), target: firstFinite(panel.densTarget, specs.densTarget) });
-  if (!charts.length) charts.push({ key: 'avg', title: 'Average', unit: 'in', min: firstFinite(panel.min, specs.min), max: firstFinite(panel.max, specs.max), target: firstFinite(panel.target, specs.target) });
+  const charts = spcChartDefs(mspec);
+  const { pts, flagged } = applySharedOutliers(rawPts, charts);
+  if (!pts.length) {
+    ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('All points are outliers for this series / time frame', canvasW / 2, canvasH / 2);
+    return;
+  }
   const gap = 8, panelH = (canvasH - gap * (charts.length + 1)) / charts.length;
   charts.forEach((ch, i) => {
     const box = { x: 8, y: gap + i * (panelH + gap), w: canvasW - 16, h: panelH };
-    drawSpcPanel(c, box, pts, ch.key, ch.title, ch.unit, ch.min, ch.max, ch.target, selectedIdx);
+    drawSpcPanel(c, box, pts, flagged, ch.key, ch.title, ch.unit, ch.min, ch.max, ch.target, selectedIdx);
   });
 }
 function drawCentration() {
@@ -3563,7 +3777,7 @@ function hideSpcTip() {
 function showSpcTip(hit, clientX, clientY) {
   const tip = document.getElementById('spcTip');
   if (!tip || !hit) return;
-  const when = hit.t != null ? excelWhen(hit.t) : '';
+  const when = hit.t != null ? excelDateOnly(hit.t) : '';
   const unit = hit.unit ? ` ${hit.unit}` : '';
   const val = finiteNum(hit.value) ? fmtSpec(hit.value) : '--';
   tip.innerHTML = `<strong>${esc(hit.title || 'Value')}</strong>${when ? `<br>${esc(when)}` : ''}<br>${esc(val)}${esc(unit)}`;

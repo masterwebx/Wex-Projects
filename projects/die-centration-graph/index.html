@@ -44,6 +44,7 @@
   html[data-screen="history"] #screenHistory { display: grid; }
   html[data-screen="view"] #screenView { display: grid; }
   html[data-screen="compliance"] #screenCompliance { display: grid; }
+  html[data-screen="mspecs"] #screenMspecs { display: grid; }
   header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   h1 { font-size: 24px; margin: 0; }
   .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -163,6 +164,7 @@
   .combo-list button:hover, .combo-list button.active { background: var(--filter-bg); color: var(--filter-text); }
   .combo-list .hist-meta { padding: 10px; }
   #screenCompliance { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  #screenMspecs { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
   .comp-scroll { overflow: auto; padding: 16px; display: grid; gap: 20px; }
   .comp-week { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .comp-hours { overflow-x: auto; }
@@ -185,10 +187,11 @@
   .comp-day { display: grid; gap: 8px; }
   .comp-day h3 { margin: 0; font-size: 18px; }
   .comp-miss {
-    background: var(--thick-bg); color: var(--thick); border: 1px solid var(--thick);
-    border-radius: 12px; padding: 10px 12px;
+    background: var(--thick-bg); color: var(--thick); border: 2px solid var(--thick);
+    border-radius: 12px; padding: 12px 14px; font-size: 16px;
   }
-  .comp-miss b { display: block; margin-bottom: 4px; }
+  .comp-miss b { display: block; margin-bottom: 6px; font-size: 17px; }
+  .comp-miss.week { margin: 4px 0 8px; }
   .comp-fail-list { margin: 6px 0 0; padding-left: 18px; font-size: 13px; font-weight: 400; color: var(--thick); }
   .comp-item {
     display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: start;
@@ -316,15 +319,9 @@
 <section class="screen" id="screenWelcome">
   <div class="card welcome">
     <h1>Die Centration Graph</h1>
-    <p>Paste Copy for Graph from the S4 or S1 S3 quality check sheet, or type thickness points yourself.</p>
+    <p>Press Ctrl+V to paste Copy for Graph from the S4 or S1 S3 quality check sheet.</p>
     <div class="actions">
       <button type="button" id="welcomePaste">Paste results</button>
-      <div class="welcome-extra">
-        <button type="button" id="welcomePasteMore">Paste more data</button>
-        <button class="secondary" type="button" id="welcomeHistory">View history</button>
-        <button class="secondary" type="button" id="welcomeCompliance">Compliance</button>
-      </div>
-      <button class="secondary" type="button" id="welcomeEnter">Enter points by hand</button>
     </div>
     <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
   </div>
@@ -337,9 +334,9 @@
       <p class="hist-meta" id="histMeta"></p>
     </div>
     <div class="toolbar">
-      <button class="secondary" type="button" id="histBack">Go to main</button>
       <button type="button" id="histPaste">Paste more data</button>
       <button class="secondary" type="button" id="histCompliance">Compliance</button>
+      <button class="secondary" type="button" id="histMspecs">View MSPECs</button>
       <button class="secondary" type="button" id="histSpc">SPC mode</button>
       <button class="secondary" type="button" id="histDownload">Download Excel</button>
       <button type="button" id="histResetFilters" disabled>Reset filters</button>
@@ -369,6 +366,7 @@
       <button class="secondary" type="button" id="compliancePrevWeek">Previous week</button>
       <button class="secondary" type="button" id="complianceThisWeek">This week</button>
       <button class="secondary" type="button" id="complianceNextWeek">Next week</button>
+      <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
       <button type="button" id="complianceDownload">Download PDF</button>
       <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
     </div>
@@ -381,7 +379,44 @@
       <span><i style="background:transparent"></i>Not yet</span>
     </div>
     <div class="comp-hours" id="complianceHours"></div>
+    <div id="complianceMissWeek"></div>
     <div id="complianceDays"></div>
+  </div>
+</section>
+<div class="overlay" id="complianceReportOverlay">
+  <div class="modal">
+    <h3>Compliance PDF</h3>
+    <p class="hist-meta">Choose the days to include. Each day stays on its own page.</p>
+    <div class="modal-actions">
+      <button class="secondary" type="button" id="compRptAll">Whole week</button>
+      <button class="secondary" type="button" id="compRptClear">Clear</button>
+    </div>
+    <div class="rpt-opts" id="compRptDays"></div>
+    <div class="modal-actions">
+      <button type="button" id="compRptDownload">Download PDF</button>
+      <button class="secondary" type="button" id="compRptCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<section class="screen" id="screenMspecs">
+  <header>
+    <div>
+      <h1>MSPEC specs</h1>
+      <p class="hist-meta" id="mspecMeta">Imported Master Sheet rows. Use this to audit missing or dummy density values.</p>
+    </div>
+    <div class="toolbar">
+      <button class="secondary" type="button" id="mspecBack">Back</button>
+      <button class="secondary" type="button" id="mspecDownload">Download Excel</button>
+      <button class="secondary" type="button" id="mspecTheme">Dark mode</button>
+    </div>
+  </header>
+  <div class="card hist-card">
+    <div class="filter-bar show" style="background:transparent;color:inherit;border-bottom:1px solid var(--line)">
+      <input type="search" id="mspecSearch" placeholder="Search MSPEC, AF#, filename" style="flex:1;min-width:160px;border:2px solid var(--line);border-radius:10px;padding:8px 10px;font:inherit;background:var(--idle);color:var(--text)">
+    </div>
+    <div class="hist-head-freeze"><table class="results" id="mspecHeadTable"><thead id="mspecHead"></thead></table></div>
+    <div class="table-wrap" id="mspecWrap"><table class="results" id="mspecTable"><tbody id="mspecBody"></tbody></table></div>
   </div>
 </section>
 
@@ -518,7 +553,7 @@
 </div>
 
 <script>
-const APP_VERSION = '1.6.1';
+const APP_VERSION = '1.6.2';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -541,7 +576,8 @@ const COL_ALIASES = {
   'Density Target': ['Density Target', 'Target Density', 'Dens Target', 'Target Dens', 'Density Nom', 'Nom Density', 'PCF Target', 'Density Tgt'],
   'Density Max': ['Density Max', 'Max Density', 'Dens Max', 'Max Dens', 'Density UCL', 'PCF Max', 'Dens. Max'],
   'Thickness Average Pass/Fail': ['Thickness Average Pass/Fail', 'Average Pass/Fail'],
-  'Thickness Range Pass/Fail': ['Thickness Range Pass/Fail', 'Range Pass/Fail']
+  'Thickness Range Pass/Fail': ['Thickness Range Pass/Fail', 'Range Pass/Fail'],
+  'Filename': ['Filename', 'File Name', 'File', 'File Name / Description']
 };
 const NUM_COLS = new Set(['Item #','MSPEC','Bundle #','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -656,6 +692,7 @@ async function persistPack() {
       tx.objectStore(PACK_STORE).put({
         rows: historyPack.rows,
         lookupRows: historyPack.lookupRows || [],
+        specPatches: historyPack.specPatches || {},
         snapshot: currentSnapshot,
         savedAt: Date.now(),
         version: APP_VERSION,
@@ -693,7 +730,7 @@ function applyTheme(theme) {
   const dark = theme === 'dark';
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   const label = dark ? 'Light mode' : 'Dark mode';
-  ['themeBtn','welcomeTheme','histTheme','complianceTheme'].forEach(id => {
+  ['themeBtn','welcomeTheme','histTheme','complianceTheme','mspecTheme'].forEach(id => {
     const el = document.getElementById(id); if (el) el.textContent = label;
   });
 }
@@ -791,6 +828,29 @@ function looksLikeCellSpec(n) {
 function looksLikeDensity(n) {
   return finiteNum(n) && n >= 0.2 && n <= 12 && !(n >= 8 && Math.abs(n - Math.round(n)) < 0.05);
 }
+function densityFromFilename(row) {
+  const raw = specCell(row, COL_ALIASES['Filename']) || String((row && row.Filename) || '');
+  if (!raw) {
+    const keys = Object.keys(row || {});
+    const last = keys.length ? row[keys[keys.length - 1]] : '';
+    const mLast = String(last || '').match(/(\d+(?:\.\d+)?)\s*#/);
+    if (mLast) return parseFloat(mLast[1]);
+    for (const k of keys) {
+      const m = String(row[k] || '').match(/(\d+(?:\.\d+)?)\s*#/);
+      if (m) return parseFloat(m[1]);
+    }
+    return NaN;
+  }
+  const m = String(raw).match(/(\d+(?:\.\d+)?)\s*#/);
+  return m ? parseFloat(m[1]) : NaN;
+}
+function isDummyDensityTriple(min, target, max) {
+  const nums = [min, target, max].filter(finiteNum);
+  if (!nums.length) return true;
+  const hasBand = finiteNum(min) && finiteNum(max) && (max - min) >= 0.049;
+  if (hasBand) return false;
+  return nums.every(n => Math.abs(n - 1) < 0.02);
+}
 function cellSpecsFromLookupRow(row) {
   let min = numVal(specCell(row, COL_ALIASES['Cell Count Min'] || ['Cell Count Min']));
   let max = numVal(specCell(row, COL_ALIASES['Cell Count Max'] || ['Cell Count Max']));
@@ -820,10 +880,19 @@ function densitySpecsFromLookupRow(row) {
       if (!looksLikeDensity(max)) max = numVal(row[keys[cellMaxIdx + 3]]);
     }
   }
+  const fromName = densityFromFilename(row);
+  if (isDummyDensityTriple(min, target, max)) {
+    min = NaN;
+    target = finiteNum(fromName) ? fromName : NaN;
+    max = NaN;
+  } else if (!looksLikeDensity(target) && finiteNum(fromName)) {
+    target = fromName;
+  }
   return {
     densMin: looksLikeDensity(min) ? min : null,
     densTarget: looksLikeDensity(target) ? target : null,
-    densMax: looksLikeDensity(max) ? max : null
+    densMax: looksLikeDensity(max) ? max : null,
+    densFromFile: finiteNum(fromName) ? fromName : null
   };
 }
 function applyPlainNumbers(values) {
@@ -931,6 +1000,31 @@ function applyDieGraph(text) {
   const lines = text.replace(/\r/g, '').split('\n');
   return applyDieGraphLines(lines.slice(1));
 }
+function currentSpecPatch(meta) {
+  const out = {};
+  const put = (key, ...names) => {
+    for (const n of names) {
+      const v = numVal(meta && meta[n]);
+      if (finiteNum(v)) { out[key] = v; return; }
+    }
+  };
+  put('min', 'min');
+  put('target', 'target');
+  put('max', 'max');
+  put('range', 'range');
+  put('densMin', 'densmin', 'densMin');
+  put('densTarget', 'denstarget', 'densTarget');
+  put('densMax', 'densmax', 'densMax');
+  put('cellMin', 'cellmin', 'cellMin');
+  put('cellMax', 'cellmax', 'cellMax');
+  put('widthMin', 'widthmin', 'widthMin');
+  put('widthTarget', 'widthtarget', 'widthTarget');
+  if (finiteNum(out.range)) {
+    out.rangeThou = asThousandths(out.range);
+    out.range = parseRangeSpec(out.range);
+  }
+  return out;
+}
 function parseTsv(lines) {
   const nonempty = lines.map(s => String(s ?? '').replace(/\r/g, '')).filter(l => l.length);
   if (!nonempty.length) return { headers: [], rows: [] };
@@ -997,39 +1091,57 @@ function excelWhen(v) {
   }
   return String(v || '').trim();
 }
+function applySpecPatch(base, patch) {
+  if (!patch) return base;
+  const out = Object.assign({}, base || {});
+  for (const [k, v] of Object.entries(patch)) {
+    if (!finiteNum(v)) continue;
+    if (k === 'densMin' || k === 'densTarget' || k === 'densMax') {
+      out[k] = v;
+      continue;
+    }
+    if (!finiteNum(out[k])) out[k] = v;
+  }
+  return out;
+}
 function lookupSpecs(mspec) {
-  if (!historyPack || !historyPack.lookupByMspec) return null;
   const key = canonMspec(mspec);
   if (!key) return null;
-  let row = historyPack.lookupByMspec[key];
-  if (!row) {
+  const patch = historyPack && historyPack.specPatches && historyPack.specPatches[key];
+  let row = historyPack && historyPack.lookupByMspec && historyPack.lookupByMspec[key];
+  if (!row && historyPack && historyPack.lookupByMspec) {
     const raw = String(mspec ?? '').trim();
     row = historyPack.lookupByMspec[raw] || historyPack.lookupByMspec[raw.replace(/\.0+$/, '')];
   }
-  if (!row) {
+  if (!row && historyPack && historyPack.lookupByMspec) {
     for (const [k, candidate] of Object.entries(historyPack.lookupByMspec)) {
       if (canonMspec(k) === key) { row = candidate; break; }
     }
   }
-  if (!row) return null;
-  const min = parseFloat(specCell(row, ['Lower Control', 'Lower Control Limit', 'LCL', 'Min Thickness']));
-  const target = parseFloat(specCell(row, ['Target', 'Thickness Target', 'Target Thickness'], ['densitytarget', 'aftarget']));
-  const max = parseFloat(specCell(row, ['Upper Control', 'Upper Control Limit', 'UCL', 'Max Thickness']));
-  const rangeRaw = parseFloat(specCell(row, ['Thickness Range Max', 'Range Max', 'Max Range', 'Range Spec']));
-  const dens = densitySpecsFromLookupRow(row);
-  const cells = cellSpecsFromLookupRow(row);
-  return {
-    min: finiteNum(min) ? min : null,
-    target: finiteNum(target) ? target : null,
-    max: finiteNum(max) ? max : null,
-    range: finiteNum(rangeRaw) ? parseRangeSpec(rangeRaw) : null,
-    rangeThou: finiteNum(rangeRaw) ? asThousandths(rangeRaw) : null,
-    densMin: dens.densMin,
-    densTarget: dens.densTarget,
-    densMax: dens.densMax,
-    cellMin: cells.cellMin,
-    cellMax: cells.cellMax
-  };
+  if (!row && !patch) return null;
+  let out = {};
+  if (row) {
+    const min = parseFloat(specCell(row, ['Lower Control', 'Lower Control Limit', 'LCL', 'Min Thickness']));
+    const target = parseFloat(specCell(row, ['Target', 'Thickness Target', 'Target Thickness'], ['densitytarget', 'aftarget']));
+    const max = parseFloat(specCell(row, ['Upper Control', 'Upper Control Limit', 'UCL', 'Max Thickness']));
+    const rangeRaw = parseFloat(specCell(row, ['Thickness Range Max', 'Range Max', 'Max Range', 'Range Spec']));
+    const dens = densitySpecsFromLookupRow(row);
+    const cells = cellSpecsFromLookupRow(row);
+    out = {
+      min: finiteNum(min) ? min : null,
+      target: finiteNum(target) ? target : null,
+      max: finiteNum(max) ? max : null,
+      range: finiteNum(rangeRaw) ? parseRangeSpec(rangeRaw) : null,
+      rangeThou: finiteNum(rangeRaw) ? asThousandths(rangeRaw) : null,
+      densMin: dens.densMin,
+      densTarget: dens.densTarget,
+      densMax: dens.densMax,
+      densFromFile: dens.densFromFile,
+      cellMin: cells.cellMin,
+      cellMax: cells.cellMax
+    };
+  }
+  return applySpecPatch(out, patch);
 }
 function buildLookupMap(rows) {
   const map = {};
@@ -1129,6 +1241,10 @@ function failDetailsForRow(row, specs) {
 }
 function failReasonsForRow(row, specs) {
   return failDetailsForRow(row, specs).map(x => x.reason);
+}
+function failLineForCheck(when, details) {
+  if (!details || !details.length) return `${when} failed check`;
+  return `${when} ${details.map(x => x.detail).join('; ')}`;
 }
 function mondayOfLocalDate(d) {
   const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -1975,6 +2091,7 @@ function renderCompliance() {
   const next = document.getElementById('complianceNextWeek');
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
   renderComplianceHours(monday);
+  renderComplianceMissWeek(monday);
   renderComplianceDays(monday);
 }
 function renderComplianceHours(monday) {
@@ -2007,6 +2124,25 @@ function renderComplianceHours(monday) {
   }
   html += '</div>';
   el.innerHTML = html;
+}
+function renderComplianceMissWeek(monday) {
+  const el = document.getElementById('complianceMissWeek');
+  if (!el) return;
+  const today = localTodayParts();
+  const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const bits = [];
+  for (let d = 0; d < 7; d++) {
+    const day = new Date(monday.getTime());
+    day.setUTCDate(monday.getUTCDate() + d);
+    const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, dd = day.getUTCDate();
+    if (ymdNum(y, m, dd) > ymdNum(today.y, today.m, today.d)) continue;
+    const hours = dayHourStatuses(y, m, dd, today);
+    const missing = hours.map((st, h) => st === 'miss' ? fmtHourLabel(h) : '').filter(Boolean);
+    if (missing.length) {
+      bits.push(`<div class="comp-miss week"><b>Missing checks — ${esc(DAYS[d])}, ${esc(fmtWeekDate(day))}</b>${esc(missing.join(', '))}</div>`);
+    }
+  }
+  el.innerHTML = bits.join('') || '<p class="comp-empty">No missing hours this week</p>';
 }
 function fmtHourLabel(h) {
   const hr = ((h + 11) % 12) + 1;
@@ -2074,9 +2210,7 @@ function renderComplianceDays(monday) {
         const details = failDetailsForRow(r.row, specs);
         if (details.length || normalizePf(r.pf) === 'Fail') {
           failed += 1;
-          const when = excelTimeShort(r.serial);
-          details.forEach(x => failLines.push(`${when} ${x.detail}`));
-          if (!details.length) failLines.push(`${when} failed check`);
+          failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
         } else passed += 1;
       }
       const t1 = excelTimeShort(g.first);
@@ -2102,6 +2236,77 @@ function renderComplianceDays(monday) {
     parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${itemsHtml}</div>`);
   }
   el.innerHTML = parts.join('');
+}
+const MSPEC_AUDIT_COLS = ['MSPEC','AF#','Thick min','Thick target','Thick max','Range','Cell min','Cell max','Dens min','Dens target','Dens max','Dens used','Filename','Note'];
+function fmtAuditNum(v, digits) {
+  return finiteNum(v) ? Number(v).toFixed(digits) : '';
+}
+function mspecAuditRows() {
+  const seen = new Set();
+  const out = [];
+  for (const row of (historyPack && historyPack.lookupRows) || []) {
+    const key = canonMspec(col(row, 'MSPEC #', 'MSPEC'));
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const used = lookupSpecs(key) || {};
+    const rawDensMin = specCell(row, COL_ALIASES['Density Min']);
+    const rawDensTarget = specCell(row, COL_ALIASES['Density Target']);
+    const rawDensMax = specCell(row, COL_ALIASES['Density Max']);
+    const fileName = specCell(row, COL_ALIASES['Filename']) || '';
+    const notes = [];
+    if (used.densFromFile) notes.push('filename ' + Number(used.densFromFile).toFixed(2) + '#');
+    if (historyPack.specPatches && historyPack.specPatches[key] && finiteNum(historyPack.specPatches[key].densTarget)) notes.push('current sheet density');
+    if (!finiteNum(used.densMin) && !finiteNum(used.densMax) && finiteNum(used.densTarget)) notes.push('density min/max missing');
+    if (!finiteNum(used.densTarget) && !finiteNum(used.densMin)) notes.push('no density spec');
+    const usedDens = [fmtAuditNum(used.densMin, 2), fmtAuditNum(used.densTarget, 2), fmtAuditNum(used.densMax, 2)].filter(Boolean).join(' / ');
+    out.push({
+      key,
+      values: [
+        key,
+        col(row, 'AF#', 'AF') || '',
+        fmtAuditNum(used.min, 3),
+        fmtAuditNum(used.target, 3),
+        fmtAuditNum(used.max, 3),
+        fmtAuditNum(used.rangeThou != null ? used.rangeThou : asThousandths(used.range), 1),
+        fmtAuditNum(used.cellMin, 0),
+        fmtAuditNum(used.cellMax, 0),
+        String(rawDensMin || ''),
+        String(rawDensTarget || ''),
+        String(rawDensMax || ''),
+        usedDens,
+        fileName,
+        notes.join('; ')
+      ]
+    });
+  }
+  out.sort((a, b) => String(a.key).localeCompare(String(b.key), undefined, { numeric: true }));
+  return out;
+}
+function renderMspecTable() {
+  const q = String((document.getElementById('mspecSearch') || {}).value || '').trim().toLowerCase();
+  const rows = mspecAuditRows().filter(r => !q || r.values.some(v => String(v).toLowerCase().includes(q)));
+  const meta = document.getElementById('mspecMeta');
+  if (meta) meta.textContent = `${rows.length} MSPEC${rows.length === 1 ? '' : 's'} from Master Sheet` + (q ? ` matching “${q}”` : '');
+  const head = document.getElementById('mspecHead');
+  const body = document.getElementById('mspecBody');
+  if (head) {
+    head.innerHTML = `<tr>${MSPEC_AUDIT_COLS.map(h => `<th>${esc(h)}</th>`).join('')}</tr>`;
+  }
+  if (body) {
+    body.innerHTML = rows.map(r => `<tr>${r.values.map(v => `<td>${esc(v)}</td>`).join('')}</tr>`).join('')
+      || `<tr><td colspan="${MSPEC_AUDIT_COLS.length}">No Master Sheet rows. Paste Copy for Graph first.</td></tr>`;
+  }
+}
+function openMspecs() {
+  if (!historyPack || !(historyPack.lookupRows || []).length) { toast('Paste results first'); return; }
+  setScreen('mspecs');
+  renderMspecTable();
+}
+function downloadMspecExcel() {
+  const rows = mspecAuditRows();
+  if (!rows.length) { toast('No MSPEC rows'); return; }
+  downloadBlob('diegraph-mspecs.xlsx', buildXlsx('MSPECs', MSPEC_AUDIT_COLS, rows.map(r => r.values), [12, 10, 12, 12, 12, 10, 10, 10, 12, 12, 12, 16, 42, 28]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  toast('Downloaded MSPEC table');
 }
 function openHistoryForItemDay(item, y, m, d) {
   tableFilters = {};
@@ -2300,9 +2505,22 @@ function wrapCanvasText(c, text, maxW) {
   if (cur) lines.push(cur);
   return lines.length ? lines : [''];
 }
-function downloadCompliancePdf() {
+function openComplianceReport() {
   if (!indexedRows.length) { toast('Paste results first'); return; }
   if (!complianceMonday) complianceMonday = mondayOfLocalDate(new Date());
+  const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  const box = document.getElementById('compRptDays');
+  box.innerHTML = DAYS.map((name, i) => {
+    const day = new Date(complianceMonday.getTime());
+    day.setUTCDate(complianceMonday.getUTCDate() + i);
+    return `<label><input type="checkbox" data-comp-day="${i}" checked> ${name}, ${fmtWeekDate(day)}</label>`;
+  }).join('');
+  document.getElementById('complianceReportOverlay').classList.add('show');
+}
+function downloadCompliancePdf(dayIdxs) {
+  if (!indexedRows.length) { toast('Paste results first'); return; }
+  if (!complianceMonday) complianceMonday = mondayOfLocalDate(new Date());
+  const selected = (dayIdxs && dayIdxs.length) ? dayIdxs.slice().sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6];
   const monday = complianceMonday;
   const sunday = new Date(monday.getTime());
   sunday.setUTCDate(monday.getUTCDate() + 6);
@@ -2367,7 +2585,9 @@ function downloadCompliancePdf() {
     y += cell + 6;
   }
   y += 16;
-  for (let d = 0; d < 7; d++) {
+  for (const d of selected) {
+    snap();
+    newPage();
     const day = new Date(monday.getTime());
     day.setUTCDate(monday.getUTCDate() + d);
     const ymd = { y: day.getUTCFullYear(), m: day.getUTCMonth() + 1, dd: day.getUTCDate() };
@@ -2414,9 +2634,7 @@ function downloadCompliancePdf() {
         const details = failDetailsForRow(r.row, lookupSpecs(r.mspec) || {});
         if (details.length || normalizePf(r.pf) === 'Fail') {
           failed += 1;
-          const when = excelTimeShort(r.serial);
-          details.forEach(x => failLines.push(`${when} ${x.detail}`));
-          if (!details.length) failLines.push(`${when} failed check`);
+          failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
         } else passed += 1;
       }
       let sum = `${passed} passed`;
@@ -2760,10 +2978,15 @@ async function applyDieGraph2(text, append) {
     rows = historyPack.rows.concat(fresh);
   }
   if (!lookupRows.length && historyPack && historyPack.lookupRows) lookupRows = historyPack.lookupRows;
+  const specPatches = Object.assign({}, (append && historyPack && historyPack.specPatches) || {});
+  const patchKey = canonMspec(meta.mspec);
+  const patch = currentSpecPatch(meta);
+  if (patchKey && Object.keys(patch).length) specPatches[patchKey] = Object.assign({}, specPatches[patchKey], patch);
   captureCurrentSnapshot(meta);
   historyPack = {
     item: meta.item || '', mspec: canonMspec(meta.mspec),
-    rows, lookupRows, lookupByMspec: incomingLookup && Object.keys(incomingLookup).length ? incomingLookup : buildLookupMap(lookupRows)
+    rows, lookupRows, specPatches,
+    lookupByMspec: incomingLookup && Object.keys(incomingLookup).length ? incomingLookup : buildLookupMap(lookupRows)
   };
   tableFilters = {};
   tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
@@ -2818,20 +3041,11 @@ async function applyClipboardText(text, append) {
   }
 }
 async function applyFromClipboard(append) {
-  showProgress(append ? 'Adding new results' : 'Reading clipboard', 4, '');
-  await yieldUi();
-  try {
-    if (navigator.clipboard && navigator.clipboard.readText) {
-      const text = await navigator.clipboard.readText();
-      await applyClipboardText(text, append === true);
-      return;
-    }
-  } catch { /* fall through */ }
-  hideProgress();
-  pasteIntent = append === true ? 'append' : true;
+  const shouldAppend = append !== false && !!(historyPack && historyPack.rows && historyPack.rows.length);
+  pasteIntent = shouldAppend ? 'append' : true;
+  catcher.value = '';
   catcher.focus();
   catcher.select();
-  toast('Clipboard blocked — press Ctrl+V');
 }
 async function copyValues() {
   const lines = points.map(p => { const v = parseFloat(p.value); return isFinite(v) ? v.toFixed(3) : ''; }).join('\n').replace(/\n+$/, '');
@@ -3287,38 +3501,34 @@ window.addEventListener('resize', () => {
   if (screenName === 'view') draw();
   if (screenName === 'history') { histRangeKey = ''; renderHistoryBody(true); syncHistHeaderGutter(); }
 });
-document.getElementById('welcomePaste').onclick = () => applyFromClipboard(false);
-document.getElementById('welcomePasteMore').onclick = () => applyFromClipboard(true);
+document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histPaste').onclick = () => applyFromClipboard(true);
-document.getElementById('welcomeHistory').onclick = () => {
-  if (!indexedRows.length) { toast('Paste results first'); return; }
-  setViewMode('centration'); setScreen('history');
-  requestAnimationFrame(() => renderHistoryTable());
-};
-document.getElementById('welcomeCompliance').onclick = () => openCompliance('welcome');
 document.getElementById('histCompliance').onclick = () => openCompliance('history');
-document.getElementById('welcomeEnter').onclick = () => {
-  enterMode = true;
-  viewingIdx = 'current';
-  points.forEach(p => { p.value = ''; });
-  setViewMode('centration'); setScreen('view'); refreshChecks();
-};
+document.getElementById('histMspecs').onclick = openMspecs;
+document.getElementById('complianceMspecs').onclick = openMspecs;
 document.getElementById('histSpc').onclick = openSpc;
 document.getElementById('histDownload').onclick = downloadHistoryExcel;
-document.getElementById('complianceDownload').onclick = downloadCompliancePdf;
-document.getElementById('histBack').onclick = () => {
-  enterMode = false;
+document.getElementById('complianceDownload').onclick = openComplianceReport;
+document.getElementById('mspecBack').onclick = () => {
   setViewMode('centration');
-  setScreen('welcome');
+  setScreen(indexedRows.length ? 'history' : 'welcome');
+  if (indexedRows.length) requestAnimationFrame(() => renderHistoryTable());
+};
+document.getElementById('mspecDownload').onclick = downloadMspecExcel;
+document.getElementById('mspecSearch').oninput = renderMspecTable;
+document.getElementById('compRptCancel').onclick = () => document.getElementById('complianceReportOverlay').classList.remove('show');
+document.getElementById('compRptAll').onclick = () => document.querySelectorAll('#compRptDays input[type="checkbox"]').forEach(c => { c.checked = true; });
+document.getElementById('compRptClear').onclick = () => document.querySelectorAll('#compRptDays input[type="checkbox"]').forEach(c => { c.checked = false; });
+document.getElementById('compRptDownload').onclick = () => {
+  const days = [...document.querySelectorAll('#compRptDays input[data-comp-day]:checked')].map(c => +c.dataset.compDay);
+  if (!days.length) { toast('Select at least one day'); return; }
+  document.getElementById('complianceReportOverlay').classList.remove('show');
+  downloadCompliancePdf(days);
 };
 document.getElementById('complianceBack').onclick = () => {
   setViewMode('centration');
-  if (complianceBackTo === 'history') {
-    setScreen('history');
-    requestAnimationFrame(() => renderHistoryTable());
-  } else {
-    setScreen('welcome');
-  }
+  setScreen('history');
+  requestAnimationFrame(() => renderHistoryTable());
 };
 document.getElementById('compliancePrevWeek').onclick = () => {
   complianceMonday = shiftMonday(complianceMonday || mondayOfLocalDate(new Date()), -1);
@@ -3455,14 +3665,14 @@ document.addEventListener('paste', (e) => {
   if (tag === 'INPUT' && e.target.id !== 'clipCatcher') return;
   if (tag === 'SELECT') return;
   const text = (e.clipboardData || window.clipboardData).getData('text');
-  if (pasteIntent || screenName === 'welcome' || screenName === 'history' || e.target.id === 'clipCatcher') {
+  if (pasteIntent || screenName === 'welcome' || screenName === 'history' || screenName === 'mspecs' || e.target.id === 'clipCatcher') {
     e.preventDefault();
-    applyClipboardText(text, pasteIntent === 'append');
+    applyClipboardText(text, !!(historyPack && historyPack.rows && historyPack.rows.length));
   }
 });
 catcher.addEventListener('paste', (e) => {
   const text = (e.clipboardData || window.clipboardData).getData('text');
-  e.preventDefault(); applyClipboardText(text, pasteIntent === 'append');
+  e.preventDefault(); applyClipboardText(text, !!(historyPack && historyPack.rows && historyPack.rows.length));
 });
 document.getElementById('minThickness').oninput = document.getElementById('maxThickness').oninput = () => { customArrow = false; calculate(); };
 document.getElementById('rangeSpec').oninput = document.getElementById('targetThickness').oninput = calculate;
@@ -3471,7 +3681,7 @@ document.getElementById('rangeSpec').oninput = document.getElementById('targetTh
 });
 document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };
 document.getElementById('arrowToggle').onclick = () => { setArrowVisible(!showArrow); draw(); saveState(); };
-document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = document.getElementById('complianceTheme').onclick = () => {
+document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = document.getElementById('complianceTheme').onclick = document.getElementById('mspecTheme').onclick = () => {
   applyTheme(isDark() ? 'light' : 'dark'); if (screenName === 'view') draw(); saveState();
 };
 document.getElementById('settingsBtn').onclick = () => {
@@ -3516,8 +3726,11 @@ restorePack().then(async data => {
     lookupRows: data.lookupRows || [],
     lookupByMspec: buildLookupMap(data.lookupRows || [])
   };
+  if (data.specPatches) historyPack.specPatches = data.specPatches;
   await indexHistory();
   syncWelcome();
+  setScreen('history');
+  requestAnimationFrame(() => renderHistoryTable());
 });
 </script>
 </body>

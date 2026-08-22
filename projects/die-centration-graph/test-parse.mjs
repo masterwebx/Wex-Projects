@@ -106,10 +106,11 @@ assert.match(html, /S1 S3 quality check sheet/);
 assert.match(html, /function currentSheetSourceLabel/);
 assert.match(html, /TABLES1S3/);
 assert.match(html, /Paste results/);
-assert.match(html, /Enter points by hand/);
 assert.match(html, /Paste more data/);
-assert.match(html, /Go to main/);
-assert.match(html, /id="welcomeHistory"/);
+assert.match(html, /id="histMspecs"/);
+assert.match(html, /id="screenMspecs"/);
+assert.doesNotMatch(html, /id="welcomeHistory"/);
+assert.doesNotMatch(html, /id="welcomeEnter"/);
 assert.doesNotMatch(html, /id="welcomeSpc"/);
 assert.match(html, /APP_VERSION/);
 assert.match(html, /function persistPack/);
@@ -170,7 +171,7 @@ assert.match(html, /id="spcOutliers"/);
 assert.match(html, /Show outliers/);
 assert.match(html, /spcHideOutliers = true/);
 assert.match(html, /function specOutlier/);
-assert.match(html, /id="welcomeCompliance"/);
+assert.match(html, /id="histMspecs"/);
 assert.match(html, /id="screenCompliance"/);
 assert.match(html, /id="histCompliance"/);
 assert.match(html, /function openCompliance/);
@@ -184,7 +185,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.6\.1'/);
+assert.match(html, /APP_VERSION = '1\.6\.2'/);
 assert.match(html, /Missing checks/);
 assert.match(html, /function asThousandths/);
 assert.match(html, /function specTargetsText/);
@@ -210,7 +211,13 @@ assert.match(html, /id="histSpc"/);
 assert.match(html, /id="modeBtn"/);
 assert.doesNotMatch(html, /id="modeBtn"[^>]*hidden/);
 assert.match(html, /option value="mspec"/);
-assert.match(html, /navigator\.clipboard\.readText/);
+assert.doesNotMatch(html, /navigator\.clipboard\.readText/);
+assert.match(html, /function densityFromFilename/);
+assert.match(html, /function failLineForCheck/);
+assert.match(html, /function openMspecs/);
+assert.match(html, /function openComplianceReport/);
+assert.match(html, /id="complianceMissWeek"/);
+assert.match(html, /id="complianceReportOverlay"/);
 assert.match(html, /id="progressOverlay"/);
 assert.match(html, /id="prevResult"/);
 assert.match(html, /id="nextResult"/);
@@ -570,6 +577,26 @@ function asThousandths(v) {
 assert.equal(asThousandths(40), 40);
 assert.equal(asThousandths(0.04), 40);
 assert.equal(asThousandths(0.036), 36);
+function densityFromFilename(row) {
+  const raw = String((row && (row.Filename || row['File Name'])) || Object.values(row || {}).join(' '));
+  const m = raw.match(/(\d+(?:\.\d+)?)\s*#/);
+  return m ? parseFloat(m[1]) : NaN;
+}
+function isDummyDensityTriple(min, target, max) {
+  const nums = [min, target, max].filter(n => Number.isFinite(n));
+  if (!nums.length) return true;
+  const hasBand = Number.isFinite(min) && Number.isFinite(max) && (max - min) >= 0.049;
+  if (hasBand) return false;
+  return nums.every(n => Math.abs(n - 1) < 0.02);
+}
+assert.equal(densityFromFilename({ Filename: '4005 S1  5.8 Die 26 Mandrel AF060 1.2# DOW' }), 1.2);
+assert.equal(isDummyDensityTriple(NaN, 1, 1), true);
+assert.equal(isDummyDensityTriple(1.1, 1.2, 1.3), false);
+function failLineForCheck(when, details) {
+  if (!details || !details.length) return `${when} failed check`;
+  return `${when} ${details.map(x => x.detail).join('; ')}`;
+}
+assert.equal(failLineForCheck('1:00 AM', [{ detail: 'thickness over (max 0.530, got 0.535)' }, { detail: 'range over (max 40.0, got 50.0)' }]), '1:00 AM thickness over (max 0.530, got 0.535); range over (max 40.0, got 50.0)');
 
 const declaredIds = new Set([...html.matchAll(/\bid=["']([^"']+)["']/g)].map(m => m[1]));
 const missingIds = [];

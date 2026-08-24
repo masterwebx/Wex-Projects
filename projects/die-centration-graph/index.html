@@ -176,7 +176,7 @@ try {
   }
   .combo-list button:hover, .combo-list button.active { background: var(--filter-bg); color: var(--filter-text); }
   .combo-list .hist-meta { padding: 10px; }
-  #screenCompliance { grid-template-rows: auto auto auto minmax(0, 1fr); padding: 10px 12px; gap: 8px; height: 100dvh; }
+  #screenCompliance { grid-template-rows: auto auto minmax(0, 1fr); padding: 10px 12px; gap: 8px; height: 100dvh; }
   #screenMspecs { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
   .line-filter {
     display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--muted);
@@ -256,11 +256,12 @@ try {
   }
   #complianceReportOverlay .modal label { margin: 2px 0; font-size: 14px; font-weight: 600; }
   #complianceReportOverlay .modal-actions { margin-top: 8px; flex-wrap: wrap; }
-  .sap-card { padding: 12px 14px; display: grid; gap: 8px; }
-  .sap-card table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  .sap-card th, .sap-card td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
-  .sap-card .good { color: var(--ok); font-weight: 700; }
-  .sap-card .bad { color: var(--thick); font-weight: 700; }
+  .comp-sap { margin-top: 8px; display: grid; gap: 6px; }
+  .comp-sap b { font-size: 15px; }
+  .comp-sap table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .comp-sap th, .comp-sap td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  .comp-sap .good { color: var(--ok); font-weight: 700; }
+  .comp-sap .bad { color: var(--thick); font-weight: 700; }
   @media (max-width: 720px) {
     .comp-item { grid-template-columns: 1fr; }
     .comp-sum { text-align: left; max-width: none; }
@@ -457,6 +458,7 @@ try {
       <button type="button" id="complianceDownload">Download PDF</button>
       <button class="secondary" type="button" id="complianceSap">Audit against SAP</button>
       <input type="file" id="complianceSapFile" accept=".xlsx,.xlsm,.csv,.txt" hidden>
+      <button class="secondary" type="button" id="complianceSapClear" hidden>Clear SAP audit</button>
       <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
     </div>
   </header>
@@ -468,16 +470,6 @@ try {
       <span><i style="background:transparent"></i>Not yet</span>
     </div>
     <div class="comp-hours" id="complianceHours"></div>
-  </div>
-  <div class="card sap-card" id="complianceSapCard" hidden>
-    <div>
-      <b>SAP audit</b>
-      <p class="hist-meta" id="complianceSapMeta"></p>
-    </div>
-    <div id="complianceSapTable"></div>
-    <div class="modal-actions">
-      <button class="secondary" type="button" id="complianceSapClear">Clear SAP audit</button>
-    </div>
   </div>
   <div class="card comp-scroll">
     <div id="complianceDays"></div>
@@ -659,7 +651,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.4';
+const APP_VERSION = '1.7.5';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -827,17 +819,45 @@ function openPackDb() {
     req.onerror = () => reject(req.error);
   });
 }
+function sapAuditToStore() {
+  if (!sapAudit || !Array.isArray(sapAudit.rows) || !sapAudit.rows.length) return null;
+  return {
+    name: sapAudit.name || '',
+    rows: sapAudit.rows.map(r => ({
+      y: r.y, m: r.m, d: r.d, item: r.item, itemKey: r.itemKey, line: r.line || ''
+    }))
+  };
+}
+function applyStoredSapAudit(data) {
+  const src = data && data.sapAudit;
+  if (!src || !Array.isArray(src.rows) || !src.rows.length) {
+    sapAudit = null;
+    return;
+  }
+  sapAudit = {
+    name: src.name || '',
+    rows: src.rows.map(r => ({
+      y: +r.y, m: +r.m, d: +r.d,
+      item: String(r.item || ''),
+      itemKey: sapItemKey(r.itemKey || r.item || ''),
+      line: String(r.line || ''),
+      hits: []
+    })).filter(r => r.y && r.d && r.itemKey)
+  };
+  if (!sapAudit.rows.length) sapAudit = null;
+}
 async function persistPack() {
-  if (!historyPack) return;
+  if (!historyPack && !sapAudit) return;
   try {
     const db = await openPackDb();
     await new Promise((resolve, reject) => {
       const tx = db.transaction(PACK_STORE, 'readwrite');
       tx.objectStore(PACK_STORE).put({
-        rows: historyPack.rows,
-        lookupRows: historyPack.lookupRows || [],
-        specPatches: historyPack.specPatches || {},
+        rows: (historyPack && historyPack.rows) || [],
+        lookupRows: (historyPack && historyPack.lookupRows) || [],
+        specPatches: (historyPack && historyPack.specPatches) || {},
         snapshot: currentSnapshot,
+        sapAudit: sapAuditToStore(),
         savedAt: Date.now(),
         version: APP_VERSION,
         schema: PACK_SCHEMA
@@ -2786,7 +2806,8 @@ function renderCompliance() {
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
   renderComplianceHours(monday);
   renderComplianceDays(monday);
-  renderSapAudit();
+  const clearSap = document.getElementById('complianceSapClear');
+  if (clearSap) clearSap.hidden = !sapAudit;
   const jump = document.getElementById('complianceJumpDate');
   if (jump) jump.value = isoFromParts(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate());
 }
@@ -2862,8 +2883,9 @@ function renderComplianceDays(monday) {
     day.setUTCDate(monday.getUTCDate() + d);
     const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, dd = day.getUTCDate();
     const heading = `${DAYS[d]}, ${fmtWeekDate(day)}`;
+    const sapHtml = sapDayHtml(y, m, dd);
     if (ymdNum(y, m, dd) > todayN) {
-      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3><p class="comp-empty">—</p></div>`);
+      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${sapHtml || '<p class="comp-empty">—</p>'}</div>`);
       continue;
     }
     const hours = dayHourStatuses(y, m, dd, today);
@@ -2873,7 +2895,7 @@ function renderComplianceDays(monday) {
       : `<p class="comp-empty">No missing hours</p>`;
     const rows = rowsForLine().filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
     if (!rows.length) {
-      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}<p class="comp-empty">No items</p></div>`);
+      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${sapHtml || '<p class="comp-empty">No items</p>'}</div>`);
       continue;
     }
     const groups = [];
@@ -2904,7 +2926,7 @@ function renderComplianceDays(monday) {
       const meta = [g.desc, g.mspec && `MSPEC ${mspecWithTarget(g.mspec)}`, period].filter(Boolean).join(' · ');
       return `<div class="comp-item"><div><b>${esc(itemWithTargets(g.item, g.mspec) || '—')}</b><span class="muted">${esc(meta)}</span>${failHtml}</div><div class="comp-sum">${complianceSumHtml(passed, failed, noCheck)}</div>${viewBtn}</div>`;
     }).join('');
-    parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${itemsHtml}</div>`);
+    parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${itemsHtml}${sapHtml}</div>`);
   }
   el.innerHTML = parts.join('');
 }
@@ -3448,6 +3470,21 @@ function sapItemKey(v) {
   if (/^\d+\.0+$/.test(s)) s = String(Math.round(Number(s)));
   return s.toUpperCase();
 }
+function sapLineKey(v) {
+  return String(v ?? '').trim().toUpperCase();
+}
+function sapHeaderKind(h) {
+  const s = String(h || '').replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+  if (/^line\b/i.test(s) || /work\s*center|prod\s*line|machine/i.test(s)) return 'line';
+  if (/^date\b|mfg\s*date|prod\s*date|posting\s*date/i.test(s)) return 'date';
+  if ((/item\s*(#|no\.?|number)?$|material|sku|^part\b/i.test(s)) && !/desc/i.test(s)) return 'item';
+  return '';
+}
+function looksLikeLineValue(v) {
+  const s = sapLineKey(v);
+  return /^(S[134]|COEX|MONO|P1|RTS|S1\s*S3)$/.test(s);
+}
 function parseSapDate(v) {
   if (v == null || v === '') return null;
   const s = String(v).trim();
@@ -3471,100 +3508,106 @@ function parseSapDate(v) {
 }
 function parseSapPairs(grid) {
   if (!grid || !grid.length) return [];
-  let start = 0, dateCol = 0, itemCol = 1;
-  const h0 = String((grid[0] || [])[0] || '');
-  const h1 = String((grid[0] || [])[1] || '');
-  if (/date|item|material|sku|part|number/i.test(h0 + ' ' + h1)) {
-    start = 1;
-    if (/item|material|sku|part/i.test(h0) && /date/i.test(h1)) { dateCol = 1; itemCol = 0; }
-    else if (/date/i.test(h0)) { dateCol = 0; itemCol = 1; }
-    else if (/date/i.test(h1)) { dateCol = 1; itemCol = 0; }
-  } else {
-    const d0 = parseSapDate((grid[0] || [])[0]);
-    const d1 = parseSapDate((grid[0] || [])[1]);
-    if (!d0 && d1) { dateCol = 1; itemCol = 0; }
+  const header = (grid[0] || []).map(h => String(h || '').trim());
+  let dateCol = -1, itemCol = -1, lineCol = -1, start = 0;
+  header.forEach((h, i) => {
+    const kind = sapHeaderKind(h);
+    if (kind === 'date' && dateCol < 0) dateCol = i;
+    if (kind === 'item' && itemCol < 0) itemCol = i;
+    if (kind === 'line' && lineCol < 0) lineCol = i;
+  });
+  if (dateCol >= 0 || itemCol >= 0 || lineCol >= 0) start = 1;
+  const width = grid.reduce((n, row) => Math.max(n, (row || []).length), 0);
+  if (dateCol < 0) {
+    for (let c = 0; c < width; c++) {
+      if (parseSapDate((grid[start] || [])[c])) { dateCol = c; break; }
+    }
   }
+  if (lineCol < 0) {
+    for (let c = 0; c < width; c++) {
+      if (c === dateCol || c === itemCol) continue;
+      let seen = 0, hits = 0;
+      for (let i = start; i < grid.length && i < start + 25; i++) {
+        const v = String((grid[i] || [])[c] ?? '').trim();
+        if (!v) continue;
+        seen += 1;
+        if (looksLikeLineValue(v)) hits += 1;
+      }
+      if (seen && hits / seen >= 0.5) { lineCol = c; break; }
+    }
+  }
+  if (itemCol < 0) {
+    itemCol = [0, 1, 2, 3].find(i => i < width && i !== dateCol && i !== lineCol);
+    if (itemCol == null) itemCol = dateCol === 0 ? 1 : 0;
+  }
+  if (dateCol < 0) dateCol = itemCol === 0 ? 1 : 0;
   const out = [];
   for (let i = start; i < grid.length; i++) {
     const row = grid[i] || [];
     const dt = parseSapDate(row[dateCol]);
     const item = String(row[itemCol] ?? '').trim();
     if (!dt || !sapItemKey(item)) continue;
-    out.push({ y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item), hits: [] });
+    const line = lineCol >= 0 ? String(row[lineCol] ?? '').trim() : '';
+    out.push({ y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item), line, hits: [] });
   }
   return out;
 }
-function sapHitsFor(entry) {
+function sapHitsFor(entry, line) {
   if (!entry) return [];
-  return indexedRows.filter(r => r.y === entry.y && r.m === entry.m && r.d === entry.d && sapItemKey(r.item) === entry.itemKey);
+  const wantLine = sapLineKey(entry.line || line || '');
+  return indexedRows.filter(r => {
+    if (r.y !== entry.y || r.m !== entry.m || r.d !== entry.d) return false;
+    if (sapItemKey(r.item) !== entry.itemKey) return false;
+    if (wantLine && sapLineKey(r.line) !== wantLine) return false;
+    return true;
+  });
 }
-function refreshSapHits() {
+function refreshSapHits(line) {
   if (!sapAudit) return;
-  for (const row of sapAudit.rows) row.hits = sapHitsFor(row);
+  for (const row of sapAudit.rows) row.hits = sapHitsFor(row, line);
 }
-function sapRowsForDays(dayIdxs) {
-  if (!sapAudit || !sapAudit.rows.length || !complianceMonday) return [];
-  const selected = (dayIdxs && dayIdxs.length) ? dayIdxs : [0, 1, 2, 3, 4, 5, 6];
-  const want = new Set(selected.map(i => {
-    const day = new Date(complianceMonday.getTime());
-    day.setUTCDate(complianceMonday.getUTCDate() + i);
-    return ymdNum(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate());
-  }));
-  return sapAudit.rows.filter(r => want.has(ymdNum(r.y, r.m, r.d)));
+function sapRowsForYmd(y, m, d, line) {
+  if (!sapAudit || !sapAudit.rows.length) return [];
+  const want = sapLineKey(line || '');
+  return sapAudit.rows.filter(r => {
+    if (r.y !== y || r.m !== m || r.d !== d) return false;
+    if (want && r.line && sapLineKey(r.line) !== want) return false;
+    return true;
+  });
 }
-function sapPdfTableRows(dayIdxs, line) {
-  refreshSapHits();
-  return sapRowsForDays(dayIdxs).map(r => {
-    const hits = (r.hits || []).filter(h => !line || h.line === line);
-    const date = `${r.y}-${String(r.m).padStart(2, '0')}-${String(r.d).padStart(2, '0')}`;
+function sapPdfRowsForYmd(y, m, d, line) {
+  refreshSapHits(line);
+  const showLine = !!(sapAudit && sapAudit.rows.some(r => r.line));
+  return sapRowsForYmd(y, m, d, line).map(r => {
+    const hits = r.hits || [];
     const note = hits.length
       ? ('Checked  ' + uniqueSorted(hits.map(h => `${h.line || ''} ${excelTimeShort(h.serial) || ''}`.trim()).filter(Boolean), false).join(', '))
       : 'No check';
-    const row = [date, r.item, note];
+    const row = showLine ? [r.item, r.line || '—', note] : [r.item, note];
     if (!hits.length) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
     else { row._color = '#166534'; row._bg = '#f0fdf4'; }
     return row;
   });
 }
-function renderSapAudit() {
-  const card = document.getElementById('complianceSapCard');
-  if (!card) return;
-  if (!sapAudit || !sapAudit.rows.length) {
-    card.hidden = true;
-    return;
-  }
-  refreshSapHits();
-  const monday = complianceMonday || mondayOfLocalDate(new Date());
-  const sun = new Date(monday.getTime());
-  sun.setUTCDate(monday.getUTCDate() + 6);
-  const fromN = ymdNum(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate());
-  const toN = ymdNum(sun.getUTCFullYear(), sun.getUTCMonth() + 1, sun.getUTCDate());
-  const inWeek = sapAudit.rows.filter(r => {
-    const n = ymdNum(r.y, r.m, r.d);
-    return n >= fromN && n <= toN;
-  });
-  const shown = inWeek.length ? inWeek : sapAudit.rows;
-  const ok = shown.filter(r => r.hits && r.hits.length).length;
-  card.hidden = false;
-  const meta = document.getElementById('complianceSapMeta');
-  if (meta) {
-    meta.textContent = `${ok} of ${shown.length} SAP item${shown.length === 1 ? '' : 's'} had a quality check`
-      + (inWeek.length ? ' this week' : '')
-      + (sapAudit.name ? ` · ${sapAudit.name}` : '');
-  }
-  const table = document.getElementById('complianceSapTable');
-  if (table) {
-    table.innerHTML = `<table><thead><tr><th>Date</th><th>Item</th><th>Quality check</th></tr></thead><tbody>`
-      + shown.map(r => {
-        const date = `${r.y}-${String(r.m).padStart(2, '0')}-${String(r.d).padStart(2, '0')}`;
-        if (r.hits && r.hits.length) {
-          const bits = uniqueSorted(r.hits.map(h => `${h.line || '—'} ${excelTimeShort(h.serial) || ''}`.trim()), false);
-          return `<tr><td>${esc(date)}</td><td>${esc(r.item)}</td><td class="good">Checked · ${esc(bits.join(', '))}</td></tr>`;
-        }
-        return `<tr><td>${esc(date)}</td><td>${esc(r.item)}</td><td class="bad">No check</td></tr>`;
-      }).join('')
-      + `</tbody></table>`;
-  }
+function sapDayHtml(y, m, d) {
+  if (!sapAudit || !sapAudit.rows.length) return '';
+  refreshSapHits(activeLine);
+  const rows = sapRowsForYmd(y, m, d, activeLine);
+  if (!rows.length) return '';
+  const showLine = sapAudit.rows.some(r => r.line);
+  const ok = rows.filter(r => r.hits && r.hits.length).length;
+  const head = showLine
+    ? '<tr><th>Item</th><th>Line</th><th>Quality check</th></tr>'
+    : '<tr><th>Item</th><th>Quality check</th></tr>';
+  const body = rows.map(r => {
+    const status = (r.hits && r.hits.length)
+      ? `<td class="good">Checked · ${esc(uniqueSorted(r.hits.map(h => `${h.line || '—'} ${excelTimeShort(h.serial) || ''}`.trim()), false).join(', '))}</td>`
+      : '<td class="bad">No check</td>';
+    return showLine
+      ? `<tr><td>${esc(r.item)}</td><td>${esc(r.line || '—')}</td>${status}</tr>`
+      : `<tr><td>${esc(r.item)}</td>${status}</tr>`;
+  }).join('');
+  return `<div class="comp-sap"><b>SAP · ${ok} of ${rows.length} checked</b><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 function decodeXmlText(s) {
   return String(s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
@@ -3696,9 +3739,11 @@ async function loadSapFile(file) {
   const rows = parseSapPairs(grid);
   if (!rows.length) { toast('No date / item rows found'); return; }
   sapAudit = { name, rows };
-  refreshSapHits();
-  renderSapAudit();
-  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'}`);
+  refreshSapHits(activeLine);
+  persistPack();
+  renderCompliance();
+  const days = new Set(rows.map(r => `${r.y}-${r.m}-${r.d}`)).size;
+  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}`);
 }
 function openComplianceReport() {
   if (!indexedRows.length) { toast('Paste results first'); return; }
@@ -3771,20 +3816,6 @@ function buildCompliancePdf(dayIdxs, line) {
       y += cell + 4;
     }
     y += 10;
-    const sapPdfRows = sapPdfTableRows(selected, line);
-    if (sapPdfRows.length) {
-      if (y + 54 > page.h - 40) {
-        page = pdfAddPage(doc);
-        pdfHeader(page, 'Compliance report', subtitle);
-        y = 72;
-      }
-      pdfText(page, 40, y + 12, 'SAP audit', { size: 12, bold: true });
-      y += 18;
-      const sapCols = [{ title: 'Date', w: 90 }, { title: 'Item', w: 150 }, { title: 'Quality check', w: 292 }];
-      const drawnSap = pdfDrawTable(doc, page, y, sapCols, sapPdfRows, { margin: 40, size: 8 });
-      page = drawnSap.page;
-      y = drawnSap.y + 14;
-    }
     for (const d of selected) {
       const day = new Date(monday.getTime());
       day.setUTCDate(monday.getUTCDate() + d);
@@ -3800,6 +3831,18 @@ function buildCompliancePdf(dayIdxs, line) {
       if (ymdNum(ymd.y, ymd.m, ymd.dd) > ymdNum(today.y, today.m, today.d)) {
         pdfText(page, 40, y + 10, 'Not yet', { size: 9, color: '#3e4a55' });
         y += 18;
+        const futureSap = sapPdfRowsForYmd(ymd.y, ymd.m, ymd.dd, line);
+        if (futureSap.length) {
+          const showLine = !!(sapAudit && sapAudit.rows.some(r => r.line));
+          const sapCols = showLine
+            ? [{ title: 'SAP item', w: 150 }, { title: 'Line', w: 70 }, { title: 'Quality check', w: 312 }]
+            : [{ title: 'SAP item', w: 180 }, { title: 'Quality check', w: 352 }];
+          pdfText(page, 40, y + 10, 'SAP', { size: 10, bold: true });
+          y += 14;
+          const drawnSap = pdfDrawTable(doc, page, y, sapCols, futureSap, { margin: 40, size: 8 });
+          page = drawnSap.page;
+          y = drawnSap.y + 14;
+        }
         continue;
       }
       const hours = dayHourStatuses(ymd.y, ymd.m, ymd.dd, today, line);
@@ -3819,16 +3862,33 @@ function buildCompliancePdf(dayIdxs, line) {
       if (!groups.length) {
         pdfText(page, 40, y + 10, 'No items', { size: 9, color: '#3e4a55' });
         y += 18;
-        continue;
+      } else {
+        const tableRows = groups.map(g => {
+          const row = [g.item, g.desc, g.mspec, g.period, g.result, g.fails];
+          if (g.failed) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
+          return row;
+        });
+        const drawn = pdfDrawTable(doc, page, y, cols, tableRows, { margin: 40, size: 8 });
+        page = drawn.page;
+        y = drawn.y + 14;
       }
-      const tableRows = groups.map(g => {
-        const row = [g.item, g.desc, g.mspec, g.period, g.result, g.fails];
-        if (g.failed) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
-        return row;
-      });
-      const drawn = pdfDrawTable(doc, page, y, cols, tableRows, { margin: 40, size: 8 });
-      page = drawn.page;
-      y = drawn.y + 14;
+      const sapRows = sapPdfRowsForYmd(ymd.y, ymd.m, ymd.dd, line);
+      if (sapRows.length) {
+        if (y + 40 > page.h - 40) {
+          page = pdfAddPage(doc);
+          pdfHeader(page, 'Compliance report', subtitle);
+          y = 72;
+        }
+        const showLine = !!(sapAudit && sapAudit.rows.some(r => r.line));
+        const sapCols = showLine
+          ? [{ title: 'SAP item', w: 150 }, { title: 'Line', w: 70 }, { title: 'Quality check', w: 312 }]
+          : [{ title: 'SAP item', w: 180 }, { title: 'Quality check', w: 352 }];
+        pdfText(page, 40, y + 10, 'SAP', { size: 10, bold: true });
+        y += 14;
+        const drawnSap = pdfDrawTable(doc, page, y, sapCols, sapRows, { margin: 40, size: 8 });
+        page = drawnSap.page;
+        y = drawnSap.y + 14;
+      }
     }
   return { doc, week, year, line };
 }
@@ -4705,7 +4765,8 @@ document.getElementById('complianceSapFile').onchange = async (e) => {
 };
 document.getElementById('complianceSapClear').onclick = () => {
   sapAudit = null;
-  renderSapAudit();
+  persistPack();
+  renderCompliance();
 };
 document.getElementById('mspecBack').onclick = () => {
   setViewMode('centration');
@@ -4971,6 +5032,7 @@ restorePack().then(async data => {
     lookupByMspec: buildLookupMap(data.lookupRows || [])
   };
   if (data.specPatches) historyPack.specPatches = data.specPatches;
+  applyStoredSapAudit(data);
   await indexHistory();
   if (cleanedRows.length !== data.rows.length) persistPack();
   if (!plantRows().length) {

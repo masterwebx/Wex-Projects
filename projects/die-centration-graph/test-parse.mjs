@@ -234,7 +234,10 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.4'/);
+assert.match(html, /APP_VERSION = '1\.7\.5'/);
+assert.match(html, /function sapAuditToStore/);
+assert.match(html, /function applyStoredSapAudit/);
+assert.match(html, /sapAudit: sapAuditToStore\(\)/);
 assert.match(html, /function dedupeHistoryRows/);
 assert.match(html, /function rowHasNativeS1S3Keys/);
 assert.match(html, /function rowDedupeScore/);
@@ -246,8 +249,14 @@ assert.match(html, /Audit against SAP/);
 assert.match(html, /function summarizeChecks/);
 assert.match(html, /function parseSapPairs/);
 assert.match(html, /function loadSapFile/);
-assert.match(html, /function sapPdfTableRows/);
+assert.match(html, /function sapDayHtml/);
+assert.match(html, /function sapRowsForYmd/);
+assert.match(html, /function sapPdfRowsForYmd/);
+assert.match(html, /function sapHeaderKind/);
 assert.match(html, /#complianceReportOverlay \.modal/);
+assert.doesNotMatch(html, /id="complianceSapCard"/);
+assert.doesNotMatch(html, /function renderSapAudit/);
+assert.doesNotMatch(html, /function sapPdfTableRows/);
 assert.doesNotMatch(html, /activeLine = preferredLine\(\)/);
 assert.doesNotMatch(html, /\$\{starred\} Pass\*/);
 assert.match(html, /function foamRowLooksShifted/);
@@ -1061,20 +1070,34 @@ function parseSapDate(v) {
   if (m) return { y: +m[1], m: +m[2], d: +m[3] };
   return null;
 }
+function sapHeaderKind(h) {
+  const s = String(h || '').replace(/\s+/g, ' ').trim();
+  if (/^line\b/i.test(s)) return 'line';
+  if (/^date\b/i.test(s)) return 'date';
+  if (/item/i.test(s) && !/desc/i.test(s)) return 'item';
+  return '';
+}
 function parseSapPairs(grid) {
+  const header = (grid[0] || []).map(h => String(h || '').trim());
+  let dateCol = -1, itemCol = -1, lineCol = -1, start = 0;
+  header.forEach((h, i) => {
+    const kind = sapHeaderKind(h);
+    if (kind === 'date' && dateCol < 0) dateCol = i;
+    if (kind === 'item' && itemCol < 0) itemCol = i;
+    if (kind === 'line' && lineCol < 0) lineCol = i;
+  });
+  if (dateCol >= 0 || itemCol >= 0 || lineCol >= 0) start = 1;
+  if (itemCol < 0) itemCol = dateCol === 0 ? 1 : 0;
+  if (dateCol < 0) dateCol = 0;
   const out = [];
-  let start = 0, dateCol = 0, itemCol = 1;
-  const h0 = String((grid[0] || [])[0] || '');
-  const h1 = String((grid[0] || [])[1] || '');
-  if (/date|item/i.test(h0 + h1)) {
-    start = 1;
-    if (/item/i.test(h0) && /date/i.test(h1)) { dateCol = 1; itemCol = 0; }
-  }
   for (let i = start; i < grid.length; i++) {
     const dt = parseSapDate(grid[i][dateCol]);
     const item = String(grid[i][itemCol] ?? '').trim();
     if (!dt || !sapItemKey(item)) continue;
-    out.push({ y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item) });
+    out.push({
+      y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item),
+      line: lineCol >= 0 ? String(grid[i][lineCol] || '').trim() : ''
+    });
   }
   return out;
 }
@@ -1087,6 +1110,20 @@ assert.equal(sapRows.length, 2);
 assert.equal(sapRows[0].itemKey, '3030053');
 assert.equal(sapRows[1].itemKey, '410805');
 assert.equal(sapRows[0].d, 20);
+assert.equal(sapRows[0].line, '');
+const sapLined = parseSapPairs([
+  ['Date', 'Item', 'Line'],
+  ['2026-08-20', '3030053', 'S4'],
+  ['2026-08-21', '410805', 'S1'],
+  ['2026-08-22', '999', 'COEX']
+]);
+assert.equal(sapLined.length, 3);
+assert.equal(sapLined[0].line, 'S4');
+assert.equal(sapLined[1].line, 'S1');
+assert.equal(sapLined[2].line, 'COEX');
+const onlyUploaded = sapLined.filter(r => r.y === 2026 && r.m === 8 && r.d === 20);
+assert.equal(onlyUploaded.length, 1);
+assert.equal(onlyUploaded[0].item, '3030053');
 
 function testRowIdentity(row) {
   const when = col(row, 'Date/Time');

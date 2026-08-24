@@ -8,8 +8,7 @@ const dir = path.dirname(fileURLToPath(import.meta.url));
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
 const vba = fs.readFileSync(path.join(dir, 'CopyForGraph.bas'), 'utf8');
 const vbaS1 = fs.readFileSync(path.join(dir, 'CopyForGraphS1S3.bas'), 'utf8');
-const vbaFromS4 = fs.readFileSync(path.join(dir, 'CopyForGraphFromS4.bas'), 'utf8');
-const vbaFromS1 = fs.readFileSync(path.join(dir, 'CopyForGraphFromS1S3.bas'), 'utf8');
+const vbaFrom = fs.readFileSync(path.join(dir, 'CopyForGraphFromQuality.bas'), 'utf8');
 const payload = fs.readFileSync(path.join(dir, 'fixtures/sample-diegraph2.txt'), 'utf8');
 const payloadS1 = fs.readFileSync(path.join(dir, 'fixtures/sample-diegraph2-s1s3.txt'), 'utf8');
 
@@ -17,41 +16,47 @@ function parseRangeSpec(raw) {
   const n = parseFloat(raw); if (!isFinite(n)) return NaN;
   return Math.abs(n) >= 1 ? n / 1000 : n;
 }
+function isTsvHeaderLine(line) {
+  const heads = String(line ?? '').split('\t').map(s => s.trim());
+  return heads.some(h => /^(mspec#?|mspec)$/i.test(String(h).replace(/\s+/g, '')) || /^mspec\s*#?$/i.test(h));
+}
 function parseTsv(lines) {
   const nonempty = lines.map(s => String(s ?? '').replace(/\r/g, '')).filter(l => l.length);
   if (!nonempty.length) return { headers: [], rows: [] };
-  let headerIdx = 0;
-  for (let i = 0; i < Math.min(nonempty.length, 8); i++) {
-    const heads = nonempty[i].split('\t').map(s => s.trim());
-    if (heads.some(h => /^(mspec#?|mspec)$/i.test(String(h).replace(/\s+/g, '')) || /^mspec\s*#?$/i.test(h))) {
-      headerIdx = i;
-      break;
-    }
-  }
-  const headers = nonempty[headerIdx].split('\t').map(s => s.trim());
+  const allHeaders = [];
   const rows = [];
-  for (let i = headerIdx + 1; i < nonempty.length; i++) {
-    const parts = nonempty[i].split('\t');
+  let headers = [];
+  for (const line of nonempty) {
+    if (isTsvHeaderLine(line)) {
+      headers = line.split('\t').map(s => s.trim());
+      headers.forEach(h => { if (h && !allHeaders.includes(h)) allHeaders.push(h); });
+      continue;
+    }
+    if (!headers.length) continue;
+    const parts = line.split('\t');
     const obj = {};
     headers.forEach((h, j) => { if (h) obj[h] = parts[j] == null ? '' : parts[j]; });
     rows.push(obj);
   }
-  return { headers, rows };
+  return { headers: allHeaders, rows };
 }
 function splitDieGraph2(text) {
   const lines = text.replace(/\r/g, '').split('\n');
-  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [] };
+  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [] };
   let cur = null;
   for (const line of lines.slice(1)) {
     const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|HISTORY)\]$/i);
     if (m) {
       const name = m[1].toUpperCase();
-      cur = (name === 'TABLES1S3' || name === 'HISTORY') ? 'TABLES4' : name;
+      cur = (name === 'HISTORY') ? 'TABLES4' : name;
       continue;
     }
     if (cur) sections[cur].push(line);
   }
   return sections;
+}
+function historyLines(sections) {
+  return (sections.TABLES4 || []).concat(sections.TABLES1S3 || []);
 }
 function col(row, ...names) {
   if (!row) return '';
@@ -82,32 +87,46 @@ assert.match(vbaS1, /Range\("B10"\)/);
 assert.doesNotMatch(vbaS1, /Data S4/);
 assert.doesNotMatch(vbaS1, /SheetByName\("S4"\)/);
 
-assert.match(vbaFromS4, /Attribute VB_Name = "CopyForGraphFromS4"/);
-assert.match(vbaFromS4, /Files\\S4\.xlsm/);
-assert.match(vbaFromS4, /FileCopy src, dest/);
-assert.match(vbaFromS4, /Workbooks\.Open/);
-assert.match(vbaFromS4, /w\.Visible = False/);
-assert.match(vbaFromS4, /msoAutomationSecurityForceDisable/);
-assert.match(vbaFromS4, /Function TargetWorkbook/);
-assert.match(vbaFromS4, /TableS4/);
-assert.match(vbaFromS4, /densMin=/);
-assert.match(vbaFromS4, /PutTextOnClipboard/);
-assert.match(vbaFromS4, /OpenGraphHtml/);
-assert.match(vbaFromS4, /NOT into S4\.xlsm/);
-assert.doesNotMatch(vbaFromS4, /Application\.Run/);
-assert.doesNotMatch(vbaFromS4, /CopyForGraph\.CopyForGraph/);
-
-assert.match(vbaFromS1, /Attribute VB_Name = "CopyForGraphFromS1S3"/);
-assert.match(vbaFromS1, /Files\\S1 S3\.xlsm/);
-assert.match(vbaFromS1, /FileCopy src, dest/);
-assert.match(vbaFromS1, /CopyForGraphFromS1S3/);
-assert.match(vbaFromS1, /TableS1S3/);
-assert.match(vbaFromS1, /source=S1S3/);
-assert.match(vbaFromS1, /Range\("B14"\)/);
-assert.match(vbaFromS1, /msoAutomationSecurityForceDisable/);
-assert.match(vbaFromS1, /NOT into S1 S3\.xlsm/);
-assert.doesNotMatch(vbaFromS1, /Application\.Run/);
-assert.doesNotMatch(vbaFromS1, /CopyForGraphS1S3\.CopyForGraph/);
+assert.ok(!fs.existsSync(path.join(dir, 'CopyForGraphFromS4.bas')));
+assert.ok(!fs.existsSync(path.join(dir, 'CopyForGraphFromS1S3.bas')));
+assert.match(vbaFrom, /Attribute VB_Name = "CopyForGraphFromQuality"/);
+assert.match(vbaFrom, /Public Sub CopyForGraphFromQuality/);
+assert.match(vbaFrom, /Public Sub CopyForGraphFromS4/);
+assert.match(vbaFrom, /Public Sub CopyForGraphFromS1S3/);
+assert.match(vbaFrom, /Sub CopyForGraphFromBothBooks/);
+assert.match(vbaFrom, /Function AcquireSource/);
+assert.match(vbaFrom, /Function PreferredCurrentKind/);
+assert.match(vbaFrom, /Function DetectKindFromWorkbook/);
+assert.match(vbaFrom, /\[TABLES4\]/);
+assert.match(vbaFrom, /\[TABLES1S3\]/);
+assert.match(vbaFrom, /Copying TableS4/);
+assert.match(vbaFrom, /Copying TableS1S3/);
+assert.match(vbaFrom, /Files\\S4\.xlsm/);
+assert.match(vbaFrom, /Files\\S1 S3\.xlsm/);
+assert.match(vbaFrom, /FileCopy src, dest/);
+assert.match(vbaFrom, /Environ\$\("TEMP"\)/);
+assert.match(vbaFrom, /CopyWorkbookFile/);
+assert.match(vbaFrom, /AlreadyOpenWorkbook/);
+assert.match(vbaFrom, /openedByLauncher/);
+assert.match(vbaFrom, /Workbooks\.Open/);
+assert.match(vbaFrom, /w\.Visible = False/);
+assert.match(vbaFrom, /msoAutomationSecurityForceDisable/);
+assert.match(vbaFrom, /Function TargetWorkbook/);
+assert.match(vbaFrom, /TableS4/);
+assert.match(vbaFrom, /TableS1S3/);
+assert.match(vbaFrom, /source=S4/);
+assert.match(vbaFrom, /source=S1S3/);
+assert.match(vbaFrom, /Range\("B8"\)/);
+assert.match(vbaFrom, /Range\("B14"\)/);
+assert.match(vbaFrom, /densMin=/);
+assert.match(vbaFrom, /PutTextOnClipboard/);
+assert.match(vbaFrom, /OpenGraphHtml/);
+assert.match(vbaFrom, /NOT into S4\.xlsm/);
+assert.match(vbaFrom, /NOT into S1 S3\.xlsm/);
+assert.doesNotMatch(vbaFrom, /Application\.Run/);
+assert.doesNotMatch(vbaFrom, /CopyForGraph\.CopyForGraph/);
+assert.doesNotMatch(vbaFrom, /CopyForGraphS1S3\.CopyForGraph/);
+assert.doesNotMatch(vbaFrom, /Left\$\(src, i\)/);
 
 assert.match(html, /data-screen="welcome"/);
 assert.match(html, /S1 S3 quality check sheet/);
@@ -193,7 +212,9 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.6\.6'/);
+assert.match(html, /APP_VERSION = '1\.6\.7'/);
+assert.match(html, /function isTsvHeaderLine/);
+assert.match(html, /sections\.TABLES4 \|\| \[\]\)\.concat\(sections\.TABLES1S3/);
 assert.match(html, /Missing checks/);
 assert.match(html, /function asThousandths/);
 assert.match(html, /function specTargetsText/);
@@ -281,9 +302,9 @@ assert.match(vba, /FindMspecHeaderRow/);
 assert.match(vba, /For r = 1 To 2000/);
 assert.match(vbaS1, /A:BH/);
 assert.match(vbaS1, /FindOrOpenQualityAio/);
-assert.match(vbaFromS4, /FindOrOpenQualityAio/);
-assert.match(vbaFromS1, /LookupTsvHasDensity/);
-assert.match(html, /headerIdx/);
+assert.match(vbaFrom, /FindOrOpenQualityAio/);
+assert.match(vbaFrom, /LookupTsvHasDensity/);
+assert.match(html, /isTsvHeaderLine/);
 assert.match(html, /incomingHasDens/);
 assert.match(html, /Cell count min/);
 assert.match(html, /Target thickness/);
@@ -302,7 +323,7 @@ assert.ok(/^DIEGRAPH2\b/i.test('DIEGRAPH2\n[CURRENT]'));
 
 const sections = splitDieGraph2(payload);
 const lookup = parseTsv(sections.LOOKUP);
-const table = parseTsv(sections.TABLES4);
+const table = parseTsv(historyLines(sections));
 assert.ok(lookup.headers.includes('Density Min'));
 assert.ok(lookup.headers.includes('Cell Count Min'));
 assert.ok(table.headers.includes('Slit/Width'));
@@ -335,7 +356,8 @@ const s1 = splitDieGraph2(payloadS1);
 assert.match(payloadS1, /source=S1S3/);
 assert.match(payloadS1, /\[TABLES1S3\]/);
 const s1Lookup = parseTsv(s1.LOOKUP);
-const s1Table = parseTsv(s1.TABLES4);
+const s1Table = parseTsv(historyLines(s1));
+assert.ok(s1.TABLES1S3.length > 0);
 assert.equal(s1Table.rows.length, 2);
 assert.equal(col(s1Table.rows[0], 'Line'), 'S3');
 assert.equal(col(s1Table.rows[1], 'Line'), 'S1');
@@ -358,6 +380,27 @@ const s14003 = s1Lookup.rows.find(r => String(col(r, 'MSPEC #')) === '4003');
 assert.ok(s14003);
 assert.equal(parseFloat(col(s14003, 'Lower Control')), 0.24);
 assert.equal(parseFloat(col(s14003, 'Upper Control')), 0.26);
+
+const combined = [
+  'DIEGRAPH2',
+  '[CURRENT]',
+  ...sections.CURRENT,
+  '[LOOKUP]',
+  ...sections.LOOKUP,
+  '[TABLES4]',
+  ...sections.TABLES4,
+  '[TABLES1S3]',
+  ...s1.TABLES1S3
+].join('\n');
+const both = splitDieGraph2(combined);
+const bothTable = parseTsv(historyLines(both));
+assert.equal(bothTable.rows.length, table.rows.length + s1Table.rows.length);
+assert.ok(bothTable.rows.some(r => col(r, 'Line') === 'S4'));
+assert.ok(bothTable.rows.some(r => col(r, 'Line') === 'S1'));
+assert.ok(bothTable.rows.some(r => col(r, 'Line') === 'S3'));
+assert.ok(bothTable.headers.includes('Tape Color'));
+assert.ok(bothTable.headers.includes('Winder Tension'));
+assert.ok(bothTable.headers.includes('Roll Weight'));
 
 const dated = table.rows.map((row, idx) => ({ row, idx }))
   .sort((a, b) => parseFloat(col(b.row, 'Date/Time')) - parseFloat(col(a.row, 'Date/Time')));
@@ -405,8 +448,7 @@ assert.equal(parseFloat(col(row3000, 'Density Min')), 1.55);
 assert.match(html, /'Item'/);
 assert.match(html, /'Width'/);
 assert.match(vba, /A:BH/);
-assert.match(vbaFromS4, /A:BH/);
-assert.match(vbaFromS1, /A:BH/);
+assert.match(vbaFrom, /A:BH/);
 assert.match(vba, /Table7/);
 assert.match(vba, /LookupTableTsv/);
 assert.match(vba, /LinkSources/);

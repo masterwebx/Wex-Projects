@@ -1,11 +1,22 @@
-Attribute VB_Name = "CopyForGraphFromS4"
+Attribute VB_Name = "CopyForGraphFromQuality"
 Option Explicit
 
-' Import into Personal.xlsb or a launcher workbook — NOT into S4.xlsm.
-' Self-contained: copies S4.xlsm, opens the copy hidden (macros disabled),
-' builds DIEGRAPH2 from that copy, then closes it. No macro inside S4 is used.
+' Import into Personal.xlsb or a launcher workbook — NOT into S4.xlsm
+' and NOT into S1 S3.xlsm.
+' One paste from both quality books: copies S4.xlsm and S1 S3.xlsm into
+' %TEMP%, opens those copies hidden (macros disabled), builds one
+' DIEGRAPH2 payload with both history tables, then closes and deletes
+' the temp copies. Never writes into the quality Files folder
+' (Permission denied on G:). If a book is already open, uses that
+' workbook and does not close it. No macro inside S4 or S1 S3 is used.
 '
-' Button: CopyForGraphFromS4.CopyForGraphFromS4
+' Button: CopyForGraphFromQuality.CopyForGraphFromQuality
+' [CURRENT] comes from the active quality sheet when one is in front.
+' [TABLES4] is S4 history and [TABLES1S3] is S1 S3 history.
+' CopyForGraphFromS4 and CopyForGraphFromS1S3 remain as aliases.
+' If you previously imported CopyForGraphFromS4.bas and
+' CopyForGraphFromS1S3.bas, remove those modules first so the public
+' Sub names are not duplicated.
 
 
 
@@ -35,15 +46,33 @@ Private Const CF_UNICODETEXT As Long = 13
 Private Const GMEM_MOVEABLE As Long = &H2
 Private Const GRAPH_HTML As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\centration.html"
 
-Private Const SOURCE_XLSM As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Files\S4.xlsm"
-Private dataWb As Workbook
+Private Const SOURCE_S4 As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Files\S4.xlsm"
+Private Const SOURCE_S1S3 As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Files\S1 S3.xlsm"
 
-Public Sub CopyForGraphFromS4()
-    CopyForGraphFromFile SOURCE_XLSM, "s4"
+Private dataWb As Workbook
+Private openedByLauncher As Boolean
+Private copyPathToDelete As String
+Private sourceKind As String
+Private wbS4 As Workbook
+Private wbS1 As Workbook
+Private openedS4 As Boolean
+Private openedS1 As Boolean
+Private pathS4 As String
+Private pathS1 As String
+
+Public Sub CopyForGraphFromQuality()
+    CopyForGraphFromBothBooks
 End Sub
 
-Private Sub CopyForGraphFromFile(ByVal src As String, ByVal tag As String)
-    Dim dest As String
+Public Sub CopyForGraphFromS4()
+    CopyForGraphFromBothBooks
+End Sub
+
+Public Sub CopyForGraphFromS1S3()
+    CopyForGraphFromBothBooks
+End Sub
+
+Private Sub CopyForGraphFromBothBooks()
     Dim prevSU As Boolean
     Dim prevEA As Boolean
     Dim prevDA As Boolean
@@ -53,16 +82,16 @@ Private Sub CopyForGraphFromFile(ByVal src As String, ByVal tag As String)
     
     On Error GoTo ErrHandler
     
-    If LenB(Dir$(src, vbNormal)) = 0 Then
-        MsgBox "Could not find workbook:" & vbCrLf & src, vbCritical, "Copy for Graph"
-        Exit Sub
-    End If
-    
-    dest = TempCopyPath(src, tag)
-    On Error Resume Next
-    Kill dest
-    On Error GoTo ErrHandler
-    FileCopy src, dest
+    openedByLauncher = False
+    copyPathToDelete = vbNullString
+    Set dataWb = Nothing
+    Set wbS4 = Nothing
+    Set wbS1 = Nothing
+    openedS4 = False
+    openedS1 = False
+    pathS4 = vbNullString
+    pathS1 = vbNullString
+    sourceKind = vbNullString
     
     prevSU = Application.ScreenUpdating
     prevEA = Application.EnableEvents
@@ -73,50 +102,260 @@ Private Sub CopyForGraphFromFile(ByVal src As String, ByVal tag As String)
     Application.EnableEvents = False
     Application.DisplayAlerts = False
     Application.Cursor = xlWait
-    Application.AutomationSecurity = msoAutomationSecurityForceDisable
-    Application.StatusBar = "Opening a silent copy of " & Mid$(src, InStrRev(src, "\") + 1) & "..."
     
-    Set dataWb = Workbooks.Open(Filename:=dest, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
-    HideWorkbookWindows dataWb
+    AcquireSource "S4"
+    AcquireSource "S1S3"
+    
+    If wbS4 Is Nothing And wbS1 Is Nothing Then
+        RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
+        Application.Cursor = xlDefault
+        Application.StatusBar = False
+        MsgBox "Could not find S4.xlsm or S1 S3.xlsm:" & vbCrLf & SOURCE_S4 & vbCrLf & SOURCE_S1S3, vbCritical, "Copy for Graph"
+        Exit Sub
+    End If
     
     Application.EnableEvents = True
     Application.DisplayAlerts = True
     Application.ScreenUpdating = True
     Application.AutomationSecurity = prevSec
     
-    CopyForGraphFromOpenCopy
+    CopyForGraphFromOpenCopies
     
-    CloseCopy dataWb, dest
+    ReleaseAll
     RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
-    Application.StatusBar = "Copied for graph from silent workbook copy"
+    Application.StatusBar = "Copied for graph from S4 and S1 S3"
     Exit Sub
     
 ErrHandler:
     errMsg = Err.Description
     On Error Resume Next
-    CloseCopy dataWb, dest
+    ReleaseAll
     RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
     Application.Cursor = xlDefault
     Application.StatusBar = False
     MsgBox "Copy for graph failed: " & errMsg, vbCritical, "Copy for Graph"
 End Sub
 
-Private Sub CopyForGraphFromOpenCopy()
-    Dim wsS4 As Worksheet
+Private Function AcquireSource(ByVal kind As String) As Workbook
+    Dim src As String
+    Dim dest As String
+    Dim wb As Workbook
+    Dim opened As Boolean
+    Dim copyPath As String
+    
+    src = SourcePathForKind(kind)
+    Set wb = OpenWorkbookByKind(kind)
+    If wb Is Nothing Then
+        If FileExists(src) Then
+            dest = TempCopyPath(LCase$(kind))
+            Application.AutomationSecurity = msoAutomationSecurityForceDisable
+            If CopyWorkbookFile(src, dest) Then
+                copyPath = dest
+                Application.StatusBar = "Opening a silent copy of " & SourceFileName(src) & "..."
+                Set wb = Workbooks.Open(Filename:=dest, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
+                opened = True
+                HideWorkbookWindows wb
+            Else
+                Application.StatusBar = "Opening " & SourceFileName(src) & " read-only..."
+                Set wb = Workbooks.Open(Filename:=src, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
+                opened = True
+                HideWorkbookWindows wb
+            End If
+        End If
+    Else
+        Application.StatusBar = "Using already-open " & wb.Name
+    End If
+    
+    If StrComp(kind, "S1S3", vbTextCompare) = 0 Then
+        Set wbS1 = wb
+        openedS1 = opened
+        pathS1 = copyPath
+    Else
+        Set wbS4 = wb
+        openedS4 = opened
+        pathS4 = copyPath
+    End If
+    If opened Then
+        openedByLauncher = True
+        If LenB(copyPathToDelete) = 0 Then copyPathToDelete = copyPath
+    End If
+    Set AcquireSource = wb
+End Function
+
+Private Sub UseBook(ByVal wb As Workbook, ByVal kind As String)
+    Set dataWb = wb
+    sourceKind = kind
+End Sub
+
+Private Function BookForKind(ByVal kind As String) As Workbook
+    If StrComp(kind, "S1S3", vbTextCompare) = 0 Then
+        Set BookForKind = wbS1
+    Else
+        Set BookForKind = wbS4
+    End If
+End Function
+
+Private Function PreferredCurrentKind() As String
+    Dim kind As String
+    On Error Resume Next
+    kind = DetectKindFromWorkbook(Application.ActiveWorkbook)
+    On Error GoTo 0
+    If StrComp(kind, "S1S3", vbTextCompare) = 0 And Not wbS1 Is Nothing Then
+        PreferredCurrentKind = "S1S3"
+        Exit Function
+    End If
+    If StrComp(kind, "S4", vbTextCompare) = 0 And Not wbS4 Is Nothing Then
+        PreferredCurrentKind = "S4"
+        Exit Function
+    End If
+    If Not wbS4 Is Nothing Then
+        PreferredCurrentKind = "S4"
+    ElseIf Not wbS1 Is Nothing Then
+        PreferredCurrentKind = "S1S3"
+    End If
+End Function
+
+Private Function SourcePathForKind(ByVal kind As String) As String
+    If StrComp(kind, "S1S3", vbTextCompare) = 0 Then
+        SourcePathForKind = SOURCE_S1S3
+    Else
+        SourcePathForKind = SOURCE_S4
+    End If
+End Function
+
+Private Function IsS1S3() As Boolean
+    IsS1S3 = (StrComp(sourceKind, "S1S3", vbTextCompare) = 0)
+End Function
+
+Private Function FormSheetName() As String
+    If IsS1S3() Then
+        FormSheetName = "S1 S3"
+    Else
+        FormSheetName = "S4"
+    End If
+End Function
+
+Private Function DetectKindFromWorkbook(ByVal wb As Workbook) As String
+    Dim hasS4 As Boolean
+    Dim hasS1 As Boolean
+    Dim sheetName As String
+    
+    If IsIgnoredWorkbook(wb) Then Exit Function
+    
+    hasS4 = WorkbookHasSheet(wb, "S4") And WorkbookHasSheet(wb, "Data S4")
+    hasS1 = WorkbookHasSheet(wb, "S1 S3") And WorkbookHasSheet(wb, "Data S1 S3")
+    If hasS4 And Not hasS1 Then
+        DetectKindFromWorkbook = "S4"
+        Exit Function
+    End If
+    If hasS1 And Not hasS4 Then
+        DetectKindFromWorkbook = "S1S3"
+        Exit Function
+    End If
+    If hasS4 And hasS1 Then
+        On Error Resume Next
+        sheetName = wb.ActiveSheet.Name
+        On Error GoTo 0
+        If StrComp(sheetName, "S1 S3", vbTextCompare) = 0 Or StrComp(sheetName, "Data S1 S3", vbTextCompare) = 0 Then
+            DetectKindFromWorkbook = "S1S3"
+        Else
+            DetectKindFromWorkbook = "S4"
+        End If
+        Exit Function
+    End If
+    If StrComp(wb.Name, "S4.xlsm", vbTextCompare) = 0 Then
+        DetectKindFromWorkbook = "S4"
+        Exit Function
+    End If
+    If StrComp(wb.Name, "S1 S3.xlsm", vbTextCompare) = 0 Then
+        DetectKindFromWorkbook = "S1S3"
+    End If
+End Function
+
+Private Function WorkbookHasSheet(ByVal wb As Workbook, ByVal sheetName As String) As Boolean
+    Dim ws As Worksheet
+    If wb Is Nothing Then Exit Function
+    On Error Resume Next
+    Set ws = wb.Worksheets(sheetName)
+    On Error GoTo 0
+    WorkbookHasSheet = Not ws Is Nothing
+End Function
+
+Private Function IsIgnoredWorkbook(ByVal wb As Workbook) As Boolean
+    Dim n As String
+    If wb Is Nothing Then
+        IsIgnoredWorkbook = True
+        Exit Function
+    End If
+    n = wb.Name
+    If StrComp(n, ThisWorkbook.Name, vbTextCompare) = 0 Then
+        IsIgnoredWorkbook = True
+        Exit Function
+    End If
+    If InStr(1, n, "PERSONAL", vbTextCompare) > 0 Then
+        IsIgnoredWorkbook = True
+        Exit Function
+    End If
+    If StrComp(Left$(n, 9), "diegraph_", vbTextCompare) = 0 Then
+        IsIgnoredWorkbook = True
+    End If
+End Function
+
+Private Function OpenWorkbookByKind(ByVal kind As String) As Workbook
+    Dim wb As Workbook
+    Set OpenWorkbookByKind = AlreadyOpenWorkbook(SourcePathForKind(kind))
+    If Not OpenWorkbookByKind Is Nothing Then Exit Function
+    For Each wb In Application.Workbooks
+        If StrComp(DetectKindFromWorkbook(wb), kind, vbTextCompare) = 0 Then
+            Set OpenWorkbookByKind = wb
+            Exit Function
+        End If
+    Next wb
+End Function
+
+Private Function WorkbookPath(ByVal wb As Workbook) As String
+    On Error Resume Next
+    If wb Is Nothing Then Exit Function
+    WorkbookPath = wb.FullName
+    If LenB(WorkbookPath) = 0 Then WorkbookPath = wb.Name
+End Function
+
+Private Function NewerFile(ByVal a As String, ByVal b As String) As Boolean
+    NewerFile = (FileTime(a) > FileTime(b))
+End Function
+
+Private Function FileTime(ByVal p As String) As Double
+    On Error Resume Next
+    If FileExists(p) Then FileTime = CDbl(FileDateTime(p))
+End Function
+
+Private Sub CopyForGraphFromOpenCopies()
+    Dim wsForm As Worksheet
     Dim payload As String
     Dim hasPoints As Boolean
     Dim tsvLookup As String
-    Dim tsvTable As String
+    Dim tsvS4 As String
+    Dim tsvS1 As String
+    Dim preferred As String
     
     On Error GoTo CopyErr
     
-    Set wsS4 = SheetByName("S4")
-    If wsS4 Is Nothing Then Set wsS4 = TargetWorkbook.Worksheets(1)
+    preferred = PreferredCurrentKind()
+    UseBook BookForKind(preferred), preferred
+    
+    Set wsForm = SheetByName(FormSheetName())
+    If wsForm Is Nothing Then
+        If Not TargetWorkbook Is Nothing Then Set wsForm = TargetWorkbook.Worksheets(1)
+    End If
     
     Application.Cursor = xlWait
     Application.StatusBar = "Copying for graph..."
     
-    payload = CurrentSection(wsS4, hasPoints)
+    If Not wsForm Is Nothing Then
+        payload = CurrentSection(wsForm, hasPoints)
+    Else
+        payload = "DIEGRAPH2" & vbCrLf & "[CURRENT]" & vbCrLf
+    End If
     
     Application.StatusBar = "Copying Quality AIO Master Sheet..."
     tsvLookup = LookupTableTsv()
@@ -125,17 +364,26 @@ Private Sub CopyForGraphFromOpenCopy()
         payload = payload & tsvLookup & vbCrLf
     End If
     
-    Application.StatusBar = "Copying TableS4..."
-    tsvTable = ListObjectToTsv(TableS4ListObject())
-    payload = payload & "[TABLES4]" & vbCrLf
-    If LenB(tsvTable) > 0 Then
-        payload = payload & tsvTable & vbCrLf
+    If Not wbS4 Is Nothing Then
+        UseBook wbS4, "S4"
+        Application.StatusBar = "Copying TableS4..."
+        tsvS4 = ListObjectToTsv(HistoryListObject())
     End If
+    If Not wbS1 Is Nothing Then
+        UseBook wbS1, "S1S3"
+        Application.StatusBar = "Copying TableS1S3..."
+        tsvS1 = ListObjectToTsv(HistoryListObject())
+    End If
+    
+    payload = payload & "[TABLES4]" & vbCrLf
+    If LenB(tsvS4) > 0 Then payload = payload & tsvS4 & vbCrLf
+    payload = payload & "[TABLES1S3]" & vbCrLf
+    If LenB(tsvS1) > 0 Then payload = payload & tsvS1 & vbCrLf
     
     PutTextOnClipboard payload
     OpenGraphHtml
     
-    Application.StatusBar = "Copied for graph (current + lookup + TableS4)"
+    Application.StatusBar = "Copied for graph (current + lookup + TableS4 + TableS1S3)"
     Application.Cursor = xlDefault
     Exit Sub
     
@@ -152,7 +400,6 @@ Private Function TargetWorkbook() As Workbook
         Set TargetWorkbook = ThisWorkbook
     End If
 End Function
-
 
 Private Function GraphHtmlPath() As String
     Dim p As String
@@ -195,23 +442,34 @@ Private Function SheetByName(ByVal sheetName As String) As Worksheet
     Set SheetByName = ws
 End Function
 
-Private Function TableS4ListObject() As ListObject
+Private Function HistoryListObject() As ListObject
     Dim ws As Worksheet
     Dim lo As ListObject
-    Set ws = SheetByName("Data S4")
+    Dim sheetName As String
+    Dim tableName As String
+    
+    If IsS1S3() Then
+        sheetName = "Data S1 S3"
+        tableName = "TableS1S3"
+    Else
+        sheetName = "Data S4"
+        tableName = "TableS4"
+    End If
+    
+    Set ws = SheetByName(sheetName)
     If ws Is Nothing Then Exit Function
     On Error Resume Next
-    Set lo = ws.ListObjects("TableS4")
+    Set lo = ws.ListObjects(tableName)
     On Error GoTo 0
     If lo Is Nothing Then
         For Each lo In ws.ListObjects
-            If StrComp(lo.Name, "TableS4", vbTextCompare) = 0 Or StrComp(lo.DisplayName, "TableS4", vbTextCompare) = 0 Then
-                Set TableS4ListObject = lo
+            If StrComp(lo.Name, tableName, vbTextCompare) = 0 Or StrComp(lo.DisplayName, tableName, vbTextCompare) = 0 Then
+                Set HistoryListObject = lo
                 Exit Function
             End If
         Next lo
     End If
-    Set TableS4ListObject = lo
+    Set HistoryListObject = lo
 End Function
 
 Private Function LookupTableTsv() As String
@@ -220,8 +478,8 @@ Private Function LookupTableTsv() As String
     Dim aioWb As Workbook
     Dim openedAio As Boolean
     
-    ' S4 VLOOKUPs read Quality AIO Master Sheet (density is K/L/M). The local
-    ' S4 Master Sheet copy is stale and usually has empty density columns.
+    ' VLOOKUPs read Quality AIO Master Sheet (density is K/L/M). The local
+    ' Master Sheet copy is stale and usually has empty density columns.
     Set aioWb = FindOrOpenQualityAio(openedAio)
     If Not aioWb Is Nothing Then
         On Error Resume Next
@@ -477,36 +735,6 @@ Private Function MspecListObject(ByVal ws As Worksheet) As ListObject
     Next lo
 End Function
 
-Private Function LinkedMasterSheetIfOpen() As Worksheet
-    Dim wb As Workbook
-    Dim ws As Worksheet
-    Dim links As Variant
-    Dim i As Long
-    Dim p As String
-    Dim fname As String
-    
-    On Error Resume Next
-    links = TargetWorkbook.LinkSources(xlExcelLinks)
-    On Error GoTo 0
-    If Not IsArray(links) Then Exit Function
-    
-    For i = LBound(links) To UBound(links)
-        p = CStr(links(i))
-        fname = LinkFileName(p)
-        For Each wb In Application.Workbooks
-            If WorkbookMatchesLink(wb, p, fname) Then
-                On Error Resume Next
-                Set ws = wb.Worksheets("Master Sheet")
-                On Error GoTo 0
-                If Not ws Is Nothing Then
-                    Set LinkedMasterSheetIfOpen = ws
-                    Exit Function
-                End If
-            End If
-        Next wb
-    Next i
-End Function
-
 Private Function WorkbookMatchesLink(ByVal wb As Workbook, ByVal linkPath As String, ByVal fname As String) As Boolean
     If wb Is Nothing Then Exit Function
     If StrComp(wb.Name, ThisWorkbook.Name, vbTextCompare) = 0 Then Exit Function
@@ -529,14 +757,14 @@ Private Function LinkFileName(ByVal p As String) As String
     LinkFileName = s
 End Function
 
-' S4 E6 is VLOOKUP(D4,'[1]Master Sheet'!A:D,4,FALSE) — copy that same sheet.
+' Form E6 is VLOOKUP(D4,'[1]Master Sheet'!A:D,4,FALSE) — copy that same sheet.
 Private Function MasterSheetBookRef() As String
     Dim f As String
     Dim ws As Worksheet
     Dim i As Long
     Dim j As Long
     
-    Set ws = SheetByName("S4")
+    Set ws = SheetByName(FormSheetName())
     If ws Is Nothing Then
         MasterSheetBookRef = "'[1]Master Sheet'"
         Exit Function
@@ -573,7 +801,7 @@ Private Function LinkedMasterSheetToTsv() As String
     ref = MasterSheetBookRef()
     If InStr(1, ref, "[", vbBinaryCompare) = 0 Then Exit Function
     
-    Set evalWs = SheetByName("S4")
+    Set evalWs = SheetByName(FormSheetName())
     If evalWs Is Nothing Then Set evalWs = TargetWorkbook.Worksheets(1)
     
     nC = 0
@@ -770,7 +998,7 @@ Private Function PutUnicodeTextWin32(ByVal s As String) As Boolean
 End Function
 #End If
 
-Private Function CurrentSection(ByVal wsS4 As Worksheet, ByRef hasPoints As Boolean) As String
+Private Function CurrentSection(ByVal wsForm As Worksheet, ByRef hasPoints As Boolean) As String
     Dim i As Long
     Dim pointLine As String
     Dim tLines As String
@@ -779,38 +1007,68 @@ Private Function CurrentSection(ByVal wsS4 As Worksheet, ByRef hasPoints As Bool
     hasPoints = False
     tLines = ""
     For i = 2 To 14
-        pointLine = CellNum(wsS4.Range("J" & i))
+        pointLine = CellNum(wsForm.Range("J" & i))
         If LenB(pointLine) > 0 Then hasPoints = True
         tLines = tLines & pointLine & vbCrLf
     Next i
     
     head = "DIEGRAPH2" & vbCrLf
     head = head & "[CURRENT]" & vbCrLf
-    head = head & "source=S4" & vbCrLf
-    head = head & "item=" & CellText(wsS4.Range("B3")) & vbCrLf
-    head = head & "mspec=" & CellText(wsS4.Range("D4")) & vbCrLf
-    head = head & "min=" & CellNum(wsS4.Range("E6")) & vbCrLf
-    head = head & "target=" & CellNum(wsS4.Range("F6")) & vbCrLf
-    head = head & "max=" & CellNum(wsS4.Range("G6")) & vbCrLf
-    head = head & "range=" & CellNum(wsS4.Range("G7")) & vbCrLf
-    head = head & "densMin=" & CellNum(wsS4.Range("E9")) & vbCrLf
-    head = head & "densTarget=" & CellNum(wsS4.Range("F9")) & vbCrLf
-    head = head & "densMax=" & CellNum(wsS4.Range("G9")) & vbCrLf
-    head = head & "cellMin=" & CellNum(wsS4.Range("G10")) & vbCrLf
-    head = head & "widthMin=" & CellNum(wsS4.Range("E11")) & vbCrLf
-    head = head & "widthTarget=" & CellText(wsS4.Range("F11")) & vbCrLf
-    head = head & "width=" & CellNum(wsS4.Range("B5")) & vbCrLf
-    head = head & "widthPf=" & CellText(wsS4.Range("C5")) & vbCrLf
-    head = head & "cellMd=" & CellNum(wsS4.Range("B8")) & vbCrLf
-    head = head & "cellMdPf=" & CellText(wsS4.Range("C8")) & vbCrLf
-    head = head & "cellCd=" & CellNum(wsS4.Range("B9")) & vbCrLf
-    head = head & "cellCdPf=" & CellText(wsS4.Range("C9")) & vbCrLf
-    head = head & "density=" & CellNum(wsS4.Range("B12")) & vbCrLf
-    head = head & "densityPf=" & CellText(wsS4.Range("C12")) & vbCrLf
-    head = head & "avg=" & CellNum(wsS4.Range("B10")) & vbCrLf
-    head = head & "avgPf=" & CellText(wsS4.Range("C10")) & vbCrLf
-    head = head & "tRange=" & CellNum(wsS4.Range("B11")) & vbCrLf
-    head = head & "tRangePf=" & CellText(wsS4.Range("C11")) & vbCrLf
+    If IsS1S3() Then
+        head = head & "source=S1S3" & vbCrLf
+        head = head & "item=" & CellText(wsForm.Range("B3")) & vbCrLf
+        head = head & "mspec=" & CellText(wsForm.Range("D4")) & vbCrLf
+        head = head & "line=" & CellText(wsForm.Range("B2")) & vbCrLf
+        head = head & "min=" & CellNum(wsForm.Range("E6")) & vbCrLf
+        head = head & "target=" & CellNum(wsForm.Range("F6")) & vbCrLf
+        head = head & "max=" & CellNum(wsForm.Range("G6")) & vbCrLf
+        head = head & "range=" & CellNum(wsForm.Range("G7")) & vbCrLf
+        head = head & "densMin=" & CellNum(wsForm.Range("E9")) & vbCrLf
+        head = head & "densTarget=" & CellNum(wsForm.Range("F9")) & vbCrLf
+        head = head & "densMax=" & CellNum(wsForm.Range("G9")) & vbCrLf
+        head = head & "cellMin=" & CellNum(wsForm.Range("G10")) & vbCrLf
+        head = head & "widthMin=" & CellNum(wsForm.Range("E11")) & vbCrLf
+        head = head & "widthTarget=" & CellText(wsForm.Range("F11")) & vbCrLf
+        head = head & "width=" & CellNum(wsForm.Range("B5")) & vbCrLf
+        head = head & "widthPf=" & CellText(wsForm.Range("C5")) & vbCrLf
+        head = head & "cellMd=" & CellNum(wsForm.Range("B10")) & vbCrLf
+        head = head & "cellMdPf=" & CellText(wsForm.Range("C10")) & vbCrLf
+        head = head & "cellCd=" & CellNum(wsForm.Range("B11")) & vbCrLf
+        head = head & "cellCdPf=" & CellText(wsForm.Range("C11")) & vbCrLf
+        head = head & "density=" & CellNum(wsForm.Range("B14")) & vbCrLf
+        head = head & "densityPf=" & CellText(wsForm.Range("C14")) & vbCrLf
+        head = head & "avg=" & CellNum(wsForm.Range("B12")) & vbCrLf
+        head = head & "avgPf=" & CellText(wsForm.Range("C12")) & vbCrLf
+        head = head & "tRange=" & CellNum(wsForm.Range("B13")) & vbCrLf
+        head = head & "tRangePf=" & CellText(wsForm.Range("C13")) & vbCrLf
+        head = head & "weight=" & CellNum(wsForm.Range("L2")) & vbCrLf
+    Else
+        head = head & "source=S4" & vbCrLf
+        head = head & "item=" & CellText(wsForm.Range("B3")) & vbCrLf
+        head = head & "mspec=" & CellText(wsForm.Range("D4")) & vbCrLf
+        head = head & "min=" & CellNum(wsForm.Range("E6")) & vbCrLf
+        head = head & "target=" & CellNum(wsForm.Range("F6")) & vbCrLf
+        head = head & "max=" & CellNum(wsForm.Range("G6")) & vbCrLf
+        head = head & "range=" & CellNum(wsForm.Range("G7")) & vbCrLf
+        head = head & "densMin=" & CellNum(wsForm.Range("E9")) & vbCrLf
+        head = head & "densTarget=" & CellNum(wsForm.Range("F9")) & vbCrLf
+        head = head & "densMax=" & CellNum(wsForm.Range("G9")) & vbCrLf
+        head = head & "cellMin=" & CellNum(wsForm.Range("G10")) & vbCrLf
+        head = head & "widthMin=" & CellNum(wsForm.Range("E11")) & vbCrLf
+        head = head & "widthTarget=" & CellText(wsForm.Range("F11")) & vbCrLf
+        head = head & "width=" & CellNum(wsForm.Range("B5")) & vbCrLf
+        head = head & "widthPf=" & CellText(wsForm.Range("C5")) & vbCrLf
+        head = head & "cellMd=" & CellNum(wsForm.Range("B8")) & vbCrLf
+        head = head & "cellMdPf=" & CellText(wsForm.Range("C8")) & vbCrLf
+        head = head & "cellCd=" & CellNum(wsForm.Range("B9")) & vbCrLf
+        head = head & "cellCdPf=" & CellText(wsForm.Range("C9")) & vbCrLf
+        head = head & "density=" & CellNum(wsForm.Range("B12")) & vbCrLf
+        head = head & "densityPf=" & CellText(wsForm.Range("C12")) & vbCrLf
+        head = head & "avg=" & CellNum(wsForm.Range("B10")) & vbCrLf
+        head = head & "avgPf=" & CellText(wsForm.Range("C10")) & vbCrLf
+        head = head & "tRange=" & CellNum(wsForm.Range("B11")) & vbCrLf
+        head = head & "tRangePf=" & CellText(wsForm.Range("C11")) & vbCrLf
+    End If
     If hasPoints Then
         CurrentSection = head & tLines
     Else
@@ -848,12 +1106,85 @@ Private Function CellText(ByVal cell As Range) As String
     CellText = Trim$(CStr(v))
 End Function
 
-Private Function TempCopyPath(ByVal src As String, ByVal tag As String) As String
+Private Function TempCopyPath(ByVal tag As String) As String
     Dim folder As String
+    folder = Environ$("TEMP")
+    If LenB(folder) = 0 Then folder = Environ$("TMP")
+    If LenB(folder) = 0 Then folder = ThisWorkbook.Path
+    If LenB(folder) = 0 Then folder = CurDir$
+    If Right$(folder, 1) <> "\" Then folder = folder & "\"
+    TempCopyPath = folder & "diegraph_" & tag & "_copy_" & Format$(Now, "yyyymmdd_hhnnss") & "_" & CStr(Int(Timer * 100) Mod 100000) & ".xlsm"
+End Function
+
+Private Function SourceFileName(ByVal src As String) As String
     Dim i As Long
-    i = InStrRev(src, "\")
-    If i > 0 Then folder = Left$(src, i) Else folder = Environ$("TEMP") & "\"
-    TempCopyPath = folder & "_diegraph_" & tag & "_copy_" & Format$(Now, "yyyymmdd_hhnnss") & ".xlsm"
+    i = InStrRev(Replace(src, "/", "\"), "\")
+    If i > 0 Then
+        SourceFileName = Mid$(src, i + 1)
+    Else
+        SourceFileName = src
+    End If
+End Function
+
+Private Function AlreadyOpenWorkbook(ByVal src As String) As Workbook
+    Dim wb As Workbook
+    Dim srcName As String
+    srcName = SourceFileName(src)
+    For Each wb In Application.Workbooks
+        If IsIgnoredWorkbook(wb) Then GoTo NextWb
+        If StrComp(wb.FullName, src, vbTextCompare) = 0 Then
+            Set AlreadyOpenWorkbook = wb
+            Exit Function
+        End If
+        If LenB(srcName) > 0 Then
+            If StrComp(wb.Name, srcName, vbTextCompare) = 0 Then
+                Set AlreadyOpenWorkbook = wb
+                Exit Function
+            End If
+        End If
+NextWb:
+    Next wb
+End Function
+
+Private Function CopyWorkbookFile(ByVal src As String, ByVal dest As String) As Boolean
+    Dim fso As Object
+    Dim stm As Object
+    
+    On Error Resume Next
+    If FileExists(dest) Then Kill dest
+    Err.Clear
+    
+    FileCopy src, dest
+    If Err.Number = 0 And FileExists(dest) Then
+        CopyWorkbookFile = True
+        Exit Function
+    End If
+    Err.Clear
+    
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso Is Nothing Then
+        fso.CopyFile src, dest, True
+        If Err.Number = 0 And FileExists(dest) Then
+            CopyWorkbookFile = True
+            Exit Function
+        End If
+        Err.Clear
+    End If
+    
+    Set stm = CreateObject("ADODB.Stream")
+    If Not stm Is Nothing Then
+        stm.Type = 1
+        stm.Open
+        stm.LoadFromFile src
+        If Err.Number = 0 Then
+            stm.SaveToFile dest, 2
+        End If
+        stm.Close
+        If Err.Number = 0 And FileExists(dest) Then
+            CopyWorkbookFile = True
+            Exit Function
+        End If
+    End If
 End Function
 
 Private Sub HideWorkbookWindows(ByVal wb As Workbook)
@@ -865,13 +1196,48 @@ Private Sub HideWorkbookWindows(ByVal wb As Workbook)
     Next w
 End Sub
 
-Private Sub CloseCopy(ByVal wb As Workbook, ByVal dest As String)
+Private Sub ReleaseAll()
     On Error Resume Next
     Application.DisplayAlerts = False
     Application.EnableEvents = False
-    If Not wb Is Nothing Then wb.Close SaveChanges:=False
-    If LenB(dest) > 0 Then Kill dest
+    ReleaseOne wbS4, openedS4, pathS4
+    ReleaseOne wbS1, openedS1, pathS1
     Set dataWb = Nothing
+    Set wbS4 = Nothing
+    Set wbS1 = Nothing
+    openedS4 = False
+    openedS1 = False
+    pathS4 = vbNullString
+    pathS1 = vbNullString
+    openedByLauncher = False
+    copyPathToDelete = vbNullString
+End Sub
+
+Private Sub ReleaseOne(ByVal wb As Workbook, ByVal opened As Boolean, ByVal dest As String)
+    On Error Resume Next
+    If opened Then
+        If Not wb Is Nothing Then wb.Close SaveChanges:=False
+        DeleteFileWithRetry dest
+    End If
+End Sub
+
+Private Sub ReleaseDataWorkbook()
+    ReleaseAll
+End Sub
+
+Private Sub DeleteFileWithRetry(ByVal dest As String)
+    Dim i As Long
+    Dim t As Double
+    If LenB(dest) = 0 Then Exit Sub
+    On Error Resume Next
+    For i = 1 To 6
+        Kill dest
+        If Not FileExists(dest) Then Exit Sub
+        t = Timer
+        Do While Timer < t + 0.25
+            DoEvents
+        Loop
+    Next i
 End Sub
 
 Private Sub RestoreApp(ByVal prevSU As Boolean, ByVal prevEA As Boolean, ByVal prevDA As Boolean, ByVal prevCur As XlMousePointer, ByVal prevSec As MsoAutomationSecurity)
@@ -882,4 +1248,3 @@ Private Sub RestoreApp(ByVal prevSU As Boolean, ByVal prevEA As Boolean, ByVal p
     Application.DisplayAlerts = prevDA
     Application.Cursor = prevCur
 End Sub
-

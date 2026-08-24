@@ -234,13 +234,18 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.6'/);
+assert.match(html, /APP_VERSION = '1\.7\.7'/);
 assert.match(html, /SAP_WORK_CENTERS/);
 assert.match(html, /function sapMapWorkCenter/);
 assert.match(html, /function parseSapTime/);
 assert.match(html, /function sapHitsOnDay/);
 assert.match(html, /function qualityNotesForRow/);
 assert.match(html, /Checked previous day/);
+assert.match(html, /function findSapHeaderRow/);
+assert.match(html, /function sapColsFromHeader/);
+assert.match(html, /qty in unit of entry/);
+assert.match(html, /document date/);
+assert.doesNotMatch(html, /No date \/ item rows found/);
 assert.match(html, /function sapAuditToStore/);
 assert.match(html, /function applyStoredSapAudit/);
 assert.match(html, /sapAudit: sapAuditToStore\(\)/);
@@ -1074,6 +1079,12 @@ function parseSapDate(v) {
   const s = String(v ?? '').trim();
   const m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
   if (m) return { y: +m[1], m: +m[2], d: +m[3] };
+  const m2 = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (m2) {
+    let y = +m2[3];
+    if (y < 100) y += 2000;
+    return { y, m: +m2[1], d: +m2[2] };
+  }
   return null;
 }
 const SAP_WORK_CENTERS = {
@@ -1084,17 +1095,61 @@ function sapMapWorkCenter(v) {
   const key = String(v ?? '').trim().toUpperCase().replace(/\s+/g, '');
   return SAP_WORK_CENTERS[key] || '';
 }
+function sapNormHeader(h) {
+  return String(h || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
 function sapHeaderKind(h) {
-  const s = String(h || '').replace(/\s+/g, ' ').trim();
-  if (/work\s*center/i.test(s)) return 'wc';
-  if (/^line\b/i.test(s)) return 'line';
-  if (/time\s*of\s*entry|entry\s*time|^time\b/i.test(s)) return 'time';
-  if (/entry\s*date|posting\s*date|^date\b/i.test(s)) return 'date';
-  if (/material\s*desc|item\s*desc|^description$/i.test(s)) return 'desc';
-  if ((/^material$|item/i.test(s)) && !/desc/i.test(s)) return 'item';
-  if (/^qty$|^quantity$/i.test(s)) return 'qty';
-  if (/unit\s*of\s*entry|^uom$|^unit$/i.test(s)) return 'unit';
+  const s = sapNormHeader(h);
+  if (!s) return '';
+  if (s === 'work center') return 'wc';
+  if (s === 'line') return 'line';
+  if (s === 'time of entry' || s === 'time') return 'time';
+  if (s === 'entry date') return 'entryDate';
+  if (s === 'posting date') return 'postingDate';
+  if (s === 'document date') return 'docDate';
+  if (s === 'date') return 'date';
+  if (s === 'material description' || s === 'description') return 'desc';
+  if (s === 'material' || s === 'item' || s === 'item #') return 'item';
+  if (s === 'quantity' || s === 'qty') return 'qty';
+  if (s === 'qty in unit of entry') return 'qtyEntry';
+  if (s === 'unit of entry' || s === 'unit') return 'unit';
   return '';
+}
+function sapHeaderScore(row) {
+  const kinds = new Set();
+  (row || []).forEach(h => { const k = sapHeaderKind(h); if (k) kinds.add(k); });
+  return kinds.size;
+}
+function findSapHeaderRow(grid) {
+  let best = -1, bestScore = 0;
+  for (let i = 0; i < Math.min(grid.length, 50); i++) {
+    const score = sapHeaderScore(grid[i]);
+    if (score > bestScore) { bestScore = score; best = i; }
+  }
+  return bestScore >= 2 ? best : -1;
+}
+function sapColsFromHeader(header) {
+  const cols = {
+    date: -1, entryDate: -1, postingDate: -1, docDate: -1,
+    item: -1, line: -1, wc: -1, time: -1, desc: -1, qty: -1, qtyEntry: -1, unit: -1
+  };
+  (header || []).forEach((h, i) => {
+    const kind = sapHeaderKind(h);
+    if (kind && cols[kind] < 0) cols[kind] = i;
+  });
+  if (cols.date < 0) cols.date = cols.entryDate >= 0 ? cols.entryDate
+    : (cols.postingDate >= 0 ? cols.postingDate : cols.docDate);
+  if (cols.qty < 0) cols.qty = cols.qtyEntry;
+  return cols;
+}
+function sapPickDate(row, cols) {
+  for (const key of ['entryDate', 'postingDate', 'docDate', 'date']) {
+    if (cols[key] >= 0) {
+      const dt = parseSapDate(row[cols[key]]);
+      if (dt) return dt;
+    }
+  }
+  return null;
 }
 function parseSapTime(v) {
   const s = String(v ?? '').trim();
@@ -1114,30 +1169,27 @@ function parseSapTime(v) {
   return { hour, minute, text: s };
 }
 function parseSapPairs(grid) {
-  const header = (grid[0] || []).map(h => String(h || '').trim());
-  const cols = { date: -1, item: -1, line: -1, wc: -1, time: -1, desc: -1, qty: -1, unit: -1 };
-  let start = 0;
-  header.forEach((h, i) => {
-    const kind = sapHeaderKind(h);
-    if (kind && cols[kind] < 0) cols[kind] = i;
-  });
-  if (Object.values(cols).some(i => i >= 0)) start = 1;
-  if (cols.item < 0) cols.item = cols.date === 0 ? 1 : 0;
-  if (cols.date < 0) cols.date = 0;
+  const headerAt = findSapHeaderRow(grid);
+  const header = (headerAt >= 0 ? grid[headerAt] : grid[0]) || [];
+  const cols = sapColsFromHeader(header);
+  const start = headerAt >= 0 ? headerAt + 1 : 0;
   const out = [];
+  if (cols.item < 0) return out;
   for (let i = start; i < grid.length; i++) {
-    const dt = parseSapDate(grid[i][cols.date]);
-    const item = String(grid[i][cols.item] ?? '').trim();
+    const row = grid[i];
+    if (!row || !row.length) continue;
+    const dt = sapPickDate(row, cols);
+    const item = String(row[cols.item] ?? '').trim();
     if (!dt || !sapItemKey(item)) continue;
-    const wc = cols.wc >= 0 ? String(grid[i][cols.wc] || '').trim() : '';
-    const rawLine = cols.line >= 0 ? String(grid[i][cols.line] || '').trim() : '';
-    const tm = parseSapTime(cols.time >= 0 ? grid[i][cols.time] : '');
+    const wc = cols.wc >= 0 ? String(row[cols.wc] || '').trim() : '';
+    const rawLine = cols.line >= 0 ? String(row[cols.line] || '').trim() : '';
+    const tm = parseSapTime(cols.time >= 0 ? row[cols.time] : '');
     out.push({
       y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item),
       line: sapMapWorkCenter(wc) || rawLine,
-      desc: cols.desc >= 0 ? String(grid[i][cols.desc] || '').trim() : '',
-      qty: cols.qty >= 0 ? String(grid[i][cols.qty] || '').trim() : '',
-      unit: cols.unit >= 0 ? String(grid[i][cols.unit] || '').trim() : '',
+      desc: cols.desc >= 0 ? String(row[cols.desc] || '').trim() : '',
+      qty: cols.qty >= 0 ? String(row[cols.qty] || '').trim() : '',
+      unit: cols.unit >= 0 ? String(row[cols.unit] || '').trim() : '',
       timeText: tm.text || '',
       hour: tm.hour,
       workCenter: wc
@@ -1173,9 +1225,12 @@ assert.equal(sapHeaderKind('Work Center'), 'wc');
 assert.equal(sapHeaderKind('Material'), 'item');
 assert.equal(sapHeaderKind('Material Description'), 'desc');
 assert.equal(sapHeaderKind('Quantity'), 'qty');
+assert.equal(sapHeaderKind('Qty in unit of entry'), 'qtyEntry');
 assert.equal(sapHeaderKind('Unit of Entry'), 'unit');
 assert.equal(sapHeaderKind('Time of Entry'), 'time');
-assert.equal(sapHeaderKind('Entry Date'), 'date');
+assert.equal(sapHeaderKind('Entry Date'), 'entryDate');
+assert.equal(sapHeaderKind('Posting Date'), 'postingDate');
+assert.equal(sapHeaderKind('Document Date'), 'docDate');
 assert.equal(sapMapWorkCenter('VISCBE01'), 'COEX');
 assert.equal(sapMapWorkCenter('VISFSE01'), 'S1');
 assert.equal(sapMapWorkCenter('VISFSE03'), 'S3');
@@ -1201,6 +1256,29 @@ assert.equal(sapExport[1].line, 'S1');
 assert.equal(sapExport[1].hour, 2);
 assert.equal(sapExport[2].line, 'COEX');
 assert.equal(sapExport[2].hour, 22);
+const sapLiveHeader = ['Plant','Document Date','Posting Date','Material','Material Description','Quantity','Qty in unit of entry','Unit of Entry','Amt.in Loc.Cur.','Material Document','Order','Movement Type Text','Purchase order','Document Header Text','User Name','Time of Entry','Entry Date','Work Center','Movement Type','Movement indicator','Storage Location','Reason for Movement'];
+const sapLive = parseSapPairs([
+  ['Goods movements'],
+  [],
+  sapLiveHeader,
+  ['1000', '8/19/2026', '8/20/2026', '3030053', 'AF500 foam plank', '2400', '2400', 'LB', '12', '490001', '100', 'GI', '', '', 'JSMITH', '14:32:00', '8/20/2026', 'VISFSE04', '101', '', 'FG', ''],
+  ['1000', '8/20/2026', '8/21/2026', '410805', 'AF250 roll', '18.5', '18.5', 'ROL', '3', '490002', '101', 'GI', '', '', 'JDOE', '02:05:00', '8/21/2026', 'VISFSE01', '101', '', 'FG', '']
+]);
+assert.equal(findSapHeaderRow([
+  ['Goods movements'],
+  [],
+  sapLiveHeader
+]), 2);
+assert.equal(sapLive.length, 2);
+assert.equal(sapLive[0].itemKey, '3030053');
+assert.equal(sapLive[0].desc, 'AF500 foam plank');
+assert.equal(sapLive[0].qty, '2400');
+assert.equal(sapLive[0].unit, 'LB');
+assert.equal(sapLive[0].line, 'S4');
+assert.equal(sapLive[0].d, 20);
+assert.equal(sapLive[0].m, 8);
+assert.equal(sapLive[1].line, 'S1');
+assert.equal(sapLive[1].itemKey, '410805');
 function sapPrevYmd(y, m, d) {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() - 1);

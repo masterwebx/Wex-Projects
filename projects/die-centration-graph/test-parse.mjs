@@ -235,7 +235,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.15'/);
+assert.match(html, /APP_VERSION = '1\.7\.16'/);
 assert.match(html, /SAP_WORK_CENTERS/);
 assert.match(html, /SAP_LINE_NAMES/);
 assert.match(html, /no postings for COEX, S1, S3, S4, MONO, P1, or RTS/);
@@ -330,6 +330,11 @@ assert.match(html, /function downloadHistoryExcel/);
 assert.match(html, /function downloadCompliancePdf/);
 assert.match(html, /function downloadSpcReportPdf/);
 assert.match(html, /function buildXlsx/);
+assert.match(html, /function historyExcelFilename/);
+assert.match(html, /function xlsxUniqueHeaders/);
+assert.match(html, /numFmtId="164"/);
+assert.doesNotMatch(html, /<sheetData>\$\{sheetData\}<\/sheetData>\s*<autoFilter/);
+assert.match(html, /historyExcelFilename\(\)/);
 assert.match(html, /function isMeasuredFail/);
 assert.match(html, /function densitySpecsFromLookupRow/);
 assert.match(html, /id="histDownload"/);
@@ -1771,5 +1776,53 @@ const deduped = testDedupeHistoryRows([shiftedS1, s4Once, nativeS1, Object.assig
 assert.equal(deduped.length, 2);
 assert.equal(deduped.find(r => r.Line === 'S1'), nativeS1);
 assert.equal(deduped.filter(r => r.Line === 'S4').length, 1);
+
+function fileSlug(v) {
+  return String(v ?? '').trim().replace(/[^\w.#+-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+}
+function historyExcelFilename(plantLabel, filters) {
+  const bits = ['diegraph', fileSlug(String(plantLabel || 'history').replace(/\s+/g, '-'))];
+  const lineSel = filters.Line;
+  if (lineSel instanceof Set && lineSel.size === 1) bits.push(fileSlug([...lineSel][0]));
+  if (filters.year) bits.push(String(filters.year));
+  if (filters.month) bits.push(String(+filters.month).padStart(2, '0'));
+  if (filters.day) bits.push(String(+filters.day).padStart(2, '0'));
+  const itemSel = filters.item;
+  if (itemSel instanceof Set && itemSel.size === 1) bits.push(fileSlug([...itemSel][0]));
+  return bits.filter(Boolean).join('-').replace(/-+/g, '-') + '.xlsx';
+}
+assert.equal(historyExcelFilename('Extrusion Foam', {
+  Line: new Set(['S4']), year: '2026', month: '8', day: '19', item: new Set(['43035'])
+}), 'diegraph-Extrusion-Foam-S4-2026-08-19-43035.xlsx');
+assert.equal(historyExcelFilename('Extrusion Bubble', {}), 'diegraph-Extrusion-Bubble.xlsx');
+function xlsxUniqueHeaders(headers) {
+  const seen = new Map();
+  return headers.map((raw, i) => {
+    let name = String(raw ?? '').replace(/[,\[\]]/g, ' ').replace(/\s+/g, ' ').trim() || ('Column ' + (i + 1));
+    const n = (seen.get(name) || 0) + 1;
+    seen.set(name, n);
+    return n === 1 ? name : `${name} ${n}`;
+  });
+}
+assert.deepEqual(xlsxUniqueHeaders(['Date/Time', 'Item #', 'Item #']), ['Date/Time', 'Item #', 'Item # 2']);
+const xlsxChunk = html.slice(html.indexOf('const CRC_TABLE'), html.indexOf('function histCellValue'));
+const xlsxApi = new Function(
+  'PLANTS', 'activePlant', 'tableFilters', 'dateFilter',
+  xlsxChunk + '; return { buildXlsx };'
+)({ foam: 'Extrusion Foam' }, 'foam', {}, () => ({ year: '', month: '', day: '' }));
+const xlsxBytes = xlsxApi.buildXlsx('History', ['Date/Time', 'Item #', 'Line'], [
+  [46253.72, '43035', 'S4']
+], [22, 12, 8]);
+const xlsxFiles = unzipEntriesNode(xlsxBytes);
+const sheetXml = new TextDecoder().decode(xlsxFiles['xl/worksheets/sheet1.xml']);
+const tableXml = new TextDecoder().decode(xlsxFiles['xl/tables/table1.xml']);
+const styleXml = new TextDecoder().decode(xlsxFiles['xl/styles.xml']);
+assert.doesNotMatch(sheetXml, /<autoFilter\b/);
+assert.match(sheetXml, /<tableParts count="1"/);
+assert.match(sheetXml, /t="n" s="2"><v>46253\.72<\/v>/);
+assert.match(tableXml, /<autoFilter ref="A1:C2"/);
+assert.match(tableXml, /name="Date\/Time"/);
+assert.match(styleXml, /numFmtId="164"/);
+assert.match(styleXml, /m\/d\/yyyy h:mm AM\/PM/);
 
 console.log('parse-diegraph tests passed');

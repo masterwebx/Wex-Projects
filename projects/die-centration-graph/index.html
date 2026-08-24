@@ -659,7 +659,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.15';
+const APP_VERSION = '1.7.16';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -3205,10 +3205,42 @@ function colLetter(n) {
   return s;
 }
 function xmlEsc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[ch]));
+  return String(s ?? '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+    .replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[ch]));
+}
+function xlsxUniqueHeaders(headers) {
+  const seen = new Map();
+  return (headers || []).map((raw, i) => {
+    let name = String(raw ?? '').replace(/[,\[\]]/g, ' ').replace(/\s+/g, ' ').trim() || ('Column ' + (i + 1));
+    const n = (seen.get(name) || 0) + 1;
+    seen.set(name, n);
+    return n === 1 ? name : `${name} ${n}`;
+  });
+}
+function isXlsxDateHeader(h) {
+  return /^(date\/?time|date)$/i.test(String(h || '').trim());
+}
+function fileSlug(v) {
+  return String(v ?? '').trim().replace(/[^\w.#+-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+}
+function historyExcelFilename() {
+  const bits = ['diegraph', fileSlug((PLANTS[activePlant] || 'history').replace(/\s+/g, '-'))];
+  const lineSel = tableFilters['Line'];
+  if (lineSel instanceof Set && lineSel.size === 1) bits.push(fileSlug([...lineSel][0]));
+  const df = dateFilter();
+  if (df.year) bits.push(String(df.year));
+  if (df.month) bits.push(String(+df.month).padStart(2, '0'));
+  if (df.day) bits.push(String(+df.day).padStart(2, '0'));
+  const itemSel = tableFilters['Item #'] || tableFilters['Item'];
+  if (itemSel instanceof Set && itemSel.size === 1) bits.push(fileSlug([...itemSel][0]));
+  const mspecSel = tableFilters['MSPEC'];
+  if (mspecSel instanceof Set && mspecSel.size === 1) bits.push(fileSlug([...mspecSel][0]));
+  return bits.filter(Boolean).join('-').replace(/-+/g, '-').slice(0, 120) + '.xlsx';
 }
 function buildXlsx(sheetName, headers, rows, widths) {
   if (!rows.length) rows = [headers.map(() => '')];
+  headers = xlsxUniqueHeaders(headers);
   const nCol = headers.length, nRow = rows.length + 1;
   const ref = `A1:${colLetter(nCol)}${nRow}`;
   const safeName = String(sheetName || 'Sheet1').replace(/[:\\/?*\[\]]/g, ' ').slice(0, 31) || 'Sheet1';
@@ -3223,12 +3255,16 @@ function buildXlsx(sheetName, headers, rows, widths) {
     row.forEach((v, i) => {
       const cell = `${colLetter(i + 1)}${r}`;
       if (v == null || v === '') { sheetData += `<c r="${cell}"/>`; return; }
+      const n = typeof v === 'number' ? v : parseFloat(String(v).trim());
+      if (isXlsxDateHeader(headers[i]) && isFinite(n) && n > 20000 && n < 90000) {
+        sheetData += `<c r="${cell}" t="n" s="2"><v>${n}</v></c>`;
+        return;
+      }
       if (typeof v === 'number' && isFinite(v)) {
         sheetData += `<c r="${cell}" t="n"><v>${v}</v></c>`;
         return;
       }
       const s = String(v);
-      const n = parseFloat(s);
       if (s !== '' && isFinite(n) && /^-?\d+(\.\d+)?$/.test(s.trim())) {
         sheetData += `<c r="${cell}" t="n"><v>${n}</v></c>`;
         return;
@@ -3240,7 +3276,7 @@ function buildXlsx(sheetName, headers, rows, widths) {
   const cols = (widths || headers.map(() => 18)).map((w, i) =>
     `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`
   ).join('');
-  const tableCols = headers.map((h, i) => `<tableColumn id="${i + 1}" name="${xmlEsc(String(h).replace(/[,\[\]]/g, ' '))}"/>`).join('');
+  const tableCols = headers.map((h, i) => `<tableColumn id="${i + 1}" name="${xmlEsc(h)}"/>`).join('');
   const files = [
     { name: '[Content_Types].xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
@@ -3257,6 +3293,7 @@ function buildXlsx(sheetName, headers, rows, widths) {
 </Relationships>` },
     { name: 'xl/workbook.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+<workbookPr date1904="0"/>
 <sheets><sheet name="${xmlEsc(safeName)}" sheetId="1" r:id="rId1"/></sheets>
 </workbook>` },
     { name: 'xl/_rels/workbook.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -3266,18 +3303,18 @@ function buildXlsx(sheetName, headers, rows, widths) {
 </Relationships>` },
     { name: 'xl/styles.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+<numFmts count="1"><numFmt numFmtId="164" formatCode="m/d/yyyy h:mm AM/PM"/></numFmts>
 <fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/><color rgb="FFFFFFFF"/></font></fonts>
 <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1D4ED8"/><bgColor indexed="64"/></patternFill></fill></fills>
 <borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs>
+<cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>
 </styleSheet>` },
     { name: 'xl/worksheets/sheet1.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
 <sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>
 <cols>${cols}</cols>
 <sheetData>${sheetData}</sheetData>
-<autoFilter ref="${ref}"/>
 <tableParts count="1"><tablePart r:id="rId1"/></tableParts>
 </worksheet>` },
     { name: 'xl/worksheets/_rels/sheet1.xml.rels', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
@@ -3285,7 +3322,7 @@ function buildXlsx(sheetName, headers, rows, widths) {
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table1.xml"/>
 </Relationships>` },
     { name: 'xl/tables/table1.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="DieGraphTable" displayName="DieGraphTable" ref="${ref}" totalsRowShown="0">
+<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="DieGraphTable" displayName="DieGraphTable" ref="${ref}" totalsRowShown="0" headerRowCount="1">
 <autoFilter ref="${ref}"/>
 <tableColumns count="${nCol}">${tableCols}</tableColumns>
 <tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>
@@ -3294,7 +3331,7 @@ function buildXlsx(sheetName, headers, rows, widths) {
   return zipStore(files);
 }
 function histCellValue(r, k) {
-  if (k === 'Date/Time') return excelWhen(r.serial) || r.text[k] || '';
+  if (k === 'Date/Time') return finiteNum(r.serial) ? r.serial : (excelWhen(r.serial) || r.text[k] || '');
   if (k === 'Pass/Fail') return r.pf || r.text[k] || '';
   if (k === 'MSPEC') return mspecWithTarget(r.mspec) || r.text[k] || '';
   if (k === 'Item #') return itemWithTargets(r.item, r.mspec) || r.text[k] || '';
@@ -3315,7 +3352,7 @@ function downloadHistoryExcel() {
     return histCellValue(r, k);
   }));
   const widths = headers.map(k => Math.max(10, Math.round(histColWidth(k) / 10)));
-  downloadBlob('diegraph-history.xlsx', buildXlsx('History', headers, data, widths), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  downloadBlob(historyExcelFilename(), buildXlsx('History', headers, data, widths), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   toast('Downloaded history');
 }
 function pdfSafe(s) {

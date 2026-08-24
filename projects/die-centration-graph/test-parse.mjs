@@ -248,7 +248,15 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.25'/);
+assert.match(html, /APP_VERSION = '1\.7\.26'/);
+assert.match(html, /<title>Quality Desk<\/title>/);
+assert.match(html, /<h1>Quality Desk<\/h1>/);
+assert.match(html, /History, specs, compliance, and posting checks/);
+assert.match(html, /Centration graph/);
+assert.match(html, /function syncDocTitle/);
+assert.match(html, /FILE_PREFIX = 'quality-desk'/);
+assert.doesNotMatch(html, /Die Centration Graph/);
+assert.doesNotMatch(html, /Die Centration Radial Graph/);
 assert.match(html, /\.comp-all-table \{ width: max-content/);
 assert.match(html, /function complianceUncheckedByLine/);
 assert.match(html, /function complianceAllLinesHtml/);
@@ -1834,7 +1842,7 @@ function fileSlug(v) {
   return String(v ?? '').trim().replace(/[^\w.#+-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 }
 function historyExcelFilename(plantLabel, filters) {
-  const bits = ['diegraph', fileSlug(String(plantLabel || 'history').replace(/\s+/g, '-'))];
+  const bits = ['quality-desk', fileSlug(String(plantLabel || 'history').replace(/\s+/g, '-'))];
   const lineSel = filters.Line;
   if (lineSel instanceof Set && lineSel.size === 1) bits.push(fileSlug([...lineSel][0]));
   if (filters.year) bits.push(String(filters.year));
@@ -1846,8 +1854,8 @@ function historyExcelFilename(plantLabel, filters) {
 }
 assert.equal(historyExcelFilename('Extrusion Foam', {
   Line: new Set(['S4']), year: '2026', month: '8', day: '19', item: new Set(['43035'])
-}), 'diegraph-Extrusion-Foam-S4-2026-08-19-43035.xlsx');
-assert.equal(historyExcelFilename('Extrusion Bubble', {}), 'diegraph-Extrusion-Bubble.xlsx');
+}), 'quality-desk-Extrusion-Foam-S4-2026-08-19-43035.xlsx');
+assert.equal(historyExcelFilename('Extrusion Bubble', {}), 'quality-desk-Extrusion-Bubble.xlsx');
 function xlsxUniqueHeaders(headers) {
   const seen = new Map();
   return headers.map((raw, i) => {

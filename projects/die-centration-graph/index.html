@@ -77,9 +77,11 @@ try {
   .welcome .actions { display: grid; gap: 10px; }
   #screenHistory { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
   .hist-card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0; }
-  .hist-head-freeze { flex: 0 0 auto; overflow-x: auto; overflow-y: hidden; border-bottom: 1px solid var(--line); scrollbar-width: none; }
+  .hist-head-freeze { flex: 0 0 auto; overflow-x: auto; overflow-y: hidden; border-bottom: 1px solid var(--line); scrollbar-width: none; scrollbar-gutter: stable; }
   .hist-head-freeze::-webkit-scrollbar { display: none; }
   .table-wrap { flex: 1; min-height: 0; overflow: auto; padding: 0; scrollbar-gutter: stable; }
+  .hist-space { position: relative; width: max-content; min-height: 1px; }
+  #histTable.hist-virt { position: absolute; top: 0; left: 0; will-change: transform; }
   table.results th.sticky-eye, table.results td.sticky-eye {
     position: sticky; left: 0; z-index: 4; background: var(--bg-elev);
     box-shadow: 1px 0 0 var(--line);
@@ -95,9 +97,6 @@ try {
   table.results thead th { position: sticky; top: 0; background: var(--bg-elev); z-index: 3; box-shadow: 0 1px 0 var(--line); height: auto; vertical-align: bottom; overflow: visible; }
   table.results tbody tr { height: 42px; }
   table.results tbody tr:hover { background: var(--idle); }
-  table.results tr.spacer { height: auto; }
-  table.results tr.spacer td { height: auto; border: 0; padding: 0; line-height: 0; font-size: 0; }
-  table.results tr.spacer div { width: 1px; }
   .th-inner { display: flex; align-items: center; gap: 6px; }
   .th-menu {
     width: 28px; min-height: 28px; padding: 0; border-radius: 8px; font-size: 14px;
@@ -480,7 +479,7 @@ try {
       <button type="button" id="histResetFiltersBar">Reset filters</button>
     </div>
     <div class="hist-head-freeze" id="histHeadFreeze"><table class="results" id="histHeadTable"><thead id="histHead"></thead></table></div>
-    <div class="table-wrap" id="histWrap"><table class="results" id="histTable"><tbody id="histBody"></tbody></table></div>
+    <div class="table-wrap" id="histWrap"><div class="hist-space" id="histSpace"><table class="results" id="histTable"><tbody id="histBody"></tbody></table></div></div>
   </div>
 </section>
 <div class="filter-pop" id="filterPop"></div>
@@ -708,7 +707,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.27';
+const APP_VERSION = '1.7.28';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -2641,8 +2640,7 @@ function syncHeadGutter(wrapId, headId) {
   const wrap = document.getElementById(wrapId);
   const head = document.getElementById(headId);
   if (!wrap || !head) return;
-  head.style.paddingRight = Math.max(0, wrap.offsetWidth - wrap.clientWidth) + 'px';
-  head.scrollLeft = wrap.scrollLeft;
+  if (head.scrollLeft !== wrap.scrollLeft) head.scrollLeft = wrap.scrollLeft;
 }
 function syncHistHeaderGutter() {
   syncHeadGutter('histWrap', 'histHeadFreeze');
@@ -2740,12 +2738,11 @@ function rowHtml(r) {
     : (isFoamPlant() ? `<td class="sticky-eye"><button class="icon" type="button" data-view="${r.idx}" title="View result">${EYE}</button></td>` : '');
   return `<tr>${eye}${tds}</tr>`;
 }
-function spacerRow(h) {
-  return `<tr class="spacer"><td colspan="${histCols().length + (showHistViewCol() ? 1 : 0)}"><div style="height:${Math.max(0, h)}px"></div></td></tr>`;
-}
 function renderHistoryBody(force) {
   const body = document.getElementById('histBody');
   const wrap = document.getElementById('histWrap');
+  const table = document.getElementById('histTable');
+  const space = document.getElementById('histSpace');
   const rows = getFilteredRows();
   const plantTotal = plantRows().length;
   const current = isFoamPlant() && hasCurrentSheet() && !hasActiveFilters();
@@ -2764,10 +2761,11 @@ function renderHistoryBody(force) {
       ? (sapAudit ? 'No postings for the current filters' : 'Load an SAP export to see postings')
       : 'No rows for the current filters';
     body.innerHTML = `<tr><td colspan="${histCols().length + (showHistViewCol() ? 1 : 0)}">${empty}</td></tr>`;
+    table.classList.remove('hist-virt');
+    table.style.transform = '';
+    if (space) { space.style.height = ''; space.style.width = ''; }
   } else {
-    const topH = start * ROW_H;
-    const botH = Math.max(0, (total - end) * ROW_H);
-    const parts = [spacerRow(topH)];
+    const parts = [];
     for (let i = start; i < end; i++) {
       if (current && i === 0) {
         parts.push(`<tr><td class="sticky-eye"><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${Math.max(1, histCols().length - 2)}">Values copied from ${esc(currentSheetSourceLabel())}</td></tr>`);
@@ -2776,10 +2774,15 @@ function renderHistoryBody(force) {
       const r = rows[i - extra];
       if (r) parts.push(rowHtml(r));
     }
-    parts.push(spacerRow(botH));
     body.innerHTML = parts.join('');
+    table.classList.add('hist-virt');
+    table.style.transform = 'translate3d(0,' + (start * ROW_H) + 'px,0)';
+    if (space) {
+      space.style.height = Math.max(viewH, total * ROW_H) + 'px';
+      space.style.width = histTableWidth() + 'px';
+    }
   }
-  const maxScroll = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
+  const maxScroll = Math.max(0, total * ROW_H - viewH);
   if (wrap.scrollTop > maxScroll) wrap.scrollTop = maxScroll;
   const on = hasActiveFilters();
   const plantName = PLANTS[activePlant] || 'Extrusion Foam';
@@ -2787,8 +2790,8 @@ function renderHistoryBody(force) {
   document.getElementById('histMeta').textContent = !sapAudit && isPostingsPlant()
     ? 'Load an SAP export to see postings'
     : (on ? `Showing ${rows.length} of ${plantTotal} ${noun} · filters on` : `Showing ${rows.length} of ${plantTotal} ${noun}`);
-  applyHistColgroup(document.getElementById('histTable'));
-  lastHistH = wrap.clientHeight || 0;
+  applyHistColgroup(table);
+  lastHistH = viewH;
   syncHistHeaderGutter();
   syncFilterBar();
 }
@@ -5889,27 +5892,25 @@ window.addEventListener('touchmove', onPointerMove, { passive: false });
 window.addEventListener('touchend', onPointerUp);
 window.addEventListener('resize', () => {
   if (resizeRaf) cancelAnimationFrame(resizeRaf);
-  resizeRaf = requestAnimationFrame(() => {
-    resizeRaf = 0;
-    if (screenName === 'view') {
-      if (layoutCanvas()) draw({ light: true });
-    } else if (screenName === 'history') {
-      const wrap = document.getElementById('histWrap');
-      const h = wrap ? wrap.clientHeight : 0;
-      if (Math.abs(h - lastHistH) > 24) {
-        lastHistH = h;
-        histRangeKey = '';
-        renderHistoryBody();
-      } else {
-        syncHistHeaderGutter();
-      }
-    } else if (screenName === 'mspecs') syncMspecHeaderGutter();
-  });
   clearTimeout(resizeTimer);
+  if (screenName === 'view') {
+    resizeRaf = requestAnimationFrame(() => {
+      resizeRaf = 0;
+      if (layoutCanvas()) draw({ light: true });
+    });
+  }
   resizeTimer = setTimeout(() => {
     resizeTimer = 0;
     if (screenName === 'view') draw();
-  }, 140);
+    else if (screenName === 'history') {
+      const wrap = document.getElementById('histWrap');
+      const h = wrap ? wrap.clientHeight : 0;
+      if (Math.abs(h - lastHistH) > 48) {
+        lastHistH = h;
+        renderHistoryBody();
+      }
+    }
+  }, 220);
 });
 document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histPaste').onclick = () => applyFromClipboard(true);

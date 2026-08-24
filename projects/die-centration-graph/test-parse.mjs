@@ -235,7 +235,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.24'/);
+assert.match(html, /APP_VERSION = '1\.7\.25'/);
 assert.match(html, /\.comp-all-table \{ width: max-content/);
 assert.match(html, /function complianceUncheckedByLine/);
 assert.match(html, /function complianceAllLinesHtml/);
@@ -306,8 +306,9 @@ assert.match(html, /function sapUtcToLocal/);
 assert.match(html, /function sapPlantTimeZone/);
 assert.match(html, /SAP_PLANT_TZ = 'America\/Los_Angeles'/);
 assert.match(html, /Posted \(PT\)/);
-assert.match(html, /SAP posted in Pacific \(from UTC\)/);
-assert.match(html, /posted in Pacific/);
+assert.match(html, /SAP Time of Entry/);
+assert.doesNotMatch(html, /SAP posted in Pacific \(from UTC\)/);
+assert.doesNotMatch(html.slice(html.indexOf('function parseSapPairs'), html.indexOf('function sapPrevYmd')), /sapUtcToLocal/);
 assert.match(html, /function sapZoneToZone/);
 assert.match(html, /function plantFromLine/);
 assert.match(html, /function plantForItemDay/);
@@ -1646,6 +1647,9 @@ const sapUserSlice = parseSapPairs([
 assert.equal(sapUserSlice.length, 4);
 assert.deepEqual(sapUserSlice.map(r => r.line).sort(), ['COEX', 'COEX', 'RTS', 'S4']);
 assert.ok(!sapUserSlice.some(r => r.itemKey === '402567'));
+const sap1105 = sapUserSlice.find(r => r.itemKey === '36761');
+assert.equal(sap1105.hour, 11);
+assert.match(String(sap1105.timeText), /11:05/);
 
 function unzipEntriesNode(buf) {
   const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);

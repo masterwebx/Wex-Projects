@@ -235,7 +235,12 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.18'/);
+assert.match(html, /APP_VERSION = '1\.7\.19'/);
+assert.match(html, /function spcComboStats/);
+assert.match(html, /function spcPtsLabel/);
+assert.match(html, /function countBySpcKey/);
+assert.match(html, /class="spc-pts"/);
+assert.match(html, /justify-content: flex-end/);
 assert.match(html, /class="week-nav"/);
 assert.match(html, /id="complianceMore"/);
 assert.match(html, /id="complianceMorePop"/);
@@ -268,6 +273,9 @@ assert.doesNotMatch(html, /catcher\.addEventListener\('paste'/);
 assert.match(html, /let applyingClipboard = false/);
 assert.match(html, /All lines/);
 assert.match(html, /id="complianceSap"/);
+assert.match(html, /id="histSap"/);
+assert.doesNotMatch(html, /id="complianceSapClear"/);
+assert.match(html, /Load an SAP export to see postings/);
 assert.match(html, /Audit against SAP/);
 assert.match(html, /function summarizeChecks/);
 assert.match(html, /function parseSapPairs/);
@@ -1837,5 +1845,24 @@ assert.match(tableXml, /<autoFilter ref="A1:C2"/);
 assert.match(tableXml, /name="Date\/Time"/);
 assert.match(styleXml, /numFmtId="164"/);
 assert.match(styleXml, /m\/d\/yyyy h:mm AM\/PM/);
+
+const countBySpcKey = new Function('rows', 'by', html.slice(
+  html.indexOf('function countBySpcKey'),
+  html.indexOf('return counts;', html.indexOf('function countBySpcKey'))
+) + 'return counts; } return countBySpcKey(rows, by);');
+const itemCounts = countBySpcKey([
+  { item: 'A', mspec: '4780' },
+  { item: 'A', mspec: '4780' },
+  { item: 'B', mspec: '4780' }
+], 'item');
+assert.equal(itemCounts.A, 2);
+assert.equal(itemCounts.B, 1);
+const mspecCounts = countBySpcKey([
+  { item: 'A', mspec: '4780' },
+  { item: 'A', mspec: '4780' },
+  { item: 'B', mspec: '4780' }
+], 'mspec');
+assert.equal(mspecCounts['4780'], 3);
+assert.equal(html.includes("c === 1 ? '1 pt' : `${c} pts`"), true);
 
 console.log('parse-diegraph tests passed');

@@ -256,12 +256,14 @@ try {
   }
   #complianceReportOverlay .modal label { margin: 2px 0; font-size: 14px; font-weight: 600; }
   #complianceReportOverlay .modal-actions { margin-top: 8px; flex-wrap: wrap; }
-  .comp-sap { margin-top: 8px; display: grid; gap: 6px; }
+  .comp-sap { margin-top: 8px; display: grid; gap: 6px; overflow-x: auto; }
   .comp-sap b { font-size: 15px; }
   .comp-sap table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  .comp-sap th, .comp-sap td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  .comp-sap th, .comp-sap td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .comp-sap td.desc, .comp-sap td.check { white-space: normal; line-height: 1.3; max-width: 280px; }
   .comp-sap .good { color: var(--ok); font-weight: 700; }
   .comp-sap .bad { color: var(--thick); font-weight: 700; }
+  .comp-sap .warn { color: var(--thin); font-weight: 700; }
   @media (max-width: 720px) {
     .comp-item { grid-template-columns: 1fr; }
     .comp-sum { text-align: left; max-width: none; }
@@ -651,7 +653,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.5';
+const APP_VERSION = '1.7.6';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -824,7 +826,10 @@ function sapAuditToStore() {
   return {
     name: sapAudit.name || '',
     rows: sapAudit.rows.map(r => ({
-      y: r.y, m: r.m, d: r.d, item: r.item, itemKey: r.itemKey, line: r.line || ''
+      y: r.y, m: r.m, d: r.d, item: r.item, itemKey: r.itemKey, line: r.line || '',
+      desc: r.desc || '', qty: r.qty || '', unit: r.unit || '',
+      timeText: r.timeText || '', hour: finiteNum(r.hour) ? r.hour : '',
+      workCenter: r.workCenter || ''
     }))
   };
 }
@@ -841,6 +846,12 @@ function applyStoredSapAudit(data) {
       item: String(r.item || ''),
       itemKey: sapItemKey(r.itemKey || r.item || ''),
       line: String(r.line || ''),
+      desc: String(r.desc || ''),
+      qty: r.qty == null ? '' : r.qty,
+      unit: String(r.unit || ''),
+      timeText: String(r.timeText || ''),
+      hour: finiteNum(r.hour) ? +r.hour : NaN,
+      workCenter: String(r.workCenter || ''),
       hits: []
     })).filter(r => r.y && r.d && r.itemKey)
   };
@@ -1713,6 +1724,13 @@ function summarizeChecks(rows) {
   }
   return { passed, failed, noCheck };
 }
+function qualityNotesForRow(r) {
+  const row = (r && r.row) || r || {};
+  const notes = String((r && r.text && r.text.Notes) || col(row, 'Notes') || '').trim();
+  const user = String((r && r.text && r.text.User) || col(row, 'User') || '').trim();
+  if (notes && user) return `${notes} (${user})`;
+  return notes;
+}
 function failLinesForRows(rows) {
   const byTime = new Map();
   for (const r of rows || []) {
@@ -1722,9 +1740,11 @@ function failLinesForRows(rows) {
     const details = failDetailsForRow(r.row, specs);
     const when = excelTimeShort(r.serial);
     const key = when || String(r.serial || '');
-    if (!byTime.has(key)) byTime.set(key, { when: when || 'Check', details: [], serial: r.serial || 0 });
+    if (!byTime.has(key)) byTime.set(key, { when: when || 'Check', details: [], notes: [], serial: r.serial || 0 });
     const bucket = byTime.get(key);
     bucket.details.push(...details);
+    const note = qualityNotesForRow(r);
+    if (note && !bucket.notes.includes(note)) bucket.notes.push(note);
   }
   return [...byTime.values()].sort((a, b) => (a.serial || 0) - (b.serial || 0)).map(bucket => {
     const unique = [];
@@ -1735,7 +1755,9 @@ function failLinesForRows(rows) {
       seen.add(id);
       unique.push(d);
     }
-    return failLineForCheck(bucket.when, unique);
+    let line = failLineForCheck(bucket.when, unique);
+    if (bucket.notes.length) line += ' · ' + bucket.notes.join('; ');
+    return line;
   });
 }
 function mondayOfLocalDate(d) {
@@ -2923,7 +2945,8 @@ function renderComplianceDays(monday) {
       const viewBtn = g.item
         ? `<button type="button" data-comp-item="${esc(g.item)}" data-comp-y="${y}" data-comp-m="${m}" data-comp-d="${dd}">View</button>`
         : '';
-      const meta = [g.desc, g.mspec && `MSPEC ${mspecWithTarget(g.mspec)}`, period].filter(Boolean).join(' · ');
+      const desc = sapDescFor(g.item, y, m, dd, activeLine) || g.desc;
+      const meta = [desc, g.mspec && `MSPEC ${mspecWithTarget(g.mspec)}`, period].filter(Boolean).join(' · ');
       return `<div class="comp-item"><div><b>${esc(itemWithTargets(g.item, g.mspec) || '—')}</b><span class="muted">${esc(meta)}</span>${failHtml}</div><div class="comp-sum">${complianceSumHtml(passed, failed, noCheck)}</div>${viewBtn}</div>`;
     }).join('');
     parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${itemsHtml}${sapHtml}</div>`);
@@ -3455,7 +3478,7 @@ function complianceDayGroups(y, m, dd, line) {
     const t1 = excelTimeShort(g.first), t2 = excelTimeShort(g.last);
     return {
       item: itemWithTargets(g.item, g.mspec) || g.item || '--',
-      desc: g.desc || '',
+      desc: sapDescFor(g.item, y, m, dd, line) || g.desc || '',
       mspec: g.mspec ? mspecWithTarget(g.mspec) : '',
       period: t1 && t2 && t1 !== t2 ? `${t1} - ${t2}` : (t1 || t2 || ''),
       result: bits.join(', ') || '--',
@@ -3473,17 +3496,78 @@ function sapItemKey(v) {
 function sapLineKey(v) {
   return String(v ?? '').trim().toUpperCase();
 }
+const SAP_WORK_CENTERS = {
+  VISCBE01: 'COEX',
+  VISFSE01: 'S1',
+  VISFSE03: 'S3',
+  VISFSE04: 'S4',
+  VISMBE01: 'MONO',
+  VISMSL01: 'RTS',
+  VISPLE01: 'P1'
+};
+function sapMapWorkCenter(v) {
+  const key = String(v ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  if (SAP_WORK_CENTERS[key]) return SAP_WORK_CENTERS[key];
+  if (looksLikeLineValue(v)) return sapLineKey(v).replace(/\s+/g, '');
+  return '';
+}
 function sapHeaderKind(h) {
   const s = String(h || '').replace(/\s+/g, ' ').trim();
   if (!s) return '';
-  if (/^line\b/i.test(s) || /work\s*center|prod\s*line|machine/i.test(s)) return 'line';
-  if (/^date\b|mfg\s*date|prod\s*date|posting\s*date/i.test(s)) return 'date';
-  if ((/item\s*(#|no\.?|number)?$|material|sku|^part\b/i.test(s)) && !/desc/i.test(s)) return 'item';
+  if (/work\s*center/i.test(s)) return 'wc';
+  if (/^line\b|prod\s*line|machine/i.test(s)) return 'line';
+  if (/time\s*of\s*entry|entry\s*time|^time\b/i.test(s)) return 'time';
+  if (/entry\s*date|posting\s*date|mfg\s*date|prod\s*date|^date\b/i.test(s)) return 'date';
+  if (/material\s*desc|item\s*desc|^description$/i.test(s)) return 'desc';
+  if ((/^material$|item\s*(#|no\.?|number)?$|^sku\b|^part\b/i.test(s)) && !/desc/i.test(s)) return 'item';
+  if (/^qty$|^quantity$/i.test(s)) return 'qty';
+  if (/unit\s*of\s*entry|^uom$|^unit$/i.test(s)) return 'unit';
   return '';
 }
 function looksLikeLineValue(v) {
   const s = sapLineKey(v);
   return /^(S[134]|COEX|MONO|P1|RTS|S1\s*S3)$/.test(s);
+}
+function looksLikeWorkCenter(v) {
+  return /^VIS[A-Z]{2,3}\d{2}$/i.test(String(v || '').trim());
+}
+function clockText(hour, minute) {
+  if (!finiteNum(hour)) return '';
+  const h24 = ((Number(hour) % 24) + 24) % 24;
+  const h = ((h24 + 11) % 12) + 1;
+  const am = h24 < 12 ? 'AM' : 'PM';
+  return `${h}:${String(finiteNum(minute) ? minute : 0).padStart(2, '0')} ${am}`;
+}
+function parseSapTime(v) {
+  if (v == null || v === '') return { hour: NaN, minute: 0, text: '' };
+  const s = String(v).trim();
+  if (!s) return { hour: NaN, minute: 0, text: '' };
+  if (/^-?\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    if (n > 20000 && n < 80000) {
+      const dt = excelSerialDate(n);
+      if (!isNaN(dt.getTime())) {
+        return { hour: dt.getUTCHours(), minute: dt.getUTCMinutes(), text: excelTimeShort(n) };
+      }
+    }
+    const frac = n >= 1 ? n - Math.floor(n) : n;
+    if (frac >= 0 && frac < 1) {
+      const mins = Math.round(frac * 24 * 60);
+      const hour = Math.floor(mins / 60) % 24;
+      const minute = mins % 60;
+      return { hour, minute, text: clockText(hour, minute) };
+    }
+  }
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+  if (m) {
+    let hour = +m[1];
+    const minute = +m[2];
+    const ap = (m[3] || '').toUpperCase();
+    if (ap === 'PM' && hour < 12) hour += 12;
+    if (ap === 'AM' && hour === 12) hour = 0;
+    return { hour, minute, text: clockText(hour, minute) };
+  }
+  return { hour: NaN, minute: 0, text: s };
 }
 function parseSapDate(v) {
   if (v == null || v === '') return null;
@@ -3509,58 +3593,89 @@ function parseSapDate(v) {
 function parseSapPairs(grid) {
   if (!grid || !grid.length) return [];
   const header = (grid[0] || []).map(h => String(h || '').trim());
-  let dateCol = -1, itemCol = -1, lineCol = -1, start = 0;
+  const cols = { date: -1, item: -1, line: -1, wc: -1, time: -1, desc: -1, qty: -1, unit: -1 };
+  let start = 0;
   header.forEach((h, i) => {
     const kind = sapHeaderKind(h);
-    if (kind === 'date' && dateCol < 0) dateCol = i;
-    if (kind === 'item' && itemCol < 0) itemCol = i;
-    if (kind === 'line' && lineCol < 0) lineCol = i;
+    if (kind && cols[kind] < 0) cols[kind] = i;
   });
-  if (dateCol >= 0 || itemCol >= 0 || lineCol >= 0) start = 1;
+  if (Object.values(cols).some(i => i >= 0)) start = 1;
   const width = grid.reduce((n, row) => Math.max(n, (row || []).length), 0);
-  if (dateCol < 0) {
+  const scanCol = (skip, test) => {
     for (let c = 0; c < width; c++) {
-      if (parseSapDate((grid[start] || [])[c])) { dateCol = c; break; }
-    }
-  }
-  if (lineCol < 0) {
-    for (let c = 0; c < width; c++) {
-      if (c === dateCol || c === itemCol) continue;
+      if (skip.has(c)) continue;
       let seen = 0, hits = 0;
       for (let i = start; i < grid.length && i < start + 25; i++) {
         const v = String((grid[i] || [])[c] ?? '').trim();
         if (!v) continue;
         seen += 1;
-        if (looksLikeLineValue(v)) hits += 1;
+        if (test(v)) hits += 1;
       }
-      if (seen && hits / seen >= 0.5) { lineCol = c; break; }
+      if (seen && hits / seen >= 0.5) return c;
+    }
+    return -1;
+  };
+  if (cols.date < 0) {
+    for (let c = 0; c < width; c++) {
+      if (parseSapDate((grid[start] || [])[c])) { cols.date = c; break; }
     }
   }
-  if (itemCol < 0) {
-    itemCol = [0, 1, 2, 3].find(i => i < width && i !== dateCol && i !== lineCol);
-    if (itemCol == null) itemCol = dateCol === 0 ? 1 : 0;
+  if (cols.wc < 0) cols.wc = scanCol(new Set([cols.date, cols.item, cols.line]), looksLikeWorkCenter);
+  if (cols.line < 0) cols.line = scanCol(new Set([cols.date, cols.item, cols.wc]), looksLikeLineValue);
+  if (cols.item < 0) {
+    cols.item = [0, 1, 2, 3].find(i => i < width && i !== cols.date && i !== cols.line && i !== cols.wc);
+    if (cols.item == null) cols.item = cols.date === 0 ? 1 : 0;
   }
-  if (dateCol < 0) dateCol = itemCol === 0 ? 1 : 0;
+  if (cols.date < 0) cols.date = cols.item === 0 ? 1 : 0;
   const out = [];
   for (let i = start; i < grid.length; i++) {
     const row = grid[i] || [];
-    const dt = parseSapDate(row[dateCol]);
-    const item = String(row[itemCol] ?? '').trim();
+    const dt = parseSapDate(row[cols.date]);
+    const item = String(row[cols.item] ?? '').trim();
     if (!dt || !sapItemKey(item)) continue;
-    const line = lineCol >= 0 ? String(row[lineCol] ?? '').trim() : '';
-    out.push({ y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item), line, hits: [] });
+    const wc = cols.wc >= 0 ? String(row[cols.wc] ?? '').trim() : '';
+    const rawLine = cols.line >= 0 ? String(row[cols.line] ?? '').trim() : '';
+    const line = sapMapWorkCenter(wc) || sapMapWorkCenter(rawLine) || rawLine;
+    const tm = parseSapTime(cols.time >= 0 ? row[cols.time] : '');
+    const fromDate = parseSapTime(row[cols.date]);
+    const hour = finiteNum(tm.hour) ? tm.hour : fromDate.hour;
+    const timeText = tm.text || (finiteNum(fromDate.hour) && String(row[cols.date]).includes('.') ? fromDate.text : '');
+    out.push({
+      y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item), line,
+      desc: cols.desc >= 0 ? String(row[cols.desc] ?? '').trim() : '',
+      qty: cols.qty >= 0 ? String(row[cols.qty] ?? '').trim() : '',
+      unit: cols.unit >= 0 ? String(row[cols.unit] ?? '').trim() : '',
+      timeText, hour,
+      workCenter: wc || rawLine,
+      hits: []
+    });
   }
   return out;
 }
-function sapHitsFor(entry, line) {
+function sapPrevYmd(y, m, d) {
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+}
+function sapHitsOnDay(entry, y, m, d, line) {
   if (!entry) return [];
   const wantLine = sapLineKey(entry.line || line || '');
   return indexedRows.filter(r => {
-    if (r.y !== entry.y || r.m !== entry.m || r.d !== entry.d) return false;
+    if (r.y !== y || r.m !== m || r.d !== d) return false;
     if (sapItemKey(r.item) !== entry.itemKey) return false;
     if (wantLine && sapLineKey(r.line) !== wantLine) return false;
     return true;
   });
+}
+function sapHitsFor(entry, line) {
+  if (!entry) return [];
+  const early = finiteNum(entry.hour) && entry.hour < 6;
+  const prev = sapPrevYmd(entry.y, entry.m, entry.d);
+  const same = sapHitsOnDay(entry, entry.y, entry.m, entry.d, line);
+  const prior = sapHitsOnDay(entry, prev.y, prev.m, prev.d, line);
+  if (early && prior.length) return prior.map(r => Object.assign({ sapWhen: 'prev' }, r));
+  if (same.length) return same.map(r => Object.assign({ sapWhen: 'same' }, r));
+  return prior.map(r => Object.assign({ sapWhen: 'prev' }, r));
 }
 function refreshSapHits(line) {
   if (!sapAudit) return;
@@ -3575,16 +3690,65 @@ function sapRowsForYmd(y, m, d, line) {
     return true;
   });
 }
+function sapDescFor(item, y, m, d, line) {
+  const key = sapItemKey(item);
+  if (!key) return '';
+  const hit = sapRowsForYmd(y, m, d, line).find(r => sapItemKey(r.item) === key && r.desc);
+  return hit ? hit.desc : '';
+}
+function sapQtyText(row) {
+  const raw = row && row.qty;
+  if (raw == null || String(raw).trim() === '') return '';
+  const n = numVal(String(raw).replace(/,/g, ''));
+  const shown = finiteNum(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : String(raw).trim();
+  const unit = row.unit ? String(row.unit).trim() : '';
+  return unit ? `${shown} ${unit}` : shown;
+}
+function sapHasDetail() {
+  return !!(sapAudit && sapAudit.rows.some(r => r.desc || r.qty || r.timeText || r.workCenter));
+}
+function sapCheckLabel(hits) {
+  if (!hits || !hits.length) return { kind: 'miss', text: 'No check' };
+  const { passed, failed, noCheck } = summarizeChecks(hits);
+  const prev = hits.some(h => h.sapWhen === 'prev');
+  const times = uniqueSorted(hits.map(h => `${h.line || ''} ${excelTimeShort(h.serial) || ''}`.trim()).filter(Boolean), false);
+  const bits = [];
+  if (failed) bits.push(`${failed} failed`);
+  if (passed) bits.push(`${passed} passed`);
+  if (noCheck) bits.push(`${noCheck} NO CHECK`);
+  const failNotes = failLinesForRows(hits);
+  let text = (prev ? 'Checked previous day' : 'Checked')
+    + (times.length ? ' · ' + times.join(', ') : '')
+    + (bits.length ? ' · ' + bits.join(', ') : '');
+  if (failNotes.length) text += ' · ' + failNotes.join('; ');
+  return { kind: failed ? 'fail' : (prev ? 'prev' : 'ok'), text };
+}
+function sapPdfCols() {
+  if (sapHasDetail()) {
+    return [
+      { title: 'Material', w: 68 },
+      { title: 'Description', w: 118 },
+      { title: 'Line', w: 36 },
+      { title: 'Qty', w: 62 },
+      { title: 'Posted', w: 52 },
+      { title: 'Quality check', w: 196 }
+    ];
+  }
+  const showLine = !!(sapAudit && sapAudit.rows.some(r => r.line));
+  return showLine
+    ? [{ title: 'SAP item', w: 150 }, { title: 'Line', w: 70 }, { title: 'Quality check', w: 312 }]
+    : [{ title: 'SAP item', w: 180 }, { title: 'Quality check', w: 352 }];
+}
 function sapPdfRowsForYmd(y, m, d, line) {
   refreshSapHits(line);
-  const showLine = !!(sapAudit && sapAudit.rows.some(r => r.line));
+  const rich = sapHasDetail();
   return sapRowsForYmd(y, m, d, line).map(r => {
-    const hits = r.hits || [];
-    const note = hits.length
-      ? ('Checked  ' + uniqueSorted(hits.map(h => `${h.line || ''} ${excelTimeShort(h.serial) || ''}`.trim()).filter(Boolean), false).join(', '))
-      : 'No check';
-    const row = showLine ? [r.item, r.line || '—', note] : [r.item, note];
-    if (!hits.length) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
+    const check = sapCheckLabel(r.hits || []);
+    const row = rich
+      ? [r.item, r.desc || '—', r.line || '—', sapQtyText(r) || '—', r.timeText || '—', check.text]
+      : (sapAudit.rows.some(x => x.line) ? [r.item, r.line || '—', check.text] : [r.item, check.text]);
+    if (check.kind === 'miss') { row._color = '#991b1b'; row._bg = '#fff7f7'; }
+    else if (check.kind === 'fail') { row._color = '#991b1b'; row._bg = '#fff7f7'; }
     else { row._color = '#166534'; row._bg = '#f0fdf4'; }
     return row;
   });
@@ -3594,20 +3758,26 @@ function sapDayHtml(y, m, d) {
   refreshSapHits(activeLine);
   const rows = sapRowsForYmd(y, m, d, activeLine);
   if (!rows.length) return '';
+  const rich = sapHasDetail();
   const showLine = sapAudit.rows.some(r => r.line);
   const ok = rows.filter(r => r.hits && r.hits.length).length;
-  const head = showLine
-    ? '<tr><th>Item</th><th>Line</th><th>Quality check</th></tr>'
-    : '<tr><th>Item</th><th>Quality check</th></tr>';
+  const head = rich
+    ? '<tr><th>Material</th><th>Description</th><th>Line</th><th>Qty</th><th>Posted</th><th>Quality check</th></tr>'
+    : (showLine
+      ? '<tr><th>Item</th><th>Line</th><th>Quality check</th></tr>'
+      : '<tr><th>Item</th><th>Quality check</th></tr>');
   const body = rows.map(r => {
-    const status = (r.hits && r.hits.length)
-      ? `<td class="good">Checked · ${esc(uniqueSorted(r.hits.map(h => `${h.line || '—'} ${excelTimeShort(h.serial) || ''}`.trim()), false).join(', '))}</td>`
-      : '<td class="bad">No check</td>';
+    const check = sapCheckLabel(r.hits || []);
+    const cls = check.kind === 'miss' || check.kind === 'fail' ? 'bad' : (check.kind === 'prev' ? 'warn' : 'good');
+    const status = `<td class="check ${cls}">${esc(check.text)}</td>`;
+    if (rich) {
+      return `<tr><td>${esc(r.item)}</td><td class="desc">${esc(r.desc || '—')}</td><td>${esc(r.line || '—')}</td><td>${esc(sapQtyText(r) || '—')}</td><td>${esc(r.timeText || '—')}</td>${status}</tr>`;
+    }
     return showLine
       ? `<tr><td>${esc(r.item)}</td><td>${esc(r.line || '—')}</td>${status}</tr>`
       : `<tr><td>${esc(r.item)}</td>${status}</tr>`;
   }).join('');
-  return `<div class="comp-sap"><b>SAP · ${ok} of ${rows.length} checked</b><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="comp-sap"><b>SAP · ${ok} of ${rows.length} posting${rows.length === 1 ? '' : 's'} checked</b><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 function decodeXmlText(s) {
   return String(s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
@@ -3833,10 +4003,7 @@ function buildCompliancePdf(dayIdxs, line) {
         y += 18;
         const futureSap = sapPdfRowsForYmd(ymd.y, ymd.m, ymd.dd, line);
         if (futureSap.length) {
-          const showLine = !!(sapAudit && sapAudit.rows.some(r => r.line));
-          const sapCols = showLine
-            ? [{ title: 'SAP item', w: 150 }, { title: 'Line', w: 70 }, { title: 'Quality check', w: 312 }]
-            : [{ title: 'SAP item', w: 180 }, { title: 'Quality check', w: 352 }];
+          const sapCols = sapPdfCols();
           pdfText(page, 40, y + 10, 'SAP', { size: 10, bold: true });
           y += 14;
           const drawnSap = pdfDrawTable(doc, page, y, sapCols, futureSap, { margin: 40, size: 8 });
@@ -3879,10 +4046,7 @@ function buildCompliancePdf(dayIdxs, line) {
           pdfHeader(page, 'Compliance report', subtitle);
           y = 72;
         }
-        const showLine = !!(sapAudit && sapAudit.rows.some(r => r.line));
-        const sapCols = showLine
-          ? [{ title: 'SAP item', w: 150 }, { title: 'Line', w: 70 }, { title: 'Quality check', w: 312 }]
-          : [{ title: 'SAP item', w: 180 }, { title: 'Quality check', w: 352 }];
+        const sapCols = sapPdfCols();
         pdfText(page, 40, y + 10, 'SAP', { size: 10, bold: true });
         y += 14;
         const drawnSap = pdfDrawTable(doc, page, y, sapCols, sapRows, { margin: 40, size: 8 });

@@ -234,7 +234,13 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.5'/);
+assert.match(html, /APP_VERSION = '1\.7\.6'/);
+assert.match(html, /SAP_WORK_CENTERS/);
+assert.match(html, /function sapMapWorkCenter/);
+assert.match(html, /function parseSapTime/);
+assert.match(html, /function sapHitsOnDay/);
+assert.match(html, /function qualityNotesForRow/);
+assert.match(html, /Checked previous day/);
 assert.match(html, /function sapAuditToStore/);
 assert.match(html, /function applyStoredSapAudit/);
 assert.match(html, /sapAudit: sapAuditToStore\(\)/);
@@ -1070,33 +1076,71 @@ function parseSapDate(v) {
   if (m) return { y: +m[1], m: +m[2], d: +m[3] };
   return null;
 }
+const SAP_WORK_CENTERS = {
+  VISCBE01: 'COEX', VISFSE01: 'S1', VISFSE03: 'S3', VISFSE04: 'S4',
+  VISMBE01: 'MONO', VISMSL01: 'RTS', VISPLE01: 'P1'
+};
+function sapMapWorkCenter(v) {
+  const key = String(v ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  return SAP_WORK_CENTERS[key] || '';
+}
 function sapHeaderKind(h) {
   const s = String(h || '').replace(/\s+/g, ' ').trim();
+  if (/work\s*center/i.test(s)) return 'wc';
   if (/^line\b/i.test(s)) return 'line';
-  if (/^date\b/i.test(s)) return 'date';
-  if (/item/i.test(s) && !/desc/i.test(s)) return 'item';
+  if (/time\s*of\s*entry|entry\s*time|^time\b/i.test(s)) return 'time';
+  if (/entry\s*date|posting\s*date|^date\b/i.test(s)) return 'date';
+  if (/material\s*desc|item\s*desc|^description$/i.test(s)) return 'desc';
+  if ((/^material$|item/i.test(s)) && !/desc/i.test(s)) return 'item';
+  if (/^qty$|^quantity$/i.test(s)) return 'qty';
+  if (/unit\s*of\s*entry|^uom$|^unit$/i.test(s)) return 'unit';
   return '';
+}
+function parseSapTime(v) {
+  const s = String(v ?? '').trim();
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+  if (!m) {
+    if (/^0\.\d+$/.test(s)) {
+      const mins = Math.round(Number(s) * 24 * 60);
+      return { hour: Math.floor(mins / 60) % 24, minute: mins % 60 };
+    }
+    return { hour: NaN, minute: 0, text: s };
+  }
+  let hour = +m[1];
+  const minute = +m[2];
+  const ap = (m[3] || '').toUpperCase();
+  if (ap === 'PM' && hour < 12) hour += 12;
+  if (ap === 'AM' && hour === 12) hour = 0;
+  return { hour, minute, text: s };
 }
 function parseSapPairs(grid) {
   const header = (grid[0] || []).map(h => String(h || '').trim());
-  let dateCol = -1, itemCol = -1, lineCol = -1, start = 0;
+  const cols = { date: -1, item: -1, line: -1, wc: -1, time: -1, desc: -1, qty: -1, unit: -1 };
+  let start = 0;
   header.forEach((h, i) => {
     const kind = sapHeaderKind(h);
-    if (kind === 'date' && dateCol < 0) dateCol = i;
-    if (kind === 'item' && itemCol < 0) itemCol = i;
-    if (kind === 'line' && lineCol < 0) lineCol = i;
+    if (kind && cols[kind] < 0) cols[kind] = i;
   });
-  if (dateCol >= 0 || itemCol >= 0 || lineCol >= 0) start = 1;
-  if (itemCol < 0) itemCol = dateCol === 0 ? 1 : 0;
-  if (dateCol < 0) dateCol = 0;
+  if (Object.values(cols).some(i => i >= 0)) start = 1;
+  if (cols.item < 0) cols.item = cols.date === 0 ? 1 : 0;
+  if (cols.date < 0) cols.date = 0;
   const out = [];
   for (let i = start; i < grid.length; i++) {
-    const dt = parseSapDate(grid[i][dateCol]);
-    const item = String(grid[i][itemCol] ?? '').trim();
+    const dt = parseSapDate(grid[i][cols.date]);
+    const item = String(grid[i][cols.item] ?? '').trim();
     if (!dt || !sapItemKey(item)) continue;
+    const wc = cols.wc >= 0 ? String(grid[i][cols.wc] || '').trim() : '';
+    const rawLine = cols.line >= 0 ? String(grid[i][cols.line] || '').trim() : '';
+    const tm = parseSapTime(cols.time >= 0 ? grid[i][cols.time] : '');
     out.push({
       y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item),
-      line: lineCol >= 0 ? String(grid[i][lineCol] || '').trim() : ''
+      line: sapMapWorkCenter(wc) || rawLine,
+      desc: cols.desc >= 0 ? String(grid[i][cols.desc] || '').trim() : '',
+      qty: cols.qty >= 0 ? String(grid[i][cols.qty] || '').trim() : '',
+      unit: cols.unit >= 0 ? String(grid[i][cols.unit] || '').trim() : '',
+      timeText: tm.text || '',
+      hour: tm.hour,
+      workCenter: wc
     });
   }
   return out;
@@ -1124,6 +1168,54 @@ assert.equal(sapLined[2].line, 'COEX');
 const onlyUploaded = sapLined.filter(r => r.y === 2026 && r.m === 8 && r.d === 20);
 assert.equal(onlyUploaded.length, 1);
 assert.equal(onlyUploaded[0].item, '3030053');
+
+assert.equal(sapHeaderKind('Work Center'), 'wc');
+assert.equal(sapHeaderKind('Material'), 'item');
+assert.equal(sapHeaderKind('Material Description'), 'desc');
+assert.equal(sapHeaderKind('Quantity'), 'qty');
+assert.equal(sapHeaderKind('Unit of Entry'), 'unit');
+assert.equal(sapHeaderKind('Time of Entry'), 'time');
+assert.equal(sapHeaderKind('Entry Date'), 'date');
+assert.equal(sapMapWorkCenter('VISCBE01'), 'COEX');
+assert.equal(sapMapWorkCenter('VISFSE01'), 'S1');
+assert.equal(sapMapWorkCenter('VISFSE03'), 'S3');
+assert.equal(sapMapWorkCenter('VISFSE04'), 'S4');
+assert.equal(sapMapWorkCenter('VISMBE01'), 'MONO');
+assert.equal(sapMapWorkCenter('VISMSL01'), 'RTS');
+assert.equal(sapMapWorkCenter('VISPLE01'), 'P1');
+const sapExport = parseSapPairs([
+  ['Material', 'Material Description', 'Quantity', 'Unit of Entry', 'Time of Entry', 'Entry Date', 'Work Center'],
+  ['3030053', 'AF500 foam plank', '2400', 'LB', '14:32:00', '2026-08-20', 'VISFSE04'],
+  ['410805', 'AF250 roll', '18.5', 'ROL', '2:05 AM', '2026-08-21', 'VISFSE01'],
+  ['999', 'bubble wrap', '100', 'FT', '22:10', '2026-08-22', 'VISCBE01']
+]);
+assert.equal(sapExport.length, 3);
+assert.equal(sapExport[0].itemKey, '3030053');
+assert.equal(sapExport[0].desc, 'AF500 foam plank');
+assert.equal(sapExport[0].qty, '2400');
+assert.equal(sapExport[0].unit, 'LB');
+assert.equal(sapExport[0].line, 'S4');
+assert.equal(sapExport[0].workCenter, 'VISFSE04');
+assert.equal(sapExport[0].hour, 14);
+assert.equal(sapExport[1].line, 'S1');
+assert.equal(sapExport[1].hour, 2);
+assert.equal(sapExport[2].line, 'COEX');
+assert.equal(sapExport[2].hour, 22);
+function sapPrevYmd(y, m, d) {
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+}
+assert.deepEqual(sapPrevYmd(2026, 8, 21), { y: 2026, m: 8, d: 20 });
+assert.deepEqual(sapPrevYmd(2026, 3, 1), { y: 2026, m: 2, d: 28 });
+function qualityNotesForRow(r) {
+  const notes = String((r && r.text && r.text.Notes) || '').trim();
+  const user = String((r && r.text && r.text.User) || '').trim();
+  if (notes && user) return `${notes} (${user})`;
+  return notes;
+}
+assert.equal(qualityNotesForRow({ text: { Notes: 'thin on south', User: 'Pat' } }), 'thin on south (Pat)');
+assert.equal(qualityNotesForRow({ text: { Notes: '', User: 'Pat' } }), '');
 
 function testRowIdentity(row) {
   const when = col(row, 'Date/Time');

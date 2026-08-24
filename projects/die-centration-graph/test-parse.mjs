@@ -238,6 +238,11 @@ assert.match(html, /APP_VERSION = '1\.7\.5'/);
 assert.match(html, /function sapAuditToStore/);
 assert.match(html, /function applyStoredSapAudit/);
 assert.match(html, /sapAudit: sapAuditToStore\(\)/);
+assert.match(html, /function dedupeHistoryRows/);
+assert.match(html, /function rowHasNativeS1S3Keys/);
+assert.match(html, /function rowDedupeScore/);
+assert.doesNotMatch(html, /catcher\.addEventListener\('paste'/);
+assert.match(html, /let applyingClipboard = false/);
 assert.match(html, /All lines/);
 assert.match(html, /id="complianceSap"/);
 assert.match(html, /Audit against SAP/);
@@ -1119,5 +1124,53 @@ assert.equal(sapLined[2].line, 'COEX');
 const onlyUploaded = sapLined.filter(r => r.y === 2026 && r.m === 8 && r.d === 20);
 assert.equal(onlyUploaded.length, 1);
 assert.equal(onlyUploaded[0].item, '3030053');
+
+function testRowIdentity(row) {
+  const when = col(row, 'Date/Time');
+  const item = col(row, 'Item #', 'Item');
+  const bundle = col(row, 'Bundle #');
+  const core = [
+    row.__plant || 'foam', col(row, 'Line'), when, String(col(row, 'MSPEC') || '').replace(/\.0+$/, ''), item, bundle
+  ].join('|');
+  if (when && (item || bundle)) return core;
+  return core + '|' + col(row, 'Thickness Average') + '|' + col(row, 'Density') + '|' + col(row, 'User');
+}
+function testHasNativeS1S3(row) {
+  return Object.prototype.hasOwnProperty.call(row, 'Tape Color')
+    || Object.prototype.hasOwnProperty.call(row, 'Bundle Tight/Loose');
+}
+function testDedupeScore(row) {
+  let n = 0;
+  Object.keys(row || {}).forEach(k => { if (k !== '__plant' && String(row[k] || '').trim()) n += 1; });
+  if (testHasNativeS1S3(row)) n += 50;
+  return n;
+}
+function testDedupeHistoryRows(rows) {
+  const best = new Map();
+  (rows || []).forEach(row => {
+    const id = testRowIdentity(row);
+    const prev = best.get(id);
+    if (!prev || testDedupeScore(row) >= testDedupeScore(prev)) best.set(id, row);
+  });
+  return [...best.values()];
+}
+const shiftedS1 = {
+  __plant: 'foam', Line: 'S1', 'Date/Time': '45821.5', MSPEC: '4003', 'Item #': '410805', 'Bundle #': '12',
+  'Thickness Average': '1.1', Density: 'alice', User: 'note'
+};
+const nativeS1 = {
+  __plant: 'foam', Line: 'S1', 'Date/Time': '45821.5', MSPEC: '4003', 'Item #': '410805', 'Bundle #': '12',
+  'Thickness Average': '0.255', Density: '1.1', User: 'alice', 'Tape Color': 'BLUE', 'Bundle Tight/Loose': 'TIGHT'
+};
+const s4Once = {
+  __plant: 'foam', Line: 'S4', 'Date/Time': '45822', MSPEC: '4780', 'Item #': '3030053', 'Bundle #': '4',
+  'Thickness Average': '0.52', Density: '1.6', User: 'bob'
+};
+assert.equal(testRowIdentity(shiftedS1), testRowIdentity(nativeS1));
+assert.notEqual(testRowIdentity(shiftedS1), testRowIdentity(s4Once));
+const deduped = testDedupeHistoryRows([shiftedS1, s4Once, nativeS1, Object.assign({}, s4Once)]);
+assert.equal(deduped.length, 2);
+assert.equal(deduped.find(r => r.Line === 'S1'), nativeS1);
+assert.equal(deduped.filter(r => r.Line === 'S4').length, 1);
 
 console.log('parse-diegraph tests passed');

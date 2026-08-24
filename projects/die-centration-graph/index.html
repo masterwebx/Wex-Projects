@@ -224,10 +224,10 @@ try {
   .comp-item b { display: block; font-size: 16px; }
   .comp-item .muted { color: var(--muted); font-weight: 400; font-size: 14px; }
   .comp-sum { font-size: 14px; font-weight: 700; text-align: right; max-width: 280px; }
-  .comp-sum.good { color: var(--ok); }
-  .comp-sum.bad { color: var(--thick); }
-  .comp-sum.warn { color: var(--thin); }
-  .comp-sum.gray { color: #9ca3af; }
+  .comp-sum .good, .comp-sum.good { color: var(--ok); }
+  .comp-sum .bad, .comp-sum.bad { color: var(--thick); }
+  .comp-sum .warn, .comp-sum.warn { color: var(--thin); }
+  .comp-sum .gray, .comp-sum.gray { color: #9ca3af; }
   .comp-empty { color: var(--muted); font-size: 14px; margin: 0; }
   .rpt-list { max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 4px; }
   .rpt-opts { display: grid; gap: 6px; margin: 10px 0; }
@@ -551,7 +551,6 @@ try {
         <label>Density target <input type="number" id="densTargetSpec" step="0.01" value=""></label>
         <label>Density max <input type="number" id="densMaxSpec" step="0.01" value=""></label>
         <label>Cell count min <input type="number" id="cellMinSpec" step="1" value=""></label>
-        <label>Cell count max <input type="number" id="cellMaxSpec" step="1" value=""></label>
       </div>
       <div class="results-only">
         <h2>Results</h2>
@@ -611,14 +610,14 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.6.7';
+const APP_VERSION = '1.6.8';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
 const PACK_STORE = 'pack';
 const TABLE_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','User','Pass/Fail','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density'];
 const HIST_COL_W = [52, 280, 180, 240, 170, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120];
-const MSPEC_COL_W = [90, 80, 96, 108, 96, 74, 84, 84, 88, 100, 88];
+const MSPEC_COL_W = [90, 80, 96, 108, 96, 74, 84, 88, 100, 88];
 const COL_ALIASES = {
   'Item #': ['Item #', 'Item', 'Item Number'],
   'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription'],
@@ -1018,7 +1017,7 @@ function readPanelSpecs() {
     densTarget: firstFinite(numVal(document.getElementById('densTargetSpec').value)),
     densMax: firstFinite(numVal(document.getElementById('densMaxSpec').value)),
     cellMin: firstFinite(numVal(document.getElementById('cellMinSpec').value)),
-    cellMax: firstFinite(numVal(document.getElementById('cellMaxSpec').value))
+    cellMax: NaN
   };
 }
 function specsHaveValues(specs) {
@@ -1037,7 +1036,6 @@ function fillSpecPanel(specs, mspec) {
   setSpecInput('densTargetSpec', s.densTarget, 2);
   setSpecInput('densMaxSpec', s.densMax, 2);
   setSpecInput('cellMinSpec', s.cellMin, 0);
-  setSpecInput('cellMaxSpec', s.cellMax, 0);
   if (src) {
     src.textContent = has
       ? (key ? `Master Sheet MSPEC ${mspecWithTarget(key)}` : '')
@@ -1338,9 +1336,9 @@ function failDetailsForRow(row, specs) {
   if (isNoCheckPf(overall)) return [];
   const s = specs || lookupSpecs(col(row, 'MSPEC', 'MSPEC #')) || {};
   const out = [];
-  const add = (stored, got, min, max, name, digits, reasonUnder, reasonOver, reasonFail) => {
+  const add = (stored, got, min, max, name, digits, reasonUnder, reasonOver, reasonFail, computedOnly) => {
     const computed = judgeBetween(got, min, max);
-    if (!isMeasuredFail(stored, computed)) return;
+    if (computedOnly ? computed !== 'Fail' : !isMeasuredFail(stored, computed)) return;
     if (!finiteNum(got)) {
       out.push({ reason: reasonFail, detail: `${name} fail` });
       return;
@@ -1363,8 +1361,8 @@ function failDetailsForRow(row, specs) {
   add(col(row, 'Thickness Average Pass/Fail'), avg, s.min, s.max, 'thickness', 3, 'thickness under', 'thickness over', 'thickness fail');
   add(col(row, 'Thickness Range Pass/Fail'), rangeThou, 0, asThousandths(s.rangeThou != null ? s.rangeThou : s.range), 'range', 1, 'range under', 'range over', 'range over');
   add(col(row, 'Density Pass/Fail'), finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, s.densMin, s.densMax, 'density', 2, 'density under', 'density over', 'density fail');
-  add(col(row, 'Cell Count MD Pass/Fail'), cellMd, s.cellMin, s.cellMax, 'cell count MD', 0, 'cell count MD under', 'cell count MD over', 'cell count MD fail');
-  add(col(row, 'Cell Count CD Pass/Fail'), cellCd, s.cellMin, s.cellMax, 'cell count CD', 0, 'cell count CD under', 'cell count CD over', 'cell count CD fail');
+  add(col(row, 'Cell Count MD Pass/Fail'), cellMd, s.cellMin, NaN, 'cell count MD', 0, 'cell count MD under', 'cell count MD over', 'cell count MD fail', true);
+  add(col(row, 'Cell Count CD Pass/Fail'), cellCd, s.cellMin, NaN, 'cell count CD', 0, 'cell count CD under', 'cell count CD over', 'cell count CD fail', true);
   add(col(row, 'Slit/Width Pass/Fail'), width, s.widthMin, NaN, 'width', 1, 'width under', 'width over', 'width fail');
   if (normalizePf(overall) === 'Fail' && !out.length) out.push({ reason: 'failed check', detail: 'failed check' });
   return out;
@@ -1446,6 +1444,11 @@ function pickPf(stored, computed) {
   if (s === 'Pass' && computed === 'Fail') return 'Pass*';
   return s || computed || '';
 }
+function pickPfMin(stored, computed) {
+  if (computed === 'Fail') return normalizePf(stored) === 'Pass' ? 'Pass*' : 'Fail';
+  if (computed === 'Pass') return 'Pass';
+  return normalizePf(stored) || '';
+}
 function isMeasuredFail(stored, computed) {
   if (computed === 'Fail') return true;
   return normalizePf(stored) === 'Fail';
@@ -1460,6 +1463,7 @@ function specTone(v, min, max) {
 function specToneFromStored(stored, v, min, max) {
   const computed = specTone(v, min, max);
   if (computed === 'thin' || computed === 'thick') return computed;
+  if (computed === 'in') return 'in';
   const pf = normalizePf(stored);
   if (pf === 'Pass') return 'in';
   if (pf === 'Fail') {
@@ -1499,14 +1503,13 @@ function checksFromCurrent() {
   const cellMd = snapNum(snap, 'cellmd');
   const cellCd = snapNum(snap, 'cellcd');
   const cellMin = firstFinite(panel.cellMin, specs.cellMin);
-  const cellMax = firstFinite(panel.cellMax, specs.cellMax);
   const density = snapNum(snap, 'density');
   const densMin = firstFinite(panel.densMin, specs.densMin);
   const densMax = firstFinite(panel.densMax, specs.densMax);
   return [
     { label: 'Width', text: fmtCheck(width, 1), pf: pickPf(snap.widthpf, judgeBetween(width, widthMin, NaN)) },
-    { label: 'Cell count MD', text: fmtCheck(cellMd, 0), pf: pickPf(snap.cellmdpf, judgeBetween(cellMd, cellMin, cellMax)) },
-    { label: 'Cell count CD', text: fmtCheck(cellCd, 0), pf: pickPf(snap.cellcdpf, judgeBetween(cellCd, cellMin, cellMax)) },
+    { label: 'Cell count MD', text: fmtCheck(cellMd, 0), pf: pickPfMin(snap.cellmdpf, judgeBetween(cellMd, cellMin, NaN)) },
+    { label: 'Cell count CD', text: fmtCheck(cellCd, 0), pf: pickPfMin(snap.cellcdpf, judgeBetween(cellCd, cellMin, NaN)) },
     { label: 'Density', text: fmtCheck(density, 2), pf: pickPf(snap.densitypf, judgeBetween(finiteNum(density) ? Math.round(density * 100) / 100 : NaN, densMin, densMax)) }
   ];
 }
@@ -1518,13 +1521,12 @@ function checksFromTableRow(row) {
   const density = numVal(col(row, 'Density'));
   const widthMin = firstFinite(specs.widthMin);
   const cellMin = firstFinite(specs.cellMin);
-  const cellMax = firstFinite(specs.cellMax);
   const densMin = firstFinite(specs.densMin);
   const densMax = firstFinite(specs.densMax);
   return [
     { label: 'Width', text: fmtCheck(width, 1), pf: pickPf(col(row, 'Slit/Width Pass/Fail'), judgeBetween(width, widthMin, NaN)) },
-    { label: 'Cell count MD', text: fmtCheck(cellMd, 0), pf: pickPf(col(row, 'Cell Count MD Pass/Fail'), judgeBetween(cellMd, cellMin, cellMax)) },
-    { label: 'Cell count CD', text: fmtCheck(cellCd, 0), pf: pickPf(col(row, 'Cell Count CD Pass/Fail'), judgeBetween(cellCd, cellMin, cellMax)) },
+    { label: 'Cell count MD', text: fmtCheck(cellMd, 0), pf: pickPfMin(col(row, 'Cell Count MD Pass/Fail'), judgeBetween(cellMd, cellMin, NaN)) },
+    { label: 'Cell count CD', text: fmtCheck(cellCd, 0), pf: pickPfMin(col(row, 'Cell Count CD Pass/Fail'), judgeBetween(cellCd, cellMin, NaN)) },
     { label: 'Density', text: fmtCheck(density, 2), pf: pickPf(col(row, 'Density Pass/Fail'), judgeBetween(finiteNum(density) ? Math.round(density * 100) / 100 : NaN, densMin, densMax)) }
   ];
 }
@@ -1630,8 +1632,8 @@ function tonesForRow(row, mspec) {
     'Thickness Average': specToneFromStored(col(row, 'Thickness Average Pass/Fail'), avg, specs.min, specs.max),
     'Thickness Range': specToneFromStored(col(row, 'Thickness Range Pass/Fail'), rangeThou, 0, rangeMax),
     'Density': specToneFromStored(col(row, 'Density Pass/Fail'), finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, specs.densMin, specs.densMax),
-    'Cell Count MD': specToneFromStored(col(row, 'Cell Count MD Pass/Fail'), cellMd, specs.cellMin, specs.cellMax),
-    'Cell Count CD': specToneFromStored(col(row, 'Cell Count CD Pass/Fail'), cellCd, specs.cellMin, specs.cellMax),
+    'Cell Count MD': specToneFromStored(col(row, 'Cell Count MD Pass/Fail'), cellMd, specs.cellMin, NaN),
+    'Cell Count CD': specToneFromStored(col(row, 'Cell Count CD Pass/Fail'), cellCd, specs.cellMin, NaN),
     'Slit/Width': specToneFromStored(col(row, 'Slit/Width Pass/Fail'), width, specs.widthMin, NaN)
   };
 }
@@ -2476,29 +2478,26 @@ function renderComplianceDays(monday) {
       const t1 = excelTimeShort(g.first);
       const t2 = excelTimeShort(g.last);
       const period = t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2);
-      const bits = [];
-      if (passed) bits.push(`${passed} passed`);
-      if (starred) bits.push(`${starred} Pass*`);
-      if (failed) bits.push(`${failed} failed`);
-      if (noCheck && !passed && !starred && !failed) bits.push(`${noCheck} NO CHECK`);
-      else if (noCheck) bits.push(`${noCheck} NO CHECK`);
-      let sumCls = 'good';
-      if (failed) sumCls = 'bad';
-      else if (starred) sumCls = 'warn';
-      else if (noCheck && !passed) sumCls = 'gray';
-      const sumText = bits.join(', ') || '—';
       const failHtml = failLines.length ? `<ul class="comp-fail-list">${failLines.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
       const viewBtn = g.item
         ? `<button type="button" data-comp-item="${esc(g.item)}" data-comp-y="${y}" data-comp-m="${m}" data-comp-d="${dd}">View</button>`
         : '';
       const meta = [g.desc, g.mspec && `MSPEC ${mspecWithTarget(g.mspec)}`, period].filter(Boolean).join(' · ');
-      return `<div class="comp-item"><div><b>${esc(itemWithTargets(g.item, g.mspec) || '—')}</b><span class="muted">${esc(meta)}</span>${failHtml}</div><div class="comp-sum ${sumCls}">${esc(sumText)}</div>${viewBtn}</div>`;
+      return `<div class="comp-item"><div><b>${esc(itemWithTargets(g.item, g.mspec) || '—')}</b><span class="muted">${esc(meta)}</span>${failHtml}</div><div class="comp-sum">${complianceSumHtml(passed, starred, failed, noCheck)}</div>${viewBtn}</div>`;
     }).join('');
     parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${itemsHtml}</div>`);
   }
   el.innerHTML = parts.join('');
 }
-const MSPEC_AUDIT_COLS = ['MSPEC','AF#','Thick min','Thick target','Thick max','Range','Cell min','Cell max','Dens min','Dens target','Dens max'];
+function complianceSumHtml(passed, starred, failed, noCheck) {
+  const bits = [];
+  if (passed) bits.push(`<span class="good">${passed} passed</span>`);
+  if (starred) bits.push(`<span class="warn">${starred} Pass*</span>`);
+  if (failed) bits.push(`<span class="bad">${failed} failed</span>`);
+  if (noCheck) bits.push(`<span class="gray">${noCheck} NO CHECK</span>`);
+  return bits.join(', ') || '—';
+}
+const MSPEC_AUDIT_COLS = ['MSPEC','AF#','Thick min','Thick target','Thick max','Range','Cell min','Dens min','Dens target','Dens max'];
 function fmtAuditNum(v, digits) {
   return finiteNum(v) ? Number(v).toFixed(digits) : '';
 }
@@ -2523,7 +2522,6 @@ function mspecAuditRows() {
         fmtAuditNum(used.max, 3),
         fmtAuditNum(used.rangeThou != null ? used.rangeThou : asThousandths(used.range), 1),
         fmtAuditNum(used.cellMin, 0),
-        fmtAuditNum(used.cellMax, 0),
         String(rawDensMin || ''),
         String(rawDensTarget || ''),
         String(rawDensMax || '')
@@ -2559,7 +2557,7 @@ function openMspecs() {
 function downloadMspecExcel() {
   const rows = mspecAuditRows();
   if (!rows.length) { toast('No MSPEC rows'); return; }
-  downloadBlob('diegraph-mspecs.xlsx', buildXlsx('MSPECs', MSPEC_AUDIT_COLS, rows.map(r => r.values), [12, 10, 12, 12, 12, 10, 10, 10, 12, 12, 12]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  downloadBlob('diegraph-mspecs.xlsx', buildXlsx('MSPECs', MSPEC_AUDIT_COLS, rows.map(r => r.values), [12, 10, 12, 12, 12, 10, 10, 12, 12, 12]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   toast('Downloaded MSPEC table');
 }
 function openHistoryForItemDay(item, y, m, d) {
@@ -4182,7 +4180,7 @@ catcher.addEventListener('paste', (e) => {
 });
 document.getElementById('minThickness').oninput = document.getElementById('maxThickness').oninput = () => { customArrow = false; calculate(); };
 document.getElementById('rangeSpec').oninput = document.getElementById('targetThickness').oninput = calculate;
-['densMinSpec','densTargetSpec','densMaxSpec','cellMinSpec','cellMaxSpec'].forEach(id => {
+['densMinSpec','densTargetSpec','densMaxSpec','cellMinSpec'].forEach(id => {
   document.getElementById(id).oninput = () => { if (viewMode === 'spc') draw(); else refreshChecks(); };
 });
 document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };

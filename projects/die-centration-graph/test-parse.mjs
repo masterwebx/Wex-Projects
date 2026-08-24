@@ -212,7 +212,10 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.6\.7'/);
+assert.match(html, /APP_VERSION = '1\.6\.8'/);
+assert.match(html, /function complianceSumHtml/);
+assert.match(html, /function pickPfMin/);
+assert.doesNotMatch(html, /id="cellMaxSpec"/);
 assert.match(html, /function isTsvHeaderLine/);
 assert.match(html, /sections\.TABLES4 \|\| \[\]\)\.concat\(sections\.TABLES1S3/);
 assert.match(html, /Missing checks/);
@@ -287,7 +290,8 @@ assert.match(html, /function writePdf/);
 assert.match(html, /function pdfDrawTable/);
 assert.match(html, /function pdfDrawSpcChart/);
 assert.match(html, /modal input\[type="date"\]/);
-assert.match(html, /MSPEC_AUDIT_COLS = \['MSPEC','AF#','Thick min','Thick target','Thick max','Range','Cell min','Cell max','Dens min','Dens target','Dens max'\]/);
+assert.match(html, /MSPEC_AUDIT_COLS = \['MSPEC','AF#','Thick min','Thick target','Thick max','Range','Cell min','Dens min','Dens target','Dens max'\]/);
+assert.doesNotMatch(html, /'Cell max'/);
 assert.doesNotMatch(html, /'Dens used'/);
 assert.doesNotMatch(html, /MSPEC_AUDIT_COLS = \[[^\]]*'Filename'/);
 assert.doesNotMatch(html, /MSPEC_AUDIT_COLS = \[[^\]]*'Note'/);
@@ -628,14 +632,12 @@ function failReasonsForRow(row, specs) {
     else if (finiteNum(dens) && finiteNum(s.densMax) && dens > s.densMax) reasons.push('density over');
     else reasons.push('density fail');
   }
-  if (failed(col(row, 'Cell Count MD Pass/Fail'), judgeBetween(cellMd, s.cellMin, s.cellMax))) {
+  if (judgeBetween(cellMd, s.cellMin, NaN) === 'Fail') {
     if (finiteNum(cellMd) && finiteNum(s.cellMin) && cellMd < s.cellMin) reasons.push('cell count MD under');
-    else if (finiteNum(cellMd) && finiteNum(s.cellMax) && cellMd > s.cellMax) reasons.push('cell count MD over');
     else reasons.push('cell count MD fail');
   }
-  if (failed(col(row, 'Cell Count CD Pass/Fail'), judgeBetween(cellCd, s.cellMin, s.cellMax))) {
+  if (judgeBetween(cellCd, s.cellMin, NaN) === 'Fail') {
     if (finiteNum(cellCd) && finiteNum(s.cellMin) && cellCd < s.cellMin) reasons.push('cell count CD under');
-    else if (finiteNum(cellCd) && finiteNum(s.cellMax) && cellCd > s.cellMax) reasons.push('cell count CD over');
     else reasons.push('cell count CD fail');
   }
   if (failed(col(row, 'Slit/Width Pass/Fail'), judgeBetween(width, s.widthMin, NaN))) {
@@ -665,6 +667,18 @@ assert.deepEqual(failReasonsForRow({
   'Thickness Average': '0.529',
   'Thickness Average Pass/Fail': 'Pass'
 }, { min: 0.24, max: 0.26 }), []);
+assert.deepEqual(failReasonsForRow({
+  'Pass/Fail': 'Pass',
+  'Cell Count MD': '30',
+  'Cell Count MD Pass/Fail': 'Fail',
+  'Cell Count CD': '22',
+  'Cell Count CD Pass/Fail': 'Fail'
+}, { cellMin: 18, cellMax: 24 }), []);
+assert.ok(failReasonsForRow({
+  'Pass/Fail': 'Pass',
+  'Cell Count MD': '10',
+  'Cell Count MD Pass/Fail': 'Pass'
+}, { cellMin: 18, cellMax: 24 }).includes('cell count MD under'));
 assert.equal(mspecWithTargetFromLookup(m4780), '4780 (.515 1.60#)');
 function mspecWithTargetFromLookup(row) {
   const key = String(col(row, 'MSPEC #')).replace(/\.0+$/, '');

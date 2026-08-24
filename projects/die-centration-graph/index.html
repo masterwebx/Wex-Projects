@@ -624,7 +624,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.1';
+const APP_VERSION = '1.7.2';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -696,6 +696,7 @@ let histRangeKey = '';
 let indexedRows = [];
 let filteredCache = [];
 let filteredDirty = true;
+let plantRowCache = null;
 let pasteIntent = false;
 let spcHideOutliers = true;
 let openFilterCol = null;
@@ -1188,12 +1189,60 @@ function inferPlant(row, tagged) {
   if (line === 'RTS') return 'rts';
   return 'foam';
 }
+function foamRowLooksShifted(row) {
+  if (!row) return false;
+  if (String(row['Tape Color'] || '').trim() || String(row['Bundle Tight/Loose'] || '').trim()) return false;
+  const md = String(row['Cell Count MD'] ?? '').trim();
+  const cd = String(row['Cell Count CD'] ?? '').trim();
+  if (!md || !cd) return false;
+  if (finiteNum(numVal(md)) && finiteNum(numVal(cd))) return false;
+  const bundle = /^(pass|fail|pass\*|tight|loose|yes|no)$/i.test(md);
+  const color = /^(light\s+)?(blue|red|brown|green|yellow|orange|white|black|pink|purple|tan|clear|grey|gray|gold|silver|teal|navy)$/i.test(cd);
+  return bundle && color;
+}
+function unshiftS1S3FromS4Keys(row) {
+  const out = Object.assign({}, row);
+  out['Perf'] = row['Perf Roller On'];
+  out['Bundle Tight/Loose'] = row['Cell Count MD'];
+  out['Tape Color'] = row['Cell Count CD'];
+  out['Cell Count MD'] = row['Thickness Average'];
+  out['Cell Count CD'] = row['Thickness Range'];
+  out['Thickness Average'] = row['Density'];
+  out['Thickness Range'] = row['Pass/Fail'];
+  out['Density'] = row['User'];
+  out['Pass/Fail'] = row['Reason for Check'];
+  out['User'] = row['Notes'];
+  out['Reason for Check'] = row['T1'];
+  out['Notes'] = row['T2'];
+  out['Diameter (ULINE only)'] = row['T3'];
+  for (let i = 1; i <= 10; i++) out['T' + i] = row['T' + (i + 3)];
+  out['T11'] = '';
+  out['T12'] = '';
+  out['T13'] = '';
+  delete out['Perf Roller On'];
+  return out;
+}
+function normalizeFoamRow(row) {
+  if (!foamRowLooksShifted(row)) return row;
+  const plant = row && row.__plant;
+  const fixed = unshiftS1S3FromS4Keys(row);
+  if (plant) fixed.__plant = plant;
+  return fixed;
+}
 function isFoamPlant(plant) {
   return (plant || activePlant) === 'foam';
 }
 function plantRows(plant) {
   const want = plant || activePlant || 'foam';
-  return indexedRows.filter(r => (r.plant || 'foam') === want);
+  if (!plantRowCache) {
+    plantRowCache = { foam: [], bubble: [], p1: [], rts: [] };
+    for (const r of indexedRows) {
+      const p = r.plant || 'foam';
+      if (plantRowCache[p]) plantRowCache[p].push(r);
+      else plantRowCache.foam.push(r);
+    }
+  }
+  return plantRowCache[want] || [];
 }
 function defaultSort() {
   return { col: 'Date/Time', dir: 'desc', mode: 'date' };
@@ -1319,6 +1368,10 @@ function splitDieGraph2(text) {
 }
 function col(row, ...names) {
   if (!row) return '';
+  for (const n of names) {
+    const direct = row[n];
+    if (direct != null && String(direct).trim() !== '') return direct;
+  }
   const all = [];
   for (const n of names) {
     (COL_ALIASES[n] || [n]).forEach(a => { if (!all.includes(a)) all.push(a); });
@@ -1860,24 +1913,44 @@ function tonesForRow(row, mspec) {
 async function indexHistory(onProg) {
   const rows = historyPack && historyPack.rows || [];
   indexedRows = new Array(rows.length);
+  plantRowCache = null;
+  histColsMemo = { plant: '', n: -1, cols: null };
+  let lastYield = 0;
   for (let idx = 0; idx < rows.length; idx++) {
-    const row = rows[idx];
-    const parts = dateParts(col(row, 'Date/Time'));
-    const display = {}, num = {}, text = {};
-    const mspec = canonMspec(col(row, 'MSPEC', 'MSPEC #'));
-    const tone = tonesForRow(row, mspec);
-    const pfLabel = displayOverallPf(row, lookupSpecs(mspec) || {});
-    const thickAvg = thicknessAvgFromRow(row);
-    const keys = new Set(ALL_HIST_COLS);
-    for (const k of Object.keys(row || {})) {
-      if (k && !k.startsWith('__')) keys.add(k);
+    let row = rows[idx];
+    if ((row.__plant || 'foam') === 'foam') {
+      const fixed = normalizeFoamRow(row);
+      if (fixed !== row) {
+        row = fixed;
+        rows[idx] = row;
+      }
     }
+    const plant = row.__plant || inferPlant(row);
+    if (!row.__plant) row.__plant = plant;
+    const foam = plant === 'foam';
+    const keys = [];
+    const seenKeys = new Set();
+    for (const k of (PLANT_COLS[plant] || FOAM_COLS)) {
+      if (k && !seenKeys.has(k)) { seenKeys.add(k); keys.push(k); }
+    }
+    if (!foam) {
+      for (const k of Object.keys(row || {})) {
+        if (k && !k.startsWith('__') && !seenKeys.has(k)) { seenKeys.add(k); keys.push(k); }
+      }
+    }
+    const parts = dateParts(row['Date/Time'] || col(row, 'Date/Time'));
+    const display = {}, num = {}, text = {};
+    const mspec = canonMspec(row['MSPEC'] || row['MSPEC #'] || (foam ? col(row, 'MSPEC', 'MSPEC #') : ''));
+    const tone = foam ? tonesForRow(row, mspec) : {};
+    const pfRaw = row['Pass/Fail'] != null && String(row['Pass/Fail']).trim() !== '' ? row['Pass/Fail'] : col(row, 'Pass/Fail');
+    const pfLabel = foam ? displayOverallPf(row, lookupSpecs(mspec) || {}) : (isNoCheckPf(pfRaw) ? 'NO CHECK' : (normalizePf(pfRaw) || String(pfRaw || '').trim()));
+    const thickAvg = foam ? thicknessAvgFromRow(row) : NaN;
     for (const k of keys) {
       const raw = k === 'Pass/Fail' ? pfLabel
         : k === 'Thickness Average' && finiteNum(thickAvg) ? thickAvg
-        : col(row, k);
+        : (row[k] != null && String(row[k]).trim() !== '' ? row[k] : col(row, k));
       display[k] = k === 'MSPEC' ? esc(mspecWithTarget(mspec) || raw)
-        : (k === 'Item #' || k === 'Item') ? esc(itemWithTargets(String(col(row, 'Item #', 'Item') || '').trim(), mspec) || raw)
+        : (k === 'Item #' || k === 'Item') ? esc(itemWithTargets(String(row['Item #'] || row['Item'] || col(row, 'Item #', 'Item') || '').trim(), mspec) || raw)
         : k === 'Pass/Fail' ? formatPfPill(pfLabel)
         : displayCell(k, raw);
       num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw)
@@ -1885,22 +1958,27 @@ async function indexHistory(onProg) {
         : numVal(raw);
       text[k] = k === 'Pass/Fail' ? pfLabel : String(raw ?? '').trim();
     }
-    if (!row.__plant) row.__plant = inferPlant(row);
     indexedRows[idx] = {
       idx, row, serial: parts.serial, y: parts.y, m: parts.m, d: parts.d,
       display, num, text, tone,
-      item: String(col(row, 'Item #') || '').trim(),
+      item: String(row['Item #'] || row['Item'] || '').trim(),
       mspec,
-      desc: String(col(row, 'Item Desc', 'Item Description') || '').trim(),
+      desc: String(row['Item Desc'] || row['Item Description'] || row['Description'] || '').trim(),
       pf: pfLabel,
-      line: String(col(row, 'Line') || '').trim(),
-      plant: inferPlant(row)
+      line: String(row['Line'] || '').trim(),
+      plant
     };
-    if (onProg && idx % 400 === 0) {
+    if (onProg && idx % 1500 === 0) {
       onProg(idx, rows.length);
-      await yieldUi();
+      const now = Date.now();
+      if (now - lastYield > 50) {
+        lastYield = now;
+        await yieldUi();
+      }
     }
   }
+  plantRowCache = null;
+  histColsMemo = { plant: '', n: -1, cols: null };
   filteredDirty = true;
 }
 function rowsMatchingExcept(exceptKey) {
@@ -3607,7 +3685,6 @@ async function parseTsvAsync(lines, onProg) {
   let headers = [];
   for (let i = 0; i < nonempty.length; i++) {
     if (isTsvHeaderLine(nonempty[i])) {
-      if (headers.length) continue;
       headers = nonempty[i].split('\t').map(s => s.trim());
       headers.forEach(h => { if (h && !allHeaders.includes(h)) allHeaders.push(h); });
       continue;
@@ -3617,7 +3694,7 @@ async function parseTsvAsync(lines, onProg) {
     const obj = {};
     headers.forEach((h, j) => { if (h) obj[h] = parts[j] == null ? '' : parts[j]; });
     rows.push(obj);
-    if (onProg && i % 400 === 0) { onProg(i, nonempty.length); await yieldUi(); }
+    if (onProg && i % 2500 === 0) { onProg(i, nonempty.length); await yieldUi(); }
   }
   return { headers: allHeaders, rows };
 }
@@ -3634,7 +3711,7 @@ async function parseHistorySections(sections, onProg) {
     for (const r of table.rows || []) {
       if (isHistoryHeaderRow(r)) continue;
       r.__plant = plant;
-      rows.push(r);
+      rows.push(plant === 'foam' ? normalizeFoamRow(r) : r);
     }
   }
   return rows;
@@ -3702,21 +3779,19 @@ async function applyDieGraph2(text, append) {
   fillLineSelects();
   syncPlantChrome();
   fillSpecPanel(specsFor(canonMspec(meta.mspec)), meta.mspec);
-  await persistPack();
   markHasHistory(true);
-  showProgress('Drawing table', 98, '');
-  await yieldUi();
   hideProgress();
   if (append) toast(added ? `Added ${added} new result${added === 1 ? '' : 's'}` : 'No new rows to add');
   else toast(rows.length ? `Loaded ${rows.length} past result${rows.length === 1 ? '' : 's'}` : 'Loaded current sheet');
   if (rows.length) {
     setScreen('history');
-    requestAnimationFrame(() => renderHistoryTable());
+    renderHistoryTable();
   } else {
     viewingIdx = 'current';
     setScreen('view');
     refreshChecks();
   }
+  persistPack();
   return true;
 }
 async function applyClipboardText(text, append) {

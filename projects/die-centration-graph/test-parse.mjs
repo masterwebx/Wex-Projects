@@ -234,7 +234,11 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.1'/);
+assert.match(html, /APP_VERSION = '1\.7\.2'/);
+assert.match(html, /function foamRowLooksShifted/);
+assert.match(html, /function unshiftS1S3FromS4Keys/);
+assert.match(html, /function normalizeFoamRow/);
+assert.doesNotMatch(html, /if \(headers\.length\) continue/);
 assert.match(html, /function allLineChoices/);
 assert.match(html, /function rowsForLine/);
 assert.match(html, /function failLinesForRows/);
@@ -419,6 +423,63 @@ const first = table.rows[0];
 assert.ok(parseFloat(col(first, 'Density')) === 0 || parseFloat(col(first, 'Density')) >= 0);
 assert.ok(col(first, 'Cell Count MD'));
 assert.ok(col(first, 'Slit/Width'));
+
+const s1Sections = splitDieGraph2(payloadS1);
+const s4Header = (sections.TABLES4 || []).find(isTsvHeaderLine);
+const s4Row = (sections.TABLES4 || []).find(l => l && !isTsvHeaderLine(l));
+const s1Header = (s1Sections.TABLES1S3 || []).find(isTsvHeaderLine);
+const s1Row = (s1Sections.TABLES1S3 || []).find(l => l && !isTsvHeaderLine(l));
+assert.ok(s4Header && s4Row && s1Header && s1Row);
+const mixed = parseTsv([s4Header, s4Row, s1Header, s1Row]);
+assert.equal(mixed.rows.length, 2);
+assert.equal(String(col(mixed.rows[0], 'User')), 'GWEXLER');
+assert.equal(String(col(mixed.rows[1], 'User')), 'SONOFRE');
+assert.equal(String(col(mixed.rows[1], 'Tape Color')), 'BROWN');
+assert.equal(String(col(mixed.rows[1], 'Cell Count MD')), '22');
+assert.notEqual(String(col(mixed.rows[1], 'Cell Count MD')).toUpperCase(), 'PASS');
+
+function foamRowLooksShifted(row) {
+  if (!row) return false;
+  if (String(row['Tape Color'] || '').trim() || String(row['Bundle Tight/Loose'] || '').trim()) return false;
+  const md = String(row['Cell Count MD'] ?? '').trim();
+  const cd = String(row['Cell Count CD'] ?? '').trim();
+  if (!md || !cd) return false;
+  const mdNum = parseFloat(md);
+  const cdNum = parseFloat(cd);
+  if (isFinite(mdNum) && isFinite(cdNum) && md !== 'PASS') return false;
+  const bundle = /^(pass|fail|pass\*|tight|loose|yes|no)$/i.test(md);
+  const color = /^(light\s+)?(blue|red|brown|green|yellow|orange|white|black|pink|purple|tan|clear|grey|gray|gold|silver|teal|navy)$/i.test(cd);
+  return bundle && color;
+}
+function unshiftS1S3FromS4Keys(row) {
+  const out = Object.assign({}, row);
+  out['Perf'] = row['Perf Roller On'];
+  out['Bundle Tight/Loose'] = row['Cell Count MD'];
+  out['Tape Color'] = row['Cell Count CD'];
+  out['Cell Count MD'] = row['Thickness Average'];
+  out['Cell Count CD'] = row['Thickness Range'];
+  out['Thickness Average'] = row['Density'];
+  out['Thickness Range'] = row['Pass/Fail'];
+  out['Density'] = row['User'];
+  out['Pass/Fail'] = row['Reason for Check'];
+  out['User'] = row['Notes'];
+  out['Reason for Check'] = row['T1'];
+  out['Notes'] = row['T2'];
+  return out;
+}
+const scrambled = {};
+s4Header.split('\t').forEach((h, j) => { if (h) scrambled[h.trim()] = s1Row.split('\t')[j] ?? ''; });
+assert.equal(String(scrambled['Cell Count MD']), 'PASS');
+assert.equal(String(scrambled['Cell Count CD']), 'BROWN');
+assert.equal(String(scrambled.Notes), 'SONOFRE');
+assert.ok(foamRowLooksShifted(scrambled));
+const fixedShift = unshiftS1S3FromS4Keys(scrambled);
+assert.equal(String(fixedShift.User), 'SONOFRE');
+assert.equal(String(fixedShift['Tape Color']), 'BROWN');
+assert.equal(String(fixedShift['Bundle Tight/Loose']), 'PASS');
+assert.equal(String(fixedShift['Cell Count MD']), '22');
+assert.ok(!foamRowLooksShifted(fixedShift));
+assert.ok(!foamRowLooksShifted(first));
 
 const tvals = [];
 let inPoints = false;

@@ -653,7 +653,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.6';
+const APP_VERSION = '1.7.7';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -3511,18 +3511,65 @@ function sapMapWorkCenter(v) {
   if (looksLikeLineValue(v)) return sapLineKey(v).replace(/\s+/g, '');
   return '';
 }
+function sapNormHeader(h) {
+  return String(h || '').replace(/\s+/g, ' ').trim().toLowerCase();
+}
 function sapHeaderKind(h) {
-  const s = String(h || '').replace(/\s+/g, ' ').trim();
+  const s = sapNormHeader(h);
   if (!s) return '';
-  if (/work\s*center/i.test(s)) return 'wc';
-  if (/^line\b|prod\s*line|machine/i.test(s)) return 'line';
-  if (/time\s*of\s*entry|entry\s*time|^time\b/i.test(s)) return 'time';
-  if (/entry\s*date|posting\s*date|mfg\s*date|prod\s*date|^date\b/i.test(s)) return 'date';
-  if (/material\s*desc|item\s*desc|^description$/i.test(s)) return 'desc';
-  if ((/^material$|item\s*(#|no\.?|number)?$|^sku\b|^part\b/i.test(s)) && !/desc/i.test(s)) return 'item';
-  if (/^qty$|^quantity$/i.test(s)) return 'qty';
-  if (/unit\s*of\s*entry|^uom$|^unit$/i.test(s)) return 'unit';
+  if (s === 'work center' || /^work\s*center\b/.test(s)) return 'wc';
+  if (s === 'line' || /^prod\s*line\b/.test(s)) return 'line';
+  if (s === 'time of entry' || s === 'entry time' || s === 'time') return 'time';
+  if (s === 'entry date') return 'entryDate';
+  if (s === 'posting date') return 'postingDate';
+  if (s === 'document date') return 'docDate';
+  if (s === 'date' || /^(mfg|prod)\s*date$/.test(s)) return 'date';
+  if (s === 'material description' || s === 'item description' || s === 'description') return 'desc';
+  if (s === 'material' || s === 'item' || s === 'item #' || s === 'item no' || s === 'item number' || s === 'sku') return 'item';
+  if (s === 'quantity' || s === 'qty') return 'qty';
+  if (s === 'qty in unit of entry') return 'qtyEntry';
+  if (s === 'unit of entry' || s === 'uom' || s === 'unit') return 'unit';
   return '';
+}
+function sapHeaderScore(row) {
+  const kinds = new Set();
+  (row || []).forEach(h => {
+    const k = sapHeaderKind(h);
+    if (k) kinds.add(k);
+  });
+  return kinds.size;
+}
+function findSapHeaderRow(grid) {
+  let best = -1, bestScore = 0;
+  const limit = Math.min((grid || []).length, 50);
+  for (let i = 0; i < limit; i++) {
+    const score = sapHeaderScore(grid[i]);
+    if (score > bestScore) { bestScore = score; best = i; }
+  }
+  return bestScore >= 2 ? best : -1;
+}
+function sapColsFromHeader(header) {
+  const cols = {
+    date: -1, entryDate: -1, postingDate: -1, docDate: -1,
+    item: -1, line: -1, wc: -1, time: -1, desc: -1, qty: -1, qtyEntry: -1, unit: -1
+  };
+  (header || []).forEach((h, i) => {
+    const kind = sapHeaderKind(h);
+    if (kind && cols[kind] < 0) cols[kind] = i;
+  });
+  if (cols.date < 0) cols.date = cols.entryDate >= 0 ? cols.entryDate
+    : (cols.postingDate >= 0 ? cols.postingDate : cols.docDate);
+  if (cols.qty < 0) cols.qty = cols.qtyEntry;
+  return cols;
+}
+function sapPickDate(row, cols) {
+  for (const key of ['entryDate', 'postingDate', 'docDate', 'date']) {
+    if (cols[key] >= 0) {
+      const dt = parseSapDate(row[cols[key]]);
+      if (dt) return dt;
+    }
+  }
+  return null;
 }
 function looksLikeLineValue(v) {
   const s = sapLineKey(v);
@@ -3579,6 +3626,10 @@ function parseSapDate(v) {
       const p = dateParts(n);
       if (p.y) return { y: p.y, m: p.m, d: p.d };
     }
+    if (/^\d{8}$/.test(s)) {
+      const y = +s.slice(0, 4), m = +s.slice(4, 6), d = +s.slice(6, 8);
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return { y, m, d };
+    }
   }
   let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
   if (m) return { y: +m[1], m: +m[2], d: +m[3] };
@@ -3586,20 +3637,18 @@ function parseSapDate(v) {
   if (m) {
     let y = +m[3];
     if (y < 100) y += 2000;
-    return { y, m: +m[1], d: +m[2] };
+    const a = +m[1], b = +m[2];
+    if (a > 12 && b <= 12) return { y, m: b, d: a };
+    return { y, m: a, d: b };
   }
   return null;
 }
 function parseSapPairs(grid) {
   if (!grid || !grid.length) return [];
-  const header = (grid[0] || []).map(h => String(h || '').trim());
-  const cols = { date: -1, item: -1, line: -1, wc: -1, time: -1, desc: -1, qty: -1, unit: -1 };
-  let start = 0;
-  header.forEach((h, i) => {
-    const kind = sapHeaderKind(h);
-    if (kind && cols[kind] < 0) cols[kind] = i;
-  });
-  if (Object.values(cols).some(i => i >= 0)) start = 1;
+  const headerAt = findSapHeaderRow(grid);
+  const header = (headerAt >= 0 ? grid[headerAt] : grid[0]) || [];
+  const cols = sapColsFromHeader(header);
+  let start = headerAt >= 0 ? headerAt + 1 : 0;
   const width = grid.reduce((n, row) => Math.max(n, (row || []).length), 0);
   const scanCol = (skip, test) => {
     for (let c = 0; c < width; c++) {
@@ -3615,36 +3664,33 @@ function parseSapPairs(grid) {
     }
     return -1;
   };
-  if (cols.date < 0) {
-    for (let c = 0; c < width; c++) {
-      if (parseSapDate((grid[start] || [])[c])) { cols.date = c; break; }
-    }
+  if (cols.item < 0 && headerAt < 0) {
+    cols.item = [0, 1, 2, 3].find(i => i < width && i !== cols.date) ?? 0;
   }
-  if (cols.wc < 0) cols.wc = scanCol(new Set([cols.date, cols.item, cols.line]), looksLikeWorkCenter);
+  if (cols.date < 0 && headerAt < 0) cols.date = cols.item === 0 ? 1 : 0;
+  if (cols.wc < 0) cols.wc = scanCol(new Set([cols.date, cols.item, cols.line, cols.entryDate, cols.postingDate, cols.docDate]), looksLikeWorkCenter);
   if (cols.line < 0) cols.line = scanCol(new Set([cols.date, cols.item, cols.wc]), looksLikeLineValue);
-  if (cols.item < 0) {
-    cols.item = [0, 1, 2, 3].find(i => i < width && i !== cols.date && i !== cols.line && i !== cols.wc);
-    if (cols.item == null) cols.item = cols.date === 0 ? 1 : 0;
-  }
-  if (cols.date < 0) cols.date = cols.item === 0 ? 1 : 0;
   const out = [];
+  if (cols.item < 0) return out;
   for (let i = start; i < grid.length; i++) {
-    const row = grid[i] || [];
-    const dt = parseSapDate(row[cols.date]);
+    const row = grid[i];
+    if (!row || !row.length) continue;
+    const dt = sapPickDate(row, cols);
     const item = String(row[cols.item] ?? '').trim();
     if (!dt || !sapItemKey(item)) continue;
     const wc = cols.wc >= 0 ? String(row[cols.wc] ?? '').trim() : '';
     const rawLine = cols.line >= 0 ? String(row[cols.line] ?? '').trim() : '';
     const line = sapMapWorkCenter(wc) || sapMapWorkCenter(rawLine) || rawLine;
     const tm = parseSapTime(cols.time >= 0 ? row[cols.time] : '');
-    const fromDate = parseSapTime(row[cols.date]);
+    const dateVal = cols.entryDate >= 0 ? row[cols.entryDate] : row[cols.date];
+    const fromDate = parseSapTime(dateVal);
     const hour = finiteNum(tm.hour) ? tm.hour : fromDate.hour;
-    const timeText = tm.text || (finiteNum(fromDate.hour) && String(row[cols.date]).includes('.') ? fromDate.text : '');
+    const timeText = tm.text || (finiteNum(fromDate.hour) && String(dateVal || '').includes('.') ? fromDate.text : '');
+    const qty = cols.qty >= 0 ? String(row[cols.qty] ?? '').trim() : (cols.qtyEntry >= 0 ? String(row[cols.qtyEntry] ?? '').trim() : '');
     out.push({
       y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item), line,
       desc: cols.desc >= 0 ? String(row[cols.desc] ?? '').trim() : '',
-      qty: cols.qty >= 0 ? String(row[cols.qty] ?? '').trim() : '',
-      unit: cols.unit >= 0 ? String(row[cols.unit] ?? '').trim() : '',
+      qty, unit: cols.unit >= 0 ? String(row[cols.unit] ?? '').trim() : '',
       timeText, hour,
       workCenter: wc || rawLine,
       hits: []
@@ -3837,11 +3883,11 @@ async function unzipEntries(buf) {
 }
 function parseSharedStrings(xml) {
   const out = [];
-  const siRe = /<si\b[^>]*>([\s\S]*?)<\/si>/gi;
+  const siRe = /<(?:[\w.]+:)?si\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?si>/gi;
   let m;
   while ((m = siRe.exec(xml))) {
     const texts = [];
-    const tRe = /<t\b[^>]*>([\s\S]*?)<\/t>/gi;
+    const tRe = /<(?:[\w.]+:)?t\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?t>/gi;
     let t;
     while ((t = tRe.exec(m[1]))) texts.push(decodeXmlText(t[1]));
     out.push(texts.join(''));
@@ -3850,42 +3896,90 @@ function parseSharedStrings(xml) {
 }
 function colRowFromRef(ref) {
   const m = String(ref || '').match(/^([A-Z]+)(\d+)$/i);
-  if (!m) return { c: 0, r: 0 };
+  if (!m) return { c: -1, r: 0 };
   let col = 0;
   for (const ch of m[1].toUpperCase()) col = col * 26 + (ch.charCodeAt(0) - 64);
   return { c: col - 1, r: +m[2] - 1 };
 }
 function parseSheetGrid(xml, strings) {
   const grid = [];
-  const rowRe = /<row\b[^>]*>([\s\S]*?)<\/row>/gi;
+  const rowRe = /<(?:[\w.]+:)?row\b([^>]*)>([\s\S]*?)<\/(?:[\w.]+:)?row>/gi;
   let rowM;
   while ((rowM = rowRe.exec(xml))) {
+    const rowAttrs = rowM[1] || '';
+    const rowNum = +((rowAttrs.match(/\br="(\d+)"/) || [])[1] || 0);
     const cells = [];
-    const cRe = /<c\b([^>]*)(?:\/>|>([\s\S]*?)<\/c>)/gi;
+    let nextC = 0;
+    const cRe = /<(?:[\w.]+:)?c\b([^>]*)(?:\/>|>([\s\S]*?)<\/(?:[\w.]+:)?c>)/gi;
     let cM;
-    while ((cM = cRe.exec(rowM[1]))) {
+    while ((cM = cRe.exec(rowM[2]))) {
       const attrs = cM[1] || '';
       const body = cM[2] || '';
       const ref = (attrs.match(/\br="([^"]+)"/) || [])[1];
       const t = (attrs.match(/\bt="([^"]+)"/) || [])[1] || '';
-      const pos = colRowFromRef(ref);
+      const pos = ref ? colRowFromRef(ref).c : nextC;
+      if (pos < 0) continue;
+      nextC = pos + 1;
       let val = '';
       if (t === 's') {
-        const v = (body.match(/<v\b[^>]*>([\s\S]*?)<\/v>/i) || [])[1];
+        const v = (body.match(/<(?:[\w.]+:)?v\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?v>/i) || [])[1];
         val = strings[Number(v)] || '';
-      } else if (t === 'inlineStr') {
+      } else if (t === 'inlineStr' || t === 'str') {
         const texts = [];
-        const tRe = /<t\b[^>]*>([\s\S]*?)<\/t>/gi;
+        const tRe = /<(?:[\w.]+:)?t\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?t>/gi;
         let tm;
         while ((tm = tRe.exec(body))) texts.push(decodeXmlText(tm[1]));
-        val = texts.join('');
+        val = texts.join('') || decodeXmlText((body.match(/<(?:[\w.]+:)?v\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?v>/i) || [])[1] || '');
       } else {
-        const v = (body.match(/<v\b[^>]*>([\s\S]*?)<\/v>/i) || [])[1];
+        const v = (body.match(/<(?:[\w.]+:)?v\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?v>/i) || [])[1];
         val = v == null ? '' : decodeXmlText(v);
       }
-      cells[pos.c] = val;
+      cells[pos] = val;
+    }
+    if (rowNum > 0) grid[rowNum - 1] = cells;
+    else grid.push(cells);
+  }
+  return grid;
+}
+function decodeSapText(buf) {
+  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  if (u8.length >= 2 && u8[0] === 0xFF && u8[1] === 0xFE) return new TextDecoder('utf-16le').decode(u8);
+  if (u8.length >= 2 && u8[0] === 0xFE && u8[1] === 0xFF) return new TextDecoder('utf-16be').decode(u8);
+  return new TextDecoder().decode(u8);
+}
+function parseSpreadsheetMlGrid(xml) {
+  const grid = [];
+  const rowRe = /<(?:[\w.]+:)?Row\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?Row>/gi;
+  let rowM;
+  while ((rowM = rowRe.exec(xml))) {
+    const cells = [];
+    let nextC = 0;
+    const cRe = /<(?:[\w.]+:)?Cell\b([^>]*)>([\s\S]*?)<\/(?:[\w.]+:)?Cell>/gi;
+    let cM;
+    while ((cM = cRe.exec(rowM[1]))) {
+      const idx = +((cM[1] || '').match(/ss:Index="(\d+)"/i) || [])[1];
+      const pos = idx ? idx - 1 : nextC;
+      nextC = pos + 1;
+      const data = ((cM[2] || '').match(/<(?:[\w.]+:)?Data\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?Data>/i) || [])[1];
+      cells[pos] = decodeXmlText(String(data || '').replace(/<[^>]+>/g, ''));
     }
     grid.push(cells);
+  }
+  return grid;
+}
+function parseHtmlTableGrid(html) {
+  const table = (String(html || '').match(/<table\b[\s\S]*?<\/table>/i) || [])[0] || '';
+  const grid = [];
+  const rowRe = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowM;
+  while ((rowM = rowRe.exec(table))) {
+    const cells = [];
+    const cRe = /<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi;
+    let cM;
+    while ((cM = cRe.exec(rowM[1]))) {
+      cells.push(decodeXmlText(String(cM[1] || '').replace(/<[^>]+>/g, '').trim()));
+    }
+    if (cells.length) grid.push(cells);
   }
   return grid;
 }
@@ -3893,21 +3987,43 @@ async function parseXlsxGrid(buf) {
   const files = await unzipEntries(buf);
   const names = Object.keys(files);
   const ssName = names.find(n => /sharedstrings\.xml$/i.test(n));
-  const sheetName = names.find(n => /worksheets\/sheet1\.xml$/i.test(n)) || names.find(n => /worksheets\/sheet\d+\.xml$/i.test(n));
-  if (!sheetName) throw new Error('sheet');
+  const sheets = names.filter(n => /worksheets\/sheet\d+\.xml$/i.test(n)).sort();
+  if (!sheets.length) throw new Error('sheet');
   const dec = new TextDecoder();
   const strings = ssName ? parseSharedStrings(dec.decode(files[ssName])) : [];
-  return parseSheetGrid(dec.decode(files[sheetName]), strings);
+  let best = [], bestScore = -1;
+  for (const sheetName of sheets) {
+    const grid = parseSheetGrid(dec.decode(files[sheetName]), strings);
+    const hdr = findSapHeaderRow(grid);
+    const score = hdr >= 0 ? sapHeaderScore(grid[hdr]) : -1;
+    if (score > bestScore) { bestScore = score; best = grid; }
+  }
+  return best;
+}
+function gridFromSapBuffer(buf) {
+  const u8 = new Uint8Array(buf);
+  const isZip = u8[0] === 0x50 && u8[1] === 0x4B;
+  if (isZip) return null;
+  const text = decodeSapText(buf);
+  if (/Excel\.Sheet|urn:schemas-microsoft-com:office:spreadsheet/i.test(text)) return parseSpreadsheetMlGrid(text);
+  if (/<table[\s>]/i.test(text)) return parseHtmlTableGrid(text);
+  return parseDelimitedGrid(text);
 }
 async function loadSapFile(file) {
   if (!file) return;
   const name = file.name || 'SAP.xlsx';
   const buf = await file.arrayBuffer();
-  const head = new Uint8Array(buf, 0, Math.min(4, buf.byteLength));
-  const isZip = head[0] === 0x50 && head[1] === 0x4B;
-  const grid = isZip ? await parseXlsxGrid(buf) : parseDelimitedGrid(new TextDecoder().decode(buf));
+  const u8 = new Uint8Array(buf);
+  const isZip = u8[0] === 0x50 && u8[1] === 0x4B;
+  const grid = isZip ? await parseXlsxGrid(buf) : gridFromSapBuffer(buf);
   const rows = parseSapPairs(grid);
-  if (!rows.length) { toast('No date / item rows found'); return; }
+  if (!rows.length) {
+    const hdr = findSapHeaderRow(grid);
+    toast(hdr < 0
+      ? 'Could not find Material / Entry Date columns'
+      : 'Found the columns but no Material + date values');
+    return;
+  }
   sapAudit = { name, rows };
   refreshSapHits(activeLine);
   persistPack();

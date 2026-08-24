@@ -187,15 +187,6 @@ try {
   .comp-tools { align-items: center; justify-content: flex-end; flex: 0 1 auto; }
   .week-nav { display: flex; align-items: center; gap: 6px; }
   .week-nav #complianceThisWeek { min-height: 40px; padding: 8px 12px; }
-  .more-wrap { position: relative; }
-  .more-pop {
-    position: absolute; right: 0; top: calc(100% + 4px); z-index: 22;
-    display: grid; gap: 6px; min-width: 200px; padding: 8px;
-    background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
-    box-shadow: var(--shadow);
-  }
-  .more-pop[hidden] { display: none; }
-  .more-pop button { width: 100%; }
   #screenMspecs { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
   .line-filter {
     display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--muted);
@@ -495,13 +486,8 @@ try {
       <button type="button" id="complianceDownload">Download PDF</button>
       <button class="secondary" type="button" id="complianceSap" title="Excel or CSV from SAP">SAP audit</button>
       <input type="file" id="complianceSapFile" accept=".xlsx,.xlsm,.xls,.csv,.txt,.tsv" hidden>
-      <div class="more-wrap" id="complianceMoreWrap">
-        <button class="secondary" type="button" id="complianceMore" aria-expanded="false" aria-haspopup="true">More</button>
-        <div class="more-pop" id="complianceMorePop" hidden>
-          <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
-          <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
-        </div>
-      </div>
+      <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
+      <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
       <button class="secondary" type="button" id="complianceBack">Back</button>
     </div>
   </header>
@@ -699,7 +685,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.19';
+const APP_VERSION = '1.7.20';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -736,7 +722,6 @@ const COL_ALIASES = {
 const NUM_COLS = new Set(['Item #','Item','Material','MSPEC','Qty','Bundle #','Slit/Width','Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density','Footage','Weight','Volume','Length','# Slits','Perf Width','Plank Weight','Average Single Shot','Average Double Shot','Total','Maximum allowed','# Dead Cells Pre','# Dead Cells Post','# Air Transfers Post','# Cells 8 Inch Length','# Cells Full Web Width','T Point 1','T Point 2','T Point 3']);
 const TONE_COLS = new Set(['Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
 const PLANTS = { foam: 'Extrusion Foam', bubble: 'Extrusion Bubble', p1: 'P1', rts: 'RTS', postings: 'Postings' };
-const POSTINGS_LINE = '__postings';
 const HISTORY_SECTIONS = [
   ['TABLES4', 'foam'],
   ['TABLES1S3', 'foam'],
@@ -2372,14 +2357,11 @@ function rowsForLine(line) {
 function fillLineSelects() {
   const all = allLineChoices();
   const foam = uniqueSorted([...new Set(plantRows('foam').map(r => realLineName(r.line)).filter(Boolean))], false);
-  if (activeLine && all.length && !all.includes(activeLine) && activeLine !== POSTINGS_LINE) activeLine = '';
+  if (activeLine && all.length && !all.includes(activeLine)) activeLine = '';
   const compliance = document.getElementById('complianceLine');
   if (compliance) {
-    const postingsOpt = sapAudit && sapAudit.rows && sapAudit.rows.length
-      ? `<option value="${POSTINGS_LINE}">Postings</option>`
-      : '';
-    compliance.innerHTML = `<option value="">All lines</option>` + postingsOpt + all.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('');
-    compliance.value = isPostingsPlant() ? POSTINGS_LINE : activeLine;
+    compliance.innerHTML = `<option value="">All lines</option>` + all.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('');
+    compliance.value = activeLine;
   }
   const spc = document.getElementById('spcLine');
   if (spc) {
@@ -2388,18 +2370,6 @@ function fillLineSelects() {
   }
 }
 function setActiveLine(line, from) {
-  if (String(line || '') === POSTINGS_LINE) {
-    if (!sapAudit || !sapAudit.rows.length) {
-      toast('Audit against SAP first');
-      fillLineSelects();
-      return;
-    }
-    activeLine = '';
-    setActivePlant('postings');
-    setScreen('history');
-    renderHistoryTable();
-    return;
-  }
   activeLine = String(line || '').trim();
   fillLineSelects();
   if (from === 'compliance' || screenName === 'compliance') renderCompliance();
@@ -3075,6 +3045,7 @@ function openCompliance(from) {
   if (!indexedRows.length) { toast('Paste results first'); return; }
   complianceBackTo = from === 'history' ? 'history' : 'welcome';
   complianceMonday = mondayOfLocalDate(new Date());
+  if (isPostingsPlant()) setActivePlant('foam', { keepFilters: true });
   fillLineSelects();
   setViewMode('centration');
   setScreen('compliance');
@@ -5660,26 +5631,6 @@ document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true)
 document.getElementById('histPaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histCompliance').onclick = () => openCompliance('history');
 document.getElementById('histMspecs').onclick = openMspecs;
-function closeComplianceMore() {
-  const pop = document.getElementById('complianceMorePop');
-  const btn = document.getElementById('complianceMore');
-  if (pop) pop.hidden = true;
-  if (btn) btn.setAttribute('aria-expanded', 'false');
-}
-document.getElementById('complianceMore').onclick = (e) => {
-  e.stopPropagation();
-  const pop = document.getElementById('complianceMorePop');
-  const btn = document.getElementById('complianceMore');
-  const open = !pop.hidden;
-  pop.hidden = open;
-  btn.setAttribute('aria-expanded', open ? 'false' : 'true');
-};
-document.getElementById('complianceMorePop').addEventListener('click', (e) => {
-  if (e.target.closest('button')) closeComplianceMore();
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeComplianceMore();
-});
 document.getElementById('complianceMspecs').onclick = openMspecs;
 document.getElementById('histSpc').onclick = openSpc;
 document.getElementById('histDownload').onclick = downloadHistoryExcel;
@@ -5895,7 +5846,6 @@ document.getElementById('histHead').addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#filterPop') && !e.target.closest('.th-menu')) closeFilterPop();
   if (!e.target.closest('#spcValueCombo')) hideSpcValueList();
-  if (!e.target.closest('#complianceMoreWrap')) closeComplianceMore();
 });
 document.addEventListener('paste', (e) => {
   const tag = (e.target && e.target.tagName) || '';

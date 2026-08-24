@@ -250,12 +250,16 @@ try {
   .comp-sum .warn, .comp-sum.warn { color: var(--thin); }
   .comp-sum .gray, .comp-sum.gray { color: #9ca3af; }
   .comp-empty { color: var(--muted); font-size: 14px; margin: 0; }
-  .comp-all { display: grid; gap: 8px; }
+  .comp-all { display: grid; gap: 12px; }
   .comp-all > b { font-size: 18px; }
-  .comp-all-line { display: grid; gap: 2px; }
+  .comp-all-line { display: grid; gap: 4px; }
   .comp-all-line b { font-size: 16px; }
-  .comp-all-line ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; }
-  .comp-all-line li { margin: 2px 0; }
+  .comp-all-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .comp-all-table th, .comp-all-table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .comp-all-table th { color: var(--muted); font-size: 12px; letter-spacing: .03em; text-transform: uppercase; }
+  .comp-all-table td.day { white-space: nowrap; font-weight: 700; width: 7.5em; }
+  .comp-all-table td.desc { white-space: normal; line-height: 1.3; }
+  .comp-all-table td.qty { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .rpt-list { max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 4px; }
   .rpt-list label { display: flex; align-items: center; gap: 8px; font-weight: 400; }
   .rpt-list label span:first-of-type { flex: 1; min-width: 0; }
@@ -694,7 +698,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.22';
+const APP_VERSION = '1.7.23';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -3125,7 +3129,7 @@ function complianceUncheckedByLine(monday) {
     day.setUTCDate(monday.getUTCDate() + d);
     const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, dd = day.getUTCDate();
     if (ymdNum(y, m, dd) > todayN) continue;
-    const dayLabel = fmtWeekDate(day);
+    const dayLabel = fmtDayDate(y, m, dd);
     for (const r of complianceMergedRows(y, m, dd, '')) {
       if (!r.hasSap || r.kind !== 'miss') continue;
       const line = String(r.line || '').trim() || 'Unknown';
@@ -3137,7 +3141,9 @@ function complianceUncheckedByLine(monday) {
       rec.items.push({
         item: r.itemLabel || r.item || '—',
         desc: r.desc || '',
-        day: dayLabel
+        qty: r.qty || '',
+        day: dayLabel,
+        dayN: ymdNum(y, m, dd)
       });
     }
   }
@@ -3155,11 +3161,21 @@ function complianceAllLinesHtml(monday) {
   return `<div class="comp-all">
     <b>Posted items with no quality check</b>
     <p class="hist-meta">${groups.length} line${groups.length === 1 ? '' : 's'} · ${n} item${n === 1 ? '' : 's'}</p>
-    ${groups.map(g => `<div class="comp-all-line">
-      <b>${esc(g.line)}</b>
-      <span class="hist-meta">${g.items.length} item${g.items.length === 1 ? '' : 's'}</span>
-      <ul>${g.items.map(it => `<li>${esc(it.day)} · ${esc(it.item)}${it.desc ? ` · ${esc(it.desc)}` : ''}</li>`).join('')}</ul>
-    </div>`).join('')}
+    ${groups.map(g => complianceAllLineTable(g)).join('')}
+  </div>`;
+}
+function complianceAllLineTable(g) {
+  const rows = (g.items || []).slice().sort((a, b) => (a.dayN - b.dayN) || String(a.item).localeCompare(String(b.item), undefined, { numeric: true }));
+  let prev = '';
+  const body = rows.map(it => {
+    const day = it.day === prev ? '' : it.day;
+    prev = it.day;
+    return `<tr${day ? ' class="day-start"' : ''}><td class="day">${esc(day)}</td><td>${esc(it.item)}</td><td class="desc">${esc(it.desc || '—')}</td><td class="qty">${esc(it.qty || '—')}</td></tr>`;
+  }).join('');
+  return `<div class="comp-all-line">
+    <b>${esc(g.line)}</b>
+    <span class="hist-meta">${rows.length} item${rows.length === 1 ? '' : 's'}</span>
+    <table class="comp-all-table"><thead><tr><th>Day</th><th>Material</th><th>Description</th><th>Qty posted</th></tr></thead><tbody>${body}</tbody></table>
   </div>`;
 }
 function fmtHourLabel(h) {
@@ -4766,22 +4782,28 @@ function pdfDrawAllLinesUnchecked(doc, page, y, monday, subtitle) {
   const n = groups.reduce((s, g) => s + g.items.length, 0);
   pdfText(page, 40, y + 10, `${groups.length} line${groups.length === 1 ? '' : 's'} · ${n} item${n === 1 ? '' : 's'}`, { size: 9, color: '#3e4a55' });
   y += 18;
+  const cols = [
+    { title: 'Day', w: 88 },
+    { title: 'Material', w: 92 },
+    { title: 'Description', w: 248 },
+    { title: 'Qty posted', w: 104, align: 'right' }
+  ];
   for (const g of groups) {
-    cur = pdfComplianceNeed(doc, page, y, 28, subtitle);
+    cur = pdfComplianceNeed(doc, page, y, 36, subtitle);
     page = cur.page;
     y = cur.y;
     pdfText(page, 40, y + 11, `${g.line}  ·  ${g.items.length} item${g.items.length === 1 ? '' : 's'}`, { size: 10, bold: true });
     y += 16;
-    for (const it of g.items) {
-      const text = `${it.day} · ${it.item}${it.desc ? ` · ${it.desc}` : ''}`;
-      const wrapped = pdfWrap(text, 8, 520);
-      cur = pdfComplianceNeed(doc, page, y, wrapped.length * 11, subtitle);
-      page = cur.page;
-      y = cur.y;
-      wrapped.forEach((ln, i) => pdfText(page, 52, y + 10 + i * 11, ln, { size: 8, color: '#3e4a55' }));
-      y += wrapped.length * 11;
-    }
-    y += 8;
+    const rows = (g.items || []).slice().sort((a, b) => (a.dayN - b.dayN) || String(a.item).localeCompare(String(b.item), undefined, { numeric: true }));
+    let prev = '';
+    const tableRows = rows.map(it => {
+      const day = it.day === prev ? '' : it.day;
+      prev = it.day;
+      return [day, it.item, it.desc || '—', it.qty || '—'];
+    });
+    const drawn = pdfDrawTable(doc, page, y, cols, tableRows, { margin: 40, size: 7 });
+    page = drawn.page;
+    y = drawn.y + 14;
   }
   return { page, y: y + 6 };
 }

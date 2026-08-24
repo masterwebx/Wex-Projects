@@ -248,7 +248,9 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.28'/);
+assert.match(html, /APP_VERSION = '1\.7\.29'/);
+assert.match(html, /function sapRealignRow/);
+assert.match(html, /function sapLooksUnit/);
 assert.match(html, /id="histSpace"/);
 assert.match(html, /hist-virt/);
 assert.match(html, /translate3d/);
@@ -1230,6 +1232,39 @@ const SAP_WORK_CENTERS = {
 function looksLikeLineValue(v) {
   return /^(S[134]|COEX|MONO|P1|RTS|S1\s*S3)$/i.test(String(v ?? '').trim());
 }
+function looksLikeWorkCenter(v) {
+  return /^VIS[A-Z]{2,3}\d{2}$/i.test(String(v || '').trim());
+}
+function sapLooksUnit(v) {
+  return /^(EA|PC|PCS|KG|LB|M|FT|CS|RL|ROL|BDL|BAG|PAL|PK|PKS|BOX)$/i.test(String(v || '').trim());
+}
+function sapRealignRow(row, cols) {
+  const wcIdx = cols && cols.wc;
+  if (!row || wcIdx == null || wcIdx < 0) return row;
+  if (looksLikeWorkCenter(row[wcIdx])) return row;
+  let found = -1;
+  for (let i = 0; i < row.length; i++) {
+    if (looksLikeWorkCenter(row[i])) { found = i; break; }
+  }
+  if (found < 0 || found === wcIdx) return row;
+  const out = row.slice();
+  const delta = wcIdx - found;
+  let at = -1;
+  if (cols.qtyEntry >= 0 && sapLooksUnit(out[cols.qtyEntry]) && !sapLooksUnit(out[cols.unit])) at = cols.qtyEntry;
+  else if (cols.unit >= 0 && !sapLooksUnit(out[cols.unit]) && isFinite(parseSapNumber(out[cols.unit]))) at = cols.unit;
+  else if (cols.qty >= 0 && sapLooksUnit(out[cols.qty])) at = cols.qty;
+  if (at < 0) {
+    at = delta > 0
+      ? (cols.unit >= 0 ? cols.unit + 1 : (cols.qtyEntry >= 0 ? cols.qtyEntry + 1 : wcIdx))
+      : wcIdx;
+  }
+  if (delta > 0) {
+    for (let k = 0; k < delta; k++) out.splice(at, 0, '');
+  } else {
+    out.splice(at, -delta);
+  }
+  return out;
+}
 function sapMapWorkCenter(v) {
   const key = String(v ?? '').trim().toUpperCase().replace(/\s+/g, '');
   if (SAP_WORK_CENTERS[key]) return SAP_WORK_CENTERS[key];
@@ -1319,8 +1354,9 @@ function parseSapPairs(grid) {
   const out = [];
   if (cols.item < 0) return out;
   for (let i = start; i < grid.length; i++) {
-    const row = grid[i];
+    let row = grid[i];
     if (!row || !row.length) continue;
+    row = sapRealignRow(row, cols);
     const dt = sapPickDate(row, cols);
     const item = String(row[cols.item] ?? '').trim();
     if (!dt || !sapItemKey(item)) continue;
@@ -1477,6 +1513,29 @@ function detectSapDelim(line) {
 assert.equal(detectSapDelim('Plant\tDocument Date\tMaterial'), '\t');
 assert.equal(detectSapDelim('Plant;Document Date;Material'), ';');
 assert.equal(detectSapDelim('Plant,Document Date,Material'), ',');
+function parseDelimitedGrid(text) {
+  const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => String(l).trim());
+  const delim = detectSapDelim(lines[0] || '');
+  return lines.map(line => {
+    if (delim === '\t') return line.split('\t');
+    const out = [];
+    let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (q && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (q || cur.length === 0) q = !q;
+        else cur += ch;
+      } else if (ch === delim && !q) { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out;
+  });
+}
+const sapInchCsv = parseDelimitedGrid('Material,Material Description,Quantity\n43013,AF125 1/8 48"X450\',172');
+assert.equal(sapInchCsv[1][1], 'AF125 1/8 48"X450\'');
+assert.equal(sapInchCsv[1][2], '172');
 const sapCsv = parseSapPairs([
   'Plant;Document Date;Posting Date;Material;Material Description;Quantity;Time of Entry;Entry Date;Work Center'.split(';'),
   '6509;8/24/2026;8/24/2026;303405;SPC SLIP;7;10:00:14 AM;8/24/2026;VISCBE01'.split(';')
@@ -1684,6 +1743,37 @@ assert.ok(!sapUserSlice.some(r => r.itemKey === '402567'));
 const sap1105 = sapUserSlice.find(r => r.itemKey === '36761');
 assert.equal(sap1105.hour, 11);
 assert.match(String(sap1105.timeText), /11:05/);
+const sapShiftText = [
+  sapLiveHeader.join('\t'),
+  '6509\t8/13/2026\t8/13/2026\t43013\tAF125 1/8 48"X450\'\t172\t172\tBDL\t5699.91\t4910573454\t2914169\tGR for order\t\t\tBTCH-USER\t16:35:01\t8/13/2026\tVISFSE01\t101\tF\tFG\t0',
+  '6509\t8/13/2026\t8/13/2026\t300715\tAF1000 1.7# WIP NA 53"X 200\'\t22\t22\tBDL\t2557.43\t4910573454\t2908363\tGR for order\t\t\tBTCH-USER\t16:35:01\t8/13/2026\tVISFSE04\t101\tF\tFG\t0',
+  '6509\t8/13/2026\t8/13/2026\t3030054\tAF500 HD1.7# WIP WH 1/2 53"X 500\'\t40\t40\tBDL\t6290.67\t4910573419\t2916113\tGR for order\t\t\tBTCH-USER\t16:30:01\t8/13/2026\tVISFSE03\t101\tF\tFG\t0',
+  '6509\t8/12/2026\t8/13/2026\t\tLABOR WISEMAN,JUSTIN 7/24/2026\t0\t1\tEA\t202\t5003071201\t\tGR for acct assgmnt\t4501145610\t\tPREYNOLDS\t16:15:17\t8/13/2026\t\t101\tB\t\t0',
+  '6509\t8/13/2026\t8/13/2026\t44903\tMPC REG 1/48"X375\' P12",20"\t20\tBDL\t797.12\t4910573357\t2922232\tGR for order\t\t\tBTCH-USER\t16:10:00\t8/13/2026\tVISCBE01\t101\tF\tFG\t0\t',
+  '6509\t8/13/2026\t8/13/2026\t439097\tPANTA PAK LA16 BLK A 500/CS\t96\t96\tCS\t4694.5\t4910573342\t2926746\tGR for order\t\t\tBTCH-USER\t16:05:00\t8/13/2026\tVISPPL01\t101\tF\tFG\t0',
+  '6509\t8/12/2026\t8/13/2026\t\t15665A906 STEEL PIANO HINGE W/O HOLES\t0\t1\tEA\t4.55\t5003071200\t\tGR for acct assgmnt\t4501145634\t\tPREYNOLDS\t16:04:19\t8/13/2026\t\t101\tB\t\t0'
+].join('\n');
+const sapShifted = parseSapPairs(parseDelimitedGrid(sapShiftText));
+assert.deepEqual(sapShifted.map(r => r.itemKey).sort(), ['300715', '3030054', '43013', '44903']);
+const sapShift44903 = sapShifted.find(r => r.itemKey === '44903');
+assert.equal(sapShift44903.line, 'COEX');
+assert.equal(sapShift44903.workCenter, 'VISCBE01');
+assert.equal(sapShift44903.qty, '20');
+assert.equal(sapShift44903.unit, 'BDL');
+assert.equal(sapShift44903.hour, 16);
+assert.match(String(sapShift44903.timeText), /16:10/);
+assert.match(sapShift44903.desc, /P12",20"/);
+assert.equal(sapShifted.find(r => r.itemKey === '43013').line, 'S1');
+assert.ok(!sapShifted.some(r => /LABOR|HINGE|PANTA/i.test(r.desc)));
+const sapShiftExtra = parseSapPairs([
+  sapLiveHeader,
+  ['6509', '8/13/2026', '8/13/2026', '44903', 'MPC REG', '20', '20', 'BDL', '797.12', '4910573357', '2922232', 'GR for order', '', '', 'BTCH-USER', '16:10:00', '8/13/2026', '', 'VISCBE01', '101', 'F', 'FG', '0']
+]);
+assert.equal(sapShiftExtra.length, 1);
+assert.equal(sapShiftExtra[0].line, 'COEX');
+assert.equal(sapShiftExtra[0].qty, '20');
+assert.equal(sapShiftExtra[0].unit, 'BDL');
+assert.equal(sapShiftExtra[0].hour, 16);
 
 function unzipEntriesNode(buf) {
   const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);

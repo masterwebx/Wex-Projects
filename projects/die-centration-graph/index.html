@@ -459,8 +459,8 @@ try {
       <label class="line-filter">Line <select id="complianceLine"></select></label>
       <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
       <button type="button" id="complianceDownload">Download PDF</button>
-      <button class="secondary" type="button" id="complianceSap">Audit against SAP</button>
-      <input type="file" id="complianceSapFile" accept=".xlsx,.xlsm,.csv,.txt" hidden>
+      <button class="secondary" type="button" id="complianceSap" title="Excel or CSV from SAP">Audit against SAP</button>
+      <input type="file" id="complianceSapFile" accept=".xlsx,.xlsm,.xls,.csv,.txt,.tsv" hidden>
       <button class="secondary" type="button" id="complianceSapClear" hidden>Clear SAP audit</button>
       <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
     </div>
@@ -654,7 +654,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.9';
+const APP_VERSION = '1.7.10';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -851,8 +851,8 @@ function applyStoredSapAudit(data) {
       desc: String(r.desc || ''),
       qty: r.qty == null ? '' : r.qty,
       unit: String(r.unit || ''),
-      timeText: String(r.timeText || ''),
-      hour: finiteNum(r.hour) ? +r.hour : NaN,
+      timeText: formatSapPosted(r.timeText || ''),
+      hour: finiteNum(r.hour) ? +r.hour : (parseSapTime(r.timeText).hour),
       workCenter: String(r.workCenter || ''),
       hits: []
     })).filter(r => r.y && r.d && r.itemKey)
@@ -3539,12 +3539,15 @@ function complianceMergedRows(y, m, d, line) {
       mspec,
       mspecLabel: mspec ? mspecWithTarget(mspec) : '',
       qty: sap ? sapQtyText(sap) : '',
-      posted: sap ? (sap.timeText || '') : '',
+      posted: sap ? formatSapPosted(sap.timeText) : '',
       period: sum.period,
       result,
       fails: sum.fails,
       kind,
       hasSap: !!sap,
+      hasCheck: kind !== 'miss',
+      firstSerial: g && finiteNum(g.first) ? g.first : NaN,
+      postedMins: sapPostedMinutes(sap),
       viewItem: item
     });
   };
@@ -3557,7 +3560,7 @@ function complianceMergedRows(y, m, d, line) {
     if (used.has(sapItemKey(g.item))) continue;
     add(null, g);
   }
-  return out;
+  return sortComplianceRows(out);
 }
 function sapItemKey(v) {
   let s = String(v ?? '').trim();
@@ -3661,6 +3664,44 @@ function clockText(hour, minute) {
   const h = ((h24 + 11) % 12) + 1;
   const am = h24 < 12 ? 'AM' : 'PM';
   return `${h}:${String(finiteNum(minute) ? minute : 0).padStart(2, '0')} ${am}`;
+}
+function formatSapPosted(v) {
+  if (v == null || v === '') return '';
+  const tm = parseSapTime(v);
+  if (tm.text && !/e/i.test(tm.text)) return tm.text;
+  return /e/i.test(String(v)) ? '' : String(v).trim();
+}
+function sapPostedMinutes(sap) {
+  if (!sap) return NaN;
+  if (finiteNum(sap.hour)) {
+    const tm = parseSapTime(sap.timeText);
+    const minute = finiteNum(tm.minute) ? tm.minute : 0;
+    return sap.hour * 60 + minute;
+  }
+  const tm = parseSapTime(sap.timeText);
+  return finiteNum(tm.hour) ? tm.hour * 60 + (tm.minute || 0) : NaN;
+}
+function periodStartMinutes(period) {
+  const bit = String(period || '').split(/[–-]/)[0].trim();
+  const tm = parseSapTime(bit);
+  return finiteNum(tm.hour) ? tm.hour * 60 + (tm.minute || 0) : NaN;
+}
+function sortComplianceRows(rows) {
+  const key = r => {
+    if (r.hasCheck) {
+      if (finiteNum(r.firstSerial)) return r.firstSerial;
+      const mins = periodStartMinutes(r.period);
+      if (finiteNum(mins)) return 40000 + mins / 1440;
+      if (r.kind === 'prev' && finiteNum(r.postedMins)) return 40000 + r.postedMins / 1440;
+      return 50000;
+    }
+    if (finiteNum(r.postedMins)) return 60000 + r.postedMins / 1440;
+    return 70000;
+  };
+  return rows.slice().sort((a, b) => {
+    if (!!a.hasCheck !== !!b.hasCheck) return a.hasCheck ? -1 : 1;
+    return key(a) - key(b) || String(a.item).localeCompare(String(b.item));
+  });
 }
 function parseSapNumber(v) {
   if (v == null || v === '') return NaN;
@@ -3920,9 +3961,22 @@ function sapDayHtml(y, m, d) {
 function decodeXmlText(s) {
   return String(s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
 }
+function detectSapDelim(line) {
+  const s = String(line || '');
+  const tab = (s.match(/\t/g) || []).length;
+  const semi = (s.match(/;/g) || []).length;
+  let comma = 0, q = false;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '"') q = !q;
+    else if (s[i] === ',' && !q) comma += 1;
+  }
+  if (tab && tab >= semi && tab >= comma) return '\t';
+  if (semi > comma) return ';';
+  return ',';
+}
 function parseDelimitedGrid(text) {
   const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => String(l).trim());
-  const delim = (lines[0] || '').includes('\t') ? '\t' : ',';
+  const delim = detectSapDelim(lines[0] || '');
   return lines.map(line => {
     if (delim === '\t') return line.split('\t');
     const out = [];
@@ -3932,7 +3986,7 @@ function parseDelimitedGrid(text) {
       if (ch === '"') {
         if (q && line[i + 1] === '"') { cur += '"'; i++; }
         else q = !q;
-      } else if (ch === ',' && !q) { out.push(cur); cur = ''; }
+      } else if (ch === delim && !q) { out.push(cur); cur = ''; }
       else cur += ch;
     }
     out.push(cur);
@@ -4125,7 +4179,7 @@ async function loadSapFile(file) {
   } catch (err) {
     console.warn(err);
     hideProgress();
-    toast('Could not read that Excel file');
+    toast('Could not read that file. Try a CSV export from SAP.');
     return;
   }
   showProgress('Reading SAP export', 72, 'Finding production postings');
@@ -4137,10 +4191,10 @@ async function loadSapFile(file) {
   if (!rows.length) {
     const hdr = findSapHeaderRow(grid);
     toast(hdr < 0
-      ? 'Could not find Material / Entry Date columns'
+      ? 'Could not find Material / Entry Date columns. Try a CSV export from SAP.'
       : (itemDates || otherLines
         ? 'Found the export, but no postings for COEX, S1, S3, S4, MONO, P1, or RTS'
-        : 'Found the columns but no Material + date values'));
+        : 'Found the columns but no Material + date values. Try a CSV export from SAP.'));
     return;
   }
   sapAudit = { name, rows };
@@ -5140,7 +5194,7 @@ document.getElementById('complianceSapFile').onchange = async (e) => {
   catch (err) {
     console.warn(err);
     hideProgress();
-    toast('Could not read that Excel file');
+    toast('Could not read that file. Try a CSV export from SAP.');
   }
 };
 document.getElementById('complianceSapClear').onclick = () => {

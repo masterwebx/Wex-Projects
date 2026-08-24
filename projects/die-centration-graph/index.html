@@ -180,6 +180,8 @@ try {
   .combo-list .hist-meta { padding: 10px; }
   .rpt-list .spc-pts { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
   #screenCompliance { grid-template-rows: auto auto minmax(0, 1fr); padding: 10px 12px; gap: 8px; height: 100dvh; }
+  html[data-comp="all"] #screenCompliance { grid-template-rows: auto minmax(0, 1fr); }
+  .comp-chart[hidden] { display: none; }
   #screenCompliance header.comp-head {
     display: flex; justify-content: space-between; align-items: center; gap: 12px;
   }
@@ -248,12 +250,9 @@ try {
   .comp-sum .warn, .comp-sum.warn { color: var(--thin); }
   .comp-sum .gray, .comp-sum.gray { color: #9ca3af; }
   .comp-empty { color: var(--muted); font-size: 14px; margin: 0; }
-  .comp-all { display: grid; gap: 12px; }
-  .comp-all > b { font-size: 16px; }
-  .comp-all-line {
-    display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line);
-    border-radius: 12px; background: var(--idle);
-  }
+  .comp-all { display: grid; gap: 8px; }
+  .comp-all > b { font-size: 18px; }
+  .comp-all-line { display: grid; gap: 2px; }
   .comp-all-line b { font-size: 16px; }
   .comp-all-line ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; }
   .comp-all-line li { margin: 2px 0; }
@@ -501,7 +500,7 @@ try {
       <button class="secondary" type="button" id="complianceBack">Back</button>
     </div>
   </header>
-  <div class="card comp-chart">
+  <div class="card comp-chart" id="complianceChart">
     <div class="comp-legend" id="complianceLegend">
       <span><i style="background:#22c55e"></i>Checked</span>
       <span><i style="background:#9ca3af"></i>NO CHECK</span>
@@ -695,7 +694,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.21';
+const APP_VERSION = '1.7.22';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -3078,8 +3077,10 @@ function renderCompliance() {
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
   const legend = document.getElementById('complianceLegend');
   if (legend) legend.hidden = !activeLine;
+  const chart = document.getElementById('complianceChart');
+  if (chart) chart.hidden = !activeLine;
+  document.documentElement.setAttribute('data-comp', activeLine ? 'line' : 'all');
   if (activeLine) renderComplianceHours(monday);
-  else renderComplianceAllLines(monday);
   renderComplianceDays(monday);
   const jump = document.getElementById('complianceJumpDate');
   if (jump) jump.value = isoFromParts(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate());
@@ -3142,20 +3143,16 @@ function complianceUncheckedByLine(monday) {
   }
   return uniqueSorted([...byLine.keys()], false).map(k => byLine.get(k));
 }
-function renderComplianceAllLines(monday) {
-  const el = document.getElementById('complianceHours');
-  if (!el) return;
+function complianceAllLinesHtml(monday) {
   if (!sapAudit || !sapAudit.rows || !sapAudit.rows.length) {
-    el.innerHTML = '<p class="comp-empty">Load an SAP export to see which lines posted items without a quality check.</p>';
-    return;
+    return '<div class="comp-all"><b>Posted items with no quality check</b><p class="comp-empty">Load an SAP export to see which lines posted items without a quality check.</p></div>';
   }
   const groups = complianceUncheckedByLine(monday);
   if (!groups.length) {
-    el.innerHTML = '<p class="hist-meta">Every posted item this week has a quality check.</p>';
-    return;
+    return '<div class="comp-all"><b>Posted items with no quality check</b><p class="hist-meta">Every posted item this week has a quality check.</p></div>';
   }
   const n = groups.reduce((s, g) => s + g.items.length, 0);
-  el.innerHTML = `<div class="comp-all">
+  return `<div class="comp-all">
     <b>Posted items with no quality check</b>
     <p class="hist-meta">${groups.length} line${groups.length === 1 ? '' : 's'} · ${n} item${n === 1 ? '' : 's'}</p>
     ${groups.map(g => `<div class="comp-all-line">
@@ -3236,6 +3233,7 @@ function renderComplianceDays(monday) {
   const todayN = ymdNum(today.y, today.m, today.d);
   const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const parts = [];
+  if (!activeLine) parts.push(complianceAllLinesHtml(monday));
   for (let d = 0; d < 7; d++) {
     const day = new Date(monday.getTime());
     day.setUTCDate(monday.getUTCDate() + d);
@@ -4744,6 +4742,49 @@ function syncCompRptMode() {
   const box = document.getElementById('compRptEachLines');
   if (box) box.hidden = combined;
 }
+function pdfComplianceNeed(doc, page, y, need, subtitle) {
+  if (y + need <= page.h - 40) return { page, y };
+  page = pdfAddPage(doc);
+  pdfHeader(page, 'Compliance report', subtitle);
+  return { page, y: 72 };
+}
+function pdfDrawAllLinesUnchecked(doc, page, y, monday, subtitle) {
+  let cur = pdfComplianceNeed(doc, page, y, 36, subtitle);
+  page = cur.page;
+  y = cur.y;
+  pdfText(page, 40, y + 12, 'Posted items with no quality check', { size: 12, bold: true });
+  y += 20;
+  if (!sapAudit || !sapAudit.rows || !sapAudit.rows.length) {
+    pdfText(page, 40, y + 10, 'Load an SAP export to see which lines posted items without a quality check.', { size: 9, color: '#3e4a55' });
+    return { page, y: y + 24 };
+  }
+  const groups = complianceUncheckedByLine(monday);
+  if (!groups.length) {
+    pdfText(page, 40, y + 10, 'Every posted item this week has a quality check.', { size: 9, color: '#3e4a55' });
+    return { page, y: y + 24 };
+  }
+  const n = groups.reduce((s, g) => s + g.items.length, 0);
+  pdfText(page, 40, y + 10, `${groups.length} line${groups.length === 1 ? '' : 's'} · ${n} item${n === 1 ? '' : 's'}`, { size: 9, color: '#3e4a55' });
+  y += 18;
+  for (const g of groups) {
+    cur = pdfComplianceNeed(doc, page, y, 28, subtitle);
+    page = cur.page;
+    y = cur.y;
+    pdfText(page, 40, y + 11, `${g.line}  ·  ${g.items.length} item${g.items.length === 1 ? '' : 's'}`, { size: 10, bold: true });
+    y += 16;
+    for (const it of g.items) {
+      const text = `${it.day} · ${it.item}${it.desc ? ` · ${it.desc}` : ''}`;
+      const wrapped = pdfWrap(text, 8, 520);
+      cur = pdfComplianceNeed(doc, page, y, wrapped.length * 11, subtitle);
+      page = cur.page;
+      y = cur.y;
+      wrapped.forEach((ln, i) => pdfText(page, 52, y + 10 + i * 11, ln, { size: 8, color: '#3e4a55' }));
+      y += wrapped.length * 11;
+    }
+    y += 8;
+  }
+  return { page, y: y + 6 };
+}
 function buildCompliancePdf(dayIdxs, line) {
   if (!complianceMonday) complianceMonday = mondayOfLocalDate(new Date());
   const selected = (dayIdxs && dayIdxs.length) ? dayIdxs.slice().sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6];
@@ -4756,35 +4797,42 @@ function buildCompliancePdf(dayIdxs, line) {
   const SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const doc = newPdfDoc(612, 792);
   let page = pdfAddPage(doc);
-    const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (line ? `  |  Line ${line}` : '  |  All lines');
+    const allLines = !String(line || '').trim();
+    const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (allLines ? '  |  All lines' : `  |  Line ${line}`);
     pdfHeader(page, 'Compliance report', subtitle);
     let y = 72;
-    const legend = [['#22c55e', 'Checked'], ['#9ca3af', 'NO CHECK'], ['#ef4444', 'No checks'], ['#ffffff', 'Not yet']];
-    let lx = 40;
-    legend.forEach(([color, label]) => {
-      pdfFillStrokeRect(page, lx, y, 10, 10, color, color === '#ffffff' ? '#d5dde4' : color, 0.5);
-      pdfText(page, lx + 14, y + 9, label, { size: 8, color: '#3e4a55' });
-      lx += 88;
-    });
-    y += 22;
-    const cell = 14, labelW = 28, gap = 2;
-    for (let h = 0; h < 24; h++) {
-      pdfText(page, 40 + labelW + h * (cell + gap) + cell / 2, y + 8, String(h).padStart(2, '0'), { size: 6, color: '#3e4a55', align: 'center' });
-    }
-    y += 12;
-    for (let d = 0; d < 7; d++) {
-      const day = new Date(monday.getTime());
-      day.setUTCDate(monday.getUTCDate() + d);
-      const hours = dayHourStatuses(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), today, line);
-      pdfText(page, 40, y + 11, SHORT[d], { size: 8, color: '#3e4a55', bold: true });
-      hours.forEach((st, h) => {
-        const fill = st === 'check' ? '#22c55e' : st === 'nocheck' ? '#9ca3af' : st === 'miss' ? '#ef4444' : '#ffffff';
-        const stroke = st === 'future' ? '#e5e7eb' : (st === 'check' ? '#15803d' : st === 'nocheck' ? '#6b7280' : st === 'miss' ? '#b91c1c' : '#d5dde4');
-        pdfFillStrokeRect(page, 40 + labelW + h * (cell + gap), y, cell, cell, fill, stroke, 0.5);
+    if (allLines) {
+      const drawn = pdfDrawAllLinesUnchecked(doc, page, y, monday, subtitle);
+      page = drawn.page;
+      y = drawn.y;
+    } else {
+      const legend = [['#22c55e', 'Checked'], ['#9ca3af', 'NO CHECK'], ['#ef4444', 'No checks'], ['#ffffff', 'Not yet']];
+      let lx = 40;
+      legend.forEach(([color, label]) => {
+        pdfFillStrokeRect(page, lx, y, 10, 10, color, color === '#ffffff' ? '#d5dde4' : color, 0.5);
+        pdfText(page, lx + 14, y + 9, label, { size: 8, color: '#3e4a55' });
+        lx += 88;
       });
-      y += cell + 4;
+      y += 22;
+      const cell = 14, labelW = 28, gap = 2;
+      for (let h = 0; h < 24; h++) {
+        pdfText(page, 40 + labelW + h * (cell + gap) + cell / 2, y + 8, String(h).padStart(2, '0'), { size: 6, color: '#3e4a55', align: 'center' });
+      }
+      y += 12;
+      for (let d = 0; d < 7; d++) {
+        const day = new Date(monday.getTime());
+        day.setUTCDate(monday.getUTCDate() + d);
+        const hours = dayHourStatuses(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate(), today, line);
+        pdfText(page, 40, y + 11, SHORT[d], { size: 8, color: '#3e4a55', bold: true });
+        hours.forEach((st, h) => {
+          const fill = st === 'check' ? '#22c55e' : st === 'nocheck' ? '#9ca3af' : st === 'miss' ? '#ef4444' : '#ffffff';
+          const stroke = st === 'future' ? '#e5e7eb' : (st === 'check' ? '#15803d' : st === 'nocheck' ? '#6b7280' : st === 'miss' ? '#b91c1c' : '#d5dde4');
+          pdfFillStrokeRect(page, 40 + labelW + h * (cell + gap), y, cell, cell, fill, stroke, 0.5);
+        });
+        y += cell + 4;
+      }
+      y += 10;
     }
-    y += 10;
     for (const d of selected) {
       const day = new Date(monday.getTime());
       day.setUTCDate(monday.getUTCDate() + d);
@@ -4798,8 +4846,10 @@ function buildCompliancePdf(dayIdxs, line) {
       pdfText(page, 40, y + 12, heading, { size: 12, bold: true });
       y += 18;
       if (ymdNum(ymd.y, ymd.m, ymd.dd) > ymdNum(today.y, today.m, today.d)) {
-        pdfText(page, 40, y + 10, 'Not yet', { size: 9, color: '#3e4a55' });
-        y += 18;
+        if (!allLines) {
+          pdfText(page, 40, y + 10, 'Not yet', { size: 9, color: '#3e4a55' });
+          y += 18;
+        }
         const futureRows = compliancePdfRows(ymd.y, ymd.m, ymd.dd, line);
         if (futureRows.length) {
           const drawnSap = pdfDrawTable(doc, page, y, compliancePdfCols(complianceMergedRows(ymd.y, ymd.m, ymd.dd, line)), futureRows, { margin: 40, size: 7 });
@@ -4808,19 +4858,21 @@ function buildCompliancePdf(dayIdxs, line) {
         }
         continue;
       }
-      const hours = dayHourStatuses(ymd.y, ymd.m, ymd.dd, today, line);
-      const missing = hours.map((st, h) => st === 'miss' ? h : '').filter(h => h !== '');
-      const missText = missing.length ? ('Missing checks  ' + formatHourRanges(missing)) : 'No missing hours';
-      const missLines = pdfWrap(missText, 8, 532);
-      const missH = 8 + missLines.length * 11;
-      if (y + missH + 8 > page.h - 40) {
-        page = pdfAddPage(doc);
-        pdfHeader(page, 'Compliance report', subtitle);
-        y = 72;
+      if (!allLines) {
+        const hours = dayHourStatuses(ymd.y, ymd.m, ymd.dd, today, line);
+        const missing = hours.map((st, h) => st === 'miss' ? h : '').filter(h => h !== '');
+        const missText = missing.length ? ('Missing checks  ' + formatHourRanges(missing)) : 'No missing hours';
+        const missLines = pdfWrap(missText, 8, 532);
+        const missH = 8 + missLines.length * 11;
+        if (y + missH + 8 > page.h - 40) {
+          page = pdfAddPage(doc);
+          pdfHeader(page, 'Compliance report', subtitle);
+          y = 72;
+        }
+        pdfFillStrokeRect(page, 40, y, 532, missH, missing.length ? '#fee2e2' : '#f8fafc', missing.length ? '#991b1b' : '#d5dde4', 0.6);
+        missLines.forEach((ln, i) => pdfText(page, 48, y + 12 + i * 11, ln, { size: 8, color: missing.length ? '#991b1b' : '#3e4a55', bold: true }));
+        y += missH + 8;
       }
-      pdfFillStrokeRect(page, 40, y, 532, missH, missing.length ? '#fee2e2' : '#f8fafc', missing.length ? '#991b1b' : '#d5dde4', 0.6);
-      missLines.forEach((ln, i) => pdfText(page, 48, y + 12 + i * 11, ln, { size: 8, color: missing.length ? '#991b1b' : '#3e4a55', bold: true }));
-      y += missH + 8;
       const merged = complianceMergedRows(ymd.y, ymd.m, ymd.dd, line);
       const tableRows = compliancePdfRows(ymd.y, ymd.m, ymd.dd, line);
       if (!tableRows.length) {

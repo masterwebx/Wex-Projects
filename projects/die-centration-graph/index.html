@@ -171,17 +171,20 @@ try {
   }
   .combo-list.show { display: block; }
   .combo-list button {
-    display: block; width: 100%; text-align: left; background: transparent;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    width: 100%; text-align: left; background: transparent;
     color: var(--text); font-weight: 400; border-radius: 0; min-height: 36px;
   }
   .combo-list button:hover, .combo-list button.active { background: var(--filter-bg); color: var(--filter-text); }
+  .combo-list .spc-pts { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .combo-list .hist-meta { padding: 10px; }
+  .rpt-list .spc-pts { color: var(--muted); font-weight: 700; font-variant-numeric: tabular-nums; }
   #screenCompliance { grid-template-rows: auto auto minmax(0, 1fr); padding: 10px 12px; gap: 8px; height: 100dvh; }
   #screenCompliance header.comp-head {
-    display: grid; gap: 8px; align-items: stretch;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
   }
-  .comp-head-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
-  .comp-tools { align-items: center; flex-wrap: wrap; }
+  .comp-head-title { min-width: 0; flex: 1 1 200px; }
+  .comp-tools { align-items: center; justify-content: flex-end; flex: 0 1 auto; }
   .week-nav { display: flex; align-items: center; gap: 6px; }
   .week-nav #complianceThisWeek { min-height: 40px; padding: 8px 12px; }
   .more-wrap { position: relative; }
@@ -254,6 +257,8 @@ try {
   .comp-sum .gray, .comp-sum.gray { color: #9ca3af; }
   .comp-empty { color: var(--muted); font-size: 14px; margin: 0; }
   .rpt-list { max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 4px; }
+  .rpt-list label { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+  .rpt-list label span:first-of-type { flex: 1; min-width: 0; }
   .rpt-opts { display: grid; gap: 6px; margin: 10px 0; }
   .rpt-opts label { font-weight: 400; justify-content: flex-start; }
   #spcReportOverlay .modal { width: min(560px, 100%); max-height: 90dvh; overflow: auto; }
@@ -468,11 +473,8 @@ try {
 <section class="screen" id="screenCompliance">
   <header class="comp-head">
     <div class="comp-head-title">
-      <div>
-        <h1>Compliance</h1>
-        <p class="hist-meta" id="complianceWeekLabel"></p>
-      </div>
-      <button class="secondary" type="button" id="complianceBack">Back</button>
+      <h1>Compliance</h1>
+      <p class="hist-meta" id="complianceWeekLabel"></p>
     </div>
     <div class="toolbar comp-tools">
       <div class="week-nav">
@@ -500,6 +502,7 @@ try {
           <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
         </div>
       </div>
+      <button class="secondary" type="button" id="complianceBack">Back</button>
     </div>
   </header>
   <div class="card comp-chart">
@@ -696,7 +699,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.18';
+const APP_VERSION = '1.7.19';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -2852,7 +2855,7 @@ function fillSpcControls(fromView) {
   const sel = document.getElementById('spcValue');
   document.getElementById('spcValueName').textContent = by === 'mspec' ? 'MSPEC' : 'Item #';
   if (fromView) syncSpcDates(true);
-  const values = spcComboValues();
+  const { values, counts } = spcComboStats();
   const fromRow = spcPreferredFromView();
   let preferred = fromView ? (fromRow || sel.value) : (sel.value || fromRow);
   if (by === 'mspec') preferred = canonMspec(preferred);
@@ -2863,7 +2866,7 @@ function fillSpcControls(fromView) {
   const search = document.getElementById('spcValueSearch');
   if (search) {
     search.placeholder = by === 'mspec' ? 'Type to search MSPEC' : 'Type to search Item #';
-    search.value = spcOptionLabel(sel.value, by);
+    search.value = spcSearchDisplay(sel.value, by, sel.value ? (counts[sel.value] || 0) : 0);
   }
   renderSpcValueList(search && search === document.activeElement ? search.value : '');
   hideSpcValueList();
@@ -2876,6 +2879,24 @@ function fillSpcControls(fromView) {
 function spcOptionLabel(v, by) {
   if (!v) return '';
   return by === 'mspec' ? mspecWithTarget(v) : itemWithTargets(v, mspecForItem(v));
+}
+function spcPtsLabel(n) {
+  const c = Number(n) || 0;
+  return c === 1 ? '1 pt' : `${c} pts`;
+}
+function countBySpcKey(rows, by) {
+  const counts = Object.create(null);
+  for (const r of rows || []) {
+    const key = by === 'mspec' ? r.mspec : r.item;
+    if (!key) continue;
+    counts[key] = (counts[key] || 0) + 1;
+  }
+  return counts;
+}
+function spcComboStats() {
+  const by = document.getElementById('spcBy').value;
+  const counts = countBySpcKey(spcRowsInDateRange(plantRows('foam')), by);
+  return { values: uniqueSorted(Object.keys(counts), true), counts };
 }
 function spcRowsInDateRange(rows) {
   let out = lineFilteredRows(rows || plantRows('foam'));
@@ -2894,22 +2915,30 @@ function spcRowsInDateRange(rows) {
   return out;
 }
 function spcComboValues() {
-  const by = document.getElementById('spcBy').value;
-  return uniqueSorted([...new Set(spcRowsInDateRange(plantRows('foam')).map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
+  return spcComboStats().values;
+}
+function spcSearchDisplay(v, by, n) {
+  const label = spcOptionLabel(v, by);
+  if (!label) return '';
+  return n ? `${label} · ${spcPtsLabel(n)}` : label;
+}
+function stripSpcPtsSuffix(s) {
+  return String(s || '').replace(/\s·\s\d+\spts?$/i, '');
 }
 function renderSpcValueList(q) {
   const list = document.getElementById('spcValueList');
   if (!list) return;
   const by = document.getElementById('spcBy').value;
   const selected = String(document.getElementById('spcValue').value || '');
-  const needle = String(q || '').trim().toLowerCase();
-  const shown = spcComboValues().filter(v => {
+  const needle = stripSpcPtsSuffix(q).trim().toLowerCase();
+  const { values, counts } = spcComboStats();
+  const shown = values.filter(v => {
     if (!needle) return true;
     return String(v).toLowerCase().includes(needle) || spcOptionLabel(v, by).toLowerCase().includes(needle);
   }).slice(0, 80);
   spcComboHi = shown.findIndex(v => String(v) === selected);
   list.innerHTML = shown.map((v, i) =>
-    `<button type="button" data-val="${esc(v)}" class="${i === spcComboHi ? 'active' : ''}">${esc(spcOptionLabel(v, by))}</button>`
+    `<button type="button" data-val="${esc(v)}" class="${i === spcComboHi ? 'active' : ''}"><span>${esc(spcOptionLabel(v, by))}</span><span class="spc-pts">${esc(spcPtsLabel(counts[v] || 0))}</span></button>`
   ).join('') || `<div class="hist-meta">No matches</div>`;
 }
 function showSpcValueList() {
@@ -2925,7 +2954,7 @@ function pickSpcValue(v) {
   const by = document.getElementById('spcBy').value;
   document.getElementById('spcValue').value = v || '';
   const search = document.getElementById('spcValueSearch');
-  if (search) search.value = spcOptionLabel(v, by);
+  if (search) search.value = spcSearchDisplay(v, by, v ? (spcComboStats().counts[v] || 0) : 0);
   hideSpcValueList();
   spcPointSelected = false;
   syncViewChrome();
@@ -2978,7 +3007,11 @@ function refreshViewMeta() {
   if (viewMode === 'spc') {
     const by = document.getElementById('spcBy');
     const val = document.getElementById('spcValue');
-    el.textContent = by && val && val.value ? `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${by.value === 'mspec' ? mspecWithTarget(val.value) : itemWithTargets(val.value, mspecForItem(val.value))}` : '';
+    if (by && val && val.value) {
+      const n = spcComboStats().counts[val.value] || 0;
+      const name = by.value === 'mspec' ? mspecWithTarget(val.value) : itemWithTargets(val.value, mspecForItem(val.value));
+      el.textContent = `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${name} · ${spcPtsLabel(n)}`;
+    } else el.textContent = '';
     return;
   }
   if (viewingIdx === 'current') {
@@ -4864,10 +4897,11 @@ function rptDateRows() {
 }
 function fillRptItems() {
   const by = document.getElementById('spcBy').value;
-  const values = uniqueSorted([...new Set(rptDateRows().map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
+  const counts = countBySpcKey(rptDateRows(), by);
+  const values = uniqueSorted(Object.keys(counts), true);
   const box = document.getElementById('rptItems');
   box.innerHTML = values.map(v =>
-    `<label><input type="checkbox" data-rpt-val="${esc(v)}" checked> ${esc(spcOptionLabel(v, by))}</label>`
+    `<label><input type="checkbox" data-rpt-val="${esc(v)}" checked> <span>${esc(spcOptionLabel(v, by))}</span> <span class="spc-pts">${esc(spcPtsLabel(counts[v] || 0))}</span></label>`
   ).join('') || '<div class="hist-meta">No items in this date range</div>';
 }
 async function downloadSpcReportPdf() {
@@ -4911,7 +4945,7 @@ async function downloadSpcReportPdf() {
     document.getElementById('spcFrom').value = prevFrom;
     document.getElementById('spcTo').value = prevTo;
     const search = document.getElementById('spcValueSearch');
-    if (search) search.value = spcOptionLabel(prevVal, by);
+    if (search) search.value = spcSearchDisplay(prevVal, by, prevVal ? (spcComboStats().counts[prevVal] || 0) : 0);
     if (viewMode === 'spc') {
       fillSpecPanel(specsFor(by === 'mspec' ? prevVal : mspecForItem(prevVal)), by === 'mspec' ? prevVal : mspecForItem(prevVal));
       draw();
@@ -5772,7 +5806,11 @@ document.getElementById('spcBy').onchange = () => {
   redrawSpc();
 };
 const spcSearch = document.getElementById('spcValueSearch');
-spcSearch.onfocus = () => { renderSpcValueList(spcSearch.value); showSpcValueList(); };
+spcSearch.onfocus = () => {
+  spcSearch.value = stripSpcPtsSuffix(spcSearch.value);
+  renderSpcValueList('');
+  showSpcValueList();
+};
 spcSearch.oninput = () => { renderSpcValueList(spcSearch.value); showSpcValueList(); };
 spcSearch.onkeydown = (e) => {
   const list = document.getElementById('spcValueList');

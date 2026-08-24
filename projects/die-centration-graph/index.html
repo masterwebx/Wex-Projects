@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Die Centration Graph</title>
+<title>Quality Desk</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='15' fill='%231d4ed8'/><circle cx='16' cy='16' r='10' fill='%233c9d5a'/><circle cx='16' cy='16' r='4' fill='%23e2b340'/></svg>">
 <script>
 try {
@@ -69,7 +69,11 @@ try {
   .card { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); min-height: 0; }
   #screenWelcome { align-items: center; justify-content: center; padding: 24px; }
   .welcome { width: min(460px, 100%); padding: 28px; display: grid; gap: 14px; text-align: center; }
+  .welcome-mark { display: flex; justify-content: center; }
+  .welcome-mark svg { display: block; }
+  .welcome h1 { margin: 0; letter-spacing: -0.02em; }
   .welcome p { margin: 0 0 8px; color: var(--muted); }
+  .welcome p.welcome-tag { margin: 0; font-weight: 700; color: var(--text); }
   .welcome .actions { display: grid; gap: 10px; }
   #screenHistory { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
   .hist-card { display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0; }
@@ -427,7 +431,15 @@ try {
 
 <section class="screen" id="screenWelcome">
   <div class="card welcome">
-    <h1>Die Centration Graph</h1>
+    <div class="welcome-mark" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="48" height="48">
+        <circle cx="16" cy="16" r="15" fill="#1d4ed8"/>
+        <circle cx="16" cy="16" r="10" fill="#3c9d5a"/>
+        <circle cx="16" cy="16" r="4" fill="#e2b340"/>
+      </svg>
+    </div>
+    <h1>Quality Desk</h1>
+    <p class="welcome-tag">History, specs, compliance, and posting checks.</p>
     <p>Press Ctrl+V to paste Copy for Graph from the S4, S1 S3, Bubble, P1, and RTS quality check sheets.</p>
     <div class="actions">
       <button type="button" id="welcomePaste">Paste results</button>
@@ -568,7 +580,7 @@ try {
 <section class="screen" id="screenView">
   <header>
     <div>
-      <h1 id="pageTitle">Die Centration Radial Graph</h1>
+      <h1 id="pageTitle">Centration graph</h1>
       <p class="view-meta" id="viewMeta"></p>
     </div>
     <div class="toolbar">
@@ -698,7 +710,9 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.25';
+const APP_VERSION = '1.7.26';
+const APP_NAME = 'Quality Desk';
+const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -1022,19 +1036,29 @@ function syncViewChrome() {
   if (next) { next.hidden = !nav; next.disabled = i < 0 || i >= rows.length - 1; }
   refreshViewMeta();
 }
+function syncDocTitle() {
+  let part = '';
+  if (screenName === 'history') part = 'History';
+  else if (screenName === 'compliance') part = 'Compliance';
+  else if (screenName === 'mspecs') part = 'MSPECs';
+  else if (screenName === 'view') part = viewMode === 'spc' ? 'SPC' : 'Centration';
+  document.title = part ? APP_NAME + ' · ' + part : APP_NAME;
+}
 function setScreen(name) {
   screenName = name;
   document.documentElement.setAttribute('data-screen', name);
   syncWelcome();
   syncViewChrome();
+  syncDocTitle();
   if (name === 'view') requestAnimationFrame(() => { calculate(); });
 }
 function setViewMode(mode, fromView) {
   const leavingSpc = viewMode === 'spc' && mode !== 'spc';
   viewMode = mode === 'spc' ? 'spc' : 'centration';
   document.documentElement.setAttribute('data-mode', viewMode);
-  document.getElementById('pageTitle').textContent = viewMode === 'spc' ? 'SPC charts' : 'Die Centration Radial Graph';
+  document.getElementById('pageTitle').textContent = viewMode === 'spc' ? 'SPC charts' : 'Centration graph';
   document.getElementById('modeBtn').textContent = viewMode === 'spc' ? 'Centration graph' : 'SPC mode';
+  syncDocTitle();
   const legend = document.getElementById('canvasLegend');
   legend.innerHTML = viewMode === 'spc'
     ? `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#c24141"></i>Out of spec</span><span><i class="swatch" style="background:#f59e0b"></i>Outlier</span><span><i class="swatch" style="background:#1d4ed8"></i>Selected</span>`
@@ -3339,7 +3363,7 @@ function openMspecs() {
 function downloadMspecExcel() {
   const rows = mspecAuditRows();
   if (!rows.length) { toast('No MSPEC rows'); return; }
-  downloadBlob('diegraph-mspecs.xlsx', buildXlsx('MSPECs', MSPEC_AUDIT_COLS, rows.map(r => r.values), [12, 10, 12, 12, 12, 10, 10, 12, 12, 12]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  downloadBlob(FILE_PREFIX + '-mspecs.xlsx', buildXlsx('MSPECs', MSPEC_AUDIT_COLS, rows.map(r => r.values), [12, 10, 12, 12, 12, 10, 10, 12, 12, 12]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   toast('Downloaded MSPEC table');
 }
 function plantFromLine(line) {
@@ -3475,7 +3499,7 @@ function fileSlug(v) {
   return String(v ?? '').trim().replace(/[^\w.#+-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
 }
 function historyExcelFilename() {
-  const bits = ['diegraph', fileSlug((PLANTS[activePlant] || 'history').replace(/\s+/g, '-'))];
+  const bits = [FILE_PREFIX, fileSlug((PLANTS[activePlant] || 'history').replace(/\s+/g, '-'))];
   const lineSel = tableFilters['Line'];
   if (lineSel instanceof Set && lineSel.size === 1) bits.push(fileSlug([...lineSel][0]));
   const df = dateFilter();
@@ -3572,7 +3596,7 @@ function buildXlsx(sheetName, headers, rows, widths) {
 <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/table" Target="../tables/table1.xml"/>
 </Relationships>` },
     { name: 'xl/tables/table1.xml', data: `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="DieGraphTable" displayName="DieGraphTable" ref="${ref}" totalsRowShown="0" headerRowCount="1">
+<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" id="1" name="QualityDesk" displayName="QualityDesk" ref="${ref}" totalsRowShown="0" headerRowCount="1">
 <autoFilter ref="${ref}"/>
 <tableColumns count="${nCol}">${tableCols}</tableColumns>
 <tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>
@@ -4748,7 +4772,7 @@ function syncCompRptMode() {
 function pdfComplianceNeed(doc, page, y, need, subtitle) {
   if (y + need <= page.h - 40) return { page, y };
   page = pdfAddPage(doc);
-  pdfHeader(page, 'Compliance report', subtitle);
+  pdfHeader(page, APP_NAME + ' · Compliance', subtitle);
   return { page, y: 72 };
 }
 function pdfDrawAllLinesUnchecked(doc, page, y, monday, subtitle) {
@@ -4808,7 +4832,7 @@ function buildCompliancePdf(dayIdxs, line) {
   let page = pdfAddPage(doc);
     const allLines = !String(line || '').trim();
     const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (allLines ? '  |  All lines' : `  |  Line ${line}`);
-    pdfHeader(page, 'Compliance report', subtitle);
+    pdfHeader(page, APP_NAME + ' · Compliance', subtitle);
     let y = 72;
     if (allLines) {
       const drawn = pdfDrawAllLinesUnchecked(doc, page, y, monday, subtitle);
@@ -4849,7 +4873,7 @@ function buildCompliancePdf(dayIdxs, line) {
       const heading = `${DAYS[d]}, ${fmtWeekDate(day)}`;
       if (y + 54 > page.h - 40) {
         page = pdfAddPage(doc);
-        pdfHeader(page, 'Compliance report', subtitle);
+        pdfHeader(page, APP_NAME + ' · Compliance', subtitle);
         y = 72;
       }
       pdfText(page, 40, y + 12, heading, { size: 12, bold: true });
@@ -4875,7 +4899,7 @@ function buildCompliancePdf(dayIdxs, line) {
         const missH = 8 + missLines.length * 11;
         if (y + missH + 8 > page.h - 40) {
           page = pdfAddPage(doc);
-          pdfHeader(page, 'Compliance report', subtitle);
+          pdfHeader(page, APP_NAME + ' · Compliance', subtitle);
           y = 72;
         }
         pdfFillStrokeRect(page, 40, y, 532, missH, missing.length ? '#fee2e2' : '#f8fafc', missing.length ? '#991b1b' : '#d5dde4', 0.6);
@@ -4903,7 +4927,7 @@ function downloadCompliancePdf(dayIdxs, lines) {
   lineList.forEach((line, i) => {
     const built = buildCompliancePdf(dayIdxs, line);
     const tag = lineFileTag(line);
-    const name = `diegraph-compliance-week-${built.week}-${built.year}-${tag}.pdf`;
+    const name = `${FILE_PREFIX}-compliance-week-${built.week}-${built.year}-${tag}.pdf`;
     setTimeout(() => downloadPdfDoc(name, built.doc), i * 250);
   });
   toast(combined
@@ -4967,7 +4991,7 @@ async function downloadCurrentSpcPdf() {
   } finally {
     hideProgress();
   }
-  downloadPdfDoc('diegraph-spc.pdf', doc);
+  downloadPdfDoc(FILE_PREFIX + '-spc.pdf', doc);
   toast('Downloaded SPC PDF');
 }
 function openSpcReport() {
@@ -5046,7 +5070,7 @@ async function downloadSpcReportPdf() {
     }
     hideProgress();
   }
-  downloadPdfDoc('diegraph-spc-report.pdf', doc);
+  downloadPdfDoc(FILE_PREFIX + '-spc-report.pdf', doc);
   document.getElementById('spcReportOverlay').classList.remove('show');
   toast('Downloaded SPC report');
 }
@@ -6032,6 +6056,7 @@ if (saved.hasHistory) {
   document.documentElement.setAttribute('data-screen', 'history');
   syncWelcome();
   syncViewChrome();
+  syncDocTitle();
 } else {
   setScreen('welcome');
 }

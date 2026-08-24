@@ -207,6 +207,9 @@ try {
     background: transparent;
   }
   table.results td.wrap, table.results th.wrap { white-space: normal; line-height: 1.25; overflow: visible; text-overflow: clip; }
+  html[data-plant="postings"] table.results tbody td { height: auto; vertical-align: top; }
+  html[data-plant="postings"] table.results tbody tr { height: auto; }
+  html[data-plant="postings"] table.results td.wrap { min-width: 0; }
   .comp-hour.check { background: #22c55e; border-color: #15803d; }
   .comp-hour.nocheck { background: #9ca3af; border-color: #6b7280; }
   .comp-hour.miss { background: #ef4444; border-color: #b91c1c; }
@@ -265,6 +268,10 @@ try {
   .comp-sap .good { color: var(--ok); font-weight: 700; }
   .comp-sap .bad { color: var(--thick); font-weight: 700; }
   .comp-sap .warn { color: var(--thin); font-weight: 700; }
+  table.results .check.good { color: var(--ok); font-weight: 700; }
+  table.results .check.bad { color: var(--thick); font-weight: 700; }
+  table.results .check.warn { color: var(--thin); font-weight: 700; }
+  table.results .comp-fail-list { margin: 0; padding-left: 16px; font-size: 13px; }
   @media (max-width: 720px) {
     .comp-item { grid-template-columns: 1fr; }
     .comp-sum { text-align: left; max-width: none; }
@@ -417,6 +424,7 @@ try {
           <option value="bubble">Extrusion Bubble</option>
           <option value="p1">P1</option>
           <option value="rts">RTS</option>
+          <option value="postings">Postings</option>
         </select>
       </label>
       <button type="button" id="histPaste">Paste more data</button>
@@ -659,7 +667,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.16';
+const APP_VERSION = '1.7.17';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -668,7 +676,8 @@ const FOAM_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','U
 const BUBBLE_COLS = ['Date/Time','Item Description','Line','Item','Product Verification','COH/ADH Verification','Post-Visual Inspection','# Slits','Width','Footage','Perf Width','Perf Tester Results','Weight','Density','Pass/Fail','User','Reason for Check','Diameter (ULINE only)','Diameter Pass/Fail','Width Pass','Footage Pass','Perf Width Pass','Per Tester Pass','Weight Pass','Dead Cell Pre','# Dead Cells Pre','Dead Cell Post','# Dead Cells Post','# Air Transfers Post','# Cells 8 Inch Length','# Cells Full Web Width','Total','Maximum allowed','Pre Pass','Post Pass','Notes'];
 const P1_COLS = ['Date/Time','Item Description','Line','Item #','Average Single Shot','Average Double Shot','Cell Count MD','Cell Count CD','Plank Weight','Volume','Density','Pass/Fail','User','Reason for Check','Average Single Shot Pass/Fail','Average Double Shot Pass/Fail','Cell Count MD Pass/Fail','Cell Count CD Pass/Fail','Density Pass/Fail','P1','P2','P3','P4','P5','P6','P7','P8','P9','P10','P11','P12','Width','Length','Width Pass','Length Pass','P1d','P2d','P3d','P4d','P5d','P6d','P7d','P8d','P9d','P10d','P11d','P12d','Width d','Lengthd','Width Pass2','Length Pass3','Notes'];
 const RTS_COLS = ['Date/Time','Description','Line','Item #','Parent Material','Parent MFG Date','Parent Shift','Width','Length','Delamination','Blistering','Alligator Skin','Pass/Fail','User','Reason for Check','T Point 1','T Point 2','T Point 3','MFG Date Pass','Width Pass','Length Pass','Thickness Pass','Notes'];
-const PLANT_COLS = { foam: FOAM_COLS, bubble: BUBBLE_COLS, p1: P1_COLS, rts: RTS_COLS };
+const POSTING_COLS = ['Date/Time','Material','Description','Line','MSPEC','Qty','Posted (PT)','Period','Quality check','Fail notes'];
+const PLANT_COLS = { foam: FOAM_COLS, bubble: BUBBLE_COLS, p1: P1_COLS, rts: RTS_COLS, postings: POSTING_COLS };
 const TABLE_COLS = FOAM_COLS;
 const ALL_HIST_COLS = [...new Set([].concat(FOAM_COLS, BUBBLE_COLS, P1_COLS, RTS_COLS))];
 const HIST_COL_W = [52, 280, 180, 240, 170, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120, 220];
@@ -692,9 +701,10 @@ const COL_ALIASES = {
   'Thickness Range Pass/Fail': ['Thickness Range Pass/Fail', 'Range Pass/Fail'],
   'Filename': ['Filename', 'File Name', 'File', 'File Name / Description']
 };
-const NUM_COLS = new Set(['Item #','Item','MSPEC','Bundle #','Slit/Width','Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density','Footage','Weight','Volume','Length','# Slits','Perf Width','Plank Weight','Average Single Shot','Average Double Shot','Total','Maximum allowed','# Dead Cells Pre','# Dead Cells Post','# Air Transfers Post','# Cells 8 Inch Length','# Cells Full Web Width','T Point 1','T Point 2','T Point 3']);
+const NUM_COLS = new Set(['Item #','Item','Material','MSPEC','Qty','Bundle #','Slit/Width','Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density','Footage','Weight','Volume','Length','# Slits','Perf Width','Plank Weight','Average Single Shot','Average Double Shot','Total','Maximum allowed','# Dead Cells Pre','# Dead Cells Post','# Air Transfers Post','# Cells 8 Inch Length','# Cells Full Web Width','T Point 1','T Point 2','T Point 3']);
 const TONE_COLS = new Set(['Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
-const PLANTS = { foam: 'Extrusion Foam', bubble: 'Extrusion Bubble', p1: 'P1', rts: 'RTS' };
+const PLANTS = { foam: 'Extrusion Foam', bubble: 'Extrusion Bubble', p1: 'P1', rts: 'RTS', postings: 'Postings' };
+const POSTINGS_LINE = '__postings';
 const HISTORY_SECTIONS = [
   ['TABLES4', 'foam'],
   ['TABLES1S3', 'foam'],
@@ -732,6 +742,7 @@ let indexedRows = [];
 let filteredCache = [];
 let filteredDirty = true;
 let plantRowCache = null;
+let postingRowCache = null;
 let pasteIntent = false;
 let applyingClipboard = false;
 let spcHideOutliers = true;
@@ -843,6 +854,7 @@ function sapAuditToStore() {
 }
 function applyStoredSapAudit(data) {
   const src = data && data.sapAudit;
+  clearPostingRows();
   if (!src || !Array.isArray(src.rows) || !src.rows.length) {
     sapAudit = null;
     return;
@@ -1352,8 +1364,93 @@ function normalizeFoamRow(row) {
 function isFoamPlant(plant) {
   return (plant || activePlant) === 'foam';
 }
+function isPostingsPlant(plant) {
+  return (plant || activePlant) === 'postings';
+}
+function showHistViewCol() {
+  return isFoamPlant() || isPostingsPlant();
+}
+function clearPostingRows() {
+  postingRowCache = null;
+  if (plantRowCache) plantRowCache.postings = null;
+}
+function postingRows() {
+  if (postingRowCache) return postingRowCache;
+  if (!sapAudit || !sapAudit.rows.length) {
+    postingRowCache = [];
+    return postingRowCache;
+  }
+  const days = [];
+  const seen = new Set();
+  for (const r of sapAudit.rows) {
+    const key = `${r.y}|${r.m}|${r.d}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    days.push({ y: r.y, m: r.m, d: r.d });
+  }
+  days.sort((a, b) => ymdNum(b.y, b.m, b.d) - ymdNum(a.y, a.m, a.d));
+  const out = [];
+  for (const day of days) {
+    for (const r of complianceMergedRows(day.y, day.m, day.d, '')) {
+      if (!r.hasSap) continue;
+      const serial = finiteNum(r.firstSerial) ? r.firstSerial : (Date.UTC(day.y, day.m - 1, day.d) / 86400000 + 25569);
+      const q = finiteNum(r.firstSerial) ? dateParts(r.firstSerial) : day;
+      const failText = (r.fails || []).join('; ');
+      const cls = r.kind === 'miss' || r.kind === 'fail' ? 'bad' : (r.kind === 'prev' ? 'warn' : 'good');
+      out.push({
+        idx: 'p-' + out.length,
+        plant: 'postings',
+        y: day.y, m: day.m, d: day.d,
+        serial,
+        item: r.item,
+        mspec: r.mspec,
+        desc: r.desc,
+        line: r.line,
+        pf: r.result,
+        kind: r.kind,
+        firstSerial: r.firstSerial,
+        viewItem: r.viewItem || r.item,
+        viewY: q.y || day.y,
+        viewM: q.m || day.m,
+        viewD: q.d || day.d,
+        fails: r.fails || [],
+        tone: {},
+        num: { Material: numVal(r.item), Qty: numVal(String(r.qty || '').replace(/[^0-9.-]/g, '')), 'Date/Time': serial },
+        text: {
+          'Date/Time': fmtDayDate(day.y, day.m, day.d) || `${day.m}/${day.d}/${day.y}`,
+          Material: r.item || '',
+          Description: r.desc || '',
+          Line: r.line || '',
+          MSPEC: r.mspec || '',
+          Qty: r.qty || '',
+          'Posted (PT)': r.posted || '',
+          Period: r.period || '',
+          'Quality check': r.result || '',
+          'Fail notes': failText
+        },
+        display: {
+          'Date/Time': esc(fmtDayDate(day.y, day.m, day.d) || `${day.m}/${day.d}/${day.y}`),
+          Material: esc(r.itemLabel || r.item || '—'),
+          Description: esc(r.desc || '—'),
+          Line: esc(r.line || '—'),
+          MSPEC: esc(r.mspecLabel || r.mspec || '—'),
+          Qty: esc(r.qty || '—'),
+          'Posted (PT)': esc(r.posted || '—'),
+          Period: esc(r.period || '—'),
+          'Quality check': `<span class="check ${cls}">${esc(r.result || '—')}</span>`,
+          'Fail notes': r.fails && r.fails.length
+            ? `<ul class="comp-fail-list">${r.fails.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`
+            : '—'
+        }
+      });
+    }
+  }
+  postingRowCache = out;
+  return postingRowCache;
+}
 function plantRows(plant) {
   const want = plant || activePlant || 'foam';
+  if (want === 'postings') return postingRows();
   if (!plantRowCache) {
     plantRowCache = { foam: [], bubble: [], p1: [], rts: [] };
     for (const r of indexedRows) {
@@ -1395,6 +1492,7 @@ function withNotesLast(cols) {
 }
 let histColsMemo = { plant: '', n: -1, cols: null };
 function histCols() {
+  if (activePlant === 'postings') return POSTING_COLS;
   const n = indexedRows.length;
   if (histColsMemo.plant === activePlant && histColsMemo.n === n && histColsMemo.cols) return histColsMemo.cols;
   const preferred = PLANT_COLS[activePlant] || FOAM_COLS;
@@ -1422,16 +1520,18 @@ function isNumCol(k) {
 }
 function histColWidth(k) {
   if (k === 'Date/Time') return 280;
-  if (k === 'Item #' || k === 'Item') return 180;
-  if (k === 'Item Desc' || k === 'Item Description' || k === 'Description' || k === 'Notes') return 220;
-  if (k === 'MSPEC' || k === 'Reason for Check' || k === 'Parent Material') return 170;
+  if (k === 'Item #' || k === 'Item' || k === 'Material') return 180;
+  if (k === 'Item Desc' || k === 'Item Description' || k === 'Description' || k === 'Notes' || k === 'Fail notes') return 220;
+  if (k === 'MSPEC' || k === 'Reason for Check' || k === 'Parent Material' || k === 'Period' || k === 'Quality check') return 170;
+  if (k === 'Posted (PT)') return 160;
   if (k === 'Pass/Fail') return 100;
-  if (k === 'Line' || k === 'User') return 110;
+  if (k === 'Line' || k === 'User' || k === 'Qty') return 110;
   return 120;
 }
 function histColWidths() {
   if (activePlant === 'foam') return HIST_COL_W;
-  return histCols().map(histColWidth);
+  const cols = histCols().map(histColWidth);
+  return isPostingsPlant() ? [72].concat(cols) : cols;
 }
 function syncPlantChrome() {
   const foam = isFoamPlant();
@@ -1452,6 +1552,11 @@ function syncPlantChrome() {
 }
 function setActivePlant(plant, opts) {
   const next = PLANTS[plant] ? plant : 'foam';
+  if (next === 'postings' && !(sapAudit && sapAudit.rows && sapAudit.rows.length)) {
+    toast('Audit against SAP first');
+    syncPlantChrome();
+    return;
+  }
   const keepFilters = opts && opts.keepFilters;
   if (next === activePlant && !(opts && opts.force)) {
     syncPlantChrome();
@@ -2087,6 +2192,7 @@ async function indexHistory(onProg) {
   const rows = historyPack && historyPack.rows || [];
   indexedRows = new Array(rows.length);
   plantRowCache = null;
+  clearPostingRows();
   histColsMemo = { plant: '', n: -1, cols: null };
   let lastYield = 0;
   for (let idx = 0; idx < rows.length; idx++) {
@@ -2151,6 +2257,7 @@ async function indexHistory(onProg) {
     }
   }
   plantRowCache = null;
+  clearPostingRows();
   histColsMemo = { plant: '', n: -1, cols: null };
   filteredDirty = true;
   qualityDayItemIndex = null;
@@ -2236,11 +2343,14 @@ function rowsForLine(line) {
 function fillLineSelects() {
   const all = allLineChoices();
   const foam = uniqueSorted([...new Set(plantRows('foam').map(r => realLineName(r.line)).filter(Boolean))], false);
-  if (activeLine && all.length && !all.includes(activeLine)) activeLine = '';
+  if (activeLine && all.length && !all.includes(activeLine) && activeLine !== POSTINGS_LINE) activeLine = '';
   const compliance = document.getElementById('complianceLine');
   if (compliance) {
-    compliance.innerHTML = `<option value="">All lines</option>` + all.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('');
-    compliance.value = activeLine;
+    const postingsOpt = sapAudit && sapAudit.rows && sapAudit.rows.length
+      ? `<option value="${POSTINGS_LINE}">Postings</option>`
+      : '';
+    compliance.innerHTML = `<option value="">All lines</option>` + postingsOpt + all.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('');
+    compliance.value = isPostingsPlant() ? POSTINGS_LINE : activeLine;
   }
   const spc = document.getElementById('spcLine');
   if (spc) {
@@ -2249,6 +2359,18 @@ function fillLineSelects() {
   }
 }
 function setActiveLine(line, from) {
+  if (String(line || '') === POSTINGS_LINE) {
+    if (!sapAudit || !sapAudit.rows.length) {
+      toast('Audit against SAP first');
+      fillLineSelects();
+      return;
+    }
+    activeLine = '';
+    setActivePlant('postings');
+    setScreen('history');
+    renderHistoryTable();
+    return;
+  }
   activeLine = String(line || '').trim();
   fillLineSelects();
   if (from === 'compliance' || screenName === 'compliance') renderCompliance();
@@ -2462,7 +2584,7 @@ function renderHistoryChrome() {
     const filtered = isColFiltered(k) ? ' filtered' : '';
     return `<th class="${isColFiltered(k) ? 'filtered' : ''}"><div class="th-inner">${esc(k)}${toneHint}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
   }).join('');
-  const eyeTh = isFoamPlant() ? '<th class="sticky-eye"></th>' : '';
+  const eyeTh = showHistViewCol() ? '<th class="sticky-eye"></th>' : '';
   head.innerHTML = `<tr>${eyeTh}${dateTh}${others}</tr>`;
   applyHistColgroup(document.getElementById('histHeadTable'));
   fillDateSlicers();
@@ -2494,20 +2616,41 @@ function renderHistoryChrome() {
 }
 function rowHtml(r) {
   const tds = histCols().map(k => {
-    const tone = r.tone && r.tone[k] ? ` class="tone-${r.tone[k]}"` : '';
-    return `<td${tone}>${r.display[k] || ''}</td>`;
+    const wrap = (k === 'Fail notes' || k === 'Period' || k === 'Posted (PT)' || k === 'Quality check' || k === 'Description') ? 'wrap' : '';
+    const tone = r.tone && r.tone[k] ? `tone-${r.tone[k]}` : '';
+    const cls = [wrap, tone].filter(Boolean).join(' ');
+    return `<td${cls ? ` class="${cls}"` : ''}>${r.display[k] || ''}</td>`;
   }).join('');
-  const eye = isFoamPlant() ? `<td class="sticky-eye"><button class="icon" type="button" data-view="${r.idx}" title="View result">${EYE}</button></td>` : '';
+  const eye = isPostingsPlant()
+    ? `<td class="sticky-eye"><button type="button" data-post-item="${esc(r.viewItem || r.item || '')}" data-post-y="${r.viewY || r.y || ''}" data-post-m="${r.viewM || r.m || ''}" data-post-d="${r.viewD || r.d || ''}" data-post-line="${esc(r.line || '')}">View</button></td>`
+    : (isFoamPlant() ? `<td class="sticky-eye"><button class="icon" type="button" data-view="${r.idx}" title="View result">${EYE}</button></td>` : '');
   return `<tr>${eye}${tds}</tr>`;
 }
 function spacerRow(h) {
-  return `<tr class="spacer"><td colspan="${histCols().length + (isFoamPlant() ? 1 : 0)}"><div style="height:${Math.max(0, h)}px"></div></td></tr>`;
+  return `<tr class="spacer"><td colspan="${histCols().length + (showHistViewCol() ? 1 : 0)}"><div style="height:${Math.max(0, h)}px"></div></td></tr>`;
 }
 function renderHistoryBody(force) {
   const body = document.getElementById('histBody');
   const wrap = document.getElementById('histWrap');
   const rows = getFilteredRows();
   const plantTotal = plantRows().length;
+  if (isPostingsPlant()) {
+    const key = `postings:${rows.length}:${tableSort.col}:${tableSort.dir}:${Object.keys(tableFilters).join(',')}`;
+    if (!force && key === histRangeKey) return;
+    histRangeKey = key;
+    body.innerHTML = rows.length
+      ? rows.map(r => rowHtml(r)).join('')
+      : `<tr><td colspan="${POSTING_COLS.length + 1}">${sapAudit ? 'No postings for the current filters' : 'Audit against SAP from Compliance to see postings'}</td></tr>`;
+    const on = hasActiveFilters();
+    document.getElementById('histMeta').textContent = sapAudit
+      ? (on ? `Showing ${rows.length} of ${plantTotal} postings · filters on` : `Showing ${rows.length} of ${plantTotal} postings`)
+      : 'Audit against SAP from Compliance to see postings';
+    applyHistColgroup(document.getElementById('histTable'));
+    lastHistH = wrap.clientHeight || 0;
+    syncHistHeaderGutter();
+    syncFilterBar();
+    return;
+  }
   const current = isFoamPlant() && hasCurrentSheet() && !hasActiveFilters();
   const extra = current ? 1 : 0;
   const total = rows.length + extra;
@@ -3331,6 +3474,10 @@ function buildXlsx(sheetName, headers, rows, widths) {
   return zipStore(files);
 }
 function histCellValue(r, k) {
+  if (r.plant === 'postings' || isPostingsPlant()) {
+    if (k === 'Date/Time') return finiteNum(r.serial) ? r.serial : (r.text[k] || '');
+    return r.text[k] || '';
+  }
   if (k === 'Date/Time') return finiteNum(r.serial) ? r.serial : (excelWhen(r.serial) || r.text[k] || '');
   if (k === 'Pass/Fail') return r.pf || r.text[k] || '';
   if (k === 'MSPEC') return mspecWithTarget(r.mspec) || r.text[k] || '';
@@ -4460,6 +4607,7 @@ async function loadSapFile(file) {
   }
   sapAudit = { name, rows, sapTz: sapPlantTimeZone() };
   qualityDayItemIndex = null;
+  clearPostingRows();
   try {
     refreshSapHits(activeLine);
     renderCompliance();
@@ -4467,6 +4615,7 @@ async function loadSapFile(file) {
     console.warn(err);
   }
   persistPack();
+  if (screenName === 'history' && isPostingsPlant()) renderHistoryTable();
   const days = new Set(rows.map(r => `${r.y}-${r.m}-${r.d}`)).size;
   const extra = otherLines ? ` · skipped ${otherLines} other line${otherLines === 1 ? '' : 's'}` : '';
   toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'} · posted in Pacific${extra}`);
@@ -5470,8 +5619,11 @@ document.getElementById('complianceSapFile').onchange = async (e) => {
 };
 document.getElementById('complianceSapClear').onclick = () => {
   sapAudit = null;
+  clearPostingRows();
   persistPack();
+  if (isPostingsPlant()) setActivePlant('foam');
   renderCompliance();
+  if (screenName === 'history') renderHistoryTable();
 };
 document.getElementById('mspecBack').onclick = () => {
   setViewMode('centration');
@@ -5649,6 +5801,11 @@ document.getElementById('spcLine').onchange = () => {
   setActiveLine(document.getElementById('spcLine').value, 'spc');
 };
 document.getElementById('histBody').addEventListener('click', (e) => {
+  const post = e.target.closest('button[data-post-item]');
+  if (post) {
+    openHistoryForItemDay(post.dataset.postItem, +post.dataset.postY, +post.dataset.postM, +post.dataset.postD, post.dataset.postLine);
+    return;
+  }
   const btn = e.target.closest('button[data-view]');
   if (!btn) return;
   if (btn.dataset.view === 'current') viewCurrent();

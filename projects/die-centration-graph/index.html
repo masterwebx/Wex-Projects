@@ -177,6 +177,22 @@ try {
   .combo-list button:hover, .combo-list button.active { background: var(--filter-bg); color: var(--filter-text); }
   .combo-list .hist-meta { padding: 10px; }
   #screenCompliance { grid-template-rows: auto auto minmax(0, 1fr); padding: 10px 12px; gap: 8px; height: 100dvh; }
+  #screenCompliance header.comp-head {
+    display: grid; gap: 8px; align-items: stretch;
+  }
+  .comp-head-title { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .comp-tools { align-items: center; flex-wrap: wrap; }
+  .week-nav { display: flex; align-items: center; gap: 6px; }
+  .week-nav #complianceThisWeek { min-height: 40px; padding: 8px 12px; }
+  .more-wrap { position: relative; }
+  .more-pop {
+    position: absolute; right: 0; top: calc(100% + 4px); z-index: 22;
+    display: grid; gap: 6px; min-width: 200px; padding: 8px;
+    background: var(--bg-elev); border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: var(--shadow);
+  }
+  .more-pop[hidden] { display: none; }
+  .more-pop button { width: 100%; }
   #screenMspecs { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
   .line-filter {
     display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--muted);
@@ -450,27 +466,40 @@ try {
 <div class="filter-pop" id="filterPop"></div>
 
 <section class="screen" id="screenCompliance">
-  <header>
-    <div>
-      <h1>Compliance</h1>
-      <p class="hist-meta" id="complianceWeekLabel"></p>
-    </div>
-    <div class="toolbar">
+  <header class="comp-head">
+    <div class="comp-head-title">
+      <div>
+        <h1>Compliance</h1>
+        <p class="hist-meta" id="complianceWeekLabel"></p>
+      </div>
       <button class="secondary" type="button" id="complianceBack">Back</button>
-      <button class="secondary" type="button" id="compliancePrevWeek">Previous week</button>
-      <button class="secondary" type="button" id="complianceThisWeek">This week</button>
-      <button class="secondary" type="button" id="complianceNextWeek">Next week</button>
-      <label class="cal-jump" title="Jump to date">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-        <input type="date" id="complianceJumpDate" aria-label="Jump to date">
-      </label>
+    </div>
+    <div class="toolbar comp-tools">
+      <div class="week-nav">
+        <button class="secondary icon" type="button" id="compliancePrevWeek" title="Previous week" aria-label="Previous week">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="secondary" type="button" id="complianceThisWeek">This week</button>
+        <button class="secondary icon" type="button" id="complianceNextWeek" title="Next week" aria-label="Next week">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+        <label class="cal-jump" title="Jump to date">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <input type="date" id="complianceJumpDate" aria-label="Jump to date">
+        </label>
+      </div>
       <label class="line-filter">Line <select id="complianceLine"></select></label>
-      <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
       <button type="button" id="complianceDownload">Download PDF</button>
-      <button class="secondary" type="button" id="complianceSap" title="Excel or CSV from SAP">Audit against SAP</button>
+      <button class="secondary" type="button" id="complianceSap" title="Excel or CSV from SAP">SAP audit</button>
       <input type="file" id="complianceSapFile" accept=".xlsx,.xlsm,.xls,.csv,.txt,.tsv" hidden>
-      <button class="secondary" type="button" id="complianceSapClear" hidden>Clear SAP audit</button>
-      <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
+      <div class="more-wrap" id="complianceMoreWrap">
+        <button class="secondary" type="button" id="complianceMore" aria-expanded="false" aria-haspopup="true">More</button>
+        <div class="more-pop" id="complianceMorePop" hidden>
+          <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
+          <button class="secondary" type="button" id="complianceSapClear" hidden>Clear SAP audit</button>
+          <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
+        </div>
+      </div>
     </div>
   </header>
   <div class="card comp-chart">
@@ -667,7 +696,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.17';
+const APP_VERSION = '1.7.18';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -5602,6 +5631,26 @@ document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true)
 document.getElementById('histPaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histCompliance').onclick = () => openCompliance('history');
 document.getElementById('histMspecs').onclick = openMspecs;
+function closeComplianceMore() {
+  const pop = document.getElementById('complianceMorePop');
+  const btn = document.getElementById('complianceMore');
+  if (pop) pop.hidden = true;
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+document.getElementById('complianceMore').onclick = (e) => {
+  e.stopPropagation();
+  const pop = document.getElementById('complianceMorePop');
+  const btn = document.getElementById('complianceMore');
+  const open = !pop.hidden;
+  pop.hidden = open;
+  btn.setAttribute('aria-expanded', open ? 'false' : 'true');
+};
+document.getElementById('complianceMorePop').addEventListener('click', (e) => {
+  if (e.target.closest('button')) closeComplianceMore();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeComplianceMore();
+});
 document.getElementById('complianceMspecs').onclick = openMspecs;
 document.getElementById('histSpc').onclick = openSpc;
 document.getElementById('histDownload').onclick = downloadHistoryExcel;
@@ -5821,6 +5870,7 @@ document.getElementById('histHead').addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#filterPop') && !e.target.closest('.th-menu')) closeFilterPop();
   if (!e.target.closest('#spcValueCombo')) hideSpcValueList();
+  if (!e.target.closest('#complianceMoreWrap')) closeComplianceMore();
 });
 document.addEventListener('paste', (e) => {
   const tag = (e.target && e.target.tagName) || '';

@@ -235,7 +235,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.8'/);
+assert.match(html, /APP_VERSION = '1\.7\.9'/);
 assert.match(html, /SAP_WORK_CENTERS/);
 assert.match(html, /SAP_LINE_NAMES/);
 assert.match(html, /no postings for COEX, S1, S3, S4, MONO, P1, or RTS/);
@@ -268,7 +268,11 @@ assert.match(html, /function parseSapPairs/);
 assert.match(html, /function loadSapFile/);
 assert.match(html, /function sapDayHtml/);
 assert.match(html, /function sapRowsForYmd/);
-assert.match(html, /function sapPdfRowsForYmd/);
+assert.match(html, /function complianceMergedRows/);
+assert.match(html, /function complianceDayTableHtml/);
+assert.match(html, /function parseSapNumber/);
+assert.match(html, /function isHeaderishLine/);
+assert.match(html, /function realLineName/);
 assert.match(html, /function sapHeaderKind/);
 assert.match(html, /#complianceReportOverlay \.modal/);
 assert.doesNotMatch(html, /id="complianceSapCard"/);
@@ -1081,20 +1085,26 @@ function sapItemKey(v) {
   if (/^\d+\.0+$/.test(s)) s = String(Math.round(Number(s)));
   return s.toUpperCase();
 }
+function parseSapNumber(v) {
+  if (v == null || v === '') return NaN;
+  if (typeof v === 'number' && isFinite(v)) return v;
+  const s = String(v).trim().replace(/,/g, '');
+  if (!s || s[0] === '#') return NaN;
+  const n = Number(s);
+  return isFinite(n) ? n : NaN;
+}
 function parseSapDate(v) {
   if (v == null || v === '') return null;
   const s = String(v).trim();
   if (!s) return null;
-  if (/^-?\d+(\.\d+)?$/.test(s)) {
-    const n = Number(s);
-    if (n > 20000 && n < 80000) {
-      const dt = new Date(Math.round((n - 25569) * 86400000));
-      if (!isNaN(dt.getTime())) return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
-    }
-    if (/^\d{8}$/.test(s)) {
-      const y = +s.slice(0, 4), m = +s.slice(4, 6), d = +s.slice(6, 8);
-      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return { y, m, d };
-    }
+  const n = parseSapNumber(s);
+  if (isFinite(n) && n > 20000 && n < 80000) {
+    const dt = new Date(Math.round((n - 25569) * 86400000));
+    if (!isNaN(dt.getTime())) return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+  }
+  if (/^\d{8}$/.test(s)) {
+    const y = +s.slice(0, 4), m = +s.slice(4, 6), d = +s.slice(6, 8);
+    if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return { y, m, d };
   }
   const m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
   if (m) return { y: +m[1], m: +m[2], d: +m[3] };
@@ -1177,14 +1187,16 @@ function sapPickDate(row, cols) {
 }
 function parseSapTime(v) {
   const s = String(v ?? '').trim();
-  const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
-  if (!m) {
-    if (/^0\.\d+$/.test(s)) {
-      const mins = Math.round(Number(s) * 24 * 60);
-      return { hour: Math.floor(mins / 60) % 24, minute: mins % 60 };
+  const n = parseSapNumber(s);
+  if (isFinite(n)) {
+    const frac = n >= 1 ? n - Math.floor(n) : n;
+    if (frac >= 0 && frac < 1) {
+      const mins = Math.round(frac * 24 * 60);
+      return { hour: Math.floor(mins / 60) % 24, minute: mins % 60, text: `${Math.floor(mins / 60) % 24}:${String(mins % 60).padStart(2, '0')}` };
     }
-    return { hour: NaN, minute: 0, text: s };
   }
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i);
+  if (!m) return { hour: NaN, minute: 0, text: /e/i.test(s) ? '' : s };
   let hour = +m[1];
   const minute = +m[2];
   const ap = (m[3] || '').toUpperCase();
@@ -1329,6 +1341,44 @@ assert.equal(sapSerialRow[0].y, 2026);
 assert.equal(sapSerialRow[0].m, 8);
 assert.equal(sapSerialRow[0].d, 23);
 assert.equal(sapSerialRow[0].qty, '91');
+assert.deepEqual(parseSapDate('4.6257E4'), { y: 2026, m: 8, d: 23 });
+assert.deepEqual(parseSapDate('4.6258E4'), { y: 2026, m: 8, d: 24 });
+assert.equal(parseSapDate('5.2245370370369998E-2'), null);
+const sapSciTime = parseSapTime('5.2245370370369998E-2');
+assert.equal(sapSciTime.hour, 1);
+assert.equal(sapSciTime.minute, 15);
+const sapSciRow = parseSapPairs([
+  ['Material', 'Entry Date', 'Work Center', 'Quantity', 'Time of Entry', 'Material Description'],
+  ['471345', '4.6257E4', 'VISCBE01', '91', '5.2245370370369998E-2', 'LAB roll']
+]);
+assert.equal(sapSciRow.length, 1);
+assert.equal(sapSciRow[0].itemKey, '471345');
+assert.equal(sapSciRow[0].line, 'COEX');
+assert.equal(sapSciRow[0].d, 23);
+assert.equal(sapSciRow[0].hour, 1);
+function isHeaderishLine(v) {
+  return /^(line|item|item #|mspec|date\/?time|description|pass\/?fail)$/i.test(String(v || '').trim());
+}
+function realLineName(v) {
+  const s = String(v || '').trim();
+  return s && !isHeaderishLine(s) ? s : '';
+}
+assert.equal(realLineName('Line'), '');
+assert.equal(realLineName('COEX'), 'COEX');
+assert.equal(realLineName('S4'), 'S4');
+assert.deepEqual([...new Set(['COEX', 'Line', 'S4'].map(realLineName).filter(Boolean))].sort(), ['COEX', 'S4']);
+const sapUserSlice = parseSapPairs([
+  sapLiveHeader,
+  ['', '', '', '', '', '', '217203', 'BDL'],
+  ['6509', '8/24/2026', '8/24/2026', '36761', 'AF750 HD2.2', '3', '3', 'BDL', '', '', '', '', '', '', '', '11:05:11 AM', '8/24/2026', 'VISFSE04', '101', 'F', 'FG', '0'],
+  ['6509', '8/24/2026', '8/24/2026', '402567', 'AF060', '2', '2', 'BDL', '', '', '', '', '', '', '', '11:05:00 AM', '8/24/2026', 'VISPFR01', '101', 'F', 'FG', '0'],
+  ['6509', '8/24/2026', '8/24/2026', '303405', 'SPC SLIP', '1', '1', 'BDL', '', '', '', '', '', '', '', '10:00:14 AM', '8/24/2026', 'VISCBE01', '101', 'F', 'FG', '0'],
+  ['6509', '8/23/2026', '8/23/2026', '471345', 'LAB 2/24', '91', '91', 'BDL', '', '', '', '', '', '', '', '5:10:10 PM', '8/23/2026', 'VISCBE01', '101', 'F', 'FG', '0'],
+  ['6509', '8/24/2026', '8/24/2026', '462270', 'PE LAM', '250', '250', 'EA', '', '', '', '', '', '', '', '9:15:11 AM', '8/24/2026', 'VISMSL01', '101', 'F', 'FG', '0']
+]);
+assert.equal(sapUserSlice.length, 4);
+assert.deepEqual(sapUserSlice.map(r => r.line).sort(), ['COEX', 'COEX', 'RTS', 'S4']);
+assert.ok(!sapUserSlice.some(r => r.itemKey === '402567'));
 
 function unzipEntriesNode(buf) {
   const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
+import zlib from 'node:zlib';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
@@ -234,8 +235,13 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.7'/);
+assert.match(html, /APP_VERSION = '1\.7\.8'/);
 assert.match(html, /SAP_WORK_CENTERS/);
+assert.match(html, /SAP_LINE_NAMES/);
+assert.match(html, /no postings for COEX, S1, S3, S4, MONO, P1, or RTS/);
+assert.match(html, /skipped \$\{otherLines\} other line/);
+assert.match(html, /qualityDayItemIndex/);
+assert.match(html, /Loading saved results/);
 assert.match(html, /function sapMapWorkCenter/);
 assert.match(html, /function parseSapTime/);
 assert.match(html, /function sapHitsOnDay/);
@@ -1076,7 +1082,20 @@ function sapItemKey(v) {
   return s.toUpperCase();
 }
 function parseSapDate(v) {
-  const s = String(v ?? '').trim();
+  if (v == null || v === '') return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (/^-?\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    if (n > 20000 && n < 80000) {
+      const dt = new Date(Math.round((n - 25569) * 86400000));
+      if (!isNaN(dt.getTime())) return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+    }
+    if (/^\d{8}$/.test(s)) {
+      const y = +s.slice(0, 4), m = +s.slice(4, 6), d = +s.slice(6, 8);
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return { y, m, d };
+    }
+  }
   const m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
   if (m) return { y: +m[1], m: +m[2], d: +m[3] };
   const m2 = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
@@ -1091,9 +1110,14 @@ const SAP_WORK_CENTERS = {
   VISCBE01: 'COEX', VISFSE01: 'S1', VISFSE03: 'S3', VISFSE04: 'S4',
   VISMBE01: 'MONO', VISMSL01: 'RTS', VISPLE01: 'P1'
 };
+function looksLikeLineValue(v) {
+  return /^(S[134]|COEX|MONO|P1|RTS|S1\s*S3)$/i.test(String(v ?? '').trim());
+}
 function sapMapWorkCenter(v) {
   const key = String(v ?? '').trim().toUpperCase().replace(/\s+/g, '');
-  return SAP_WORK_CENTERS[key] || '';
+  if (SAP_WORK_CENTERS[key]) return SAP_WORK_CENTERS[key];
+  if (looksLikeLineValue(v)) return key;
+  return '';
 }
 function sapNormHeader(h) {
   return String(h || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -1183,10 +1207,12 @@ function parseSapPairs(grid) {
     if (!dt || !sapItemKey(item)) continue;
     const wc = cols.wc >= 0 ? String(row[cols.wc] || '').trim() : '';
     const rawLine = cols.line >= 0 ? String(row[cols.line] || '').trim() : '';
+    const line = sapMapWorkCenter(wc) || sapMapWorkCenter(rawLine);
+    if ((cols.wc >= 0 || cols.line >= 0 || wc || rawLine) && !line) continue;
     const tm = parseSapTime(cols.time >= 0 ? row[cols.time] : '');
     out.push({
       y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item),
-      line: sapMapWorkCenter(wc) || rawLine,
+      line,
       desc: cols.desc >= 0 ? String(row[cols.desc] || '').trim() : '',
       qty: cols.qty >= 0 ? String(row[cols.qty] || '').trim() : '',
       unit: cols.unit >= 0 ? String(row[cols.unit] || '').trim() : '',
@@ -1279,6 +1305,133 @@ assert.equal(sapLive[0].d, 20);
 assert.equal(sapLive[0].m, 8);
 assert.equal(sapLive[1].line, 'S1');
 assert.equal(sapLive[1].itemKey, '410805');
+const sapOtherLines = parseSapPairs([
+  sapLiveHeader,
+  ['6509', '8/23/2026', '8/23/2026', '471345', 'LAB roll', '91', '91', 'BDL', '', '', '', '', '', '', '', '17:10', '8/23/2026', 'VISCBE01', '', '', '', ''],
+  ['6509', '8/23/2026', '8/23/2026', '111111', 'warehouse', '5', '5', 'EA', '', '', '', '', '', '', '', '17:11', '8/23/2026', 'VISWARE01', '', '', '', ''],
+  ['6509', '8/23/2026', '8/23/2026', '222222', 'no wc', '1', '1', 'EA', '', '', '', '', '', '', '', '17:12', '8/23/2026', '', '', '', '', '']
+]);
+assert.equal(sapOtherLines.length, 1);
+assert.equal(sapOtherLines[0].itemKey, '471345');
+assert.equal(sapOtherLines[0].line, 'COEX');
+const sapSerial = parseSapDate('46257');
+assert.equal(sapSerial.y, 2026);
+assert.equal(sapSerial.m, 8);
+assert.equal(sapSerial.d, 23);
+const sapSerialRow = parseSapPairs([
+  ['Material', 'Entry Date', 'Work Center', 'Quantity', 'Unit of Entry', 'Time of Entry', 'Material Description'],
+  ['471345', '46257', 'VISCBE01', '91', 'BDL', '0.71539351851851996', 'LAB 2/24"X250\' P12"']
+]);
+assert.equal(sapSerialRow.length, 1);
+assert.equal(sapSerialRow[0].itemKey, '471345');
+assert.equal(sapSerialRow[0].line, 'COEX');
+assert.equal(sapSerialRow[0].y, 2026);
+assert.equal(sapSerialRow[0].m, 8);
+assert.equal(sapSerialRow[0].d, 23);
+assert.equal(sapSerialRow[0].qty, '91');
+
+function unzipEntriesNode(buf) {
+  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  const view = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= 0 && i >= u8.length - 65557; i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('zip');
+  const count = view.getUint16(eocd + 10, true);
+  let off = view.getUint32(eocd + 16, true);
+  const files = {};
+  for (let n = 0; n < count; n++) {
+    if (view.getUint32(off, true) !== 0x02014b50) break;
+    const method = view.getUint16(off + 10, true);
+    const comp = view.getUint32(off + 20, true);
+    const nameLen = view.getUint16(off + 28, true);
+    const extraLen = view.getUint16(off + 30, true);
+    const commentLen = view.getUint16(off + 32, true);
+    const localOff = view.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(off + 46, off + 46 + nameLen));
+    const localName = view.getUint16(localOff + 26, true);
+    const localExtra = view.getUint16(localOff + 28, true);
+    const dataStart = localOff + 30 + localName + localExtra;
+    const packed = u8.subarray(dataStart, dataStart + comp);
+    files[name] = method === 8 ? zlib.inflateRawSync(packed) : packed;
+    off += 46 + nameLen + extraLen + commentLen;
+  }
+  return files;
+}
+function parseSharedStrings(xml) {
+  const out = [];
+  const siRe = /<(?:[\w.]+:)?si\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?si>/gi;
+  let m;
+  while ((m = siRe.exec(xml))) {
+    const texts = [];
+    const tRe = /<(?:[\w.]+:)?t\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?t>/gi;
+    let t;
+    while ((t = tRe.exec(m[1]))) texts.push(String(t[1] || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&'));
+    out.push(texts.join(''));
+  }
+  return out;
+}
+function colRowFromRef(ref) {
+  const m = String(ref || '').match(/^([A-Z]+)(\d+)$/i);
+  if (!m) return { c: -1, r: 0 };
+  let col = 0;
+  for (const ch of m[1].toUpperCase()) col = col * 26 + (ch.charCodeAt(0) - 64);
+  return { c: col - 1, r: +m[2] - 1 };
+}
+function parseSheetGrid(xml, strings) {
+  const grid = [];
+  const rowRe = /<(?:[\w.]+:)?row\b([^>]*)>([\s\S]*?)<\/(?:[\w.]+:)?row>/gi;
+  let rowM;
+  while ((rowM = rowRe.exec(xml))) {
+    const rowAttrs = rowM[1] || '';
+    const rowNum = +((rowAttrs.match(/\br="(\d+)"/) || [])[1] || 0);
+    const cells = [];
+    let nextC = 0;
+    const cRe = /<(?:[\w.]+:)?c\b([^>]*)(?:\/>|>([\s\S]*?)<\/(?:[\w.]+:)?c>)/gi;
+    let cM;
+    while ((cM = cRe.exec(rowM[2]))) {
+      const attrs = cM[1] || '';
+      const body = cM[2] || '';
+      const ref = (attrs.match(/\br="([^"]+)"/) || [])[1];
+      const t = (attrs.match(/\bt="([^"]+)"/) || [])[1] || '';
+      const pos = ref ? colRowFromRef(ref).c : nextC;
+      if (pos < 0) continue;
+      nextC = pos + 1;
+      let val = '';
+      if (t === 's') {
+        const v = (body.match(/<(?:[\w.]+:)?v\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?v>/i) || [])[1];
+        val = strings[Number(v)] || '';
+      } else {
+        const v = (body.match(/<(?:[\w.]+:)?v\b[^>]*>([\s\S]*?)<\/(?:[\w.]+:)?v>/i) || [])[1];
+        val = v == null ? '' : v;
+      }
+      cells[pos] = val;
+    }
+    if (rowNum > 0) grid[rowNum - 1] = cells;
+    else grid.push(cells);
+  }
+  return grid;
+}
+const sapXlsx = fs.readFileSync(path.join(dir, 'fixtures/sap-oneitem.xlsx'));
+assert.equal(sapXlsx[0], 0x50);
+assert.equal(sapXlsx[1], 0x4B);
+const sapFiles = unzipEntriesNode(sapXlsx);
+const sapSheet = Object.keys(sapFiles).find(n => /worksheets\/sheet\d+\.xml$/i.test(n));
+const sapSs = Object.keys(sapFiles).find(n => /sharedstrings\.xml$/i.test(n));
+assert.ok(sapSheet);
+const sapGrid = parseSheetGrid(new TextDecoder().decode(sapFiles[sapSheet]), sapSs ? parseSharedStrings(new TextDecoder().decode(sapFiles[sapSs])) : []);
+const sapFromXlsx = parseSapPairs(sapGrid);
+assert.equal(sapFromXlsx.length, 1);
+assert.equal(sapFromXlsx[0].itemKey, '471345');
+assert.equal(sapFromXlsx[0].line, 'COEX');
+assert.equal(sapFromXlsx[0].qty, '91');
+assert.equal(sapFromXlsx[0].unit, 'BDL');
+assert.equal(sapFromXlsx[0].y, 2026);
+assert.equal(sapFromXlsx[0].m, 8);
+assert.equal(sapFromXlsx[0].d, 23);
+assert.match(sapFromXlsx[0].desc, /LAB 2\/24/);
+assert.equal(sapFromXlsx[0].workCenter, 'VISCBE01');
 function sapPrevYmd(y, m, d) {
   const dt = new Date(Date.UTC(y, m - 1, d));
   dt.setUTCDate(dt.getUTCDate() - 1);

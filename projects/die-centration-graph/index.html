@@ -653,7 +653,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.7';
+const APP_VERSION = '1.7.8';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -736,6 +736,7 @@ let complianceBackTo = 'welcome';
 let spcComboHi = -1;
 let activeLine = '';
 let sapAudit = null;
+let qualityDayItemIndex = null;
 let spcPointSelected = false;
 let resizeTimer = 0;
 let lastHistH = 0;
@@ -2100,6 +2101,8 @@ async function indexHistory(onProg) {
   plantRowCache = null;
   histColsMemo = { plant: '', n: -1, cols: null };
   filteredDirty = true;
+  qualityDayItemIndex = null;
+  if (sapAudit) sapAudit._hitsFor = '';
 }
 function rowsMatchingExcept(exceptKey) {
   const df = dateFilter();
@@ -3505,6 +3508,7 @@ const SAP_WORK_CENTERS = {
   VISMSL01: 'RTS',
   VISPLE01: 'P1'
 };
+const SAP_LINE_NAMES = ['COEX', 'S1', 'S3', 'S4', 'MONO', 'P1', 'RTS'];
 function sapMapWorkCenter(v) {
   const key = String(v ?? '').trim().toUpperCase().replace(/\s+/g, '');
   if (SAP_WORK_CENTERS[key]) return SAP_WORK_CENTERS[key];
@@ -3671,16 +3675,28 @@ function parseSapPairs(grid) {
   if (cols.wc < 0) cols.wc = scanCol(new Set([cols.date, cols.item, cols.line, cols.entryDate, cols.postingDate, cols.docDate]), looksLikeWorkCenter);
   if (cols.line < 0) cols.line = scanCol(new Set([cols.date, cols.item, cols.wc]), looksLikeLineValue);
   const out = [];
-  if (cols.item < 0) return out;
+  let otherLines = 0;
+  let itemDates = 0;
+  if (cols.item < 0) {
+    parseSapPairs.otherLines = 0;
+    parseSapPairs.itemDates = 0;
+    return out;
+  }
+  const hasLineCol = cols.wc >= 0 || cols.line >= 0;
   for (let i = start; i < grid.length; i++) {
     const row = grid[i];
     if (!row || !row.length) continue;
     const dt = sapPickDate(row, cols);
     const item = String(row[cols.item] ?? '').trim();
     if (!dt || !sapItemKey(item)) continue;
+    itemDates += 1;
     const wc = cols.wc >= 0 ? String(row[cols.wc] ?? '').trim() : '';
     const rawLine = cols.line >= 0 ? String(row[cols.line] ?? '').trim() : '';
-    const line = sapMapWorkCenter(wc) || sapMapWorkCenter(rawLine) || rawLine;
+    const line = sapMapWorkCenter(wc) || sapMapWorkCenter(rawLine);
+    if ((hasLineCol || wc || rawLine) && !line) {
+      otherLines += 1;
+      continue;
+    }
     const tm = parseSapTime(cols.time >= 0 ? row[cols.time] : '');
     const dateVal = cols.entryDate >= 0 ? row[cols.entryDate] : row[cols.date];
     const fromDate = parseSapTime(dateVal);
@@ -3696,6 +3712,8 @@ function parseSapPairs(grid) {
       hits: []
     });
   }
+  parseSapPairs.otherLines = otherLines;
+  parseSapPairs.itemDates = itemDates;
   return out;
 }
 function sapPrevYmd(y, m, d) {
@@ -3703,15 +3721,23 @@ function sapPrevYmd(y, m, d) {
   dt.setUTCDate(dt.getUTCDate() - 1);
   return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
 }
+function rebuildQualityDayItemIndex() {
+  const map = new Map();
+  for (const r of indexedRows) {
+    const key = `${r.y}|${r.m}|${r.d}|${sapItemKey(r.item)}`;
+    const arr = map.get(key);
+    if (arr) arr.push(r);
+    else map.set(key, [r]);
+  }
+  qualityDayItemIndex = map;
+}
 function sapHitsOnDay(entry, y, m, d, line) {
   if (!entry) return [];
   const wantLine = sapLineKey(entry.line || line || '');
-  return indexedRows.filter(r => {
-    if (r.y !== y || r.m !== m || r.d !== d) return false;
-    if (sapItemKey(r.item) !== entry.itemKey) return false;
-    if (wantLine && sapLineKey(r.line) !== wantLine) return false;
-    return true;
-  });
+  if (!qualityDayItemIndex) rebuildQualityDayItemIndex();
+  const rows = qualityDayItemIndex.get(`${y}|${m}|${d}|${entry.itemKey}`) || [];
+  if (!wantLine) return rows;
+  return rows.filter(r => sapLineKey(r.line) === wantLine);
 }
 function sapHitsFor(entry, line) {
   if (!entry) return [];
@@ -3725,15 +3751,19 @@ function sapHitsFor(entry, line) {
 }
 function refreshSapHits(line) {
   if (!sapAudit) return;
+  const key = sapLineKey(line || '');
+  if (sapAudit._hitsFor === key && qualityDayItemIndex) return;
+  if (!qualityDayItemIndex) rebuildQualityDayItemIndex();
   for (const row of sapAudit.rows) row.hits = sapHitsFor(row, line);
+  sapAudit._hitsFor = key;
 }
 function sapRowsForYmd(y, m, d, line) {
   if (!sapAudit || !sapAudit.rows.length) return [];
   const want = sapLineKey(line || '');
   return sapAudit.rows.filter(r => {
     if (r.y !== y || r.m !== m || r.d !== d) return false;
-    if (want && r.line && sapLineKey(r.line) !== want) return false;
-    return true;
+    if (want) return sapLineKey(r.line) === want;
+    return !r.line || SAP_LINE_NAMES.includes(sapLineKey(r.line));
   });
 }
 function sapDescFor(item, y, m, d, line) {
@@ -3849,8 +3879,12 @@ function parseDelimitedGrid(text) {
 }
 async function inflateRaw(u8) {
   if (typeof DecompressionStream === 'undefined') throw new Error('deflate');
-  const ds = new DecompressionStream('deflate-raw');
-  return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(ds)).arrayBuffer());
+  const tryFmt = async fmt => {
+    const ds = new DecompressionStream(fmt);
+    return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(ds)).arrayBuffer());
+  };
+  try { return await tryFmt('deflate-raw'); }
+  catch { return await tryFmt('deflate'); }
 }
 async function unzipEntries(buf) {
   const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
@@ -3876,7 +3910,11 @@ async function unzipEntries(buf) {
     const localExtra = view.getUint16(localOff + 28, true);
     const dataStart = localOff + 30 + localName + localExtra;
     const packed = u8.subarray(dataStart, dataStart + comp);
-    files[name] = method === 8 ? await inflateRaw(packed) : packed;
+    try {
+      files[name] = method === 8 ? await inflateRaw(packed) : packed;
+    } catch (err) {
+      if (/worksheets\/sheet|sharedstrings/i.test(name)) throw err;
+    }
     off += 46 + nameLen + extraLen + commentLen;
   }
   return files;
@@ -4012,24 +4050,49 @@ function gridFromSapBuffer(buf) {
 async function loadSapFile(file) {
   if (!file) return;
   const name = file.name || 'SAP.xlsx';
-  const buf = await file.arrayBuffer();
-  const u8 = new Uint8Array(buf);
-  const isZip = u8[0] === 0x50 && u8[1] === 0x4B;
-  const grid = isZip ? await parseXlsxGrid(buf) : gridFromSapBuffer(buf);
+  showProgress('Reading SAP export', 8, name);
+  await yieldUi();
+  let grid;
+  try {
+    const buf = await file.arrayBuffer();
+    const u8 = new Uint8Array(buf);
+    const isZip = u8[0] === 0x50 && u8[1] === 0x4B;
+    showProgress('Reading SAP export', 30, isZip ? 'Opening workbook' : 'Reading file');
+    await yieldUi();
+    grid = isZip ? await parseXlsxGrid(buf) : gridFromSapBuffer(buf);
+  } catch (err) {
+    console.warn(err);
+    hideProgress();
+    toast('Could not read that Excel file');
+    return;
+  }
+  showProgress('Reading SAP export', 72, 'Finding production postings');
+  await yieldUi();
   const rows = parseSapPairs(grid);
+  const otherLines = parseSapPairs.otherLines || 0;
+  const itemDates = parseSapPairs.itemDates || 0;
+  hideProgress();
   if (!rows.length) {
     const hdr = findSapHeaderRow(grid);
     toast(hdr < 0
       ? 'Could not find Material / Entry Date columns'
-      : 'Found the columns but no Material + date values');
+      : (itemDates || otherLines
+        ? 'Found the export, but no postings for COEX, S1, S3, S4, MONO, P1, or RTS'
+        : 'Found the columns but no Material + date values'));
     return;
   }
   sapAudit = { name, rows };
-  refreshSapHits(activeLine);
+  qualityDayItemIndex = null;
+  try {
+    refreshSapHits(activeLine);
+    renderCompliance();
+  } catch (err) {
+    console.warn(err);
+  }
   persistPack();
-  renderCompliance();
   const days = new Set(rows.map(r => `${r.y}-${r.m}-${r.d}`)).size;
-  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}`);
+  const extra = otherLines ? ` · skipped ${otherLines} other line${otherLines === 1 ? '' : 's'}` : '';
+  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}${extra}`);
 }
 function openComplianceReport() {
   if (!indexedRows.length) { toast('Paste results first'); return; }
@@ -5041,7 +5104,11 @@ document.getElementById('complianceSapFile').onchange = async (e) => {
   const file = e.target.files && e.target.files[0];
   e.target.value = '';
   try { await loadSapFile(file); }
-  catch { toast('Could not read that Excel file'); }
+  catch (err) {
+    console.warn(err);
+    hideProgress();
+    toast('Could not read that Excel file');
+  }
 };
 document.getElementById('complianceSapClear').onclick = () => {
   sapAudit = null;
@@ -5302,29 +5369,37 @@ restorePack().then(async data => {
     if (screenName !== 'welcome') setScreen('welcome');
     return;
   }
-  if (data.snapshot) currentSnapshot = data.snapshot;
-  const cleanedRows = dedupeHistoryRows(data.rows);
-  historyPack = {
-    item: (data.snapshot && data.snapshot.item) || '',
-    mspec: canonMspec(data.snapshot && data.snapshot.mspec),
-    rows: cleanedRows,
-    lookupRows: data.lookupRows || [],
-    lookupByMspec: buildLookupMap(data.lookupRows || [])
-  };
-  if (data.specPatches) historyPack.specPatches = data.specPatches;
-  applyStoredSapAudit(data);
-  await indexHistory();
-  if (cleanedRows.length !== data.rows.length) persistPack();
-  if (!plantRows().length) {
-    const next = Object.keys(PLANTS).find(k => plantRows(k).length);
-    if (next) activePlant = next;
+  showProgress('Loading saved results', 12, '');
+  await yieldUi();
+  try {
+    if (data.snapshot) currentSnapshot = data.snapshot;
+    const cleanedRows = dedupeHistoryRows(data.rows);
+    historyPack = {
+      item: (data.snapshot && data.snapshot.item) || '',
+      mspec: canonMspec(data.snapshot && data.snapshot.mspec),
+      rows: cleanedRows,
+      lookupRows: data.lookupRows || [],
+      lookupByMspec: buildLookupMap(data.lookupRows || [])
+    };
+    if (data.specPatches) historyPack.specPatches = data.specPatches;
+    applyStoredSapAudit(data);
+    await indexHistory((i, n) => {
+      showProgress('Loading saved results', 20 + Math.round(65 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
+    });
+    if (cleanedRows.length !== data.rows.length) persistPack();
+    if (!plantRows().length) {
+      const next = Object.keys(PLANTS).find(k => plantRows(k).length);
+      if (next) activePlant = next;
+    }
+    fillLineSelects();
+    syncPlantChrome();
+    syncWelcome();
+    markHasHistory(true);
+    setScreen('history');
+    requestAnimationFrame(() => renderHistoryTable());
+  } finally {
+    hideProgress();
   }
-  fillLineSelects();
-  syncPlantChrome();
-  syncWelcome();
-  markHasHistory(true);
-  setScreen('history');
-  requestAnimationFrame(() => renderHistoryTable());
 });
 </script>
 </body>

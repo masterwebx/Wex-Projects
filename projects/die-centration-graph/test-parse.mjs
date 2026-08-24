@@ -235,7 +235,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.14'/);
+assert.match(html, /APP_VERSION = '1\.7\.15'/);
 assert.match(html, /SAP_WORK_CENTERS/);
 assert.match(html, /SAP_LINE_NAMES/);
 assert.match(html, /no postings for COEX, S1, S3, S4, MONO, P1, or RTS/);
@@ -275,10 +275,16 @@ assert.match(html, /function formatSapPosted/);
 assert.match(html, /function sortComplianceRows/);
 assert.match(html, /function sapUtcToLocal/);
 assert.match(html, /function sapPlantTimeZone/);
-assert.match(html, /SAP_PLANT_TZ = 'America\/New_York'/);
-assert.match(html, /Posted \(ET\)/);
-assert.match(html, /SAP posted in Eastern \(from UTC\)/);
-assert.match(html, /posted in Eastern/);
+assert.match(html, /SAP_PLANT_TZ = 'America\/Los_Angeles'/);
+assert.match(html, /Posted \(PT\)/);
+assert.match(html, /SAP posted in Pacific \(from UTC\)/);
+assert.match(html, /posted in Pacific/);
+assert.match(html, /function sapZoneToZone/);
+assert.match(html, /function plantFromLine/);
+assert.match(html, /function plantForItemDay/);
+assert.match(html, /function itemFilterKey/);
+assert.match(html, /data-comp-line/);
+assert.match(html, /setActivePlant\(plant, \{ keepFilters: true \}\)/);
 assert.match(html, /function sapQtyCombined/);
 assert.match(html, /function sapPostedList/);
 assert.match(html, /function fmtDayDate/);
@@ -1507,21 +1513,60 @@ assert.equal(sapPostedList([
 function sapUtcToLocal(y, m, d, hour, minute, tz) {
   const utc = new Date(Date.UTC(y, m - 1, d, hour, minute || 0, 0));
   const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: tz || 'America/New_York',
+    timeZone: tz || 'America/Los_Angeles',
     year: 'numeric', month: 'numeric', day: 'numeric',
     hour: 'numeric', minute: 'numeric', hourCycle: 'h23'
   }).formatToParts(utc);
   const get = type => +((parts.find(p => p.type === type) || {}).value || 0);
   return { y: get('year'), m: get('month'), d: get('day'), hour: get('hour'), minute: get('minute') };
 }
+const sapLaEve = sapUtcToLocal(2026, 8, 17, 19, 55, 'America/Los_Angeles');
+assert.deepEqual(sapLaEve, { y: 2026, m: 8, d: 17, hour: 12, minute: 55 });
+const sapLaEarly = sapUtcToLocal(2026, 8, 17, 1, 0, 'America/Los_Angeles');
+assert.deepEqual(sapLaEarly, { y: 2026, m: 8, d: 16, hour: 18, minute: 0 });
+const sapLaAfternoon = sapUtcToLocal(2026, 8, 17, 16, 20, 'America/Los_Angeles');
+assert.deepEqual(sapLaAfternoon, { y: 2026, m: 8, d: 17, hour: 9, minute: 20 });
+const sapLaMorning = sapUtcToLocal(2026, 8, 17, 9, 5, 'America/Los_Angeles');
+assert.deepEqual(sapLaMorning, { y: 2026, m: 8, d: 17, hour: 2, minute: 5 });
 const sapNyEve = sapUtcToLocal(2026, 8, 17, 19, 55, 'America/New_York');
 assert.deepEqual(sapNyEve, { y: 2026, m: 8, d: 17, hour: 15, minute: 55 });
-const sapNyEarly = sapUtcToLocal(2026, 8, 17, 1, 0, 'America/New_York');
-assert.deepEqual(sapNyEarly, { y: 2026, m: 8, d: 16, hour: 21, minute: 0 });
-const sapNyAfternoon = sapUtcToLocal(2026, 8, 17, 16, 20, 'America/New_York');
-assert.deepEqual(sapNyAfternoon, { y: 2026, m: 8, d: 17, hour: 12, minute: 20 });
-const sapNyMorning = sapUtcToLocal(2026, 8, 17, 9, 5, 'America/New_York');
-assert.deepEqual(sapNyMorning, { y: 2026, m: 8, d: 17, hour: 5, minute: 5 });
+function sapZoneToZone(y, m, d, hour, minute, fromTz, toTz) {
+  const want = Date.UTC(y, m - 1, d, hour, minute || 0, 0);
+  let guess = want;
+  for (let i = 0; i < 4; i++) {
+    const g = new Date(guess);
+    const shown = sapUtcToLocal(g.getUTCFullYear(), g.getUTCMonth() + 1, g.getUTCDate(), g.getUTCHours(), g.getUTCMinutes(), fromTz);
+    const delta = Date.UTC(shown.y, shown.m - 1, shown.d, shown.hour, shown.minute) - want;
+    if (!delta) break;
+    guess -= delta;
+  }
+  const g = new Date(guess);
+  return sapUtcToLocal(g.getUTCFullYear(), g.getUTCMonth() + 1, g.getUTCDate(), g.getUTCHours(), g.getUTCMinutes(), toTz);
+}
+assert.deepEqual(
+  sapZoneToZone(2026, 8, 17, 15, 55, 'America/New_York', 'America/Los_Angeles'),
+  { y: 2026, m: 8, d: 17, hour: 12, minute: 55 }
+);
+function plantFromLine(line) {
+  const s = String(line || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (s === 'COEX' || s === 'MONO') return 'bubble';
+  if (s === 'P1') return 'p1';
+  if (s === 'RTS') return 'rts';
+  if (/^S[134]$/.test(s) || s === 'S1S3') return 'foam';
+  return '';
+}
+function itemFilterKey(plant) {
+  const cols = { foam: ['Item #'], bubble: ['Item'], p1: ['Item #'], rts: ['Item #'] }[plant] || ['Item #'];
+  return cols.includes('Item') && !cols.includes('Item #') ? 'Item' : 'Item #';
+}
+assert.equal(plantFromLine('COEX'), 'bubble');
+assert.equal(plantFromLine('MONO'), 'bubble');
+assert.equal(plantFromLine('S4'), 'foam');
+assert.equal(plantFromLine('S1'), 'foam');
+assert.equal(plantFromLine('P1'), 'p1');
+assert.equal(plantFromLine('RTS'), 'rts');
+assert.equal(itemFilterKey('bubble'), 'Item');
+assert.equal(itemFilterKey('foam'), 'Item #');
 assert.deepEqual(parseSapDate('4.6257E4'), { y: 2026, m: 8, d: 23 });
 assert.deepEqual(parseSapDate('4.6258E4'), { y: 2026, m: 8, d: 24 });
 assert.equal(parseSapDate('5.2245370370369998E-2'), null);

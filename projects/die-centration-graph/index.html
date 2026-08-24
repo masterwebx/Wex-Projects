@@ -698,7 +698,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.24';
+const APP_VERSION = '1.7.25';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -909,11 +909,9 @@ function applyStoredSapAudit(data) {
         workCenter: String(r.workCenter || ''),
         hits: []
       };
-      if (needShift && finiteNum(row.hour)) {
+      if (needShift && fromTz && finiteNum(row.hour)) {
         const tm = parseSapTime(row.timeText);
-        const shifted = fromTz
-          ? sapZoneToZone(row.y, row.m, row.d, row.hour, tm.minute, fromTz, toTz)
-          : sapUtcToLocal(row.y, row.m, row.d, row.hour, tm.minute, toTz);
+        const shifted = sapZoneToZone(row.y, row.m, row.d, row.hour, tm.minute, fromTz, toTz);
         if (shifted) {
           row.y = shifted.y;
           row.m = shifted.m;
@@ -3074,7 +3072,7 @@ function renderCompliance() {
   if (label) {
     label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}`
       + (activeLine ? ` · Line ${activeLine}` : ' · All lines')
-      + (sapAudit ? ' · SAP posted in Pacific (from UTC)' : '');
+      + (sapAudit ? ' · SAP Time of Entry' : '');
   }
   const thisMon = mondayOfLocalDate(new Date());
   const next = document.getElementById('complianceNextWeek');
@@ -4274,17 +4272,6 @@ function parseSapPairs(grid) {
     const minute = finiteNum(tm.minute) ? tm.minute : (finiteNum(fromDate.minute) ? fromDate.minute : 0);
     let timeText = tm.text || (finiteNum(fromDate.hour) && (String(dateVal || '').includes('.') || /e/i.test(String(dateVal || ''))) ? fromDate.text : '');
     let y = dt.y, mo = dt.m, day = dt.d;
-    // SAP Entry Date + Time of Entry are UTC; quality Period is plant-local Excel time.
-    if (finiteNum(hour)) {
-      const shifted = sapUtcToLocal(y, mo, day, hour, minute, parseSapPairs.timeZone || sapPlantTimeZone());
-      if (shifted) {
-        y = shifted.y;
-        mo = shifted.m;
-        day = shifted.d;
-        hour = shifted.hour;
-        timeText = shifted.timeText;
-      }
-    }
     const qty = cols.qty >= 0 ? String(row[cols.qty] ?? '').trim() : (cols.qtyEntry >= 0 ? String(row[cols.qtyEntry] ?? '').trim() : '');
     out.push({
       y, m: mo, d: day, item, itemKey: sapItemKey(item), line,
@@ -4727,7 +4714,7 @@ async function loadSapFile(file) {
   if (screenName === 'history' && isPostingsPlant()) renderHistoryTable();
   const days = new Set(rows.map(r => `${r.y}-${r.m}-${r.d}`)).size;
   const extra = otherLines ? ` · skipped ${otherLines} other line${otherLines === 1 ? '' : 's'}` : '';
-  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'} · posted in Pacific${extra}`);
+  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}${extra}`);
 }
 function openComplianceReport() {
   if (!indexedRows.length) { toast('Paste results first'); return; }

@@ -235,7 +235,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.13'/);
+assert.match(html, /APP_VERSION = '1\.7\.14'/);
 assert.match(html, /SAP_WORK_CENTERS/);
 assert.match(html, /SAP_LINE_NAMES/);
 assert.match(html, /no postings for COEX, S1, S3, S4, MONO, P1, or RTS/);
@@ -281,6 +281,11 @@ assert.match(html, /SAP posted in Eastern \(from UTC\)/);
 assert.match(html, /posted in Eastern/);
 assert.match(html, /function sapQtyCombined/);
 assert.match(html, /function sapPostedList/);
+assert.match(html, /function fmtDayDate/);
+assert.match(html, /function periodWithDayDate/);
+assert.match(html, /function pdfFailNotes/);
+assert.match(html, /pdfFailNotes\(r\.fails\)/);
+assert.doesNotMatch(html, /r\.fails\.join\('; '\) \|\| '—'/);
 assert.match(html, /function detectSapDelim/);
 assert.match(html, /Try a CSV export from SAP/);
 assert.match(html, /function isHeaderishLine/);
@@ -1043,7 +1048,7 @@ fs.unlinkSync(tmpJs);
 assert.equal(check.status, 0, check.stderr || check.stdout);
 
 const pdfChunk = html.slice(html.indexOf('function pdfSafe'), html.indexOf('function downloadPdfDoc'));
-const pdfApi = new Function(pdfChunk + '; return { writePdf, newPdfDoc, pdfAddPage, pdfText, pdfFillRect };')();
+const pdfApi = new Function(pdfChunk + '; return { writePdf, newPdfDoc, pdfAddPage, pdfText, pdfFillRect, pdfWrap };')();
 const pdfDoc = pdfApi.newPdfDoc(612, 792);
 const pdfPage = pdfApi.pdfAddPage(pdfDoc);
 pdfApi.pdfText(pdfPage, 40, 40, 'Compliance report', { size: 16, bold: true });
@@ -1052,6 +1057,10 @@ const pdfBytes = pdfApi.writePdf(pdfDoc);
 assert.equal(Buffer.from(pdfBytes.subarray(0, 8)).toString(), '%PDF-1.4');
 assert.ok(pdfBytes.length > 400);
 assert.ok(!Buffer.from(pdfBytes).includes(Buffer.from('/DCTDecode')));
+assert.deepEqual(pdfApi.pdfWrap('- 5:16 PM range over\n- 7:31 PM density over', 8, 400), [
+  '- 5:16 PM range over',
+  '- 7:31 PM density over'
+]);
 
 function fmtHourLabel(h) {
   const hr = ((h + 11) % 12) + 1;
@@ -1425,6 +1434,76 @@ function sapQtyCombined(saps) {
 assert.equal(sapQtyCombined([
   { qty: '20', unit: 'BDL' }, { qty: '102', unit: 'BDL' }, { qty: '101', unit: 'BDL' }
 ]), '223 BDL · 3 postings');
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function fmtDayDate(y, m, d) {
+  if (!y || !m || !d) return '';
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return `${WEEKDAYS[dt.getUTCDay()]} ${m}/${d}`;
+}
+assert.equal(fmtDayDate(2026, 8, 19), 'Wednesday 8/19');
+assert.equal(fmtDayDate(2026, 8, 18), 'Tuesday 8/18');
+function excelTimeShort(serial) {
+  const dt = excelSerialDate(serial);
+  return dt.toLocaleTimeString(undefined, { timeZone: 'UTC', hour: 'numeric', minute: '2-digit' });
+}
+function dateParts(serial) {
+  const dt = excelSerialDate(serial);
+  return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+}
+function periodWithDayDate(first, last) {
+  const t1 = excelTimeShort(first);
+  const t2 = excelTimeShort(last);
+  const p1 = dateParts(first);
+  const p2 = dateParts(last);
+  const d1 = fmtDayDate(p1.y, p1.m, p1.d);
+  const d2 = fmtDayDate(p2.y, p2.m, p2.d);
+  if (t1 && t2 && t1 !== t2) {
+    if (d1 && d2 && d1 !== d2) return `${d1} ${t1} – ${d2} ${t2}`;
+    const day = d1 || d2;
+    return day ? `${day} ${t1} – ${t2}` : `${t1} – ${t2}`;
+  }
+  const t = t1 || t2;
+  const day = d1 || d2;
+  if (day && t) return `${day} ${t}`;
+  return t || day || '';
+}
+const periodSameDay = periodWithDayDate(46253 + (17 * 60 + 16) / 1440, 46253 + (20 * 60 + 24) / 1440);
+assert.match(periodSameDay, /Wednesday 8\/19/);
+assert.match(periodSameDay, /5:16/);
+assert.match(periodSameDay, /8:24/);
+const periodPrevDay = periodWithDayDate(46252 + 21 / 24, 46252 + 22 / 24);
+assert.match(periodPrevDay, /Tuesday 8\/18/);
+function pdfFailNotes(fails) {
+  const list = (fails || []).map(x => String(x || '').trim()).filter(Boolean);
+  if (!list.length) return '—';
+  return list.map(x => '- ' + x).join('\n');
+}
+assert.equal(pdfFailNotes(['5:16 PM range over', '7:31 PM density over']), '- 5:16 PM range over\n- 7:31 PM density over');
+assert.equal(pdfFailNotes([]), '—');
+function sapPostedList(saps) {
+  const times = [];
+  const seen = new Set();
+  for (const sap of saps || []) {
+    const t = sap.timeText;
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    times.push({ t, day: fmtDayDate(sap.y, sap.m, sap.d) });
+  }
+  const days = [...new Set(times.map(x => x.day).filter(Boolean))];
+  if (days.length === 1) return `${days[0]} ${times.map(x => x.t).join(', ')}`;
+  return times.map(x => (x.day ? `${x.day} ${x.t}` : x.t)).join(', ');
+}
+assert.equal(sapPostedList([
+  { y: 2026, m: 8, d: 19, timeText: '8:50 PM' }
+]), 'Wednesday 8/19 8:50 PM');
+assert.equal(sapPostedList([
+  { y: 2026, m: 8, d: 19, timeText: '3:55 PM' },
+  { y: 2026, m: 8, d: 19, timeText: '12:20 PM' }
+]), 'Wednesday 8/19 3:55 PM, 12:20 PM');
+assert.equal(sapPostedList([
+  { y: 2026, m: 8, d: 18, timeText: '9:00 PM' },
+  { y: 2026, m: 8, d: 19, timeText: '3:55 PM' }
+]), 'Tuesday 8/18 9:00 PM, Wednesday 8/19 3:55 PM');
 function sapUtcToLocal(y, m, d, hour, minute, tz) {
   const utc = new Date(Date.UTC(y, m - 1, d, hour, minute || 0, 0));
   const parts = new Intl.DateTimeFormat('en-US', {

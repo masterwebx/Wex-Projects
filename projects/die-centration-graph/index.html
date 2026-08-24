@@ -659,7 +659,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.13';
+const APP_VERSION = '1.7.14';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -1808,6 +1808,30 @@ function shiftMonday(monday, weeks) {
 }
 function fmtWeekDate(d) {
   return d.toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+}
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function fmtDayDate(y, m, d) {
+  if (!y || !m || !d) return '';
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (isNaN(dt.getTime())) return '';
+  return `${WEEKDAYS[dt.getUTCDay()]} ${m}/${d}`;
+}
+function periodWithDayDate(first, last) {
+  const t1 = excelTimeShort(first);
+  const t2 = excelTimeShort(last);
+  const p1 = dateParts(first);
+  const p2 = dateParts(last);
+  const d1 = fmtDayDate(p1.y, p1.m, p1.d);
+  const d2 = fmtDayDate(p2.y, p2.m, p2.d);
+  if (t1 && t2 && t1 !== t2) {
+    if (d1 && d2 && d1 !== d2) return `${d1} ${t1} – ${d2} ${t2}`;
+    const day = d1 || d2;
+    return day ? `${day} ${t1} – ${t2}` : `${t1} – ${t2}`;
+  }
+  const t = t1 || t2;
+  const day = d1 || d2;
+  if (day && t) return `${day} ${t}`;
+  return t || day || '';
 }
 function excelTimeShort(serial) {
   const dt = excelSerialDate(serial);
@@ -3277,15 +3301,21 @@ function pdfTextWidth(text, size, bold) {
   return w * size / 1000;
 }
 function pdfWrap(text, size, maxW, bold) {
-  const words = pdfSafe(text).split(/\s+/);
+  const chunks = String(text ?? '').split(/\n/);
   const lines = [];
-  let cur = '';
-  for (const word of words) {
-    const trial = cur ? cur + ' ' + word : word;
-    if (pdfTextWidth(trial, size, bold) > maxW && cur) { lines.push(cur); cur = word; }
-    else cur = trial;
+  for (const raw of chunks) {
+    const chunk = pdfSafe(raw);
+    const words = chunk.split(/\s+/);
+    let cur = '';
+    for (const word of words) {
+      if (!word && !cur) continue;
+      const trial = cur ? cur + ' ' + word : word;
+      if (pdfTextWidth(trial, size, bold) > maxW && cur) { lines.push(cur); cur = word; }
+      else cur = trial;
+    }
+    if (cur) lines.push(cur);
+    else lines.push('');
   }
-  if (cur) lines.push(cur);
   return lines.length ? lines : [''];
 }
 function pdfRgb(hex) {
@@ -3516,13 +3546,11 @@ function complianceGroupSummary(g) {
   if (passed) bits.push(`${passed} passed`);
   if (failed) bits.push(`${failed} failed`);
   if (noCheck) bits.push(`${noCheck} NO CHECK`);
-  const t1 = g ? excelTimeShort(g.first) : '';
-  const t2 = g ? excelTimeShort(g.last) : '';
   return {
     passed, failed, noCheck,
     result: bits.join(', ') || '',
     fails: failLines,
-    period: t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2 || '')
+    period: periodWithDayDate(g && g.first, g && g.last)
   };
 }
 function complianceDayGroups(y, m, dd, line) {
@@ -4005,10 +4033,22 @@ function sapPostedList(saps) {
     const t = formatSapPosted(sap.timeText);
     if (!t || seen.has(t)) continue;
     seen.add(t);
-    times.push({ t, mins: sapPostedMinutes(sap) });
+    times.push({
+      t,
+      mins: sapPostedMinutes(sap),
+      day: fmtDayDate(sap.y, sap.m, sap.d)
+    });
   }
   times.sort((a, b) => (finiteNum(a.mins) ? a.mins : 9999) - (finiteNum(b.mins) ? b.mins : 9999));
-  return times.map(x => x.t).join(', ');
+  if (!times.length) return '';
+  const days = [...new Set(times.map(x => x.day).filter(Boolean))];
+  if (days.length === 1) return `${days[0]} ${times.map(x => x.t).join(', ')}`;
+  return times.map(x => (x.day ? `${x.day} ${x.t}` : x.t)).join(', ');
+}
+function pdfFailNotes(fails) {
+  const list = (fails || []).map(x => String(x || '').trim()).filter(Boolean);
+  if (!list.length) return '—';
+  return list.map(x => '- ' + x).join('\n');
 }
 function sapHasDetail() {
   return !!(sapAudit && sapAudit.rows.some(r => r.desc || r.qty || r.timeText || r.workCenter));
@@ -4034,15 +4074,15 @@ function compliancePdfCols(rows) {
   const showLine = (rows || []).some(r => r.line);
   if (showSap) {
     return [
-      { title: 'Material', w: 58 },
-      { title: 'Description', w: 78 },
-      { title: 'Line', w: 28 },
-      { title: 'MSPEC', w: 46 },
-      { title: 'Qty', w: 40 },
-      { title: 'Posted (ET)', w: 46 },
-      { title: 'Period', w: 48 },
-      { title: 'Quality check', w: 104 },
-      { title: 'Fail notes', w: 90 }
+      { title: 'Material', w: 50 },
+      { title: 'Description', w: 64 },
+      { title: 'Line', w: 24 },
+      { title: 'MSPEC', w: 40 },
+      { title: 'Qty', w: 34 },
+      { title: 'Posted (ET)', w: 74 },
+      { title: 'Period', w: 82 },
+      { title: 'Quality check', w: 70 },
+      { title: 'Fail notes', w: 94 }
     ];
   }
   if (showLine) {
@@ -4051,18 +4091,18 @@ function compliancePdfCols(rows) {
       { title: 'Description', w: 100 },
       { title: 'Line', w: 36 },
       { title: 'MSPEC', w: 62 },
-      { title: 'Period', w: 64 },
-      { title: 'Quality check', w: 100 },
-      { title: 'Fail notes', w: 100 }
+      { title: 'Period', w: 86 },
+      { title: 'Quality check', w: 88 },
+      { title: 'Fail notes', w: 90 }
     ];
   }
   return [
     { title: 'Item', w: 80 },
     { title: 'Description', w: 118 },
     { title: 'MSPEC', w: 70 },
-    { title: 'Period', w: 70 },
-    { title: 'Quality check', w: 100 },
-    { title: 'Fail notes', w: 94 }
+    { title: 'Period', w: 88 },
+    { title: 'Quality check', w: 92 },
+    { title: 'Fail notes', w: 84 }
   ];
 }
 function compliancePdfRows(y, m, d, line) {
@@ -4071,10 +4111,10 @@ function compliancePdfRows(y, m, d, line) {
   const showLine = rows.some(r => r.line);
   return rows.map(r => {
     const row = showSap
-      ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.qty || '—', r.posted || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']
+      ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.qty || '—', r.posted || '—', r.period || '—', r.result || '—', pdfFailNotes(r.fails)]
       : (showLine
-        ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']
-        : [r.itemLabel, r.desc || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']);
+        ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', pdfFailNotes(r.fails)]
+        : [r.itemLabel, r.desc || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', pdfFailNotes(r.fails)]);
     if (r.kind === 'miss' || r.kind === 'fail') { row._color = '#991b1b'; row._bg = '#fff7f7'; }
     else { row._color = '#166534'; row._bg = '#f0fdf4'; }
     return row;

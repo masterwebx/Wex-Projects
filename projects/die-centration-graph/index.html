@@ -247,6 +247,15 @@ try {
   .comp-sum .warn, .comp-sum.warn { color: var(--thin); }
   .comp-sum .gray, .comp-sum.gray { color: #9ca3af; }
   .comp-empty { color: var(--muted); font-size: 14px; margin: 0; }
+  .comp-all { display: grid; gap: 12px; }
+  .comp-all > b { font-size: 16px; }
+  .comp-all-line {
+    display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line);
+    border-radius: 12px; background: var(--idle);
+  }
+  .comp-all-line b { font-size: 16px; }
+  .comp-all-line ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; }
+  .comp-all-line li { margin: 2px 0; }
   .rpt-list { max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; padding: 8px; display: grid; gap: 4px; }
   .rpt-list label { display: flex; align-items: center; gap: 8px; font-weight: 400; }
   .rpt-list label span:first-of-type { flex: 1; min-width: 0; }
@@ -685,7 +694,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.20';
+const APP_VERSION = '1.7.21';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -3060,13 +3069,16 @@ function renderCompliance() {
   const label = document.getElementById('complianceWeekLabel');
   if (label) {
     label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}`
-      + (activeLine ? ` · Line ${activeLine}` : '')
+      + (activeLine ? ` · Line ${activeLine}` : ' · All lines')
       + (sapAudit ? ' · SAP posted in Pacific (from UTC)' : '');
   }
   const thisMon = mondayOfLocalDate(new Date());
   const next = document.getElementById('complianceNextWeek');
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
-  renderComplianceHours(monday);
+  const legend = document.getElementById('complianceLegend');
+  if (legend) legend.hidden = !activeLine;
+  if (activeLine) renderComplianceHours(monday);
+  else renderComplianceAllLines(monday);
   renderComplianceDays(monday);
   const jump = document.getElementById('complianceJumpDate');
   if (jump) jump.value = isoFromParts(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate());
@@ -3101,6 +3113,56 @@ function renderComplianceHours(monday) {
   }
   html += '</div>';
   el.innerHTML = html;
+}
+function complianceUncheckedByLine(monday) {
+  const today = localTodayParts();
+  const todayN = ymdNum(today.y, today.m, today.d);
+  const byLine = new Map();
+  for (let d = 0; d < 7; d++) {
+    const day = new Date(monday.getTime());
+    day.setUTCDate(monday.getUTCDate() + d);
+    const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, dd = day.getUTCDate();
+    if (ymdNum(y, m, dd) > todayN) continue;
+    const dayLabel = fmtWeekDate(day);
+    for (const r of complianceMergedRows(y, m, dd, '')) {
+      if (!r.hasSap || r.kind !== 'miss') continue;
+      const line = String(r.line || '').trim() || 'Unknown';
+      let rec = byLine.get(line);
+      if (!rec) {
+        rec = { line, items: [] };
+        byLine.set(line, rec);
+      }
+      rec.items.push({
+        item: r.itemLabel || r.item || '—',
+        desc: r.desc || '',
+        day: dayLabel
+      });
+    }
+  }
+  return uniqueSorted([...byLine.keys()], false).map(k => byLine.get(k));
+}
+function renderComplianceAllLines(monday) {
+  const el = document.getElementById('complianceHours');
+  if (!el) return;
+  if (!sapAudit || !sapAudit.rows || !sapAudit.rows.length) {
+    el.innerHTML = '<p class="comp-empty">Load an SAP export to see which lines posted items without a quality check.</p>';
+    return;
+  }
+  const groups = complianceUncheckedByLine(monday);
+  if (!groups.length) {
+    el.innerHTML = '<p class="hist-meta">Every posted item this week has a quality check.</p>';
+    return;
+  }
+  const n = groups.reduce((s, g) => s + g.items.length, 0);
+  el.innerHTML = `<div class="comp-all">
+    <b>Posted items with no quality check</b>
+    <p class="hist-meta">${groups.length} line${groups.length === 1 ? '' : 's'} · ${n} item${n === 1 ? '' : 's'}</p>
+    ${groups.map(g => `<div class="comp-all-line">
+      <b>${esc(g.line)}</b>
+      <span class="hist-meta">${g.items.length} item${g.items.length === 1 ? '' : 's'}</span>
+      <ul>${g.items.map(it => `<li>${esc(it.day)} · ${esc(it.item)}${it.desc ? ` · ${esc(it.desc)}` : ''}</li>`).join('')}</ul>
+    </div>`).join('')}
+  </div>`;
 }
 function fmtHourLabel(h) {
   const hr = ((h + 11) % 12) + 1;
@@ -3179,6 +3241,10 @@ function renderComplianceDays(monday) {
     const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, dd = day.getUTCDate();
     const heading = `${DAYS[d]}, ${fmtWeekDate(day)}`;
     const tableHtml = complianceDayTableHtml(y, m, dd);
+    if (!activeLine) {
+      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${tableHtml || '<p class="comp-empty">No items</p>'}</div>`);
+      continue;
+    }
     if (ymdNum(y, m, dd) > todayN) {
       parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${tableHtml || '<p class="comp-empty">—</p>'}</div>`);
       continue;

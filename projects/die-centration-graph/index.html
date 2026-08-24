@@ -223,9 +223,7 @@ try {
     background: transparent;
   }
   table.results td.wrap, table.results th.wrap { white-space: normal; line-height: 1.25; overflow: visible; text-overflow: clip; }
-  html[data-plant="postings"] table.results tbody td { height: auto; vertical-align: top; }
-  html[data-plant="postings"] table.results tbody tr { height: auto; }
-  html[data-plant="postings"] table.results td.wrap { min-width: 0; }
+  html[data-plant="postings"] table.results td.wrap { min-width: 0; max-width: 280px; }
   .comp-hour.check { background: #22c55e; border-color: #15803d; }
   .comp-hour.nocheck { background: #9ca3af; border-color: #6b7280; }
   .comp-hour.miss { background: #ef4444; border-color: #b91c1c; }
@@ -710,7 +708,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.26';
+const APP_VERSION = '1.7.27';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -798,6 +796,11 @@ let spcComboHi = -1;
 let activeLine = '';
 let sapAudit = null;
 let qualityDayItemIndex = null;
+let qualityDayIndex = null;
+let sapDayIndex = null;
+let canvasLayoutKey = '';
+let resizeRaf = 0;
+let postingBusy = false;
 let spcPointSelected = false;
 let resizeTimer = 0;
 let lastHistH = 0;
@@ -899,6 +902,7 @@ function sapAuditToStore() {
 function applyStoredSapAudit(data) {
   const src = data && data.sapAudit;
   clearPostingRows();
+  clearSapDayIndex();
   if (!src || !Array.isArray(src.rows) || !src.rows.length) {
     sapAudit = null;
     return;
@@ -1131,7 +1135,7 @@ function thicknessFromPoints(row) {
   return pts.reduce((a, b) => a + b, 0) / pts.length;
 }
 function thicknessAvgFromRow(row) {
-  const stored = numVal(col(row, 'Thickness Average'));
+  const stored = numVal(rowPick(row, 'Thickness Average') || row['Thickness Average']);
   if (looksLikeThicknessIn(stored)) return stored;
   const fromPts = thicknessFromPoints(row);
   if (finiteNum(fromPts)) return fromPts;
@@ -1422,83 +1426,122 @@ function isPostingsPlant(plant) {
 function showHistViewCol() {
   return isFoamPlant() || isPostingsPlant();
 }
+function clearQualityDayIndex() {
+  qualityDayItemIndex = null;
+  qualityDayIndex = null;
+}
+function clearSapDayIndex() {
+  sapDayIndex = null;
+}
 function clearPostingRows() {
   postingRowCache = null;
   if (plantRowCache) plantRowCache.postings = null;
 }
-function postingRows() {
+function postingIndexedRow(day, r, idx) {
+  const serial = finiteNum(r.firstSerial) ? r.firstSerial : (Date.UTC(day.y, day.m - 1, day.d) / 86400000 + 25569);
+  const q = finiteNum(r.firstSerial) ? dateParts(r.firstSerial) : day;
+  const failText = (r.fails || []).join('; ');
+  const cls = r.kind === 'miss' || r.kind === 'fail' ? 'bad' : (r.kind === 'prev' ? 'warn' : 'good');
+  const when = fmtDayDate(day.y, day.m, day.d) || `${day.m}/${day.d}/${day.y}`;
+  return {
+    idx: 'p-' + idx,
+    plant: 'postings',
+    y: day.y, m: day.m, d: day.d,
+    serial,
+    item: r.item,
+    mspec: r.mspec,
+    desc: r.desc,
+    line: r.line,
+    pf: r.result,
+    kind: r.kind,
+    checkCls: cls,
+    firstSerial: r.firstSerial,
+    viewItem: r.viewItem || r.item,
+    viewY: q.y || day.y,
+    viewM: q.m || day.m,
+    viewD: q.d || day.d,
+    fails: r.fails || [],
+    itemLabel: r.itemLabel,
+    mspecLabel: r.mspecLabel,
+    tone: {},
+    num: { Material: numVal(r.item), Qty: numVal(String(r.qty || '').replace(/[^0-9.-]/g, '')), 'Date/Time': serial },
+    text: {
+      'Date/Time': when,
+      Material: r.item || '',
+      Description: r.desc || '',
+      Line: r.line || '',
+      MSPEC: r.mspec || '',
+      Qty: r.qty || '',
+      'Posted (PT)': r.posted || '',
+      Period: r.period || '',
+      'Quality check': r.result || '',
+      'Fail notes': failText
+    }
+  };
+}
+function postingDaysFromAudit() {
+  if (!sapDayIndex) rebuildSapDayIndex();
+  const days = [];
+  sapDayIndex.forEach((_, key) => {
+    const p = String(key).split('|');
+    days.push({ y: +p[0], m: +p[1], d: +p[2] });
+  });
+  days.sort((a, b) => ymdNum(b.y, b.m, b.d) - ymdNum(a.y, a.m, a.d));
+  return days;
+}
+function appendPostingDay(out, day) {
+  for (const r of complianceMergedRows(day.y, day.m, day.d, '')) {
+    if (!r.hasSap) continue;
+    out.push(postingIndexedRow(day, r, out.length));
+  }
+}
+function buildPostingRowsSync() {
   if (postingRowCache) return postingRowCache;
   if (!sapAudit || !sapAudit.rows.length) {
     postingRowCache = [];
     return postingRowCache;
   }
-  const days = [];
-  const seen = new Set();
-  for (const r of sapAudit.rows) {
-    const key = `${r.y}|${r.m}|${r.d}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    days.push({ y: r.y, m: r.m, d: r.d });
-  }
-  days.sort((a, b) => ymdNum(b.y, b.m, b.d) - ymdNum(a.y, a.m, a.d));
+  refreshSapHits('');
   const out = [];
-  for (const day of days) {
-    for (const r of complianceMergedRows(day.y, day.m, day.d, '')) {
-      if (!r.hasSap) continue;
-      const serial = finiteNum(r.firstSerial) ? r.firstSerial : (Date.UTC(day.y, day.m - 1, day.d) / 86400000 + 25569);
-      const q = finiteNum(r.firstSerial) ? dateParts(r.firstSerial) : day;
-      const failText = (r.fails || []).join('; ');
-      const cls = r.kind === 'miss' || r.kind === 'fail' ? 'bad' : (r.kind === 'prev' ? 'warn' : 'good');
-      out.push({
-        idx: 'p-' + out.length,
-        plant: 'postings',
-        y: day.y, m: day.m, d: day.d,
-        serial,
-        item: r.item,
-        mspec: r.mspec,
-        desc: r.desc,
-        line: r.line,
-        pf: r.result,
-        kind: r.kind,
-        firstSerial: r.firstSerial,
-        viewItem: r.viewItem || r.item,
-        viewY: q.y || day.y,
-        viewM: q.m || day.m,
-        viewD: q.d || day.d,
-        fails: r.fails || [],
-        tone: {},
-        num: { Material: numVal(r.item), Qty: numVal(String(r.qty || '').replace(/[^0-9.-]/g, '')), 'Date/Time': serial },
-        text: {
-          'Date/Time': fmtDayDate(day.y, day.m, day.d) || `${day.m}/${day.d}/${day.y}`,
-          Material: r.item || '',
-          Description: r.desc || '',
-          Line: r.line || '',
-          MSPEC: r.mspec || '',
-          Qty: r.qty || '',
-          'Posted (PT)': r.posted || '',
-          Period: r.period || '',
-          'Quality check': r.result || '',
-          'Fail notes': failText
-        },
-        display: {
-          'Date/Time': esc(fmtDayDate(day.y, day.m, day.d) || `${day.m}/${day.d}/${day.y}`),
-          Material: esc(r.itemLabel || r.item || '—'),
-          Description: esc(r.desc || '—'),
-          Line: esc(r.line || '—'),
-          MSPEC: esc(r.mspecLabel || r.mspec || '—'),
-          Qty: esc(r.qty || '—'),
-          'Posted (PT)': esc(r.posted || '—'),
-          Period: esc(r.period || '—'),
-          'Quality check': `<span class="check ${cls}">${esc(r.result || '—')}</span>`,
-          'Fail notes': r.fails && r.fails.length
-            ? `<ul class="comp-fail-list">${r.fails.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`
-            : '—'
-        }
-      });
-    }
-  }
+  postingDaysFromAudit().forEach(day => appendPostingDay(out, day));
   postingRowCache = out;
   return postingRowCache;
+}
+async function ensurePostingRows() {
+  if (postingRowCache) return postingRowCache;
+  if (!sapAudit || !sapAudit.rows.length) {
+    postingRowCache = [];
+    return postingRowCache;
+  }
+  if (postingBusy) {
+    while (postingBusy) await yieldUi();
+    return postingRowCache || [];
+  }
+  postingBusy = true;
+  showProgress('Loading postings', 8, 'Matching SAP to quality checks');
+  await yieldUi();
+  try {
+    refreshSapHits('');
+    const days = postingDaysFromAudit();
+    const out = [];
+    for (let i = 0; i < days.length; i++) {
+      appendPostingDay(out, days[i]);
+      if (i % 6 === 0 || i === days.length - 1) {
+        showProgress('Loading postings', 12 + Math.round(80 * (i + 1) / Math.max(days.length, 1)), `${out.length.toLocaleString()} postings`);
+        await yieldUi();
+      }
+    }
+    postingRowCache = out;
+    return postingRowCache;
+  } finally {
+    postingBusy = false;
+    hideProgress();
+  }
+}
+function postingRows() {
+  if (postingRowCache) return postingRowCache;
+  if (postingBusy) return [];
+  return buildPostingRowsSync();
 }
 function plantRows(plant) {
   const want = plant || activePlant || 'foam';
@@ -1604,7 +1647,7 @@ function syncPlantChrome() {
   }
   syncViewChrome();
 }
-function setActivePlant(plant, opts) {
+async function setActivePlant(plant, opts) {
   const next = PLANTS[plant] ? plant : 'foam';
   const keepFilters = opts && opts.keepFilters;
   if (next === activePlant && !(opts && opts.force)) {
@@ -1622,6 +1665,12 @@ function setActivePlant(plant, opts) {
   syncPlantChrome();
   saveState();
   filteredDirty = true;
+  if (next === 'postings' && sapAudit && !postingRowCache) {
+    const meta = document.getElementById('histMeta');
+    if (meta) meta.textContent = 'Loading postings…';
+    await ensurePostingRows();
+    filteredDirty = true;
+  }
   if (screenName === 'history') renderHistoryTable();
   if (screenName === 'compliance') renderCompliance();
 }
@@ -1640,22 +1689,33 @@ function splitDieGraph2(text) {
   }
   return sections;
 }
+function rowPick(row, key) {
+  if (!row || !key) return '';
+  const direct = row[key];
+  if (direct != null && String(direct).trim() !== '') return direct;
+  const aliases = COL_ALIASES[key];
+  if (aliases) {
+    for (let i = 0; i < aliases.length; i++) {
+      const v = row[aliases[i]];
+      if (v != null && String(v).trim() !== '') return v;
+    }
+  }
+  return '';
+}
 function col(row, ...names) {
   if (!row) return '';
   for (const n of names) {
-    const direct = row[n];
-    if (direct != null && String(direct).trim() !== '') return direct;
+    const hit = rowPick(row, n);
+    if (hit !== '') return hit;
   }
   const all = [];
   for (const n of names) {
     (COL_ALIASES[n] || [n]).forEach(a => { if (!all.includes(a)) all.push(a); });
   }
-  for (const n of all) {
-    if (row[n] != null && String(row[n]).trim() !== '') return row[n];
-  }
   const keys = Object.keys(row);
   for (const n of all) {
-    const hit = keys.find(k => k.toLowerCase() === n.toLowerCase());
+    const want = String(n).toLowerCase();
+    const hit = keys.find(k => k.toLowerCase() === want);
     if (hit && String(row[hit]).trim() !== '') return row[hit];
   }
   return '';
@@ -1674,11 +1734,16 @@ function canonMspec(v) {
 function excelSerialDate(n) {
   return new Date(Math.round((Number(n) - 25569) * 86400000));
 }
+function pad2(n) { return String(n).padStart(2, '0'); }
 function excelWhen(v) {
   const n = parseFloat(v);
   if (isFinite(n) && n > 20000 && n < 90000) {
     const d = excelSerialDate(n);
-    if (!isNaN(d.getTime())) return d.toLocaleString(undefined, { timeZone: 'UTC' });
+    if (!isNaN(d.getTime())) {
+      const h24 = d.getUTCHours();
+      const h12 = ((h24 + 11) % 12) + 1;
+      return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}, ${h12}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())} ${h24 < 12 ? 'AM' : 'PM'}`;
+    }
   }
   return String(v || '').trim();
 }
@@ -2222,19 +2287,19 @@ function excelSerialToIso(s) {
 function tonesForRow(row, mspec) {
   const specs = lookupSpecs(mspec) || {};
   const avg = thicknessAvgFromRow(row);
-  const rangeThou = asThousandths(col(row, 'Thickness Range'));
-  const dens = numVal(col(row, 'Density'));
-  const cellMd = numVal(col(row, 'Cell Count MD'));
-  const cellCd = numVal(col(row, 'Cell Count CD'));
-  const width = numVal(col(row, 'Slit/Width'));
+  const rangeThou = asThousandths(rowPick(row, 'Thickness Range') || row['Thickness Range']);
+  const dens = numVal(rowPick(row, 'Density') || row['Density']);
+  const cellMd = numVal(row['Cell Count MD']);
+  const cellCd = numVal(row['Cell Count CD']);
+  const width = numVal(rowPick(row, 'Slit/Width') || row['Slit/Width']);
   const rangeMax = asThousandths(specs.rangeThou != null ? specs.rangeThou : specs.range);
   return {
-    'Thickness Average': specToneFromStored(col(row, 'Thickness Average Pass/Fail'), avg, specs.min, specs.max),
-    'Thickness Range': specToneFromStored(col(row, 'Thickness Range Pass/Fail'), rangeThou, 0, rangeMax),
-    'Density': specToneFromStored(col(row, 'Density Pass/Fail'), finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, specs.densMin, specs.densMax),
-    'Cell Count MD': specToneFromStored(col(row, 'Cell Count MD Pass/Fail'), cellMd, specs.cellMin, NaN),
-    'Cell Count CD': specToneFromStored(col(row, 'Cell Count CD Pass/Fail'), cellCd, specs.cellMin, NaN),
-    'Slit/Width': specToneFromStored(col(row, 'Slit/Width Pass/Fail'), width, specs.widthMin, NaN)
+    'Thickness Average': specToneFromStored(rowPick(row, 'Thickness Average Pass/Fail') || row['Thickness Average Pass/Fail'], avg, specs.min, specs.max),
+    'Thickness Range': specToneFromStored(rowPick(row, 'Thickness Range Pass/Fail') || row['Thickness Range Pass/Fail'], rangeThou, 0, rangeMax),
+    'Density': specToneFromStored(row['Density Pass/Fail'], finiteNum(dens) ? Math.round(dens * 100) / 100 : NaN, specs.densMin, specs.densMax),
+    'Cell Count MD': specToneFromStored(row['Cell Count MD Pass/Fail'], cellMd, specs.cellMin, NaN),
+    'Cell Count CD': specToneFromStored(row['Cell Count CD Pass/Fail'], cellCd, specs.cellMin, NaN),
+    'Slit/Width': specToneFromStored(rowPick(row, 'Slit/Width Pass/Fail') || row['Slit/Width Pass/Fail'], width, specs.widthMin, NaN)
   };
 }
 async function indexHistory(onProg) {
@@ -2266,21 +2331,17 @@ async function indexHistory(onProg) {
         if (k && !k.startsWith('__') && !seenKeys.has(k)) { seenKeys.add(k); keys.push(k); }
       }
     }
-    const parts = dateParts(row['Date/Time'] || col(row, 'Date/Time'));
-    const display = {}, num = {}, text = {};
-    const mspec = canonMspec(row['MSPEC'] || row['MSPEC #'] || (foam ? col(row, 'MSPEC', 'MSPEC #') : ''));
+    const parts = dateParts(row['Date/Time'] || rowPick(row, 'Date/Time'));
+    const num = {}, text = {};
+    const mspec = canonMspec(row['MSPEC'] || row['MSPEC #'] || (foam ? rowPick(row, 'MSPEC') : ''));
     const tone = foam ? tonesForRow(row, mspec) : {};
-    const pfRaw = row['Pass/Fail'] != null && String(row['Pass/Fail']).trim() !== '' ? row['Pass/Fail'] : col(row, 'Pass/Fail');
+    const pfRaw = row['Pass/Fail'] != null && String(row['Pass/Fail']).trim() !== '' ? row['Pass/Fail'] : rowPick(row, 'Pass/Fail');
     const pfLabel = foam ? displayOverallPf(row, lookupSpecs(mspec) || {}) : (isNoCheckPf(pfRaw) ? 'NO CHECK' : (normalizePf(pfRaw) || String(pfRaw || '').trim()));
     const thickAvg = foam ? thicknessAvgFromRow(row) : NaN;
     for (const k of keys) {
       const raw = k === 'Pass/Fail' ? pfLabel
         : k === 'Thickness Average' && finiteNum(thickAvg) ? thickAvg
-        : (row[k] != null && String(row[k]).trim() !== '' ? row[k] : col(row, k));
-      display[k] = k === 'MSPEC' ? esc(mspecWithTarget(mspec) || raw)
-        : (k === 'Item #' || k === 'Item') ? esc(itemWithTargets(String(row['Item #'] || row['Item'] || col(row, 'Item #', 'Item') || '').trim(), mspec) || raw)
-        : k === 'Pass/Fail' ? formatPfPill(pfLabel)
-        : displayCell(k, raw);
+        : (row[k] != null && String(row[k]).trim() !== '' ? row[k] : rowPick(row, k));
       num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw)
         : k === 'Thickness Average' ? thickAvg
         : numVal(raw);
@@ -2288,7 +2349,7 @@ async function indexHistory(onProg) {
     }
     indexedRows[idx] = {
       idx, row, serial: parts.serial, y: parts.y, m: parts.m, d: parts.d,
-      display, num, text, tone,
+      display: null, num, text, tone,
       item: String(row['Item #'] || row['Item'] || '').trim(),
       mspec,
       desc: String(row['Item Desc'] || row['Item Description'] || row['Description'] || '').trim(),
@@ -2296,7 +2357,7 @@ async function indexHistory(onProg) {
       line: realLineName(row['Line']),
       plant
     };
-    if (onProg && idx % 1500 === 0) {
+    if (onProg && idx % 4000 === 0) {
       onProg(idx, rows.length);
       const now = Date.now();
       if (now - lastYield > 50) {
@@ -2309,7 +2370,7 @@ async function indexHistory(onProg) {
   clearPostingRows();
   histColsMemo = { plant: '', n: -1, cols: null };
   filteredDirty = true;
-  qualityDayItemIndex = null;
+  clearQualityDayIndex();
   if (sapAudit) sapAudit._hitsFor = '';
 }
 function rowsMatchingExcept(exceptKey) {
@@ -2648,12 +2709,31 @@ function renderHistoryChrome() {
     };
   }
 }
+function cellDisplay(r, k) {
+  if (!r.display) r.display = {};
+  if (r.display[k] != null) return r.display[k];
+  let html = '';
+  if (r.plant === 'postings') {
+    if (k === 'Quality check') html = `<span class="check ${r.checkCls || ''}">${esc(r.text[k] || '—')}</span>`;
+    else if (k === 'Fail notes') {
+      const t = r.text[k] || '';
+      html = t ? `<span title="${esc(t)}">${esc(t)}</span>` : '—';
+    } else if (k === 'Material') html = esc(r.itemLabel || r.text[k] || '—');
+    else if (k === 'MSPEC') html = esc(r.mspecLabel || r.text[k] || '—');
+    else html = esc(r.text[k] || '—');
+  } else if (k === 'MSPEC') html = esc(mspecWithTarget(r.mspec) || r.text[k] || '');
+  else if (k === 'Item #' || k === 'Item') html = esc(itemWithTargets(r.item, r.mspec) || r.text[k] || '');
+  else if (k === 'Pass/Fail') html = formatPfPill(r.pf || r.text[k]);
+  else html = displayCell(k, k === 'Date/Time' && finiteNum(r.serial) ? r.serial : (r.text[k] ?? ''));
+  r.display[k] = html;
+  return html;
+}
 function rowHtml(r) {
   const tds = histCols().map(k => {
     const wrap = (k === 'Fail notes' || k === 'Period' || k === 'Posted (PT)' || k === 'Quality check' || k === 'Description') ? 'wrap' : '';
     const tone = r.tone && r.tone[k] ? `tone-${r.tone[k]}` : '';
     const cls = [wrap, tone].filter(Boolean).join(' ');
-    return `<td${cls ? ` class="${cls}"` : ''}>${r.display[k] || ''}</td>`;
+    return `<td${cls ? ` class="${cls}"` : ''}>${cellDisplay(r, k)}</td>`;
   }).join('');
   const eye = isPostingsPlant()
     ? `<td class="sticky-eye"><button type="button" data-post-item="${esc(r.viewItem || r.item || '')}" data-post-y="${r.viewY || r.y || ''}" data-post-m="${r.viewM || r.m || ''}" data-post-d="${r.viewD || r.d || ''}" data-post-line="${esc(r.line || '')}">View</button></td>`
@@ -2668,23 +2748,6 @@ function renderHistoryBody(force) {
   const wrap = document.getElementById('histWrap');
   const rows = getFilteredRows();
   const plantTotal = plantRows().length;
-  if (isPostingsPlant()) {
-    const key = `postings:${rows.length}:${tableSort.col}:${tableSort.dir}:${Object.keys(tableFilters).join(',')}`;
-    if (!force && key === histRangeKey) return;
-    histRangeKey = key;
-    body.innerHTML = rows.length
-      ? rows.map(r => rowHtml(r)).join('')
-      : `<tr><td colspan="${POSTING_COLS.length + 1}">${sapAudit ? 'No postings for the current filters' : 'Load an SAP export to see postings'}</td></tr>`;
-    const on = hasActiveFilters();
-    document.getElementById('histMeta').textContent = sapAudit
-      ? (on ? `Showing ${rows.length} of ${plantTotal} postings · filters on` : `Showing ${rows.length} of ${plantTotal} postings`)
-      : 'Load an SAP export to see postings';
-    applyHistColgroup(document.getElementById('histTable'));
-    lastHistH = wrap.clientHeight || 0;
-    syncHistHeaderGutter();
-    syncFilterBar();
-    return;
-  }
   const current = isFoamPlant() && hasCurrentSheet() && !hasActiveFilters();
   const extra = current ? 1 : 0;
   const total = rows.length + extra;
@@ -2696,26 +2759,34 @@ function renderHistoryBody(force) {
   const key = `${activePlant}:${start}:${end}:${total}:${tableSort.col}:${tableSort.dir}:${tableSort.mode}:${toneKey}`;
   if (!force && key === histRangeKey) return;
   histRangeKey = key;
-  const topH = start * ROW_H;
-  const botH = Math.max(0, (total - end) * ROW_H);
-  const parts = [spacerRow(topH)];
-  for (let i = start; i < end; i++) {
-    if (current && i === 0) {
-      parts.push(`<tr><td class="sticky-eye"><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${Math.max(1, histCols().length - 2)}">Values copied from ${esc(currentSheetSourceLabel())}</td></tr>`);
-      continue;
+  if (!rows.length && !current) {
+    const empty = isPostingsPlant()
+      ? (sapAudit ? 'No postings for the current filters' : 'Load an SAP export to see postings')
+      : 'No rows for the current filters';
+    body.innerHTML = `<tr><td colspan="${histCols().length + (showHistViewCol() ? 1 : 0)}">${empty}</td></tr>`;
+  } else {
+    const topH = start * ROW_H;
+    const botH = Math.max(0, (total - end) * ROW_H);
+    const parts = [spacerRow(topH)];
+    for (let i = start; i < end; i++) {
+      if (current && i === 0) {
+        parts.push(`<tr><td class="sticky-eye"><button class="icon" type="button" data-view="current" title="View current sheet">${EYE}</button></td><td>Current sheet</td><td>${esc(currentSnapshot.item || '')}</td><td colspan="${Math.max(1, histCols().length - 2)}">Values copied from ${esc(currentSheetSourceLabel())}</td></tr>`);
+        continue;
+      }
+      const r = rows[i - extra];
+      if (r) parts.push(rowHtml(r));
     }
-    const r = rows[i - extra];
-    if (r) parts.push(rowHtml(r));
+    parts.push(spacerRow(botH));
+    body.innerHTML = parts.join('');
   }
-  parts.push(spacerRow(botH));
-  body.innerHTML = parts.join('');
   const maxScroll = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
   if (wrap.scrollTop > maxScroll) wrap.scrollTop = maxScroll;
   const on = hasActiveFilters();
   const plantName = PLANTS[activePlant] || 'Extrusion Foam';
-  document.getElementById('histMeta').textContent = on
-    ? `Showing ${rows.length} of ${plantTotal} ${plantName} results · filters on`
-    : `Showing ${rows.length} of ${plantTotal} ${plantName} results`;
+  const noun = isPostingsPlant() ? 'postings' : `${plantName} results`;
+  document.getElementById('histMeta').textContent = !sapAudit && isPostingsPlant()
+    ? 'Load an SAP export to see postings'
+    : (on ? `Showing ${rows.length} of ${plantTotal} ${noun} · filters on` : `Showing ${rows.length} of ${plantTotal} ${noun}`);
   applyHistColgroup(document.getElementById('histTable'));
   lastHistH = wrap.clientHeight || 0;
   syncHistHeaderGutter();
@@ -3880,7 +3951,7 @@ function pdfHeader(page, title, subtitle) {
   pdfLine(page, 40, 58, page.w - 40, 58, '#d5dde4', 0.8);
 }
 function complianceDayGroupRaw(y, m, dd, line) {
-  const dayRows = rowsForLine(line).filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  const dayRows = qualityRowsForDay(y, m, dd, line).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
   const byItem = new Map();
   const groups = [];
   for (const r of dayRows) {
@@ -4317,13 +4388,38 @@ function sapPrevYmd(y, m, d) {
 }
 function rebuildQualityDayItemIndex() {
   const map = new Map();
+  const byDay = new Map();
   for (const r of indexedRows) {
-    const key = `${r.y}|${r.m}|${r.d}|${sapItemKey(r.item)}`;
+    const dayKey = `${r.y}|${r.m}|${r.d}`;
+    const key = `${dayKey}|${sapItemKey(r.item)}`;
     const arr = map.get(key);
     if (arr) arr.push(r);
     else map.set(key, [r]);
+    const day = byDay.get(dayKey);
+    if (day) day.push(r);
+    else byDay.set(dayKey, [r]);
   }
   qualityDayItemIndex = map;
+  qualityDayIndex = byDay;
+}
+function rebuildSapDayIndex() {
+  const map = new Map();
+  if (sapAudit) {
+    for (const r of sapAudit.rows) {
+      const key = `${r.y}|${r.m}|${r.d}`;
+      const arr = map.get(key);
+      if (arr) arr.push(r);
+      else map.set(key, [r]);
+    }
+  }
+  sapDayIndex = map;
+}
+function qualityRowsForDay(y, m, d, line) {
+  if (!qualityDayItemIndex) rebuildQualityDayItemIndex();
+  const rows = (qualityDayIndex && qualityDayIndex.get(`${y}|${m}|${d}`)) || [];
+  const want = String(line || '').trim();
+  if (!want) return rows;
+  return rows.filter(r => r.line === want);
 }
 function sapHitsOnDay(entry, y, m, d, line) {
   if (!entry) return [];
@@ -4353,12 +4449,11 @@ function refreshSapHits(line) {
 }
 function sapRowsForYmd(y, m, d, line) {
   if (!sapAudit || !sapAudit.rows.length) return [];
+  if (!sapDayIndex) rebuildSapDayIndex();
   const want = sapLineKey(line || '');
-  return sapAudit.rows.filter(r => {
-    if (r.y !== y || r.m !== m || r.d !== d) return false;
-    if (want) return sapLineKey(r.line) === want;
-    return !r.line || SAP_LINE_NAMES.includes(sapLineKey(r.line));
-  });
+  const rows = sapDayIndex.get(`${y}|${m}|${d}`) || [];
+  if (!want) return rows;
+  return rows.filter(r => sapLineKey(r.line) === want);
 }
 function sapDescFor(item, y, m, d, line) {
   const key = sapItemKey(item);
@@ -4726,7 +4821,8 @@ async function loadSapFile(file) {
     return;
   }
   sapAudit = { name, rows, sapTz: sapPlantTimeZone() };
-  qualityDayItemIndex = null;
+  clearQualityDayIndex();
+  clearSapDayIndex();
   clearPostingRows();
   try {
     refreshSapHits(activeLine);
@@ -4735,7 +4831,10 @@ async function loadSapFile(file) {
     console.warn(err);
   }
   persistPack();
-  if (screenName === 'history' && isPostingsPlant()) renderHistoryTable();
+  if (screenName === 'history' && isPostingsPlant()) {
+    await ensurePostingRows();
+    renderHistoryTable();
+  }
   const days = new Set(rows.map(r => `${r.y}-${r.m}-${r.d}`)).size;
   const extra = otherLines ? ` · skipped ${otherLines} other line${otherLines === 1 ? '' : 's'}` : '';
   toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}${extra}`);
@@ -5099,28 +5198,39 @@ async function clearClipboard() {
   }
 }
 async function parseTsvAsync(lines, onProg) {
-  const nonempty = [];
-  for (let i = 0; i < lines.length; i++) {
-    const l = String(lines[i] ?? '').replace(/\r/g, '');
-    if (l.length) nonempty.push(l);
-    if (onProg && i && i % 2000 === 0) { onProg(i, lines.length); await yieldUi(); }
-  }
-  if (!nonempty.length) return { headers: [], rows: [] };
   const allHeaders = [];
   const rows = [];
   let headers = [];
-  for (let i = 0; i < nonempty.length; i++) {
-    if (isTsvHeaderLine(nonempty[i])) {
-      headers = nonempty[i].split('\t').map(s => s.trim());
-      headers.forEach(h => { if (h && !allHeaders.includes(h)) allHeaders.push(h); });
+  let lastYield = 0;
+  const n = (lines || []).length;
+  for (let i = 0; i < n; i++) {
+    let line = String(lines[i] ?? '');
+    if (line.charCodeAt(line.length - 1) === 13) line = line.slice(0, -1);
+    if (!line) continue;
+    if (isTsvHeaderLine(line)) {
+      headers = line.split('\t');
+      for (let j = 0; j < headers.length; j++) {
+        const h = headers[j].trim();
+        headers[j] = h;
+        if (h && !allHeaders.includes(h)) allHeaders.push(h);
+      }
       continue;
     }
     if (!headers.length) continue;
-    const parts = nonempty[i].split('\t');
+    const parts = line.split('\t');
     const obj = {};
-    headers.forEach((h, j) => { if (h) obj[h] = parts[j] == null ? '' : parts[j]; });
+    for (let j = 0; j < headers.length; j++) {
+      if (headers[j]) obj[headers[j]] = parts[j] == null ? '' : parts[j];
+    }
     rows.push(obj);
-    if (onProg && i % 2500 === 0) { onProg(i, nonempty.length); await yieldUi(); }
+    if (onProg && i % 5000 === 0) {
+      onProg(i, n);
+      const now = Date.now();
+      if (now - lastYield > 80) {
+        lastYield = now;
+        await yieldUi();
+      }
+    }
   }
   return { headers: allHeaders, rows };
 }
@@ -5345,6 +5455,11 @@ function layoutCanvas() {
     const size = Math.max(280, Math.floor(Math.min(stage.clientWidth || 280, stage.clientHeight || 280)));
     sizeW = size; sizeH = size;
   }
+  sizeW = Math.min(sizeW, 1400);
+  sizeH = Math.min(sizeH, 1400);
+  const key = sizeW + 'x' + sizeH + '@' + dpr + ':' + viewMode;
+  if (key === canvasLayoutKey && canvas.width === sizeW * dpr) return false;
+  canvasLayoutKey = key;
   canvas.width = sizeW * dpr; canvas.height = sizeH * dpr;
   canvas.style.width = sizeW + 'px'; canvas.style.height = sizeH + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -5353,6 +5468,11 @@ function layoutCanvas() {
   YELLOW_R = S * 0.18; GREEN_R = S * 0.36; MAX_PLOT_R = S * 0.45;
   POINT_R = Math.max(6, S * 0.011); LABEL_R = GREEN_R + S * 0.048;
   COMPASS_R = S / 2 - 38; ARROW_GAP = Math.max(48, S * 0.08);
+  return true;
+}
+function spcDotStride(n, light) {
+  if (light) return n > 80 ? Math.ceil(n / 80) : 1;
+  return n > 500 ? Math.ceil(n / 360) : 1;
 }
 function defaultArrowEnds(plot, maxIdx, minIdx) {
   if (maxIdx < 0 || minIdx < 0 || maxIdx === minIdx) return { tail: null, head: null };
@@ -5495,7 +5615,7 @@ function applySharedOutliers(pts, charts) {
   const kept = pts.filter((_, i) => !flagged[i]);
   return { pts: kept, flagged: kept.map(() => false) };
 }
-function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax, specTarget, selectedIdx) {
+function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax, specTarget, selectedIdx, opts) {
   const { x, y, w, h } = panel;
   ctx.save();
   ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
@@ -5545,23 +5665,29 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
     if (!started) { ctx.moveTo(xx, yy); started = true; } else ctx.lineTo(xx, yy);
   });
   ctx.stroke(); ctx.globalAlpha = 1;
-  pts.forEach((p, i) => {
-    if (!finiteNum(p[key])) return;
-    if (spcHideOutliers && flagged[i]) return;
-    const xx = xAt(i, n), yy = yAt(p[key]);
-    const outlier = flagged[i];
-    const inSpec = judgeBetween(p[key], specMin, specMax);
-    const selected = p.idx === selectedIdx;
-    if (outlier && !spcHideOutliers) {
-      ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(xx - 5, yy - 5); ctx.lineTo(xx + 5, yy + 5); ctx.moveTo(xx + 5, yy - 5); ctx.lineTo(xx - 5, yy + 5); ctx.stroke();
-    } else {
-      ctx.beginPath(); ctx.arc(xx, yy, selected ? 6 : 4, 0, Math.PI * 2);
-      ctx.fillStyle = selected ? '#2563eb' : (inSpec === 'Fail' ? c.thickDot : c.inDot);
-      ctx.fill(); ctx.lineWidth = selected ? 2.5 : 1.4; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+  const light = opts && opts.light;
+  const stride = spcDotStride(n, light);
+  if (!light) {
+    for (let i = 0; i < n; i++) {
+      const p = pts[i];
+      if (!finiteNum(p[key])) continue;
+      if (spcHideOutliers && flagged[i]) continue;
+      const selected = p.idx === selectedIdx;
+      if (stride > 1 && i % stride && !selected) continue;
+      const xx = xAt(i, n), yy = yAt(p[key]);
+      const outlier = flagged[i];
+      const inSpec = judgeBetween(p[key], specMin, specMax);
+      if (outlier && !spcHideOutliers) {
+        ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(xx - 5, yy - 5); ctx.lineTo(xx + 5, yy + 5); ctx.moveTo(xx + 5, yy - 5); ctx.lineTo(xx - 5, yy + 5); ctx.stroke();
+      } else {
+        ctx.beginPath(); ctx.arc(xx, yy, selected ? 6 : 4, 0, Math.PI * 2);
+        ctx.fillStyle = selected ? '#2563eb' : (inSpec === 'Fail' ? c.thickDot : c.inDot);
+        ctx.fill(); ctx.lineWidth = selected ? 2.5 : 1.4; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+      }
+      spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx, key, title, value: p[key], t: p.t, unit });
     }
-    spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx, key, title, value: p[key], t: p.t, unit });
-  });
+  }
   const ticks = spcAxisTicks(pts);
   ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Atkinson Hyperlegible", Arial`;
   ctx.textBaseline = 'top';
@@ -5572,10 +5698,10 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
   });
   ctx.restore();
 }
-function drawSpc() {
+function drawSpc(opts) {
   layoutCanvas();
   const c = palette();
-  spcHits = [];
+  if (!(opts && opts.light)) spcHits = [];
   ctx.clearRect(0, 0, canvasW, canvasH);
   ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
   const rawPts = spcPointRows();
@@ -5599,7 +5725,7 @@ function drawSpc() {
   const gap = 8, panelH = (canvasH - gap * (charts.length + 1)) / charts.length;
   charts.forEach((ch, i) => {
     const box = { x: 8, y: gap + i * (panelH + gap), w: canvasW - 16, h: panelH };
-    drawSpcPanel(c, box, pts, flagged, ch.key, ch.title, ch.unit, ch.min, ch.max, ch.target, selectedIdx);
+    drawSpcPanel(c, box, pts, flagged, ch.key, ch.title, ch.unit, ch.min, ch.max, ch.target, selectedIdx, opts);
   });
 }
 function drawCentration() {
@@ -5681,9 +5807,9 @@ function drawCentration() {
   const range = isFinite(maxVal) && isFinite(minVal) ? maxVal - minVal : NaN;
   updateSummary(avg, range, min, max, lastRangeSpec);
 }
-function draw() {
+function draw(opts) {
   if (screenName !== 'view') return;
-  if (viewMode === 'spc') drawSpc(); else drawCentration();
+  if (viewMode === 'spc') drawSpc(opts); else drawCentration();
 }
 function hideSpcTip() {
   const tip = document.getElementById('spcTip');
@@ -5762,22 +5888,28 @@ canvas.addEventListener('touchstart', onPointerDown, { passive: false });
 window.addEventListener('touchmove', onPointerMove, { passive: false });
 window.addEventListener('touchend', onPointerUp);
 window.addEventListener('resize', () => {
-  if (resizeTimer) clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => {
-    resizeTimer = 0;
-    if (screenName === 'view') draw();
-    if (screenName === 'history') {
+  if (resizeRaf) cancelAnimationFrame(resizeRaf);
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = 0;
+    if (screenName === 'view') {
+      if (layoutCanvas()) draw({ light: true });
+    } else if (screenName === 'history') {
       const wrap = document.getElementById('histWrap');
       const h = wrap ? wrap.clientHeight : 0;
-      if (Math.abs(h - lastHistH) > 12) {
+      if (Math.abs(h - lastHistH) > 24) {
         lastHistH = h;
         histRangeKey = '';
         renderHistoryBody();
+      } else {
+        syncHistHeaderGutter();
       }
-      syncHistHeaderGutter();
-    }
-    if (screenName === 'mspecs') syncMspecHeaderGutter();
-  }, 160);
+    } else if (screenName === 'mspecs') syncMspecHeaderGutter();
+  });
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    resizeTimer = 0;
+    if (screenName === 'view') draw();
+  }, 140);
 });
 document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histPaste').onclick = () => applyFromClipboard(true);

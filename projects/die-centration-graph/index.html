@@ -659,7 +659,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.3';
+const APP_VERSION = '1.7.4';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -733,6 +733,7 @@ let filteredCache = [];
 let filteredDirty = true;
 let plantRowCache = null;
 let pasteIntent = false;
+let applyingClipboard = false;
 let spcHideOutliers = true;
 let openFilterCol = null;
 let enterMode = false;
@@ -864,10 +865,33 @@ function syncWelcome() {
   document.documentElement.setAttribute('data-has-history', indexedRows.length ? '1' : '0');
 }
 function rowIdentity(row) {
-  return [
-    inferPlant(row), col(row, 'Line'), col(row, 'Date/Time'), canonMspec(col(row, 'MSPEC')), col(row, 'Item #'),
-    col(row, 'Bundle #'), col(row, 'Thickness Average'), col(row, 'Density'), col(row, 'User')
+  const when = col(row, 'Date/Time');
+  const item = col(row, 'Item #', 'Item');
+  const bundle = col(row, 'Bundle #');
+  const core = [
+    inferPlant(row), col(row, 'Line'), when, canonMspec(col(row, 'MSPEC')), item, bundle
   ].join('|');
+  if (when && (item || bundle)) return core;
+  return core + '|' + col(row, 'Thickness Average') + '|' + col(row, 'Density') + '|' + col(row, 'User');
+}
+function rowHasNativeS1S3Keys(row) {
+  return Object.prototype.hasOwnProperty.call(row, 'Tape Color')
+    || Object.prototype.hasOwnProperty.call(row, 'Bundle Tight/Loose');
+}
+function rowDedupeScore(row) {
+  let n = 0;
+  Object.keys(row || {}).forEach(k => { if (k !== '__plant' && String(row[k] || '').trim()) n += 1; });
+  if (rowHasNativeS1S3Keys(row)) n += 50;
+  return n;
+}
+function dedupeHistoryRows(rows) {
+  const best = new Map();
+  (rows || []).forEach(row => {
+    const id = rowIdentity(row);
+    const prev = best.get(id);
+    if (!prev || rowDedupeScore(row) >= rowDedupeScore(prev)) best.set(id, row);
+  });
+  return [...best.values()];
 }
 function applyTheme(theme) {
   const dark = theme === 'dark';
@@ -4025,7 +4049,7 @@ async function parseHistorySections(sections, onProg) {
       rows.push(plant === 'foam' ? normalizeFoamRow(r) : r);
     }
   }
-  return rows;
+  return dedupeHistoryRows(rows);
 }
 async function applyDieGraph2(text, append) {
   showProgress(append ? 'Adding new results' : 'Reading clipboard', 8, 'Parsing Copy for Graph data');
@@ -4046,10 +4070,11 @@ async function applyDieGraph2(text, append) {
   let lookupRows = lookup.rows || [];
   let added = rows.length;
   if (append && historyPack && historyPack.rows && historyPack.rows.length) {
-    const have = new Set(historyPack.rows.map(rowIdentity));
-    const fresh = rows.filter(r => !have.has(rowIdentity(r)));
-    added = fresh.length;
-    rows = historyPack.rows.concat(fresh);
+    const before = historyPack.rows.length;
+    rows = dedupeHistoryRows(historyPack.rows.concat(rows));
+    added = Math.max(0, rows.length - before);
+  } else {
+    rows = dedupeHistoryRows(rows);
   }
   const incomingHasMspec = Object.keys(incomingLookup).length > 0;
   const incomingHasDens = lookupRows.some(r => {
@@ -4106,8 +4131,10 @@ async function applyDieGraph2(text, append) {
   return true;
 }
 async function applyClipboardText(text, append) {
+  if (applyingClipboard) return false;
+  applyingClipboard = true;
   text = (text || '').trim();
-  if (!text) { toast('Clipboard is empty'); hideProgress(); return false; }
+  if (!text) { toast('Clipboard is empty'); hideProgress(); applyingClipboard = false; return false; }
   try {
     if (/^DIEGRAPH2\b/i.test(text)) await applyDieGraph2(text, append);
     else if (/^DIEGRAPH\b/i.test(text)) {
@@ -4131,6 +4158,8 @@ async function applyClipboardText(text, append) {
     hideProgress();
     toast('Could not load clipboard data');
     return false;
+  } finally {
+    applyingClipboard = false;
   }
 }
 async function applyFromClipboard(append) {
@@ -4875,10 +4904,6 @@ document.addEventListener('paste', (e) => {
     applyClipboardText(text, !!(historyPack && historyPack.rows && historyPack.rows.length));
   }
 });
-catcher.addEventListener('paste', (e) => {
-  const text = (e.clipboardData || window.clipboardData).getData('text');
-  e.preventDefault(); applyClipboardText(text, !!(historyPack && historyPack.rows && historyPack.rows.length));
-});
 document.getElementById('minThickness').oninput = document.getElementById('maxThickness').oninput = () => { customArrow = false; calculate(); };
 document.getElementById('rangeSpec').oninput = document.getElementById('targetThickness').oninput = calculate;
 ['densMinSpec','densTargetSpec','densMaxSpec','cellMinSpec'].forEach(id => {
@@ -4937,15 +4962,17 @@ restorePack().then(async data => {
     return;
   }
   if (data.snapshot) currentSnapshot = data.snapshot;
+  const cleanedRows = dedupeHistoryRows(data.rows);
   historyPack = {
     item: (data.snapshot && data.snapshot.item) || '',
     mspec: canonMspec(data.snapshot && data.snapshot.mspec),
-    rows: data.rows,
+    rows: cleanedRows,
     lookupRows: data.lookupRows || [],
     lookupByMspec: buildLookupMap(data.lookupRows || [])
   };
   if (data.specPatches) historyPack.specPatches = data.specPatches;
   await indexHistory();
+  if (cleanedRows.length !== data.rows.length) persistPack();
   if (!plantRows().length) {
     const next = Object.keys(PLANTS).find(k => plantRows(k).length);
     if (next) activePlant = next;

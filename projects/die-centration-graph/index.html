@@ -659,7 +659,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.14';
+const APP_VERSION = '1.7.15';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -847,10 +847,12 @@ function applyStoredSapAudit(data) {
     sapAudit = null;
     return;
   }
-  const needShift = !src.sapTz;
+  const fromTz = src.sapTz || '';
+  const toTz = sapPlantTimeZone();
+  const needShift = fromTz !== toTz;
   sapAudit = {
     name: src.name || '',
-    sapTz: src.sapTz || sapPlantTimeZone(),
+    sapTz: toTz,
     rows: src.rows.map(r => {
       const row = {
         y: +r.y, m: +r.m, d: +r.d,
@@ -867,7 +869,9 @@ function applyStoredSapAudit(data) {
       };
       if (needShift && finiteNum(row.hour)) {
         const tm = parseSapTime(row.timeText);
-        const shifted = sapUtcToLocal(row.y, row.m, row.d, row.hour, tm.minute);
+        const shifted = fromTz
+          ? sapZoneToZone(row.y, row.m, row.d, row.hour, tm.minute, fromTz, toTz)
+          : sapUtcToLocal(row.y, row.m, row.d, row.hour, tm.minute, toTz);
         if (shifted) {
           row.y = shifted.y;
           row.m = shifted.m;
@@ -2884,7 +2888,7 @@ function renderCompliance() {
   if (label) {
     label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}`
       + (activeLine ? ` · Line ${activeLine}` : '')
-      + (sapAudit ? ' · SAP posted in Eastern (from UTC)' : '');
+      + (sapAudit ? ' · SAP posted in Pacific (from UTC)' : '');
   }
   const thisMon = mondayOfLocalDate(new Date());
   const next = document.getElementById('complianceNextWeek');
@@ -2967,14 +2971,15 @@ function complianceDayTableHtml(y, m, d) {
   const title = sapCount
     ? `SAP · ${ok} of ${sapCount} item${sapCount === 1 ? '' : 's'} checked` + (postings > sapCount ? ` · ${postings} postings` : '')
     : `${rows.length} item${rows.length === 1 ? '' : 's'}`;
-  const head = `<tr><th>Material</th><th>Description</th>${showLine ? '<th>Line</th>' : ''}<th>MSPEC</th>${showSap ? '<th>Qty</th><th>Posted (ET)</th>' : ''}<th>Period</th><th>Quality check</th><th>Fail notes</th><th></th></tr>`;
+  const head = `<tr><th>Material</th><th>Description</th>${showLine ? '<th>Line</th>' : ''}<th>MSPEC</th>${showSap ? '<th>Qty</th><th>Posted (PT)</th>' : ''}<th>Period</th><th>Quality check</th><th>Fail notes</th><th></th></tr>`;
   const body = rows.map(r => {
     const cls = r.kind === 'miss' || r.kind === 'fail' ? 'bad' : (r.kind === 'prev' ? 'warn' : 'good');
     const notes = r.fails.length
       ? `<ul class="comp-fail-list">${r.fails.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`
       : '—';
+    const q = finiteNum(r.firstSerial) ? dateParts(r.firstSerial) : { y, m, d };
     const view = r.viewItem
-      ? `<button type="button" data-comp-item="${esc(r.viewItem)}" data-comp-y="${y}" data-comp-m="${m}" data-comp-d="${d}">View</button>`
+      ? `<button type="button" data-comp-item="${esc(r.viewItem)}" data-comp-y="${q.y || y}" data-comp-m="${q.m || m}" data-comp-d="${q.d || d}" data-comp-line="${esc(r.line || activeLine || '')}">View</button>`
       : '';
     return `<tr>
       <td>${esc(r.itemLabel)}</td>
@@ -3087,13 +3092,52 @@ function downloadMspecExcel() {
   downloadBlob('diegraph-mspecs.xlsx', buildXlsx('MSPECs', MSPEC_AUDIT_COLS, rows.map(r => r.values), [12, 10, 12, 12, 12, 10, 10, 12, 12, 12]), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
   toast('Downloaded MSPEC table');
 }
-function openHistoryForItemDay(item, y, m, d) {
+function plantFromLine(line) {
+  const s = String(line || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (s === 'COEX' || s === 'MONO') return 'bubble';
+  if (s === 'P1') return 'p1';
+  if (s === 'RTS') return 'rts';
+  if (/^S[134]$/.test(s) || s === 'S1S3') return 'foam';
+  return '';
+}
+function itemFilterKey(plant) {
+  const cols = PLANT_COLS[plant] || FOAM_COLS;
+  return cols.includes('Item') && !cols.includes('Item #') ? 'Item' : 'Item #';
+}
+function plantForItemDay(item, y, m, d, line) {
+  const wantItem = sapItemKey(item);
+  const wantLine = sapLineKey(line || '');
+  const hits = [];
+  for (const r of indexedRows) {
+    if (r.y !== +y || r.m !== +m || r.d !== +d) continue;
+    if (wantItem && sapItemKey(r.item) !== wantItem) continue;
+    if (wantLine && sapLineKey(r.line) !== wantLine) continue;
+    hits.push(r);
+  }
+  if (hits.length) {
+    const plants = [...new Set(hits.map(r => r.plant).filter(p => PLANTS[p]))];
+    const fromLine = plantFromLine(wantLine || (hits[0] && hits[0].line));
+    if (fromLine && plants.includes(fromLine)) return fromLine;
+    if (plants.length) return plants[0];
+  }
+  return plantFromLine(wantLine) || activePlant || 'foam';
+}
+function openHistoryForItemDay(item, y, m, d, line) {
+  const plant = plantForItemDay(item, y, m, d, line);
+  const itemKey = itemFilterKey(plant);
   tableFilters = {};
   tableToneShow = {};
-  if (item) tableFilters['Item #'] = new Set([String(item)]);
+  if (item) {
+    const want = sapItemKey(item);
+    const hit = plantRows(plant).find(r => sapItemKey(r.item) === want);
+    tableFilters[itemKey] = new Set([hit && hit.text[itemKey] ? hit.text[itemKey] : String(item)]);
+  }
+  const lineName = realLineName(line || '');
+  if (lineName) tableFilters['Line'] = new Set([lineName]);
   tableFilters['Date/Time'] = { year: String(y), month: String(m), day: String(d) };
   tableSort = { col: 'Date/Time', dir: 'asc', mode: 'date' };
   filteredDirty = true;
+  setActivePlant(plant, { keepFilters: true });
   setViewMode('centration');
   setScreen('history');
   requestAnimationFrame(() => renderHistoryTable());
@@ -3740,7 +3784,7 @@ function clockText(hour, minute) {
   const am = h24 < 12 ? 'AM' : 'PM';
   return `${h}:${String(finiteNum(minute) ? minute : 0).padStart(2, '0')} ${am}`;
 }
-const SAP_PLANT_TZ = 'America/New_York';
+const SAP_PLANT_TZ = 'America/Los_Angeles';
 function sapPlantTimeZone() {
   return SAP_PLANT_TZ;
 }
@@ -3760,6 +3804,21 @@ function sapUtcToLocal(y, m, d, hour, minute, tz) {
   if (!hy || !hm || !hd) return null;
   if (hh === 24) hh = 0;
   return { y: hy, m: hm, d: hd, hour: hh, minute: mm, timeText: clockText(hh, mm) };
+}
+function sapZoneToZone(y, m, d, hour, minute, fromTz, toTz) {
+  if (!fromTz || fromTz === toTz) return sapUtcToLocal(y, m, d, hour, minute, toTz || fromTz);
+  const want = Date.UTC(y, m - 1, d, Number(hour), finiteNum(minute) ? Number(minute) : 0, 0);
+  let guess = want;
+  for (let i = 0; i < 4; i++) {
+    const g = new Date(guess);
+    const shown = sapUtcToLocal(g.getUTCFullYear(), g.getUTCMonth() + 1, g.getUTCDate(), g.getUTCHours(), g.getUTCMinutes(), fromTz);
+    if (!shown) return null;
+    const delta = Date.UTC(shown.y, shown.m - 1, shown.d, shown.hour, shown.minute) - want;
+    if (!delta) break;
+    guess -= delta;
+  }
+  const g = new Date(guess);
+  return sapUtcToLocal(g.getUTCFullYear(), g.getUTCMonth() + 1, g.getUTCDate(), g.getUTCHours(), g.getUTCMinutes(), toTz);
 }
 function formatSapPosted(v) {
   if (v == null || v === '') return '';
@@ -4079,7 +4138,7 @@ function compliancePdfCols(rows) {
       { title: 'Line', w: 24 },
       { title: 'MSPEC', w: 40 },
       { title: 'Qty', w: 34 },
-      { title: 'Posted (ET)', w: 74 },
+      { title: 'Posted (PT)', w: 74 },
       { title: 'Period', w: 82 },
       { title: 'Quality check', w: 70 },
       { title: 'Fail notes', w: 94 }
@@ -4373,7 +4432,7 @@ async function loadSapFile(file) {
   persistPack();
   const days = new Set(rows.map(r => `${r.y}-${r.m}-${r.d}`)).size;
   const extra = otherLines ? ` · skipped ${otherLines} other line${otherLines === 1 ? '' : 's'}` : '';
-  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'} · posted in Eastern${extra}`);
+  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'} · posted in Pacific${extra}`);
 }
 function openComplianceReport() {
   if (!indexedRows.length) { toast('Paste results first'); return; }
@@ -5432,7 +5491,7 @@ document.getElementById('complianceJumpDate').onchange = () => {
 document.getElementById('complianceDays').onclick = (e) => {
   const btn = e.target.closest('button[data-comp-item]');
   if (!btn) return;
-  openHistoryForItemDay(btn.dataset.compItem, +btn.dataset.compY, +btn.dataset.compM, +btn.dataset.compD);
+  openHistoryForItemDay(btn.dataset.compItem, +btn.dataset.compY, +btn.dataset.compM, +btn.dataset.compD, btn.dataset.compLine);
 };
 document.getElementById('viewBack').onclick = () => {
   if (indexedRows.length && !enterMode) {

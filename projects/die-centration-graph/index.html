@@ -624,7 +624,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.6.9';
+const APP_VERSION = '1.7.0';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -925,6 +925,26 @@ function specCell(row, names, skipNorm) {
     if (wanted.includes(nk) && String(row[k] ?? '').trim() !== '') return row[k];
   }
   return '';
+}
+function looksLikeThicknessIn(n) {
+  return finiteNum(n) && n > 0 && n < 4;
+}
+function thicknessFromPoints(row) {
+  const pts = [];
+  for (let i = 1; i <= 13; i++) {
+    const raw = row && (row['T' + i] != null && String(row['T' + i]).trim() !== '' ? row['T' + i] : col(row, 'T' + i));
+    const v = numVal(raw);
+    if (looksLikeThicknessIn(v)) pts.push(v);
+  }
+  if (pts.length < 3) return NaN;
+  return pts.reduce((a, b) => a + b, 0) / pts.length;
+}
+function thicknessAvgFromRow(row) {
+  const stored = numVal(col(row, 'Thickness Average'));
+  if (looksLikeThicknessIn(stored)) return stored;
+  const fromPts = thicknessFromPoints(row);
+  if (finiteNum(fromPts)) return fromPts;
+  return stored;
 }
 function looksLikeCellSpec(n) {
   return finiteNum(n) && n >= 8 && n <= 80 && Math.abs(n - Math.round(n)) < 0.05;
@@ -1463,7 +1483,7 @@ function failDetailsForRow(row, specs) {
       out.push({ reason: reasonFail, detail: `${name} fail` });
     }
   };
-  const avg = numVal(col(row, 'Thickness Average'));
+  const avg = thicknessAvgFromRow(row);
   const rangeThou = asThousandths(col(row, 'Thickness Range'));
   const dens = numVal(col(row, 'Density'));
   const cellMd = numVal(col(row, 'Cell Count MD'));
@@ -1484,6 +1504,31 @@ function failReasonsForRow(row, specs) {
 function failLineForCheck(when, details) {
   if (!details || !details.length) return `${when} failed check`;
   return `${when} ${details.map(x => x.detail).join('; ')}`;
+}
+function failLinesForRows(rows) {
+  const byTime = new Map();
+  for (const r of rows || []) {
+    if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf) || r.pf === 'Pass*') continue;
+    if (r.pf !== 'Fail') continue;
+    const specs = lookupSpecs(r.mspec) || specsFor(r.mspec) || {};
+    const details = failDetailsForRow(r.row, specs);
+    const when = excelTimeShort(r.serial);
+    const key = when || String(r.serial || '');
+    if (!byTime.has(key)) byTime.set(key, { when: when || 'Check', details: [], serial: r.serial || 0 });
+    const bucket = byTime.get(key);
+    bucket.details.push(...details);
+  }
+  return [...byTime.values()].sort((a, b) => (a.serial || 0) - (b.serial || 0)).map(bucket => {
+    const unique = [];
+    const seen = new Set();
+    for (const d of bucket.details) {
+      const id = d && d.detail ? d.detail : '';
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      unique.push(d);
+    }
+    return failLineForCheck(bucket.when, unique);
+  });
 }
 function mondayOfLocalDate(d) {
   const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -1732,7 +1777,7 @@ function excelSerialToIso(s) {
 }
 function tonesForRow(row, mspec) {
   const specs = lookupSpecs(mspec) || {};
-  const avg = numVal(col(row, 'Thickness Average'));
+  const avg = thicknessAvgFromRow(row);
   const rangeThou = asThousandths(col(row, 'Thickness Range'));
   const dens = numVal(col(row, 'Density'));
   const cellMd = numVal(col(row, 'Cell Count MD'));
@@ -1758,14 +1803,19 @@ async function indexHistory(onProg) {
     const mspec = canonMspec(col(row, 'MSPEC', 'MSPEC #'));
     const tone = tonesForRow(row, mspec);
     const pfLabel = displayOverallPf(row, lookupSpecs(mspec) || {});
+    const thickAvg = thicknessAvgFromRow(row);
     for (const k of TABLE_COLS) {
-      const raw = col(row, k);
+      const raw = k === 'Pass/Fail' ? pfLabel
+        : k === 'Thickness Average' && finiteNum(thickAvg) ? thickAvg
+        : col(row, k);
       display[k] = k === 'MSPEC' ? esc(mspecWithTarget(mspec) || raw)
         : k === 'Item #' ? esc(itemWithTargets(String(col(row, 'Item #') || '').trim(), mspec) || raw)
         : k === 'Pass/Fail' ? formatPfPill(pfLabel)
         : displayCell(k, raw);
-      num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw) : numVal(raw);
-      text[k] = String(raw ?? '').trim();
+      num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw)
+        : k === 'Thickness Average' ? thickAvg
+        : numVal(raw);
+      text[k] = k === 'Pass/Fail' ? pfLabel : String(raw ?? '').trim();
     }
     if (!row.__plant) row.__plant = inferPlant(row);
     indexedRows[idx] = {
@@ -1821,15 +1871,18 @@ function pruneFilters() {
     tableFilters[k] = !kept.length || kept.length === avail.size ? null : new Set(kept);
   }
 }
+function allLineChoices() {
+  return uniqueSorted([...new Set(indexedRows.map(r => r.line).filter(Boolean))], false);
+}
 function lineChoices() {
   return uniqueSorted([...new Set(plantRows().map(r => r.line).filter(Boolean))], false);
 }
 function preferredLine() {
-  const lines = lineChoices();
+  const lines = allLineChoices();
   const cur = String((currentSnapshot && currentSnapshot.line) || '').trim();
   if (cur && lines.includes(cur)) return cur;
   const counts = {};
-  for (const r of plantRows()) {
+  for (const r of indexedRows) {
     if (!r.line) continue;
     counts[r.line] = (counts[r.line] || 0) + 1;
   }
@@ -1846,15 +1899,25 @@ function lineFilteredRows(rows, line) {
   if (!want) return src;
   return src.filter(r => r.line === want);
 }
+function rowsForLine(line) {
+  const want = line !== undefined ? String(line || '').trim() : String(activeLine || '').trim();
+  if (!want) return indexedRows;
+  return indexedRows.filter(r => r.line === want);
+}
 function fillLineSelects() {
-  const lines = lineChoices();
-  if (!activeLine || !lines.includes(activeLine)) activeLine = preferredLine();
-  ['complianceLine', 'spcLine'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.innerHTML = lines.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('') || '<option value="">No line</option>';
-    el.value = activeLine;
-  });
+  const all = allLineChoices();
+  const foam = uniqueSorted([...new Set(plantRows('foam').map(r => r.line).filter(Boolean))], false);
+  if (!activeLine || !all.includes(activeLine)) activeLine = preferredLine();
+  const compliance = document.getElementById('complianceLine');
+  if (compliance) {
+    compliance.innerHTML = all.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('') || '<option value="">No line</option>';
+    compliance.value = activeLine;
+  }
+  const spc = document.getElementById('spcLine');
+  if (spc) {
+    spc.innerHTML = foam.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('') || '<option value="">No line</option>';
+    spc.value = foam.includes(activeLine) ? activeLine : (foam[0] || '');
+  }
 }
 function setActiveLine(line, from) {
   activeLine = String(line || '').trim();
@@ -2468,6 +2531,8 @@ function openSpc() {
   if (!isFoamPlant()) { toast('SPC is only for Extrusion Foam'); return; }
   if (!indexedRows.length || enterMode) { toast('Paste TableS4 results first'); return; }
   spcPointSelected = false;
+  const foam = uniqueSorted([...new Set(plantRows('foam').map(r => r.line).filter(Boolean))], false);
+  if (foam.length && !foam.includes(activeLine)) activeLine = foam[0];
   fillLineSelects();
   setViewMode('spc', true);
   syncSpcDates(true);
@@ -2515,7 +2580,7 @@ function renderComplianceHours(monday) {
     const dayN = ymdNum(y, m, dd);
     const futureDay = dayN > todayN;
     html += `<div>${DAYS[d]}</div>`;
-    const dayRows = futureDay ? [] : lineFilteredRows().filter(r => r.y === y && r.m === m && r.d === dd);
+    const dayRows = futureDay ? [] : rowsForLine().filter(r => r.y === y && r.m === m && r.d === dd);
     const byHour = Array.from({ length: 24 }, () => []);
     for (const r of dayRows) {
       const h = serialHour(r.serial);
@@ -2552,7 +2617,7 @@ function dayHourStatuses(y, m, dd, today, line) {
   const todayN = ymdNum(today.y, today.m, today.d);
   const dayN = ymdNum(y, m, dd);
   const futureDay = dayN > todayN;
-  const dayRows = futureDay ? [] : lineFilteredRows(null, line).filter(r => r.y === y && r.m === m && r.d === dd);
+  const dayRows = futureDay ? [] : rowsForLine(line).filter(r => r.y === y && r.m === m && r.d === dd);
   const byHour = Array.from({ length: 24 }, () => []);
   for (const r of dayRows) {
     const hour = serialHour(r.serial);
@@ -2581,7 +2646,7 @@ function renderComplianceDays(monday) {
     const missHtml = missing.length
       ? `<div class="comp-miss"><b>Missing checks</b>${esc(formatHourRanges(missing))}</div>`
       : `<p class="comp-empty">No missing hours</p>`;
-    const rows = lineFilteredRows().filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
+    const rows = rowsForLine().filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
     if (!rows.length) {
       parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}<p class="comp-empty">No items</p></div>`);
       continue;
@@ -2603,19 +2668,13 @@ function renderComplianceDays(monday) {
     }
     const itemsHtml = groups.map(g => {
       let passed = 0, failed = 0, starred = 0, noCheck = 0;
-      const failLines = [];
       for (const r of g.rows) {
-        if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf)) { noCheck += 1; continue; }
-        const specs = lookupSpecs(r.mspec) || specsFor(r.mspec) || {};
-        const details = failDetailsForRow(r.row, specs);
-        if (r.pf === 'Fail') {
-          failed += 1;
-          failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
-        } else if (r.pf === 'Pass*') {
-          starred += 1;
-          failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
-        } else passed += 1;
+        if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf)) noCheck += 1;
+        else if (r.pf === 'Fail') failed += 1;
+        else if (r.pf === 'Pass*') starred += 1;
+        else passed += 1;
       }
+      const failLines = failLinesForRows(g.rows);
       const t1 = excelTimeShort(g.first);
       const t2 = excelTimeShort(g.last);
       const period = t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2);
@@ -3130,7 +3189,7 @@ function pdfHeader(page, title, subtitle) {
   pdfLine(page, 40, 58, page.w - 40, 58, '#d5dde4', 0.8);
 }
 function complianceDayGroups(y, m, dd, line) {
-  const dayRows = lineFilteredRows(null, line).filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
+  const dayRows = rowsForLine(line).filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
   const byItem = new Map();
   const groups = [];
   for (const r of dayRows) {
@@ -3148,18 +3207,13 @@ function complianceDayGroups(y, m, dd, line) {
   }
   return groups.map(g => {
     let passed = 0, failed = 0, starred = 0, noCheck = 0;
-    const failLines = [];
     for (const r of g.rows) {
-      if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf)) { noCheck += 1; continue; }
-      const details = failDetailsForRow(r.row, lookupSpecs(r.mspec) || {});
-      if (r.pf === 'Fail') {
-        failed += 1;
-        failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
-      } else if (r.pf === 'Pass*') {
-        starred += 1;
-        failLines.push(failLineForCheck(excelTimeShort(r.serial), details));
-      } else passed += 1;
+      if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf)) noCheck += 1;
+      else if (r.pf === 'Fail') failed += 1;
+      else if (r.pf === 'Pass*') starred += 1;
+      else passed += 1;
     }
+    const failLines = failLinesForRows(g.rows);
     const bits = [];
     if (passed) bits.push(`${passed} passed`);
     if (starred) bits.push(`${starred} Pass*`);
@@ -3188,7 +3242,7 @@ function openComplianceReport() {
     day.setUTCDate(complianceMonday.getUTCDate() + i);
     return `<label><input type="checkbox" data-comp-day="${i}" checked> ${name}, ${fmtWeekDate(day)}</label>`;
   }).join('');
-  const lines = lineChoices();
+  const lines = allLineChoices();
   const lineBox = document.getElementById('compRptLines');
   if (lineBox) {
     lineBox.innerHTML = lines.map(l =>
@@ -3197,12 +3251,12 @@ function openComplianceReport() {
   }
   document.getElementById('complianceReportOverlay').classList.add('show');
 }
-function downloadCompliancePdf(dayIdxs, lines) {
-  if (!indexedRows.length) { toast('Paste results first'); return; }
+function lineFileTag(line) {
+  return String(line || 'line').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'line';
+}
+function buildCompliancePdf(dayIdxs, line) {
   if (!complianceMonday) complianceMonday = mondayOfLocalDate(new Date());
   const selected = (dayIdxs && dayIdxs.length) ? dayIdxs.slice().sort((a, b) => a - b) : [0, 1, 2, 3, 4, 5, 6];
-  const lineList = (lines && lines.length) ? lines.slice() : (activeLine ? [activeLine] : lineChoices());
-  if (!lineList.length) lineList.push('');
   const monday = complianceMonday;
   const sunday = new Date(monday.getTime());
   sunday.setUTCDate(monday.getUTCDate() + 6);
@@ -3219,8 +3273,7 @@ function downloadCompliancePdf(dayIdxs, lines) {
     { title: 'Result', w: 88 },
     { title: 'Fail notes', w: 94 }
   ];
-  lineList.forEach(line => {
-    let page = pdfAddPage(doc);
+  let page = pdfAddPage(doc);
     const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (line ? `  |  Line ${line}` : '');
     pdfHeader(page, 'Compliance report', subtitle);
     let y = 72;
@@ -3296,9 +3349,19 @@ function downloadCompliancePdf(dayIdxs, lines) {
       page = drawn.page;
       y = drawn.y + 14;
     }
+  return { doc, week, year, line };
+}
+function downloadCompliancePdf(dayIdxs, lines) {
+  if (!indexedRows.length) { toast('Paste results first'); return; }
+  const lineList = (lines && lines.length) ? lines.slice() : (activeLine ? [activeLine] : allLineChoices());
+  if (!lineList.length) lineList.push('');
+  lineList.forEach((line, i) => {
+    const built = buildCompliancePdf(dayIdxs, line);
+    const tag = lineFileTag(line);
+    const name = `diegraph-compliance-week-${built.week}-${built.year}-${tag}.pdf`;
+    setTimeout(() => downloadPdfDoc(name, built.doc), i * 250);
   });
-  downloadPdfDoc(`diegraph-compliance-week-${week}-${year}.pdf`, doc);
-  toast(lineList.length > 1 ? `Downloaded compliance PDF (${lineList.length} lines)` : 'Downloaded compliance PDF');
+  toast(lineList.length > 1 ? `Downloaded ${lineList.length} compliance PDFs` : 'Downloaded compliance PDF');
 }
 function spcExportRows(rows, charts) {
   const raw = rows.map(r => ({
@@ -3772,7 +3835,7 @@ function updateSummary(avg, range, min, max, rangeSpec) {
     const specs = lookupSpecs(col(row, 'MSPEC', 'MSPEC #')) || {};
     const rangeThou = asThousandths(col(row, 'Thickness Range'));
     const rangeMax = asThousandths(specs.rangeThou != null ? specs.rangeThou : specs.range);
-    avgPf = pickPf(col(row, 'Thickness Average Pass/Fail'), judgeBetween(numVal(col(row, 'Thickness Average')), specs.min, specs.max));
+    avgPf = pickPf(col(row, 'Thickness Average Pass/Fail'), judgeBetween(thicknessAvgFromRow(row), specs.min, specs.max));
     rangePf = pickPf(col(row, 'Thickness Range Pass/Fail'), judgeBetween(rangeThou, 0, rangeMax));
   }
   const avgBad = avgPf === 'Fail';

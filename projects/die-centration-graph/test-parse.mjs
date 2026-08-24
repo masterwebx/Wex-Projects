@@ -235,7 +235,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.9'/);
+assert.match(html, /APP_VERSION = '1\.7\.10'/);
 assert.match(html, /SAP_WORK_CENTERS/);
 assert.match(html, /SAP_LINE_NAMES/);
 assert.match(html, /no postings for COEX, S1, S3, S4, MONO, P1, or RTS/);
@@ -271,6 +271,10 @@ assert.match(html, /function sapRowsForYmd/);
 assert.match(html, /function complianceMergedRows/);
 assert.match(html, /function complianceDayTableHtml/);
 assert.match(html, /function parseSapNumber/);
+assert.match(html, /function formatSapPosted/);
+assert.match(html, /function sortComplianceRows/);
+assert.match(html, /function detectSapDelim/);
+assert.match(html, /Try a CSV export from SAP/);
 assert.match(html, /function isHeaderishLine/);
 assert.match(html, /function realLineName/);
 assert.match(html, /function sapHeaderKind/);
@@ -1341,6 +1345,57 @@ assert.equal(sapSerialRow[0].y, 2026);
 assert.equal(sapSerialRow[0].m, 8);
 assert.equal(sapSerialRow[0].d, 23);
 assert.equal(sapSerialRow[0].qty, '91');
+function formatSapPosted(v) {
+  const n = parseSapNumber(v);
+  if (isFinite(n) && n >= 0 && n < 1) {
+    const mins = Math.round(n * 24 * 60);
+    const hour = Math.floor(mins / 60) % 24;
+    const minute = mins % 60;
+    const h = ((hour + 11) % 12) + 1;
+    return `${h}:${String(minute).padStart(2, '0')} ${hour < 12 ? 'AM' : 'PM'}`;
+  }
+  return String(v || '');
+}
+assert.equal(formatSapPosted('4.5138888888889998E-2'), '1:05 AM');
+assert.equal(formatSapPosted('5:00 AM'), '5:00 AM');
+function detectSapDelim(line) {
+  const s = String(line || '');
+  const tab = (s.match(/\t/g) || []).length;
+  const semi = (s.match(/;/g) || []).length;
+  let comma = 0, q = false;
+  for (let i = 0; i < s.length; i++) {
+    if (s[i] === '"') q = !q;
+    else if (s[i] === ',' && !q) comma += 1;
+  }
+  if (tab && tab >= semi && tab >= comma) return '\t';
+  if (semi > comma) return ';';
+  return ',';
+}
+assert.equal(detectSapDelim('Plant\tDocument Date\tMaterial'), '\t');
+assert.equal(detectSapDelim('Plant;Document Date;Material'), ';');
+assert.equal(detectSapDelim('Plant,Document Date,Material'), ',');
+const sapCsv = parseSapPairs([
+  'Plant;Document Date;Posting Date;Material;Material Description;Quantity;Time of Entry;Entry Date;Work Center'.split(';'),
+  '6509;8/24/2026;8/24/2026;303405;SPC SLIP;7;10:00:14 AM;8/24/2026;VISCBE01'.split(';')
+]);
+assert.equal(sapCsv.length, 1);
+assert.equal(sapCsv[0].itemKey, '303405');
+assert.equal(sapCsv[0].line, 'COEX');
+function sortComplianceRows(rows) {
+  return rows.slice().sort((a, b) => {
+    if (!!a.hasCheck !== !!b.hasCheck) return a.hasCheck ? -1 : 1;
+    const av = finiteNum(a.firstSerial) ? a.firstSerial : (a.hasCheck ? 50000 : 60000 + (a.postedMins || 0) / 1440);
+    const bv = finiteNum(b.firstSerial) ? b.firstSerial : (b.hasCheck ? 50000 : 60000 + (b.postedMins || 0) / 1440);
+    return av - bv;
+  });
+}
+const sortedDay = sortComplianceRows([
+  { item: 'A', hasCheck: false, postedMins: 18 * 60, firstSerial: NaN },
+  { item: 'B', hasCheck: true, postedMins: 16 * 60, firstSerial: 46258.5 },
+  { item: 'C', hasCheck: true, postedMins: NaN, firstSerial: 46258.65 },
+  { item: 'D', hasCheck: false, postedMins: 5 * 60, firstSerial: NaN }
+]);
+assert.deepEqual(sortedDay.map(r => r.item), ['B', 'C', 'D', 'A']);
 assert.deepEqual(parseSapDate('4.6257E4'), { y: 2026, m: 8, d: 23 });
 assert.deepEqual(parseSapDate('4.6258E4'), { y: 2026, m: 8, d: 24 });
 assert.equal(parseSapDate('5.2245370370369998E-2'), null);

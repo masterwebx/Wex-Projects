@@ -481,18 +481,23 @@ try {
 <div class="overlay" id="complianceReportOverlay">
   <div class="modal">
     <h3>Compliance PDF</h3>
-    <p class="hist-meta">Days and lines to include. One PDF per line.</p>
+    <p class="hist-meta">Days to include. Combined All lines keeps every line in one table.</p>
     <div class="modal-actions">
       <button class="secondary" type="button" id="compRptAll">Whole week</button>
       <button class="secondary" type="button" id="compRptClear">Clear</button>
     </div>
     <div class="rpt-opts" id="compRptDays"></div>
-    <p class="hist-meta">Lines</p>
-    <div class="modal-actions">
-      <button class="secondary" type="button" id="compRptAllLines">All lines</button>
-      <button class="secondary" type="button" id="compRptClearLines">Clear lines</button>
+    <p class="hist-meta">Report</p>
+    <label><input type="radio" name="compRptMode" id="compRptModeCombined" value="combined" checked> Combined All lines (one PDF)</label>
+    <label><input type="radio" name="compRptMode" id="compRptModeEach" value="each"> Separate PDF per line</label>
+    <div id="compRptEachLines" hidden>
+      <p class="hist-meta">Lines</p>
+      <div class="modal-actions">
+        <button class="secondary" type="button" id="compRptAllLines">All lines</button>
+        <button class="secondary" type="button" id="compRptClearLines">Clear lines</button>
+      </div>
+      <div class="rpt-opts" id="compRptLines"></div>
     </div>
-    <div class="rpt-opts" id="compRptLines"></div>
     <div class="modal-actions">
       <button type="button" id="compRptDownload">Download PDF</button>
       <button class="secondary" type="button" id="compRptCancel">Cancel</button>
@@ -654,7 +659,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.10';
+const APP_VERSION = '1.7.11';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -3921,6 +3926,7 @@ function sapCheckLabel(hits) {
 }
 function compliancePdfCols(rows) {
   const showSap = (rows || []).some(r => r.hasSap);
+  const showLine = (rows || []).some(r => r.line);
   if (showSap) {
     return [
       { title: 'Material', w: 58 },
@@ -3932,6 +3938,17 @@ function compliancePdfCols(rows) {
       { title: 'Period', w: 48 },
       { title: 'Quality check', w: 104 },
       { title: 'Fail notes', w: 90 }
+    ];
+  }
+  if (showLine) {
+    return [
+      { title: 'Item', w: 70 },
+      { title: 'Description', w: 100 },
+      { title: 'Line', w: 36 },
+      { title: 'MSPEC', w: 62 },
+      { title: 'Period', w: 64 },
+      { title: 'Quality check', w: 100 },
+      { title: 'Fail notes', w: 100 }
     ];
   }
   return [
@@ -3946,10 +3963,13 @@ function compliancePdfCols(rows) {
 function compliancePdfRows(y, m, d, line) {
   const rows = complianceMergedRows(y, m, d, line);
   const showSap = rows.some(r => r.hasSap);
+  const showLine = rows.some(r => r.line);
   return rows.map(r => {
     const row = showSap
       ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.qty || '—', r.posted || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']
-      : [r.itemLabel, r.desc || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—'];
+      : (showLine
+        ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']
+        : [r.itemLabel, r.desc || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']);
     if (r.kind === 'miss' || r.kind === 'fail') { row._color = '#991b1b'; row._bg = '#fff7f7'; }
     else { row._color = '#166534'; row._bg = '#f0fdf4'; }
     return row;
@@ -4227,10 +4247,17 @@ function openComplianceReport() {
       `<label><input type="checkbox" data-comp-line="${esc(l)}" checked> ${esc(l)}</label>`
     ).join('') || '<div class="hist-meta">No lines in this paste</div>';
   }
+  syncCompRptMode();
   document.getElementById('complianceReportOverlay').classList.add('show');
 }
 function lineFileTag(line) {
-  return String(line || 'line').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'line';
+  if (!String(line || '').trim()) return 'all-lines';
+  return String(line).replace(/[^\w]+/g, '-').replace(/^-|-$/g, '') || 'all-lines';
+}
+function syncCompRptMode() {
+  const combined = !!(document.getElementById('compRptModeCombined') && document.getElementById('compRptModeCombined').checked);
+  const box = document.getElementById('compRptEachLines');
+  if (box) box.hidden = combined;
 }
 function buildCompliancePdf(dayIdxs, line) {
   if (!complianceMonday) complianceMonday = mondayOfLocalDate(new Date());
@@ -4244,7 +4271,7 @@ function buildCompliancePdf(dayIdxs, line) {
   const SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const doc = newPdfDoc(612, 792);
   let page = pdfAddPage(doc);
-    const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (line ? `  |  Line ${line}` : '');
+    const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (line ? `  |  Line ${line}` : '  |  All lines');
     pdfHeader(page, 'Compliance report', subtitle);
     let y = 72;
     const legend = [['#22c55e', 'Checked'], ['#9ca3af', 'NO CHECK'], ['#ef4444', 'No checks'], ['#ffffff', 'Not yet']];
@@ -4324,7 +4351,8 @@ function buildCompliancePdf(dayIdxs, line) {
 }
 function downloadCompliancePdf(dayIdxs, lines) {
   if (!indexedRows.length) { toast('Paste results first'); return; }
-  const lineList = (lines && lines.length) ? lines.slice() : (activeLine ? [activeLine] : allLineChoices());
+  const combined = !lines || (lines.length === 1 && !String(lines[0] || '').trim());
+  const lineList = combined ? [''] : lines.slice();
   if (!lineList.length) lineList.push('');
   lineList.forEach((line, i) => {
     const built = buildCompliancePdf(dayIdxs, line);
@@ -4332,7 +4360,9 @@ function downloadCompliancePdf(dayIdxs, lines) {
     const name = `diegraph-compliance-week-${built.week}-${built.year}-${tag}.pdf`;
     setTimeout(() => downloadPdfDoc(name, built.doc), i * 250);
   });
-  toast(lineList.length > 1 ? `Downloaded ${lineList.length} compliance PDFs` : 'Downloaded compliance PDF');
+  toast(combined
+    ? 'Downloaded All lines compliance PDF'
+    : (lineList.length > 1 ? `Downloaded ${lineList.length} compliance PDFs` : 'Downloaded compliance PDF'));
 }
 function spcExportRows(rows, charts) {
   const raw = rows.map(r => ({
@@ -5214,11 +5244,16 @@ document.getElementById('compRptAll').onclick = () => document.querySelectorAll(
 document.getElementById('compRptClear').onclick = () => document.querySelectorAll('#compRptDays input[type="checkbox"]').forEach(c => { c.checked = false; });
 document.getElementById('compRptAllLines').onclick = () => document.querySelectorAll('#compRptLines input[type="checkbox"]').forEach(c => { c.checked = true; });
 document.getElementById('compRptClearLines').onclick = () => document.querySelectorAll('#compRptLines input[type="checkbox"]').forEach(c => { c.checked = false; });
+document.getElementById('compRptModeCombined').onchange = syncCompRptMode;
+document.getElementById('compRptModeEach').onchange = syncCompRptMode;
 document.getElementById('compRptDownload').onclick = () => {
   const days = [...document.querySelectorAll('#compRptDays input[data-comp-day]:checked')].map(c => +c.dataset.compDay);
   if (!days.length) { toast('Select at least one day'); return; }
-  const lines = [...document.querySelectorAll('#compRptLines input[data-comp-line]:checked')].map(c => c.dataset.compLine);
-  if (!lines.length) { toast('Select at least one line'); return; }
+  const combined = !!(document.getElementById('compRptModeCombined') && document.getElementById('compRptModeCombined').checked);
+  const lines = combined
+    ? ['']
+    : [...document.querySelectorAll('#compRptLines input[data-comp-line]:checked')].map(c => c.dataset.compLine);
+  if (!combined && !lines.length) { toast('Select at least one line'); return; }
   document.getElementById('complianceReportOverlay').classList.remove('show');
   downloadCompliancePdf(days, lines);
 };

@@ -450,6 +450,7 @@ try {
       </label>
       <button type="button" id="histPaste">Paste more data</button>
       <button class="secondary" type="button" id="histCompliance">Compliance</button>
+      <button class="secondary" type="button" id="histSap" title="Excel or CSV from SAP" hidden>SAP audit</button>
       <button class="secondary" type="button" id="histMspecs">View MSPECs</button>
       <button class="secondary" type="button" id="histSpc">SPC mode</button>
       <button class="secondary" type="button" id="histDownload">Download Excel</button>
@@ -498,7 +499,6 @@ try {
         <button class="secondary" type="button" id="complianceMore" aria-expanded="false" aria-haspopup="true">More</button>
         <div class="more-pop" id="complianceMorePop" hidden>
           <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
-          <button class="secondary" type="button" id="complianceSapClear" hidden>Clear SAP audit</button>
           <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
         </div>
       </div>
@@ -1576,6 +1576,8 @@ function syncPlantChrome() {
   if (histSpc) histSpc.hidden = !foam;
   if (histMspecs) histMspecs.hidden = !foam;
   if (complianceMspecs) complianceMspecs.hidden = !foam;
+  const histSap = document.getElementById('histSap');
+  if (histSap) histSap.hidden = !isPostingsPlant();
   if (!foam && (screenName === 'view' || screenName === 'mspecs' || viewMode === 'spc')) {
     setViewMode('centration');
     setScreen('history');
@@ -1584,11 +1586,6 @@ function syncPlantChrome() {
 }
 function setActivePlant(plant, opts) {
   const next = PLANTS[plant] ? plant : 'foam';
-  if (next === 'postings' && !(sapAudit && sapAudit.rows && sapAudit.rows.length)) {
-    toast('Audit against SAP first');
-    syncPlantChrome();
-    return;
-  }
   const keepFilters = opts && opts.keepFilters;
   if (next === activePlant && !(opts && opts.force)) {
     syncPlantChrome();
@@ -2672,11 +2669,11 @@ function renderHistoryBody(force) {
     histRangeKey = key;
     body.innerHTML = rows.length
       ? rows.map(r => rowHtml(r)).join('')
-      : `<tr><td colspan="${POSTING_COLS.length + 1}">${sapAudit ? 'No postings for the current filters' : 'Audit against SAP from Compliance to see postings'}</td></tr>`;
+      : `<tr><td colspan="${POSTING_COLS.length + 1}">${sapAudit ? 'No postings for the current filters' : 'Load an SAP export to see postings'}</td></tr>`;
     const on = hasActiveFilters();
     document.getElementById('histMeta').textContent = sapAudit
       ? (on ? `Showing ${rows.length} of ${plantTotal} postings · filters on` : `Showing ${rows.length} of ${plantTotal} postings`)
-      : 'Audit against SAP from Compliance to see postings';
+      : 'Load an SAP export to see postings';
     applyHistColgroup(document.getElementById('histTable'));
     lastHistH = wrap.clientHeight || 0;
     syncHistHeaderGutter();
@@ -3100,8 +3097,6 @@ function renderCompliance() {
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
   renderComplianceHours(monday);
   renderComplianceDays(monday);
-  const clearSap = document.getElementById('complianceSapClear');
-  if (clearSap) clearSap.hidden = !sapAudit;
   const jump = document.getElementById('complianceJumpDate');
   if (jump) jump.value = isoFromParts(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate());
 }
@@ -5689,7 +5684,7 @@ document.getElementById('complianceMspecs').onclick = openMspecs;
 document.getElementById('histSpc').onclick = openSpc;
 document.getElementById('histDownload').onclick = downloadHistoryExcel;
 document.getElementById('complianceDownload').onclick = openComplianceReport;
-document.getElementById('complianceSap').onclick = () => document.getElementById('complianceSapFile').click();
+document.getElementById('complianceSap').onclick = document.getElementById('histSap').onclick = () => document.getElementById('complianceSapFile').click();
 document.getElementById('complianceSapFile').onchange = async (e) => {
   const file = e.target.files && e.target.files[0];
   e.target.value = '';
@@ -5699,14 +5694,6 @@ document.getElementById('complianceSapFile').onchange = async (e) => {
     hideProgress();
     toast('Could not read that file. Try a CSV export from SAP.');
   }
-};
-document.getElementById('complianceSapClear').onclick = () => {
-  sapAudit = null;
-  clearPostingRows();
-  persistPack();
-  if (isPostingsPlant()) setActivePlant('foam');
-  renderCompliance();
-  if (screenName === 'history') renderHistoryTable();
 };
 document.getElementById('mspecBack').onclick = () => {
   setViewMode('centration');

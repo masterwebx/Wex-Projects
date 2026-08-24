@@ -659,7 +659,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.12';
+const APP_VERSION = '1.7.14';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -832,6 +832,7 @@ function sapAuditToStore() {
   if (!sapAudit || !Array.isArray(sapAudit.rows) || !sapAudit.rows.length) return null;
   return {
     name: sapAudit.name || '',
+    sapTz: sapAudit.sapTz || sapPlantTimeZone(),
     rows: sapAudit.rows.map(r => ({
       y: r.y, m: r.m, d: r.d, item: r.item, itemKey: r.itemKey, line: r.line || '',
       desc: r.desc || '', qty: r.qty || '', unit: r.unit || '',
@@ -846,23 +847,40 @@ function applyStoredSapAudit(data) {
     sapAudit = null;
     return;
   }
+  const needShift = !src.sapTz;
   sapAudit = {
     name: src.name || '',
-    rows: src.rows.map(r => ({
-      y: +r.y, m: +r.m, d: +r.d,
-      item: String(r.item || ''),
-      itemKey: sapItemKey(r.itemKey || r.item || ''),
-      line: String(r.line || ''),
-      desc: String(r.desc || ''),
-      qty: r.qty == null ? '' : r.qty,
-      unit: String(r.unit || ''),
-      timeText: formatSapPosted(r.timeText || ''),
-      hour: finiteNum(r.hour) ? +r.hour : (parseSapTime(r.timeText).hour),
-      workCenter: String(r.workCenter || ''),
-      hits: []
-    })).filter(r => r.y && r.d && r.itemKey)
+    sapTz: src.sapTz || sapPlantTimeZone(),
+    rows: src.rows.map(r => {
+      const row = {
+        y: +r.y, m: +r.m, d: +r.d,
+        item: String(r.item || ''),
+        itemKey: sapItemKey(r.itemKey || r.item || ''),
+        line: String(r.line || ''),
+        desc: String(r.desc || ''),
+        qty: r.qty == null ? '' : r.qty,
+        unit: String(r.unit || ''),
+        timeText: formatSapPosted(r.timeText || ''),
+        hour: finiteNum(r.hour) ? +r.hour : (parseSapTime(r.timeText).hour),
+        workCenter: String(r.workCenter || ''),
+        hits: []
+      };
+      if (needShift && finiteNum(row.hour)) {
+        const tm = parseSapTime(row.timeText);
+        const shifted = sapUtcToLocal(row.y, row.m, row.d, row.hour, tm.minute);
+        if (shifted) {
+          row.y = shifted.y;
+          row.m = shifted.m;
+          row.d = shifted.d;
+          row.hour = shifted.hour;
+          row.timeText = shifted.timeText;
+        }
+      }
+      return row;
+    }).filter(r => r.y && r.d && r.itemKey)
   };
   if (!sapAudit.rows.length) sapAudit = null;
+  else if (needShift) persistPack();
 }
 async function persistPack() {
   if (!historyPack && !sapAudit) return;
@@ -1790,6 +1808,30 @@ function shiftMonday(monday, weeks) {
 }
 function fmtWeekDate(d) {
   return d.toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+}
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function fmtDayDate(y, m, d) {
+  if (!y || !m || !d) return '';
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (isNaN(dt.getTime())) return '';
+  return `${WEEKDAYS[dt.getUTCDay()]} ${m}/${d}`;
+}
+function periodWithDayDate(first, last) {
+  const t1 = excelTimeShort(first);
+  const t2 = excelTimeShort(last);
+  const p1 = dateParts(first);
+  const p2 = dateParts(last);
+  const d1 = fmtDayDate(p1.y, p1.m, p1.d);
+  const d2 = fmtDayDate(p2.y, p2.m, p2.d);
+  if (t1 && t2 && t1 !== t2) {
+    if (d1 && d2 && d1 !== d2) return `${d1} ${t1} – ${d2} ${t2}`;
+    const day = d1 || d2;
+    return day ? `${day} ${t1} – ${t2}` : `${t1} – ${t2}`;
+  }
+  const t = t1 || t2;
+  const day = d1 || d2;
+  if (day && t) return `${day} ${t}`;
+  return t || day || '';
 }
 function excelTimeShort(serial) {
   const dt = excelSerialDate(serial);
@@ -2839,7 +2881,11 @@ function renderCompliance() {
   sunday.setUTCDate(monday.getUTCDate() + 6);
   const { year, week } = isoWeekFromMonday(monday);
   const label = document.getElementById('complianceWeekLabel');
-  if (label) label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}` + (activeLine ? ` · Line ${activeLine}` : '');
+  if (label) {
+    label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}`
+      + (activeLine ? ` · Line ${activeLine}` : '')
+      + (sapAudit ? ' · SAP posted in Eastern (from UTC)' : '');
+  }
   const thisMon = mondayOfLocalDate(new Date());
   const next = document.getElementById('complianceNextWeek');
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
@@ -2921,7 +2967,7 @@ function complianceDayTableHtml(y, m, d) {
   const title = sapCount
     ? `SAP · ${ok} of ${sapCount} item${sapCount === 1 ? '' : 's'} checked` + (postings > sapCount ? ` · ${postings} postings` : '')
     : `${rows.length} item${rows.length === 1 ? '' : 's'}`;
-  const head = `<tr><th>Material</th><th>Description</th>${showLine ? '<th>Line</th>' : ''}<th>MSPEC</th>${showSap ? '<th>Qty</th><th>Posted</th>' : ''}<th>Period</th><th>Quality check</th><th>Fail notes</th><th></th></tr>`;
+  const head = `<tr><th>Material</th><th>Description</th>${showLine ? '<th>Line</th>' : ''}<th>MSPEC</th>${showSap ? '<th>Qty</th><th>Posted (ET)</th>' : ''}<th>Period</th><th>Quality check</th><th>Fail notes</th><th></th></tr>`;
   const body = rows.map(r => {
     const cls = r.kind === 'miss' || r.kind === 'fail' ? 'bad' : (r.kind === 'prev' ? 'warn' : 'good');
     const notes = r.fails.length
@@ -3255,15 +3301,21 @@ function pdfTextWidth(text, size, bold) {
   return w * size / 1000;
 }
 function pdfWrap(text, size, maxW, bold) {
-  const words = pdfSafe(text).split(/\s+/);
+  const chunks = String(text ?? '').split(/\n/);
   const lines = [];
-  let cur = '';
-  for (const word of words) {
-    const trial = cur ? cur + ' ' + word : word;
-    if (pdfTextWidth(trial, size, bold) > maxW && cur) { lines.push(cur); cur = word; }
-    else cur = trial;
+  for (const raw of chunks) {
+    const chunk = pdfSafe(raw);
+    const words = chunk.split(/\s+/);
+    let cur = '';
+    for (const word of words) {
+      if (!word && !cur) continue;
+      const trial = cur ? cur + ' ' + word : word;
+      if (pdfTextWidth(trial, size, bold) > maxW && cur) { lines.push(cur); cur = word; }
+      else cur = trial;
+    }
+    if (cur) lines.push(cur);
+    else lines.push('');
   }
-  if (cur) lines.push(cur);
   return lines.length ? lines : [''];
 }
 function pdfRgb(hex) {
@@ -3494,13 +3546,11 @@ function complianceGroupSummary(g) {
   if (passed) bits.push(`${passed} passed`);
   if (failed) bits.push(`${failed} failed`);
   if (noCheck) bits.push(`${noCheck} NO CHECK`);
-  const t1 = g ? excelTimeShort(g.first) : '';
-  const t2 = g ? excelTimeShort(g.last) : '';
   return {
     passed, failed, noCheck,
     result: bits.join(', ') || '',
     fails: failLines,
-    period: t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2 || '')
+    period: periodWithDayDate(g && g.first, g && g.last)
   };
 }
 function complianceDayGroups(y, m, dd, line) {
@@ -3690,6 +3740,27 @@ function clockText(hour, minute) {
   const am = h24 < 12 ? 'AM' : 'PM';
   return `${h}:${String(finiteNum(minute) ? minute : 0).padStart(2, '0')} ${am}`;
 }
+const SAP_PLANT_TZ = 'America/New_York';
+function sapPlantTimeZone() {
+  return SAP_PLANT_TZ;
+}
+function sapUtcToLocal(y, m, d, hour, minute, tz) {
+  if (!y || !m || !d || !finiteNum(hour)) return null;
+  const zone = tz || sapPlantTimeZone();
+  const utc = new Date(Date.UTC(y, m - 1, d, Number(hour), finiteNum(minute) ? Number(minute) : 0, 0));
+  if (isNaN(utc.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', hour12: false
+  }).formatToParts(utc);
+  const get = type => +((parts.find(p => p.type === type) || {}).value || 0);
+  const hy = get('year'), hm = get('month'), hd = get('day');
+  let hh = get('hour'), mm = get('minute');
+  if (!hy || !hm || !hd) return null;
+  if (hh === 24) hh = 0;
+  return { y: hy, m: hm, d: hd, hour: hh, minute: mm, timeText: clockText(hh, mm) };
+}
 function formatSapPosted(v) {
   if (v == null || v === '') return '';
   const tm = parseSapTime(v);
@@ -3847,11 +3918,24 @@ function parseSapPairs(grid) {
     const tm = parseSapTime(cols.time >= 0 ? row[cols.time] : '');
     const dateVal = cols.entryDate >= 0 ? row[cols.entryDate] : row[cols.date];
     const fromDate = parseSapTime(dateVal);
-    const hour = finiteNum(tm.hour) ? tm.hour : fromDate.hour;
-    const timeText = tm.text || (finiteNum(fromDate.hour) && (String(dateVal || '').includes('.') || /e/i.test(String(dateVal || ''))) ? fromDate.text : '');
+    let hour = finiteNum(tm.hour) ? tm.hour : fromDate.hour;
+    const minute = finiteNum(tm.minute) ? tm.minute : (finiteNum(fromDate.minute) ? fromDate.minute : 0);
+    let timeText = tm.text || (finiteNum(fromDate.hour) && (String(dateVal || '').includes('.') || /e/i.test(String(dateVal || ''))) ? fromDate.text : '');
+    let y = dt.y, mo = dt.m, day = dt.d;
+    // SAP Entry Date + Time of Entry are UTC; quality Period is plant-local Excel time.
+    if (finiteNum(hour)) {
+      const shifted = sapUtcToLocal(y, mo, day, hour, minute, parseSapPairs.timeZone || sapPlantTimeZone());
+      if (shifted) {
+        y = shifted.y;
+        mo = shifted.m;
+        day = shifted.d;
+        hour = shifted.hour;
+        timeText = shifted.timeText;
+      }
+    }
     const qty = cols.qty >= 0 ? String(row[cols.qty] ?? '').trim() : (cols.qtyEntry >= 0 ? String(row[cols.qtyEntry] ?? '').trim() : '');
     out.push({
-      y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item), line,
+      y, m: mo, d: day, item, itemKey: sapItemKey(item), line,
       desc: cols.desc >= 0 ? String(row[cols.desc] ?? '').trim() : '',
       qty, unit: cols.unit >= 0 ? String(row[cols.unit] ?? '').trim() : '',
       timeText, hour,
@@ -3949,10 +4033,22 @@ function sapPostedList(saps) {
     const t = formatSapPosted(sap.timeText);
     if (!t || seen.has(t)) continue;
     seen.add(t);
-    times.push({ t, mins: sapPostedMinutes(sap) });
+    times.push({
+      t,
+      mins: sapPostedMinutes(sap),
+      day: fmtDayDate(sap.y, sap.m, sap.d)
+    });
   }
   times.sort((a, b) => (finiteNum(a.mins) ? a.mins : 9999) - (finiteNum(b.mins) ? b.mins : 9999));
-  return times.map(x => x.t).join(', ');
+  if (!times.length) return '';
+  const days = [...new Set(times.map(x => x.day).filter(Boolean))];
+  if (days.length === 1) return `${days[0]} ${times.map(x => x.t).join(', ')}`;
+  return times.map(x => (x.day ? `${x.day} ${x.t}` : x.t)).join(', ');
+}
+function pdfFailNotes(fails) {
+  const list = (fails || []).map(x => String(x || '').trim()).filter(Boolean);
+  if (!list.length) return '—';
+  return list.map(x => '- ' + x).join('\n');
 }
 function sapHasDetail() {
   return !!(sapAudit && sapAudit.rows.some(r => r.desc || r.qty || r.timeText || r.workCenter));
@@ -3978,15 +4074,15 @@ function compliancePdfCols(rows) {
   const showLine = (rows || []).some(r => r.line);
   if (showSap) {
     return [
-      { title: 'Material', w: 58 },
-      { title: 'Description', w: 78 },
-      { title: 'Line', w: 28 },
-      { title: 'MSPEC', w: 46 },
-      { title: 'Qty', w: 40 },
-      { title: 'Posted', w: 40 },
-      { title: 'Period', w: 48 },
-      { title: 'Quality check', w: 104 },
-      { title: 'Fail notes', w: 90 }
+      { title: 'Material', w: 50 },
+      { title: 'Description', w: 64 },
+      { title: 'Line', w: 24 },
+      { title: 'MSPEC', w: 40 },
+      { title: 'Qty', w: 34 },
+      { title: 'Posted (ET)', w: 74 },
+      { title: 'Period', w: 82 },
+      { title: 'Quality check', w: 70 },
+      { title: 'Fail notes', w: 94 }
     ];
   }
   if (showLine) {
@@ -3995,18 +4091,18 @@ function compliancePdfCols(rows) {
       { title: 'Description', w: 100 },
       { title: 'Line', w: 36 },
       { title: 'MSPEC', w: 62 },
-      { title: 'Period', w: 64 },
-      { title: 'Quality check', w: 100 },
-      { title: 'Fail notes', w: 100 }
+      { title: 'Period', w: 86 },
+      { title: 'Quality check', w: 88 },
+      { title: 'Fail notes', w: 90 }
     ];
   }
   return [
     { title: 'Item', w: 80 },
     { title: 'Description', w: 118 },
     { title: 'MSPEC', w: 70 },
-    { title: 'Period', w: 70 },
-    { title: 'Quality check', w: 100 },
-    { title: 'Fail notes', w: 94 }
+    { title: 'Period', w: 88 },
+    { title: 'Quality check', w: 92 },
+    { title: 'Fail notes', w: 84 }
   ];
 }
 function compliancePdfRows(y, m, d, line) {
@@ -4015,10 +4111,10 @@ function compliancePdfRows(y, m, d, line) {
   const showLine = rows.some(r => r.line);
   return rows.map(r => {
     const row = showSap
-      ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.qty || '—', r.posted || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']
+      ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.qty || '—', r.posted || '—', r.period || '—', r.result || '—', pdfFailNotes(r.fails)]
       : (showLine
-        ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']
-        : [r.itemLabel, r.desc || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']);
+        ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', pdfFailNotes(r.fails)]
+        : [r.itemLabel, r.desc || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', pdfFailNotes(r.fails)]);
     if (r.kind === 'miss' || r.kind === 'fail') { row._color = '#991b1b'; row._bg = '#fff7f7'; }
     else { row._color = '#166534'; row._bg = '#f0fdf4'; }
     return row;
@@ -4266,7 +4362,7 @@ async function loadSapFile(file) {
         : 'Found the columns but no Material + date values. Try a CSV export from SAP.'));
     return;
   }
-  sapAudit = { name, rows };
+  sapAudit = { name, rows, sapTz: sapPlantTimeZone() };
   qualityDayItemIndex = null;
   try {
     refreshSapHits(activeLine);
@@ -4277,7 +4373,7 @@ async function loadSapFile(file) {
   persistPack();
   const days = new Set(rows.map(r => `${r.y}-${r.m}-${r.d}`)).size;
   const extra = otherLines ? ` · skipped ${otherLines} other line${otherLines === 1 ? '' : 's'}` : '';
-  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}${extra}`);
+  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'} · posted in Eastern${extra}`);
 }
 function openComplianceReport() {
   if (!indexedRows.length) { toast('Paste results first'); return; }

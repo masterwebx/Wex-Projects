@@ -364,7 +364,7 @@ try {
 <section class="screen" id="screenWelcome">
   <div class="card welcome">
     <h1>Die Centration Graph</h1>
-    <p>Press Ctrl+V to paste Copy for Graph from the S4 or S1 S3 quality check sheet.</p>
+    <p>Press Ctrl+V to paste Copy for Graph from the S4 and S1 S3 quality check sheets.</p>
     <div class="actions">
       <button type="button" id="welcomePaste">Paste results</button>
     </div>
@@ -611,7 +611,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.6.6';
+const APP_VERSION = '1.6.7';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -1112,15 +1112,19 @@ function parseTsv(lines) {
   }
   return { headers, rows };
 }
+function isTsvHeaderLine(line) {
+  const heads = String(line ?? '').split('\t').map(s => s.trim());
+  return heads.some(h => /^(mspec#?|mspec)$/i.test(String(h).replace(/\s+/g, '')) || /^mspec\s*#?$/i.test(h));
+}
 function splitDieGraph2(text) {
   const lines = text.replace(/\r/g, '').split('\n');
-  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [] };
+  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [] };
   let cur = null;
   for (const line of lines.slice(1)) {
     const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|HISTORY)\]$/i);
     if (m) {
       const name = m[1].toUpperCase();
-      cur = (name === 'TABLES1S3' || name === 'HISTORY') ? 'TABLES4' : name;
+      cur = (name === 'HISTORY') ? 'TABLES4' : name;
       continue;
     }
     if (cur) sections[cur].push(line);
@@ -3324,24 +3328,23 @@ async function parseTsvAsync(lines, onProg) {
     if (onProg && i && i % 2000 === 0) { onProg(i, lines.length); await yieldUi(); }
   }
   if (!nonempty.length) return { headers: [], rows: [] };
-  let headerIdx = 0;
-  for (let i = 0; i < Math.min(nonempty.length, 8); i++) {
-    const heads = nonempty[i].split('\t').map(s => s.trim());
-    if (heads.some(h => /^(mspec#?|mspec)$/i.test(String(h).replace(/\s+/g, '')) || /^mspec\s*#?$/i.test(h))) {
-      headerIdx = i;
-      break;
-    }
-  }
-  const headers = nonempty[headerIdx].split('\t').map(s => s.trim());
+  const allHeaders = [];
   const rows = [];
-  for (let i = headerIdx + 1; i < nonempty.length; i++) {
+  let headers = [];
+  for (let i = 0; i < nonempty.length; i++) {
+    if (isTsvHeaderLine(nonempty[i])) {
+      headers = nonempty[i].split('\t').map(s => s.trim());
+      headers.forEach(h => { if (h && !allHeaders.includes(h)) allHeaders.push(h); });
+      continue;
+    }
+    if (!headers.length) continue;
     const parts = nonempty[i].split('\t');
     const obj = {};
     headers.forEach((h, j) => { if (h) obj[h] = parts[j] == null ? '' : parts[j]; });
     rows.push(obj);
-    if (onProg && (i - headerIdx) % 400 === 0) { onProg(i, nonempty.length); await yieldUi(); }
+    if (onProg && i % 400 === 0) { onProg(i, nonempty.length); await yieldUi(); }
   }
-  return { headers, rows };
+  return { headers: allHeaders, rows };
 }
 async function applyDieGraph2(text, append) {
   showProgress(append ? 'Adding new results' : 'Reading clipboard', 8, 'Parsing Copy for Graph data');
@@ -3353,8 +3356,9 @@ async function applyDieGraph2(text, append) {
   showProgress('Loading lookup', 28, 'Master Sheet specs');
   await yieldUi();
   const lookup = await parseTsvAsync(sections.LOOKUP);
-  showProgress('Loading history', 40, `${sections.TABLES4.length.toLocaleString()} lines`);
-  const table = await parseTsvAsync(sections.TABLES4, (i, n) => {
+  const historyLines = (sections.TABLES4 || []).concat(sections.TABLES1S3 || []);
+  showProgress('Loading history', 40, `${historyLines.length.toLocaleString()} lines`);
+  const table = await parseTsvAsync(historyLines, (i, n) => {
     showProgress('Loading history', 40 + Math.round(30 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()} rows`);
   });
   const incomingLookup = buildLookupMap(lookup.rows);

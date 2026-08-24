@@ -3,16 +3,17 @@ Option Explicit
 
 ' Import into Personal.xlsb or a launcher workbook — NOT into S4.xlsm
 ' and NOT into S1 S3.xlsm.
-' One macro for both quality books: copies S4.xlsm or S1 S3.xlsm into %TEMP%,
-' opens that copy hidden (macros disabled), builds DIEGRAPH2, then closes
-' and deletes the temp copy. Never writes into the quality Files folder
-' (Permission denied on G:). If the matching book is already open, uses
-' that workbook and does not close it. No macro inside S4 or S1 S3 is used.
+' One paste from both quality books: copies S4.xlsm and S1 S3.xlsm into
+' %TEMP%, opens those copies hidden (macros disabled), builds one
+' DIEGRAPH2 payload with both history tables, then closes and deletes
+' the temp copies. Never writes into the quality Files folder
+' (Permission denied on G:). If a book is already open, uses that
+' workbook and does not close it. No macro inside S4 or S1 S3 is used.
 '
 ' Button: CopyForGraphFromQuality.CopyForGraphFromQuality
-' Auto-picks S4 vs S1 S3 from the active workbook, then any already-open
-' quality book, then whichever source file is newer. CopyForGraphFromS4
-' and CopyForGraphFromS1S3 remain as aliases for old buttons.
+' [CURRENT] comes from the active quality sheet when one is in front.
+' [TABLES4] is S4 history and [TABLES1S3] is S1 S3 history.
+' CopyForGraphFromS4 and CopyForGraphFromS1S3 remain as aliases.
 ' If you previously imported CopyForGraphFromS4.bas and
 ' CopyForGraphFromS1S3.bas, remove those modules first so the public
 ' Sub names are not duplicated.
@@ -52,23 +53,26 @@ Private dataWb As Workbook
 Private openedByLauncher As Boolean
 Private copyPathToDelete As String
 Private sourceKind As String
+Private wbS4 As Workbook
+Private wbS1 As Workbook
+Private openedS4 As Boolean
+Private openedS1 As Boolean
+Private pathS4 As String
+Private pathS1 As String
 
 Public Sub CopyForGraphFromQuality()
-    CopyForGraphFromKind ""
+    CopyForGraphFromBothBooks
 End Sub
 
 Public Sub CopyForGraphFromS4()
-    CopyForGraphFromKind "S4"
+    CopyForGraphFromBothBooks
 End Sub
 
 Public Sub CopyForGraphFromS1S3()
-    CopyForGraphFromKind "S1S3"
+    CopyForGraphFromBothBooks
 End Sub
 
-Private Sub CopyForGraphFromKind(ByVal forceKind As String)
-    Dim src As String
-    Dim dest As String
-    Dim kind As String
+Private Sub CopyForGraphFromBothBooks()
     Dim prevSU As Boolean
     Dim prevEA As Boolean
     Dim prevDA As Boolean
@@ -81,21 +85,13 @@ Private Sub CopyForGraphFromKind(ByVal forceKind As String)
     openedByLauncher = False
     copyPathToDelete = vbNullString
     Set dataWb = Nothing
+    Set wbS4 = Nothing
+    Set wbS1 = Nothing
+    openedS4 = False
+    openedS1 = False
+    pathS4 = vbNullString
+    pathS1 = vbNullString
     sourceKind = vbNullString
-    
-    kind = ResolveKind(forceKind, src)
-    If LenB(kind) = 0 Then
-        MsgBox "Could not find S4.xlsm or S1 S3.xlsm:" & vbCrLf & SOURCE_S4 & vbCrLf & SOURCE_S1S3, vbCritical, "Copy for Graph"
-        Exit Sub
-    End If
-    sourceKind = kind
-    
-    If dataWb Is Nothing Then
-        If Not FileExists(src) Then
-            MsgBox "Could not find workbook:" & vbCrLf & src, vbCritical, "Copy for Graph"
-            Exit Sub
-        End If
-    End If
     
     prevSU = Application.ScreenUpdating
     prevEA = Application.EnableEvents
@@ -107,25 +103,15 @@ Private Sub CopyForGraphFromKind(ByVal forceKind As String)
     Application.DisplayAlerts = False
     Application.Cursor = xlWait
     
-    If dataWb Is Nothing Then
-        dest = TempCopyPath(LCase$(kind))
-        If CopyWorkbookFile(src, dest) Then
-            copyPathToDelete = dest
-            Application.AutomationSecurity = msoAutomationSecurityForceDisable
-            Application.StatusBar = "Opening a silent copy of " & SourceFileName(src) & "..."
-            Set dataWb = Workbooks.Open(Filename:=dest, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
-            openedByLauncher = True
-            HideWorkbookWindows dataWb
-        Else
-            ' Files folder on G: is often not writable, or the .xlsm is locked.
-            Application.AutomationSecurity = msoAutomationSecurityForceDisable
-            Application.StatusBar = "Opening " & SourceFileName(src) & " read-only..."
-            Set dataWb = Workbooks.Open(Filename:=src, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
-            openedByLauncher = True
-            HideWorkbookWindows dataWb
-        End If
-    Else
-        Application.StatusBar = "Using already-open " & dataWb.Name
+    AcquireSource "S4"
+    AcquireSource "S1S3"
+    
+    If wbS4 Is Nothing And wbS1 Is Nothing Then
+        RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
+        Application.Cursor = xlDefault
+        Application.StatusBar = False
+        MsgBox "Could not find S4.xlsm or S1 S3.xlsm:" & vbCrLf & SOURCE_S4 & vbCrLf & SOURCE_S1S3, vbCritical, "Copy for Graph"
+        Exit Sub
     End If
     
     Application.EnableEvents = True
@@ -133,103 +119,99 @@ Private Sub CopyForGraphFromKind(ByVal forceKind As String)
     Application.ScreenUpdating = True
     Application.AutomationSecurity = prevSec
     
-    CopyForGraphFromOpenCopy
+    CopyForGraphFromOpenCopies
     
-    ReleaseDataWorkbook
+    ReleaseAll
     RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
-    Application.StatusBar = "Copied for graph from silent workbook copy"
+    Application.StatusBar = "Copied for graph from S4 and S1 S3"
     Exit Sub
     
 ErrHandler:
     errMsg = Err.Description
     On Error Resume Next
-    ReleaseDataWorkbook
+    ReleaseAll
     RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
     Application.Cursor = xlDefault
     Application.StatusBar = False
     MsgBox "Copy for graph failed: " & errMsg, vbCritical, "Copy for Graph"
 End Sub
 
-Private Function ResolveKind(ByVal forceKind As String, ByRef src As String) As String
-    Dim kind As String
+Private Function AcquireSource(ByVal kind As String) As Workbook
+    Dim src As String
+    Dim dest As String
     Dim wb As Workbook
-    Dim s4Open As Workbook
-    Dim s1Open As Workbook
-    Dim s4Exists As Boolean
-    Dim s1Exists As Boolean
+    Dim opened As Boolean
+    Dim copyPath As String
     
-    If StrComp(forceKind, "S1S3", vbTextCompare) = 0 Then
-        src = SOURCE_S1S3
-        Set dataWb = OpenWorkbookByKind("S1S3")
-        ResolveKind = "S1S3"
-        Exit Function
-    End If
-    If StrComp(forceKind, "S4", vbTextCompare) = 0 Then
-        src = SOURCE_S4
-        Set dataWb = OpenWorkbookByKind("S4")
-        ResolveKind = "S4"
-        Exit Function
+    src = SourcePathForKind(kind)
+    Set wb = OpenWorkbookByKind(kind)
+    If wb Is Nothing Then
+        If FileExists(src) Then
+            dest = TempCopyPath(LCase$(kind))
+            Application.AutomationSecurity = msoAutomationSecurityForceDisable
+            If CopyWorkbookFile(src, dest) Then
+                copyPath = dest
+                Application.StatusBar = "Opening a silent copy of " & SourceFileName(src) & "..."
+                Set wb = Workbooks.Open(Filename:=dest, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
+                opened = True
+                HideWorkbookWindows wb
+            Else
+                Application.StatusBar = "Opening " & SourceFileName(src) & " read-only..."
+                Set wb = Workbooks.Open(Filename:=src, UpdateLinks:=0, ReadOnly:=True, AddToMru:=False, IgnoreReadOnlyRecommended:=True)
+                opened = True
+                HideWorkbookWindows wb
+            End If
+        End If
+    Else
+        Application.StatusBar = "Using already-open " & wb.Name
     End If
     
+    If StrComp(kind, "S1S3", vbTextCompare) = 0 Then
+        Set wbS1 = wb
+        openedS1 = opened
+        pathS1 = copyPath
+    Else
+        Set wbS4 = wb
+        openedS4 = opened
+        pathS4 = copyPath
+    End If
+    If opened Then
+        openedByLauncher = True
+        If LenB(copyPathToDelete) = 0 Then copyPathToDelete = copyPath
+    End If
+    Set AcquireSource = wb
+End Function
+
+Private Sub UseBook(ByVal wb As Workbook, ByVal kind As String)
+    Set dataWb = wb
+    sourceKind = kind
+End Sub
+
+Private Function BookForKind(ByVal kind As String) As Workbook
+    If StrComp(kind, "S1S3", vbTextCompare) = 0 Then
+        Set BookForKind = wbS1
+    Else
+        Set BookForKind = wbS4
+    End If
+End Function
+
+Private Function PreferredCurrentKind() As String
+    Dim kind As String
     On Error Resume Next
-    Set wb = Application.ActiveWorkbook
+    kind = DetectKindFromWorkbook(Application.ActiveWorkbook)
     On Error GoTo 0
-    kind = DetectKindFromWorkbook(wb)
-    If LenB(kind) > 0 Then
-        Set dataWb = wb
-        src = SourcePathForKind(kind)
-        ResolveKind = kind
+    If StrComp(kind, "S1S3", vbTextCompare) = 0 And Not wbS1 Is Nothing Then
+        PreferredCurrentKind = "S1S3"
         Exit Function
     End If
-    
-    Set s4Open = OpenWorkbookByKind("S4")
-    Set s1Open = OpenWorkbookByKind("S1S3")
-    
-    If Not s4Open Is Nothing And s1Open Is Nothing Then
-        Set dataWb = s4Open
-        src = SOURCE_S4
-        ResolveKind = "S4"
+    If StrComp(kind, "S4", vbTextCompare) = 0 And Not wbS4 Is Nothing Then
+        PreferredCurrentKind = "S4"
         Exit Function
     End If
-    If Not s1Open Is Nothing And s4Open Is Nothing Then
-        Set dataWb = s1Open
-        src = SOURCE_S1S3
-        ResolveKind = "S1S3"
-        Exit Function
-    End If
-    If Not s4Open Is Nothing And Not s1Open Is Nothing Then
-        If NewerFile(WorkbookPath(s1Open), WorkbookPath(s4Open)) Then
-            Set dataWb = s1Open
-            src = SOURCE_S1S3
-            ResolveKind = "S1S3"
-        Else
-            Set dataWb = s4Open
-            src = SOURCE_S4
-            ResolveKind = "S4"
-        End If
-        Exit Function
-    End If
-    
-    s4Exists = FileExists(SOURCE_S4)
-    s1Exists = FileExists(SOURCE_S1S3)
-    If s4Exists And s1Exists Then
-        If NewerFile(SOURCE_S1S3, SOURCE_S4) Then
-            src = SOURCE_S1S3
-            ResolveKind = "S1S3"
-        Else
-            src = SOURCE_S4
-            ResolveKind = "S4"
-        End If
-        Exit Function
-    End If
-    If s4Exists Then
-        src = SOURCE_S4
-        ResolveKind = "S4"
-        Exit Function
-    End If
-    If s1Exists Then
-        src = SOURCE_S1S3
-        ResolveKind = "S1S3"
+    If Not wbS4 Is Nothing Then
+        PreferredCurrentKind = "S4"
+    ElseIf Not wbS1 Is Nothing Then
+        PreferredCurrentKind = "S1S3"
     End If
 End Function
 
@@ -347,29 +329,33 @@ Private Function FileTime(ByVal p As String) As Double
     If FileExists(p) Then FileTime = CDbl(FileDateTime(p))
 End Function
 
-Private Sub CopyForGraphFromOpenCopy()
+Private Sub CopyForGraphFromOpenCopies()
     Dim wsForm As Worksheet
     Dim payload As String
     Dim hasPoints As Boolean
     Dim tsvLookup As String
-    Dim tsvTable As String
-    Dim tableLabel As String
+    Dim tsvS4 As String
+    Dim tsvS1 As String
+    Dim preferred As String
     
     On Error GoTo CopyErr
     
-    Set wsForm = SheetByName(FormSheetName())
-    If wsForm Is Nothing Then Set wsForm = TargetWorkbook.Worksheets(1)
+    preferred = PreferredCurrentKind()
+    UseBook BookForKind(preferred), preferred
     
-    If IsS1S3() Then
-        tableLabel = "TableS1S3"
-    Else
-        tableLabel = "TableS4"
+    Set wsForm = SheetByName(FormSheetName())
+    If wsForm Is Nothing Then
+        If Not TargetWorkbook Is Nothing Then Set wsForm = TargetWorkbook.Worksheets(1)
     End If
     
     Application.Cursor = xlWait
     Application.StatusBar = "Copying for graph..."
     
-    payload = CurrentSection(wsForm, hasPoints)
+    If Not wsForm Is Nothing Then
+        payload = CurrentSection(wsForm, hasPoints)
+    Else
+        payload = "DIEGRAPH2" & vbCrLf & "[CURRENT]" & vbCrLf
+    End If
     
     Application.StatusBar = "Copying Quality AIO Master Sheet..."
     tsvLookup = LookupTableTsv()
@@ -378,17 +364,26 @@ Private Sub CopyForGraphFromOpenCopy()
         payload = payload & tsvLookup & vbCrLf
     End If
     
-    Application.StatusBar = "Copying " & tableLabel & "..."
-    tsvTable = ListObjectToTsv(HistoryListObject())
-    payload = payload & "[TABLES4]" & vbCrLf
-    If LenB(tsvTable) > 0 Then
-        payload = payload & tsvTable & vbCrLf
+    If Not wbS4 Is Nothing Then
+        UseBook wbS4, "S4"
+        Application.StatusBar = "Copying TableS4..."
+        tsvS4 = ListObjectToTsv(HistoryListObject())
     End If
+    If Not wbS1 Is Nothing Then
+        UseBook wbS1, "S1S3"
+        Application.StatusBar = "Copying TableS1S3..."
+        tsvS1 = ListObjectToTsv(HistoryListObject())
+    End If
+    
+    payload = payload & "[TABLES4]" & vbCrLf
+    If LenB(tsvS4) > 0 Then payload = payload & tsvS4 & vbCrLf
+    payload = payload & "[TABLES1S3]" & vbCrLf
+    If LenB(tsvS1) > 0 Then payload = payload & tsvS1 & vbCrLf
     
     PutTextOnClipboard payload
     OpenGraphHtml
     
-    Application.StatusBar = "Copied for graph (current + lookup + " & tableLabel & ")"
+    Application.StatusBar = "Copied for graph (current + lookup + TableS4 + TableS1S3)"
     Application.Cursor = xlDefault
     Exit Sub
     
@@ -1201,17 +1196,33 @@ Private Sub HideWorkbookWindows(ByVal wb As Workbook)
     Next w
 End Sub
 
-Private Sub ReleaseDataWorkbook()
+Private Sub ReleaseAll()
     On Error Resume Next
     Application.DisplayAlerts = False
     Application.EnableEvents = False
-    If openedByLauncher Then
-        If Not dataWb Is Nothing Then dataWb.Close SaveChanges:=False
-        DeleteFileWithRetry copyPathToDelete
-    End If
+    ReleaseOne wbS4, openedS4, pathS4
+    ReleaseOne wbS1, openedS1, pathS1
     Set dataWb = Nothing
+    Set wbS4 = Nothing
+    Set wbS1 = Nothing
+    openedS4 = False
+    openedS1 = False
+    pathS4 = vbNullString
+    pathS1 = vbNullString
     openedByLauncher = False
     copyPathToDelete = vbNullString
+End Sub
+
+Private Sub ReleaseOne(ByVal wb As Workbook, ByVal opened As Boolean, ByVal dest As String)
+    On Error Resume Next
+    If opened Then
+        If Not wb Is Nothing Then wb.Close SaveChanges:=False
+        DeleteFileWithRetry dest
+    End If
+End Sub
+
+Private Sub ReleaseDataWorkbook()
+    ReleaseAll
 End Sub
 
 Private Sub DeleteFileWithRetry(ByVal dest As String)

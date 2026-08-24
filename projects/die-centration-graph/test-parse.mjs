@@ -234,7 +234,17 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.2'/);
+assert.match(html, /APP_VERSION = '1\.7\.3'/);
+assert.match(html, /All lines/);
+assert.match(html, /id="complianceSap"/);
+assert.match(html, /Audit against SAP/);
+assert.match(html, /function summarizeChecks/);
+assert.match(html, /function parseSapPairs/);
+assert.match(html, /function loadSapFile/);
+assert.match(html, /function sapPdfTableRows/);
+assert.match(html, /#complianceReportOverlay \.modal/);
+assert.doesNotMatch(html, /activeLine = preferredLine\(\)/);
+assert.doesNotMatch(html, /\$\{starred\} Pass\*/);
 assert.match(html, /function foamRowLooksShifted/);
 assert.match(html, /function unshiftS1S3FromS4Keys/);
 assert.match(html, /function normalizeFoamRow/);
@@ -1011,5 +1021,66 @@ function formatHourRanges(hours) {
 }
 assert.equal(formatHourRanges([0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,23]), '12:00 AM–2:00 PM, 11:00 PM');
 assert.equal(formatHourRanges([12]), '12:00 PM');
+
+function summarizeChecks(rows) {
+  const buckets = new Map();
+  for (const r of rows || []) {
+    const key = `${r.y}|${r.d}|${r.t}`;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(r);
+  }
+  let passed = 0, failed = 0, noCheck = 0;
+  for (const group of buckets.values()) {
+    if (group.some(r => r.pf === 'Fail')) failed += 1;
+    else if (group.every(r => r.pf === 'NO CHECK')) noCheck += 1;
+    else passed += 1;
+  }
+  return { passed, failed, noCheck };
+}
+assert.deepEqual(summarizeChecks([
+  { y: 2026, d: 1, t: '8:00 AM', pf: 'Fail' },
+  { y: 2026, d: 1, t: '8:00 AM', pf: 'Fail' },
+  { y: 2026, d: 1, t: '9:00 AM', pf: 'Pass*' },
+  { y: 2026, d: 1, t: '10:00 AM', pf: 'NO CHECK' }
+]), { passed: 1, failed: 1, noCheck: 1 });
+
+function sapItemKey(v) {
+  let s = String(v ?? '').trim();
+  if (!s) return '';
+  if (/^\d+\.0+$/.test(s)) s = String(Math.round(Number(s)));
+  return s.toUpperCase();
+}
+function parseSapDate(v) {
+  const s = String(v ?? '').trim();
+  const m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (m) return { y: +m[1], m: +m[2], d: +m[3] };
+  return null;
+}
+function parseSapPairs(grid) {
+  const out = [];
+  let start = 0, dateCol = 0, itemCol = 1;
+  const h0 = String((grid[0] || [])[0] || '');
+  const h1 = String((grid[0] || [])[1] || '');
+  if (/date|item/i.test(h0 + h1)) {
+    start = 1;
+    if (/item/i.test(h0) && /date/i.test(h1)) { dateCol = 1; itemCol = 0; }
+  }
+  for (let i = start; i < grid.length; i++) {
+    const dt = parseSapDate(grid[i][dateCol]);
+    const item = String(grid[i][itemCol] ?? '').trim();
+    if (!dt || !sapItemKey(item)) continue;
+    out.push({ y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item) });
+  }
+  return out;
+}
+const sapRows = parseSapPairs([
+  ['Date', 'Item'],
+  ['2026-08-20', '3030053'],
+  ['2026-08-20', '410805.0']
+]);
+assert.equal(sapRows.length, 2);
+assert.equal(sapRows[0].itemKey, '3030053');
+assert.equal(sapRows[1].itemKey, '410805');
+assert.equal(sapRows[0].d, 20);
 
 console.log('parse-diegraph tests passed');

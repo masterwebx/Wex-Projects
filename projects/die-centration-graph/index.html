@@ -176,7 +176,7 @@ try {
   }
   .combo-list button:hover, .combo-list button.active { background: var(--filter-bg); color: var(--filter-text); }
   .combo-list .hist-meta { padding: 10px; }
-  #screenCompliance { grid-template-rows: auto auto minmax(0, 1fr); padding: 10px 12px; gap: 8px; height: 100dvh; }
+  #screenCompliance { grid-template-rows: auto auto auto minmax(0, 1fr); padding: 10px 12px; gap: 8px; height: 100dvh; }
   #screenMspecs { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
   .line-filter {
     display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--muted);
@@ -238,6 +238,29 @@ try {
   .rpt-opts { display: grid; gap: 6px; margin: 10px 0; }
   .rpt-opts label { font-weight: 400; justify-content: flex-start; }
   #spcReportOverlay .modal { width: min(560px, 100%); max-height: 90dvh; overflow: auto; }
+  #complianceReportOverlay .modal {
+    width: min(520px, 100%);
+    max-height: min(72dvh, 620px);
+    overflow: auto;
+    padding: 14px 16px 12px;
+  }
+  #complianceReportOverlay .modal h3 { margin: 0 0 6px; font-size: 20px; }
+  #complianceReportOverlay .modal p { margin: 0 0 8px; }
+  #complianceReportOverlay .rpt-opts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px 12px;
+    margin: 4px 0 8px;
+    max-height: 22vh;
+    overflow: auto;
+  }
+  #complianceReportOverlay .modal label { margin: 2px 0; font-size: 14px; font-weight: 600; }
+  #complianceReportOverlay .modal-actions { margin-top: 8px; flex-wrap: wrap; }
+  .sap-card { padding: 12px 14px; display: grid; gap: 8px; }
+  .sap-card table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .sap-card th, .sap-card td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); }
+  .sap-card .good { color: var(--ok); font-weight: 700; }
+  .sap-card .bad { color: var(--thick); font-weight: 700; }
   @media (max-width: 720px) {
     .comp-item { grid-template-columns: 1fr; }
     .comp-sum { text-align: left; max-width: none; }
@@ -432,6 +455,8 @@ try {
       <label class="line-filter">Line <select id="complianceLine"></select></label>
       <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
       <button type="button" id="complianceDownload">Download PDF</button>
+      <button class="secondary" type="button" id="complianceSap">Audit against SAP</button>
+      <input type="file" id="complianceSapFile" accept=".xlsx,.xlsm,.csv,.txt" hidden>
       <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
     </div>
   </header>
@@ -444,6 +469,16 @@ try {
     </div>
     <div class="comp-hours" id="complianceHours"></div>
   </div>
+  <div class="card sap-card" id="complianceSapCard" hidden>
+    <div>
+      <b>SAP audit</b>
+      <p class="hist-meta" id="complianceSapMeta"></p>
+    </div>
+    <div id="complianceSapTable"></div>
+    <div class="modal-actions">
+      <button class="secondary" type="button" id="complianceSapClear">Clear SAP audit</button>
+    </div>
+  </div>
   <div class="card comp-scroll">
     <div id="complianceDays"></div>
   </div>
@@ -451,7 +486,7 @@ try {
 <div class="overlay" id="complianceReportOverlay">
   <div class="modal">
     <h3>Compliance PDF</h3>
-    <p class="hist-meta">Choose the days and lines to include. Each day stays on its own page.</p>
+    <p class="hist-meta">Days and lines to include. One PDF per line.</p>
     <div class="modal-actions">
       <button class="secondary" type="button" id="compRptAll">Whole week</button>
       <button class="secondary" type="button" id="compRptClear">Clear</button>
@@ -624,7 +659,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.2';
+const APP_VERSION = '1.7.3';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -705,6 +740,7 @@ let complianceMonday = null;
 let complianceBackTo = 'welcome';
 let spcComboHi = -1;
 let activeLine = '';
+let sapAudit = null;
 let spcPointSelected = false;
 let resizeTimer = 0;
 let lastHistH = 0;
@@ -1615,6 +1651,24 @@ function failLineForCheck(when, details) {
   if (!details || !details.length) return `${when} failed check`;
   return `${when} ${details.map(x => x.detail).join('; ')}`;
 }
+function checkStamp(r) {
+  return `${r.y || 0}-${r.m || 0}-${r.d || 0} ${excelTimeShort(r.serial) || serialHour(r.serial)}`;
+}
+function summarizeChecks(rows) {
+  const buckets = new Map();
+  for (const r of rows || []) {
+    const key = checkStamp(r);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(r);
+  }
+  let passed = 0, failed = 0, noCheck = 0;
+  for (const group of buckets.values()) {
+    if (group.some(r => r.pf === 'Fail')) failed += 1;
+    else if (group.every(r => r.pf === 'NO CHECK' || isNoCheckPf(r.pf))) noCheck += 1;
+    else passed += 1;
+  }
+  return { passed, failed, noCheck };
+}
 function failLinesForRows(rows) {
   const byTime = new Map();
   for (const r of rows || []) {
@@ -2053,10 +2107,10 @@ function rowsForLine(line) {
 function fillLineSelects() {
   const all = allLineChoices();
   const foam = uniqueSorted([...new Set(plantRows('foam').map(r => r.line).filter(Boolean))], false);
-  if (!activeLine || !all.includes(activeLine)) activeLine = preferredLine();
+  if (activeLine && all.length && !all.includes(activeLine)) activeLine = '';
   const compliance = document.getElementById('complianceLine');
   if (compliance) {
-    compliance.innerHTML = all.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('') || '<option value="">No line</option>';
+    compliance.innerHTML = `<option value="">All lines</option>` + all.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('');
     compliance.value = activeLine;
   }
   const spc = document.getElementById('spcLine');
@@ -2708,6 +2762,7 @@ function renderCompliance() {
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
   renderComplianceHours(monday);
   renderComplianceDays(monday);
+  renderSapAudit();
   const jump = document.getElementById('complianceJumpDate');
   if (jump) jump.value = isoFromParts(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate());
 }
@@ -2813,13 +2868,7 @@ function renderComplianceDays(monday) {
       g.rows.push(r);
     }
     const itemsHtml = groups.map(g => {
-      let passed = 0, failed = 0, starred = 0, noCheck = 0;
-      for (const r of g.rows) {
-        if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf)) noCheck += 1;
-        else if (r.pf === 'Fail') failed += 1;
-        else if (r.pf === 'Pass*') starred += 1;
-        else passed += 1;
-      }
+      const { passed, failed, noCheck } = summarizeChecks(g.rows);
       const failLines = failLinesForRows(g.rows);
       const t1 = excelTimeShort(g.first);
       const t2 = excelTimeShort(g.last);
@@ -2829,16 +2878,15 @@ function renderComplianceDays(monday) {
         ? `<button type="button" data-comp-item="${esc(g.item)}" data-comp-y="${y}" data-comp-m="${m}" data-comp-d="${dd}">View</button>`
         : '';
       const meta = [g.desc, g.mspec && `MSPEC ${mspecWithTarget(g.mspec)}`, period].filter(Boolean).join(' · ');
-      return `<div class="comp-item"><div><b>${esc(itemWithTargets(g.item, g.mspec) || '—')}</b><span class="muted">${esc(meta)}</span>${failHtml}</div><div class="comp-sum">${complianceSumHtml(passed, starred, failed, noCheck)}</div>${viewBtn}</div>`;
+      return `<div class="comp-item"><div><b>${esc(itemWithTargets(g.item, g.mspec) || '—')}</b><span class="muted">${esc(meta)}</span>${failHtml}</div><div class="comp-sum">${complianceSumHtml(passed, failed, noCheck)}</div>${viewBtn}</div>`;
     }).join('');
     parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${itemsHtml}</div>`);
   }
   el.innerHTML = parts.join('');
 }
-function complianceSumHtml(passed, starred, failed, noCheck) {
+function complianceSumHtml(passed, failed, noCheck) {
   const bits = [];
   if (passed) bits.push(`<span class="good">${passed} passed</span>`);
-  if (starred) bits.push(`<span class="warn">${starred} Pass*</span>`);
   if (failed) bits.push(`<span class="bad">${failed} failed</span>`);
   if (noCheck) bits.push(`<span class="gray">${noCheck} NO CHECK</span>`);
   return bits.join(', ') || '—';
@@ -3352,17 +3400,10 @@ function complianceDayGroups(y, m, dd, line) {
     g.rows.push(r);
   }
   return groups.map(g => {
-    let passed = 0, failed = 0, starred = 0, noCheck = 0;
-    for (const r of g.rows) {
-      if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf)) noCheck += 1;
-      else if (r.pf === 'Fail') failed += 1;
-      else if (r.pf === 'Pass*') starred += 1;
-      else passed += 1;
-    }
+    const { passed, failed, noCheck } = summarizeChecks(g.rows);
     const failLines = failLinesForRows(g.rows);
     const bits = [];
     if (passed) bits.push(`${passed} passed`);
-    if (starred) bits.push(`${starred} Pass*`);
     if (failed) bits.push(`${failed} failed`);
     if (noCheck) bits.push(`${noCheck} NO CHECK`);
     const t1 = excelTimeShort(g.first), t2 = excelTimeShort(g.last);
@@ -3373,10 +3414,267 @@ function complianceDayGroups(y, m, dd, line) {
       period: t1 && t2 && t1 !== t2 ? `${t1} - ${t2}` : (t1 || t2 || ''),
       result: bits.join(', ') || '--',
       fails: failLines.join('; '),
-      failed,
-      starred
+      failed
     };
   });
+}
+function sapItemKey(v) {
+  let s = String(v ?? '').trim();
+  if (!s) return '';
+  if (/^\d+\.0+$/.test(s)) s = String(Math.round(Number(s)));
+  return s.toUpperCase();
+}
+function parseSapDate(v) {
+  if (v == null || v === '') return null;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (/^-?\d+(\.\d+)?$/.test(s)) {
+    const n = Number(s);
+    if (n > 20000 && n < 80000) {
+      const p = dateParts(n);
+      if (p.y) return { y: p.y, m: p.m, d: p.d };
+    }
+  }
+  let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
+  if (m) return { y: +m[1], m: +m[2], d: +m[3] };
+  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (m) {
+    let y = +m[3];
+    if (y < 100) y += 2000;
+    return { y, m: +m[1], d: +m[2] };
+  }
+  return null;
+}
+function parseSapPairs(grid) {
+  if (!grid || !grid.length) return [];
+  let start = 0, dateCol = 0, itemCol = 1;
+  const h0 = String((grid[0] || [])[0] || '');
+  const h1 = String((grid[0] || [])[1] || '');
+  if (/date|item|material|sku|part|number/i.test(h0 + ' ' + h1)) {
+    start = 1;
+    if (/item|material|sku|part/i.test(h0) && /date/i.test(h1)) { dateCol = 1; itemCol = 0; }
+    else if (/date/i.test(h0)) { dateCol = 0; itemCol = 1; }
+    else if (/date/i.test(h1)) { dateCol = 1; itemCol = 0; }
+  } else {
+    const d0 = parseSapDate((grid[0] || [])[0]);
+    const d1 = parseSapDate((grid[0] || [])[1]);
+    if (!d0 && d1) { dateCol = 1; itemCol = 0; }
+  }
+  const out = [];
+  for (let i = start; i < grid.length; i++) {
+    const row = grid[i] || [];
+    const dt = parseSapDate(row[dateCol]);
+    const item = String(row[itemCol] ?? '').trim();
+    if (!dt || !sapItemKey(item)) continue;
+    out.push({ y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item), hits: [] });
+  }
+  return out;
+}
+function sapHitsFor(entry) {
+  if (!entry) return [];
+  return indexedRows.filter(r => r.y === entry.y && r.m === entry.m && r.d === entry.d && sapItemKey(r.item) === entry.itemKey);
+}
+function refreshSapHits() {
+  if (!sapAudit) return;
+  for (const row of sapAudit.rows) row.hits = sapHitsFor(row);
+}
+function sapRowsForDays(dayIdxs) {
+  if (!sapAudit || !sapAudit.rows.length || !complianceMonday) return [];
+  const selected = (dayIdxs && dayIdxs.length) ? dayIdxs : [0, 1, 2, 3, 4, 5, 6];
+  const want = new Set(selected.map(i => {
+    const day = new Date(complianceMonday.getTime());
+    day.setUTCDate(complianceMonday.getUTCDate() + i);
+    return ymdNum(day.getUTCFullYear(), day.getUTCMonth() + 1, day.getUTCDate());
+  }));
+  return sapAudit.rows.filter(r => want.has(ymdNum(r.y, r.m, r.d)));
+}
+function sapPdfTableRows(dayIdxs, line) {
+  refreshSapHits();
+  return sapRowsForDays(dayIdxs).map(r => {
+    const hits = (r.hits || []).filter(h => !line || h.line === line);
+    const date = `${r.y}-${String(r.m).padStart(2, '0')}-${String(r.d).padStart(2, '0')}`;
+    const note = hits.length
+      ? ('Checked  ' + uniqueSorted(hits.map(h => `${h.line || ''} ${excelTimeShort(h.serial) || ''}`.trim()).filter(Boolean), false).join(', '))
+      : 'No check';
+    const row = [date, r.item, note];
+    if (!hits.length) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
+    else { row._color = '#166534'; row._bg = '#f0fdf4'; }
+    return row;
+  });
+}
+function renderSapAudit() {
+  const card = document.getElementById('complianceSapCard');
+  if (!card) return;
+  if (!sapAudit || !sapAudit.rows.length) {
+    card.hidden = true;
+    return;
+  }
+  refreshSapHits();
+  const monday = complianceMonday || mondayOfLocalDate(new Date());
+  const sun = new Date(monday.getTime());
+  sun.setUTCDate(monday.getUTCDate() + 6);
+  const fromN = ymdNum(monday.getUTCFullYear(), monday.getUTCMonth() + 1, monday.getUTCDate());
+  const toN = ymdNum(sun.getUTCFullYear(), sun.getUTCMonth() + 1, sun.getUTCDate());
+  const inWeek = sapAudit.rows.filter(r => {
+    const n = ymdNum(r.y, r.m, r.d);
+    return n >= fromN && n <= toN;
+  });
+  const shown = inWeek.length ? inWeek : sapAudit.rows;
+  const ok = shown.filter(r => r.hits && r.hits.length).length;
+  card.hidden = false;
+  const meta = document.getElementById('complianceSapMeta');
+  if (meta) {
+    meta.textContent = `${ok} of ${shown.length} SAP item${shown.length === 1 ? '' : 's'} had a quality check`
+      + (inWeek.length ? ' this week' : '')
+      + (sapAudit.name ? ` · ${sapAudit.name}` : '');
+  }
+  const table = document.getElementById('complianceSapTable');
+  if (table) {
+    table.innerHTML = `<table><thead><tr><th>Date</th><th>Item</th><th>Quality check</th></tr></thead><tbody>`
+      + shown.map(r => {
+        const date = `${r.y}-${String(r.m).padStart(2, '0')}-${String(r.d).padStart(2, '0')}`;
+        if (r.hits && r.hits.length) {
+          const bits = uniqueSorted(r.hits.map(h => `${h.line || '—'} ${excelTimeShort(h.serial) || ''}`.trim()), false);
+          return `<tr><td>${esc(date)}</td><td>${esc(r.item)}</td><td class="good">Checked · ${esc(bits.join(', '))}</td></tr>`;
+        }
+        return `<tr><td>${esc(date)}</td><td>${esc(r.item)}</td><td class="bad">No check</td></tr>`;
+      }).join('')
+      + `</tbody></table>`;
+  }
+}
+function decodeXmlText(s) {
+  return String(s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+}
+function parseDelimitedGrid(text) {
+  const lines = String(text || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter(l => String(l).trim());
+  const delim = (lines[0] || '').includes('\t') ? '\t' : ',';
+  return lines.map(line => {
+    if (delim === '\t') return line.split('\t');
+    const out = [];
+    let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (q && line[i + 1] === '"') { cur += '"'; i++; }
+        else q = !q;
+      } else if (ch === ',' && !q) { out.push(cur); cur = ''; }
+      else cur += ch;
+    }
+    out.push(cur);
+    return out;
+  });
+}
+async function inflateRaw(u8) {
+  if (typeof DecompressionStream === 'undefined') throw new Error('deflate');
+  const ds = new DecompressionStream('deflate-raw');
+  return new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(ds)).arrayBuffer());
+}
+async function unzipEntries(buf) {
+  const u8 = buf instanceof Uint8Array ? buf : new Uint8Array(buf);
+  const view = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= 0 && i >= u8.length - 65557; i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) throw new Error('zip');
+  const count = view.getUint16(eocd + 10, true);
+  let off = view.getUint32(eocd + 16, true);
+  const files = {};
+  for (let n = 0; n < count; n++) {
+    if (view.getUint32(off, true) !== 0x02014b50) break;
+    const method = view.getUint16(off + 10, true);
+    const comp = view.getUint32(off + 20, true);
+    const nameLen = view.getUint16(off + 28, true);
+    const extraLen = view.getUint16(off + 30, true);
+    const commentLen = view.getUint16(off + 32, true);
+    const localOff = view.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(u8.subarray(off + 46, off + 46 + nameLen));
+    const localName = view.getUint16(localOff + 26, true);
+    const localExtra = view.getUint16(localOff + 28, true);
+    const dataStart = localOff + 30 + localName + localExtra;
+    const packed = u8.subarray(dataStart, dataStart + comp);
+    files[name] = method === 8 ? await inflateRaw(packed) : packed;
+    off += 46 + nameLen + extraLen + commentLen;
+  }
+  return files;
+}
+function parseSharedStrings(xml) {
+  const out = [];
+  const siRe = /<si\b[^>]*>([\s\S]*?)<\/si>/gi;
+  let m;
+  while ((m = siRe.exec(xml))) {
+    const texts = [];
+    const tRe = /<t\b[^>]*>([\s\S]*?)<\/t>/gi;
+    let t;
+    while ((t = tRe.exec(m[1]))) texts.push(decodeXmlText(t[1]));
+    out.push(texts.join(''));
+  }
+  return out;
+}
+function colRowFromRef(ref) {
+  const m = String(ref || '').match(/^([A-Z]+)(\d+)$/i);
+  if (!m) return { c: 0, r: 0 };
+  let col = 0;
+  for (const ch of m[1].toUpperCase()) col = col * 26 + (ch.charCodeAt(0) - 64);
+  return { c: col - 1, r: +m[2] - 1 };
+}
+function parseSheetGrid(xml, strings) {
+  const grid = [];
+  const rowRe = /<row\b[^>]*>([\s\S]*?)<\/row>/gi;
+  let rowM;
+  while ((rowM = rowRe.exec(xml))) {
+    const cells = [];
+    const cRe = /<c\b([^>]*)(?:\/>|>([\s\S]*?)<\/c>)/gi;
+    let cM;
+    while ((cM = cRe.exec(rowM[1]))) {
+      const attrs = cM[1] || '';
+      const body = cM[2] || '';
+      const ref = (attrs.match(/\br="([^"]+)"/) || [])[1];
+      const t = (attrs.match(/\bt="([^"]+)"/) || [])[1] || '';
+      const pos = colRowFromRef(ref);
+      let val = '';
+      if (t === 's') {
+        const v = (body.match(/<v\b[^>]*>([\s\S]*?)<\/v>/i) || [])[1];
+        val = strings[Number(v)] || '';
+      } else if (t === 'inlineStr') {
+        const texts = [];
+        const tRe = /<t\b[^>]*>([\s\S]*?)<\/t>/gi;
+        let tm;
+        while ((tm = tRe.exec(body))) texts.push(decodeXmlText(tm[1]));
+        val = texts.join('');
+      } else {
+        const v = (body.match(/<v\b[^>]*>([\s\S]*?)<\/v>/i) || [])[1];
+        val = v == null ? '' : decodeXmlText(v);
+      }
+      cells[pos.c] = val;
+    }
+    grid.push(cells);
+  }
+  return grid;
+}
+async function parseXlsxGrid(buf) {
+  const files = await unzipEntries(buf);
+  const names = Object.keys(files);
+  const ssName = names.find(n => /sharedstrings\.xml$/i.test(n));
+  const sheetName = names.find(n => /worksheets\/sheet1\.xml$/i.test(n)) || names.find(n => /worksheets\/sheet\d+\.xml$/i.test(n));
+  if (!sheetName) throw new Error('sheet');
+  const dec = new TextDecoder();
+  const strings = ssName ? parseSharedStrings(dec.decode(files[ssName])) : [];
+  return parseSheetGrid(dec.decode(files[sheetName]), strings);
+}
+async function loadSapFile(file) {
+  if (!file) return;
+  const name = file.name || 'SAP.xlsx';
+  const buf = await file.arrayBuffer();
+  const head = new Uint8Array(buf, 0, Math.min(4, buf.byteLength));
+  const isZip = head[0] === 0x50 && head[1] === 0x4B;
+  const grid = isZip ? await parseXlsxGrid(buf) : parseDelimitedGrid(new TextDecoder().decode(buf));
+  const rows = parseSapPairs(grid);
+  if (!rows.length) { toast('No date / item rows found'); return; }
+  sapAudit = { name, rows };
+  refreshSapHits();
+  renderSapAudit();
+  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'}`);
 }
 function openComplianceReport() {
   if (!indexedRows.length) { toast('Paste results first'); return; }
@@ -3449,6 +3747,20 @@ function buildCompliancePdf(dayIdxs, line) {
       y += cell + 4;
     }
     y += 10;
+    const sapPdfRows = sapPdfTableRows(selected, line);
+    if (sapPdfRows.length) {
+      if (y + 54 > page.h - 40) {
+        page = pdfAddPage(doc);
+        pdfHeader(page, 'Compliance report', subtitle);
+        y = 72;
+      }
+      pdfText(page, 40, y + 12, 'SAP audit', { size: 12, bold: true });
+      y += 18;
+      const sapCols = [{ title: 'Date', w: 90 }, { title: 'Item', w: 150 }, { title: 'Quality check', w: 292 }];
+      const drawnSap = pdfDrawTable(doc, page, y, sapCols, sapPdfRows, { margin: 40, size: 8 });
+      page = drawnSap.page;
+      y = drawnSap.y + 14;
+    }
     for (const d of selected) {
       const day = new Date(monday.getTime());
       day.setUTCDate(monday.getUTCDate() + d);
@@ -3488,7 +3800,6 @@ function buildCompliancePdf(dayIdxs, line) {
       const tableRows = groups.map(g => {
         const row = [g.item, g.desc, g.mspec, g.period, g.result, g.fails];
         if (g.failed) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
-        else if (g.starred) { row._color = '#92400e'; row._bg = '#fff7ed'; }
         return row;
       });
       const drawn = pdfDrawTable(doc, page, y, cols, tableRows, { margin: 40, size: 8 });
@@ -4356,6 +4667,17 @@ document.getElementById('complianceMspecs').onclick = openMspecs;
 document.getElementById('histSpc').onclick = openSpc;
 document.getElementById('histDownload').onclick = downloadHistoryExcel;
 document.getElementById('complianceDownload').onclick = openComplianceReport;
+document.getElementById('complianceSap').onclick = () => document.getElementById('complianceSapFile').click();
+document.getElementById('complianceSapFile').onchange = async (e) => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  try { await loadSapFile(file); }
+  catch { toast('Could not read that Excel file'); }
+};
+document.getElementById('complianceSapClear').onclick = () => {
+  sapAudit = null;
+  renderSapAudit();
+};
 document.getElementById('mspecBack').onclick = () => {
   setViewMode('centration');
   setScreen(indexedRows.length ? 'history' : 'welcome');

@@ -659,7 +659,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.12';
+const APP_VERSION = '1.7.13';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -832,6 +832,7 @@ function sapAuditToStore() {
   if (!sapAudit || !Array.isArray(sapAudit.rows) || !sapAudit.rows.length) return null;
   return {
     name: sapAudit.name || '',
+    sapTz: sapAudit.sapTz || sapPlantTimeZone(),
     rows: sapAudit.rows.map(r => ({
       y: r.y, m: r.m, d: r.d, item: r.item, itemKey: r.itemKey, line: r.line || '',
       desc: r.desc || '', qty: r.qty || '', unit: r.unit || '',
@@ -846,23 +847,40 @@ function applyStoredSapAudit(data) {
     sapAudit = null;
     return;
   }
+  const needShift = !src.sapTz;
   sapAudit = {
     name: src.name || '',
-    rows: src.rows.map(r => ({
-      y: +r.y, m: +r.m, d: +r.d,
-      item: String(r.item || ''),
-      itemKey: sapItemKey(r.itemKey || r.item || ''),
-      line: String(r.line || ''),
-      desc: String(r.desc || ''),
-      qty: r.qty == null ? '' : r.qty,
-      unit: String(r.unit || ''),
-      timeText: formatSapPosted(r.timeText || ''),
-      hour: finiteNum(r.hour) ? +r.hour : (parseSapTime(r.timeText).hour),
-      workCenter: String(r.workCenter || ''),
-      hits: []
-    })).filter(r => r.y && r.d && r.itemKey)
+    sapTz: src.sapTz || sapPlantTimeZone(),
+    rows: src.rows.map(r => {
+      const row = {
+        y: +r.y, m: +r.m, d: +r.d,
+        item: String(r.item || ''),
+        itemKey: sapItemKey(r.itemKey || r.item || ''),
+        line: String(r.line || ''),
+        desc: String(r.desc || ''),
+        qty: r.qty == null ? '' : r.qty,
+        unit: String(r.unit || ''),
+        timeText: formatSapPosted(r.timeText || ''),
+        hour: finiteNum(r.hour) ? +r.hour : (parseSapTime(r.timeText).hour),
+        workCenter: String(r.workCenter || ''),
+        hits: []
+      };
+      if (needShift && finiteNum(row.hour)) {
+        const tm = parseSapTime(row.timeText);
+        const shifted = sapUtcToLocal(row.y, row.m, row.d, row.hour, tm.minute);
+        if (shifted) {
+          row.y = shifted.y;
+          row.m = shifted.m;
+          row.d = shifted.d;
+          row.hour = shifted.hour;
+          row.timeText = shifted.timeText;
+        }
+      }
+      return row;
+    }).filter(r => r.y && r.d && r.itemKey)
   };
   if (!sapAudit.rows.length) sapAudit = null;
+  else if (needShift) persistPack();
 }
 async function persistPack() {
   if (!historyPack && !sapAudit) return;
@@ -2839,7 +2857,11 @@ function renderCompliance() {
   sunday.setUTCDate(monday.getUTCDate() + 6);
   const { year, week } = isoWeekFromMonday(monday);
   const label = document.getElementById('complianceWeekLabel');
-  if (label) label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}` + (activeLine ? ` · Line ${activeLine}` : '');
+  if (label) {
+    label.textContent = `Week ${week}, ${year} · ${fmtWeekDate(monday)} – ${fmtWeekDate(sunday)}`
+      + (activeLine ? ` · Line ${activeLine}` : '')
+      + (sapAudit ? ' · SAP posted in Eastern (from UTC)' : '');
+  }
   const thisMon = mondayOfLocalDate(new Date());
   const next = document.getElementById('complianceNextWeek');
   if (next) next.disabled = monday.getTime() >= thisMon.getTime();
@@ -2921,7 +2943,7 @@ function complianceDayTableHtml(y, m, d) {
   const title = sapCount
     ? `SAP · ${ok} of ${sapCount} item${sapCount === 1 ? '' : 's'} checked` + (postings > sapCount ? ` · ${postings} postings` : '')
     : `${rows.length} item${rows.length === 1 ? '' : 's'}`;
-  const head = `<tr><th>Material</th><th>Description</th>${showLine ? '<th>Line</th>' : ''}<th>MSPEC</th>${showSap ? '<th>Qty</th><th>Posted</th>' : ''}<th>Period</th><th>Quality check</th><th>Fail notes</th><th></th></tr>`;
+  const head = `<tr><th>Material</th><th>Description</th>${showLine ? '<th>Line</th>' : ''}<th>MSPEC</th>${showSap ? '<th>Qty</th><th>Posted (ET)</th>' : ''}<th>Period</th><th>Quality check</th><th>Fail notes</th><th></th></tr>`;
   const body = rows.map(r => {
     const cls = r.kind === 'miss' || r.kind === 'fail' ? 'bad' : (r.kind === 'prev' ? 'warn' : 'good');
     const notes = r.fails.length
@@ -3690,6 +3712,27 @@ function clockText(hour, minute) {
   const am = h24 < 12 ? 'AM' : 'PM';
   return `${h}:${String(finiteNum(minute) ? minute : 0).padStart(2, '0')} ${am}`;
 }
+const SAP_PLANT_TZ = 'America/New_York';
+function sapPlantTimeZone() {
+  return SAP_PLANT_TZ;
+}
+function sapUtcToLocal(y, m, d, hour, minute, tz) {
+  if (!y || !m || !d || !finiteNum(hour)) return null;
+  const zone = tz || sapPlantTimeZone();
+  const utc = new Date(Date.UTC(y, m - 1, d, Number(hour), finiteNum(minute) ? Number(minute) : 0, 0));
+  if (isNaN(utc.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    year: 'numeric', month: 'numeric', day: 'numeric',
+    hour: 'numeric', minute: 'numeric', hour12: false
+  }).formatToParts(utc);
+  const get = type => +((parts.find(p => p.type === type) || {}).value || 0);
+  const hy = get('year'), hm = get('month'), hd = get('day');
+  let hh = get('hour'), mm = get('minute');
+  if (!hy || !hm || !hd) return null;
+  if (hh === 24) hh = 0;
+  return { y: hy, m: hm, d: hd, hour: hh, minute: mm, timeText: clockText(hh, mm) };
+}
 function formatSapPosted(v) {
   if (v == null || v === '') return '';
   const tm = parseSapTime(v);
@@ -3847,11 +3890,24 @@ function parseSapPairs(grid) {
     const tm = parseSapTime(cols.time >= 0 ? row[cols.time] : '');
     const dateVal = cols.entryDate >= 0 ? row[cols.entryDate] : row[cols.date];
     const fromDate = parseSapTime(dateVal);
-    const hour = finiteNum(tm.hour) ? tm.hour : fromDate.hour;
-    const timeText = tm.text || (finiteNum(fromDate.hour) && (String(dateVal || '').includes('.') || /e/i.test(String(dateVal || ''))) ? fromDate.text : '');
+    let hour = finiteNum(tm.hour) ? tm.hour : fromDate.hour;
+    const minute = finiteNum(tm.minute) ? tm.minute : (finiteNum(fromDate.minute) ? fromDate.minute : 0);
+    let timeText = tm.text || (finiteNum(fromDate.hour) && (String(dateVal || '').includes('.') || /e/i.test(String(dateVal || ''))) ? fromDate.text : '');
+    let y = dt.y, mo = dt.m, day = dt.d;
+    // SAP Entry Date + Time of Entry are UTC; quality Period is plant-local Excel time.
+    if (finiteNum(hour)) {
+      const shifted = sapUtcToLocal(y, mo, day, hour, minute, parseSapPairs.timeZone || sapPlantTimeZone());
+      if (shifted) {
+        y = shifted.y;
+        mo = shifted.m;
+        day = shifted.d;
+        hour = shifted.hour;
+        timeText = shifted.timeText;
+      }
+    }
     const qty = cols.qty >= 0 ? String(row[cols.qty] ?? '').trim() : (cols.qtyEntry >= 0 ? String(row[cols.qtyEntry] ?? '').trim() : '');
     out.push({
-      y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item), line,
+      y, m: mo, d: day, item, itemKey: sapItemKey(item), line,
       desc: cols.desc >= 0 ? String(row[cols.desc] ?? '').trim() : '',
       qty, unit: cols.unit >= 0 ? String(row[cols.unit] ?? '').trim() : '',
       timeText, hour,
@@ -3983,7 +4039,7 @@ function compliancePdfCols(rows) {
       { title: 'Line', w: 28 },
       { title: 'MSPEC', w: 46 },
       { title: 'Qty', w: 40 },
-      { title: 'Posted', w: 40 },
+      { title: 'Posted (ET)', w: 46 },
       { title: 'Period', w: 48 },
       { title: 'Quality check', w: 104 },
       { title: 'Fail notes', w: 90 }
@@ -4266,7 +4322,7 @@ async function loadSapFile(file) {
         : 'Found the columns but no Material + date values. Try a CSV export from SAP.'));
     return;
   }
-  sapAudit = { name, rows };
+  sapAudit = { name, rows, sapTz: sapPlantTimeZone() };
   qualityDayItemIndex = null;
   try {
     refreshSapHits(activeLine);
@@ -4277,7 +4333,7 @@ async function loadSapFile(file) {
   persistPack();
   const days = new Set(rows.map(r => `${r.y}-${r.m}-${r.d}`)).size;
   const extra = otherLines ? ` · skipped ${otherLines} other line${otherLines === 1 ? '' : 's'}` : '';
-  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}${extra}`);
+  toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'} · posted in Eastern${extra}`);
 }
 function openComplianceReport() {
   if (!indexedRows.length) { toast('Paste results first'); return; }

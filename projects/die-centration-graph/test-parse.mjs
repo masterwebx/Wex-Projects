@@ -235,7 +235,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.11'/);
+assert.match(html, /APP_VERSION = '1\.7\.12'/);
 assert.match(html, /SAP_WORK_CENTERS/);
 assert.match(html, /SAP_LINE_NAMES/);
 assert.match(html, /no postings for COEX, S1, S3, S4, MONO, P1, or RTS/);
@@ -273,6 +273,8 @@ assert.match(html, /function complianceDayTableHtml/);
 assert.match(html, /function parseSapNumber/);
 assert.match(html, /function formatSapPosted/);
 assert.match(html, /function sortComplianceRows/);
+assert.match(html, /function sapQtyCombined/);
+assert.match(html, /function sapPostedList/);
 assert.match(html, /function detectSapDelim/);
 assert.match(html, /Try a CSV export from SAP/);
 assert.match(html, /function isHeaderishLine/);
@@ -1387,6 +1389,8 @@ assert.equal(sapCsv[0].itemKey, '303405');
 assert.equal(sapCsv[0].line, 'COEX');
 function sortComplianceRows(rows) {
   return rows.slice().sort((a, b) => {
+    const lc = String(a.line || '~~~~').localeCompare(String(b.line || '~~~~'), undefined, { numeric: true });
+    if (lc) return lc;
     if (!!a.hasCheck !== !!b.hasCheck) return a.hasCheck ? -1 : 1;
     const av = finiteNum(a.firstSerial) ? a.firstSerial : (a.hasCheck ? 50000 : 60000 + (a.postedMins || 0) / 1440);
     const bv = finiteNum(b.firstSerial) ? b.firstSerial : (b.hasCheck ? 50000 : 60000 + (b.postedMins || 0) / 1440);
@@ -1400,6 +1404,21 @@ const sortedDay = sortComplianceRows([
   { item: 'D', hasCheck: false, postedMins: 5 * 60, firstSerial: NaN }
 ]);
 assert.deepEqual(sortedDay.map(r => r.item), ['B', 'C', 'D', 'A']);
+const sortedLines = sortComplianceRows([
+  { item: 'X', line: 'S4', hasCheck: false, firstSerial: NaN, postedMins: 60 },
+  { item: 'Y', line: 'COEX', hasCheck: true, firstSerial: 46258.8, postedMins: NaN },
+  { item: 'Z', line: 'S4', hasCheck: true, firstSerial: 46258.2, postedMins: NaN },
+  { item: 'W', line: 'COEX', hasCheck: false, firstSerial: NaN, postedMins: 120 }
+]);
+assert.deepEqual(sortedLines.map(r => r.item), ['Y', 'W', 'Z', 'X']);
+function sapQtyCombined(saps) {
+  let total = 0;
+  for (const sap of saps) total += Number(String(sap.qty).replace(/,/g, ''));
+  return `${total} ${saps[0].unit} · ${saps.length} postings`;
+}
+assert.equal(sapQtyCombined([
+  { qty: '20', unit: 'BDL' }, { qty: '102', unit: 'BDL' }, { qty: '101', unit: 'BDL' }
+]), '223 BDL · 3 postings');
 assert.deepEqual(parseSapDate('4.6257E4'), { y: 2026, m: 8, d: 23 });
 assert.deepEqual(parseSapDate('4.6258E4'), { y: 2026, m: 8, d: 24 });
 assert.equal(parseSapDate('5.2245370370369998E-2'), null);

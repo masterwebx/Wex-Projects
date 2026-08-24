@@ -659,7 +659,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.11';
+const APP_VERSION = '1.7.12';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -2917,8 +2917,9 @@ function complianceDayTableHtml(y, m, d) {
   const showLine = !activeLine && rows.some(r => r.line);
   const ok = rows.filter(r => r.hasSap && r.kind !== 'miss').length;
   const sapCount = rows.filter(r => r.hasSap).length;
+  const postings = rows.reduce((n, r) => n + (r.sapCount || 0), 0);
   const title = sapCount
-    ? `SAP · ${ok} of ${sapCount} posting${sapCount === 1 ? '' : 's'} checked`
+    ? `SAP · ${ok} of ${sapCount} item${sapCount === 1 ? '' : 's'} checked` + (postings > sapCount ? ` · ${postings} postings` : '')
     : `${rows.length} item${rows.length === 1 ? '' : 's'}`;
   const head = `<tr><th>Material</th><th>Description</th>${showLine ? '<th>Line</th>' : ''}<th>MSPEC</th>${showSap ? '<th>Qty</th><th>Posted</th>' : ''}<th>Period</th><th>Quality check</th><th>Fail notes</th><th></th></tr>`;
   const body = rows.map(r => {
@@ -3472,7 +3473,7 @@ function complianceDayGroupRaw(y, m, dd, line) {
   const byItem = new Map();
   const groups = [];
   for (const r of dayRows) {
-    const key = r.item || '(no item)';
+    const key = `${r.item || '(no item)'}|${realLineName(r.line) || ''}`;
     if (!byItem.has(key)) {
       const g = { item: r.item, desc: r.desc, mspec: r.mspec, first: r.serial, last: r.serial, rows: [] };
       byItem.set(key, g);
@@ -3519,23 +3520,40 @@ function complianceDayGroups(y, m, dd, line) {
 function complianceMergedRows(y, m, d, line) {
   refreshSapHits(line);
   const groups = complianceDayGroupRaw(y, m, d, line);
-  const byItem = new Map(groups.map(g => [sapItemKey(g.item), g]));
+  const groupKey = g => `${sapItemKey(g.item)}|${sapLineKey(realLineName((g.rows[0] && g.rows[0].line) || ''))}`;
+  const byItemLine = new Map(groups.map(g => [groupKey(g), g]));
   const sapRows = sapAudit ? sapRowsForYmd(y, m, d, line) : [];
+  const sapGroups = new Map();
+  for (const sap of sapRows) {
+    const key = `${sap.itemKey}|${sapLineKey(sap.line)}`;
+    const list = sapGroups.get(key);
+    if (list) list.push(sap);
+    else sapGroups.set(key, [sap]);
+  }
   const used = new Set();
   const out = [];
-  const add = (sap, g) => {
-    const hits = sap ? (sap.hits || []) : ((g && g.rows) || []);
-    const fromHits = hits.length ? hits : ((g && g.rows) || []);
-    const sum = complianceGroupSummary(fromHits.length && g ? Object.assign({}, g, { rows: fromHits }) : g);
-    const check = sapCheckLabel(hits);
+  const add = (saps, g) => {
+    const sapList = saps && saps.length ? saps : null;
+    const sap = sapList ? sapList[0] : null;
+    const dayRows = (g && g.rows) || [];
+    const sapHits = sapList ? sapList.flatMap(s => s.hits || []) : [];
+    const useRows = dayRows.length ? dayRows : sapHits;
+    const sum = complianceGroupSummary(dayRows.length ? g : (useRows.length
+      ? { rows: useRows, first: useRows[0] && useRows[0].serial, last: useRows[useRows.length - 1] && useRows[useRows.length - 1].serial }
+      : g));
+    const prevOnly = !dayRows.length && sapHits.length && sapHits.every(h => h.sapWhen === 'prev');
     const item = (sap && sap.item) || (g && g.item) || '';
     const mspec = g && g.mspec ? g.mspec : '';
     const desc = (sap && sap.desc) || sapDescFor(item, y, m, d, line) || (g && g.desc) || '';
-    const status = sap
-      ? (check.kind === 'miss' ? 'No check' : (check.kind === 'prev' ? 'Checked previous day' : 'Checked'))
-      : (fromHits.length ? 'Checked' : 'No check');
+    const status = useRows.length ? (prevOnly ? 'Checked previous day' : 'Checked') : 'No check';
     const result = [status, sum.result].filter(Boolean).join(' · ');
-    const kind = sum.failed ? 'fail' : (sap ? check.kind : (fromHits.length ? 'ok' : 'miss'));
+    const kind = sum.failed ? 'fail' : (useRows.length ? (prevOnly ? 'prev' : 'ok') : 'miss');
+    const postedMins = sapList
+      ? sapList.reduce((best, s) => {
+        const mins = sapPostedMinutes(s);
+        return finiteNum(mins) && (!finiteNum(best) || mins < best) ? mins : best;
+      }, NaN)
+      : NaN;
     out.push({
       item,
       itemLabel: itemWithTargets(item, mspec) || item || '—',
@@ -3543,26 +3561,28 @@ function complianceMergedRows(y, m, d, line) {
       line: (sap && sap.line) || (g && g.rows && g.rows[0] && g.rows[0].line) || '',
       mspec,
       mspecLabel: mspec ? mspecWithTarget(mspec) : '',
-      qty: sap ? sapQtyText(sap) : '',
-      posted: sap ? formatSapPosted(sap.timeText) : '',
+      qty: sapList ? sapQtyCombined(sapList) : '',
+      posted: sapList ? sapPostedList(sapList) : '',
       period: sum.period,
       result,
       fails: sum.fails,
       kind,
-      hasSap: !!sap,
+      hasSap: !!sapList,
       hasCheck: kind !== 'miss',
+      sapCount: sapList ? sapList.length : 0,
       firstSerial: g && finiteNum(g.first) ? g.first : NaN,
-      postedMins: sapPostedMinutes(sap),
+      postedMins,
       viewItem: item
     });
   };
-  for (const sap of sapRows) {
-    const g = byItem.get(sap.itemKey);
-    if (g) used.add(sap.itemKey);
-    add(sap, g);
+  for (const list of sapGroups.values()) {
+    const key = `${list[0].itemKey}|${sapLineKey(list[0].line)}`;
+    used.add(key);
+    add(list, byItemLine.get(key));
   }
   for (const g of groups) {
-    if (used.has(sapItemKey(g.item))) continue;
+    const key = groupKey(g);
+    if (used.has(key)) continue;
     add(null, g);
   }
   return sortComplianceRows(out);
@@ -3704,6 +3724,8 @@ function sortComplianceRows(rows) {
     return 70000;
   };
   return rows.slice().sort((a, b) => {
+    const lc = String(a.line || '~~~~').localeCompare(String(b.line || '~~~~'), undefined, { numeric: true });
+    if (lc) return lc;
     if (!!a.hasCheck !== !!b.hasCheck) return a.hasCheck ? -1 : 1;
     return key(a) - key(b) || String(a.item).localeCompare(String(b.item));
   });
@@ -3904,6 +3926,33 @@ function sapQtyText(row) {
   const shown = finiteNum(n) ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : String(raw).trim();
   const unit = row.unit ? String(row.unit).trim() : '';
   return unit ? `${shown} ${unit}` : shown;
+}
+function sapQtyCombined(saps) {
+  const list = saps || [];
+  if (list.length === 1) return sapQtyText(list[0]);
+  const units = new Set();
+  let total = 0, counted = 0;
+  for (const sap of list) {
+    const n = numVal(String(sap.qty == null ? '' : sap.qty).replace(/,/g, ''));
+    if (finiteNum(n)) { total += n; counted += 1; }
+    if (sap.unit) units.add(String(sap.unit).trim());
+  }
+  if (!counted) return list.map(sapQtyText).filter(Boolean).join(', ');
+  const unit = units.size === 1 ? [...units][0] : '';
+  const shown = total.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return (unit ? `${shown} ${unit}` : shown) + ` · ${list.length} postings`;
+}
+function sapPostedList(saps) {
+  const times = [];
+  const seen = new Set();
+  for (const sap of saps || []) {
+    const t = formatSapPosted(sap.timeText);
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    times.push({ t, mins: sapPostedMinutes(sap) });
+  }
+  times.sort((a, b) => (finiteNum(a.mins) ? a.mins : 9999) - (finiteNum(b.mins) ? b.mins : 9999));
+  return times.map(x => x.t).join(', ');
 }
 function sapHasDetail() {
   return !!(sapAudit && sapAudit.rows.some(r => r.desc || r.qty || r.timeText || r.workCenter));

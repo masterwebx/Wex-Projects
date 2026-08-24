@@ -261,6 +261,7 @@ try {
   .comp-sap table { width: 100%; border-collapse: collapse; font-size: 14px; }
   .comp-sap th, .comp-sap td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
   .comp-sap td.desc, .comp-sap td.check { white-space: normal; line-height: 1.3; max-width: 280px; }
+  .comp-sap .comp-fail-list { margin: 0; padding-left: 16px; }
   .comp-sap .good { color: var(--ok); font-weight: 700; }
   .comp-sap .bad { color: var(--thick); font-weight: 700; }
   .comp-sap .warn { color: var(--thin); font-weight: 700; }
@@ -653,7 +654,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.8';
+const APP_VERSION = '1.7.9';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -2086,7 +2087,7 @@ async function indexHistory(onProg) {
       mspec,
       desc: String(row['Item Desc'] || row['Item Description'] || row['Description'] || '').trim(),
       pf: pfLabel,
-      line: String(row['Line'] || '').trim(),
+      line: realLineName(row['Line']),
       plant
     };
     if (onProg && idx % 1500 === 0) {
@@ -2140,11 +2141,18 @@ function pruneFilters() {
     tableFilters[k] = !kept.length || kept.length === avail.size ? null : new Set(kept);
   }
 }
+function isHeaderishLine(v) {
+  return /^(line|item|item #|mspec|date\/?time|description|pass\/?fail)$/i.test(String(v || '').trim());
+}
+function realLineName(v) {
+  const s = String(v || '').trim();
+  return s && !isHeaderishLine(s) ? s : '';
+}
 function allLineChoices() {
-  return uniqueSorted([...new Set(indexedRows.map(r => r.line).filter(Boolean))], false);
+  return uniqueSorted([...new Set(indexedRows.map(r => realLineName(r.line)).filter(Boolean))], false);
 }
 function lineChoices() {
-  return uniqueSorted([...new Set(plantRows().map(r => r.line).filter(Boolean))], false);
+  return uniqueSorted([...new Set(plantRows().map(r => realLineName(r.line)).filter(Boolean))], false);
 }
 function preferredLine() {
   const lines = allLineChoices();
@@ -2152,8 +2160,9 @@ function preferredLine() {
   if (cur && lines.includes(cur)) return cur;
   const counts = {};
   for (const r of indexedRows) {
-    if (!r.line) continue;
-    counts[r.line] = (counts[r.line] || 0) + 1;
+    const line = realLineName(r.line);
+    if (!line) continue;
+    counts[line] = (counts[line] || 0) + 1;
   }
   let best = lines[0] || '';
   let n = 0;
@@ -2175,7 +2184,7 @@ function rowsForLine(line) {
 }
 function fillLineSelects() {
   const all = allLineChoices();
-  const foam = uniqueSorted([...new Set(plantRows('foam').map(r => r.line).filter(Boolean))], false);
+  const foam = uniqueSorted([...new Set(plantRows('foam').map(r => realLineName(r.line)).filter(Boolean))], false);
   if (activeLine && all.length && !all.includes(activeLine)) activeLine = '';
   const compliance = document.getElementById('complianceLine');
   if (compliance) {
@@ -2800,7 +2809,7 @@ function openSpc() {
   if (!isFoamPlant()) { toast('SPC is only for Extrusion Foam'); return; }
   if (!indexedRows.length || enterMode) { toast('Paste TableS4 results first'); return; }
   spcPointSelected = false;
-  const foam = uniqueSorted([...new Set(plantRows('foam').map(r => r.line).filter(Boolean))], false);
+  const foam = uniqueSorted([...new Set(plantRows('foam').map(r => realLineName(r.line)).filter(Boolean))], false);
   if (foam.length && !foam.includes(activeLine)) activeLine = foam[0];
   fillLineSelects();
   setViewMode('spc', true);
@@ -2896,6 +2905,39 @@ function dayHourStatuses(y, m, dd, today, line) {
   }
   return byHour.map((pfs, h) => hourComplianceStatus(pfs, futureDay || (dayN === todayN && h > today.h) || (dayN === todayN && h === today.h && !pfs.length)));
 }
+function complianceDayTableHtml(y, m, d) {
+  const rows = complianceMergedRows(y, m, d, activeLine);
+  if (!rows.length) return '';
+  const showSap = rows.some(r => r.hasSap);
+  const showLine = !activeLine && rows.some(r => r.line);
+  const ok = rows.filter(r => r.hasSap && r.kind !== 'miss').length;
+  const sapCount = rows.filter(r => r.hasSap).length;
+  const title = sapCount
+    ? `SAP · ${ok} of ${sapCount} posting${sapCount === 1 ? '' : 's'} checked`
+    : `${rows.length} item${rows.length === 1 ? '' : 's'}`;
+  const head = `<tr><th>Material</th><th>Description</th>${showLine ? '<th>Line</th>' : ''}<th>MSPEC</th>${showSap ? '<th>Qty</th><th>Posted</th>' : ''}<th>Period</th><th>Quality check</th><th>Fail notes</th><th></th></tr>`;
+  const body = rows.map(r => {
+    const cls = r.kind === 'miss' || r.kind === 'fail' ? 'bad' : (r.kind === 'prev' ? 'warn' : 'good');
+    const notes = r.fails.length
+      ? `<ul class="comp-fail-list">${r.fails.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`
+      : '—';
+    const view = r.viewItem
+      ? `<button type="button" data-comp-item="${esc(r.viewItem)}" data-comp-y="${y}" data-comp-m="${m}" data-comp-d="${d}">View</button>`
+      : '';
+    return `<tr>
+      <td>${esc(r.itemLabel)}</td>
+      <td class="desc">${esc(r.desc || '—')}</td>
+      ${showLine ? `<td>${esc(r.line || '—')}</td>` : ''}
+      <td>${esc(r.mspecLabel || '—')}</td>
+      ${showSap ? `<td>${esc(r.qty || '—')}</td><td>${esc(r.posted || '—')}</td>` : ''}
+      <td>${esc(r.period || '—')}</td>
+      <td class="check ${cls}">${esc(r.result || '—')}</td>
+      <td class="desc">${notes}</td>
+      <td>${view}</td>
+    </tr>`;
+  }).join('');
+  return `<div class="comp-sap"><b>${esc(title)}</b><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+}
 function renderComplianceDays(monday) {
   const el = document.getElementById('complianceDays');
   if (!el) return;
@@ -2908,9 +2950,9 @@ function renderComplianceDays(monday) {
     day.setUTCDate(monday.getUTCDate() + d);
     const y = day.getUTCFullYear(), m = day.getUTCMonth() + 1, dd = day.getUTCDate();
     const heading = `${DAYS[d]}, ${fmtWeekDate(day)}`;
-    const sapHtml = sapDayHtml(y, m, dd);
+    const tableHtml = complianceDayTableHtml(y, m, dd);
     if (ymdNum(y, m, dd) > todayN) {
-      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${sapHtml || '<p class="comp-empty">—</p>'}</div>`);
+      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${tableHtml || '<p class="comp-empty">—</p>'}</div>`);
       continue;
     }
     const hours = dayHourStatuses(y, m, dd, today);
@@ -2918,41 +2960,7 @@ function renderComplianceDays(monday) {
     const missHtml = missing.length
       ? `<div class="comp-miss"><b>Missing checks</b>${esc(formatHourRanges(missing))}</div>`
       : `<p class="comp-empty">No missing hours</p>`;
-    const rows = rowsForLine().filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
-    if (!rows.length) {
-      parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${sapHtml || '<p class="comp-empty">No items</p>'}</div>`);
-      continue;
-    }
-    const groups = [];
-    const byItem = new Map();
-    for (const r of rows) {
-      const key = r.item || '(no item)';
-      if (!byItem.has(key)) {
-        const g = { item: r.item, desc: r.desc, mspec: r.mspec, first: r.serial, last: r.serial, rows: [] };
-        byItem.set(key, g);
-        groups.push(g);
-      }
-      const g = byItem.get(key);
-      g.last = r.serial;
-      if (!g.desc && r.desc) g.desc = r.desc;
-      if (!g.mspec && r.mspec) g.mspec = r.mspec;
-      g.rows.push(r);
-    }
-    const itemsHtml = groups.map(g => {
-      const { passed, failed, noCheck } = summarizeChecks(g.rows);
-      const failLines = failLinesForRows(g.rows);
-      const t1 = excelTimeShort(g.first);
-      const t2 = excelTimeShort(g.last);
-      const period = t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2);
-      const failHtml = failLines.length ? `<ul class="comp-fail-list">${failLines.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : '';
-      const viewBtn = g.item
-        ? `<button type="button" data-comp-item="${esc(g.item)}" data-comp-y="${y}" data-comp-m="${m}" data-comp-d="${dd}">View</button>`
-        : '';
-      const desc = sapDescFor(g.item, y, m, dd, activeLine) || g.desc;
-      const meta = [desc, g.mspec && `MSPEC ${mspecWithTarget(g.mspec)}`, period].filter(Boolean).join(' · ');
-      return `<div class="comp-item"><div><b>${esc(itemWithTargets(g.item, g.mspec) || '—')}</b><span class="muted">${esc(meta)}</span>${failHtml}</div><div class="comp-sum">${complianceSumHtml(passed, failed, noCheck)}</div>${viewBtn}</div>`;
-    }).join('');
-    parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${itemsHtml}${sapHtml}</div>`);
+    parts.push(`<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${tableHtml || '<p class="comp-empty">No items</p>'}</div>`);
   }
   el.innerHTML = parts.join('');
 }
@@ -3454,7 +3462,7 @@ function pdfHeader(page, title, subtitle) {
   if (subtitle) pdfText(page, 40, 52, subtitle, { size: 9, color: '#3e4a55' });
   pdfLine(page, 40, 58, page.w - 40, 58, '#d5dde4', 0.8);
 }
-function complianceDayGroups(y, m, dd, line) {
+function complianceDayGroupRaw(y, m, dd, line) {
   const dayRows = rowsForLine(line).filter(r => r.y === y && r.m === m && r.d === dd).slice().sort((a, b) => (a.serial || 0) - (b.serial || 0));
   const byItem = new Map();
   const groups = [];
@@ -3471,29 +3479,94 @@ function complianceDayGroups(y, m, dd, line) {
     if (!g.mspec && r.mspec) g.mspec = r.mspec;
     g.rows.push(r);
   }
-  return groups.map(g => {
-    const { passed, failed, noCheck } = summarizeChecks(g.rows);
-    const failLines = failLinesForRows(g.rows);
-    const bits = [];
-    if (passed) bits.push(`${passed} passed`);
-    if (failed) bits.push(`${failed} failed`);
-    if (noCheck) bits.push(`${noCheck} NO CHECK`);
-    const t1 = excelTimeShort(g.first), t2 = excelTimeShort(g.last);
+  return groups;
+}
+function complianceGroupSummary(g) {
+  const { passed, failed, noCheck } = summarizeChecks((g && g.rows) || []);
+  const failLines = failLinesForRows((g && g.rows) || []);
+  const bits = [];
+  if (passed) bits.push(`${passed} passed`);
+  if (failed) bits.push(`${failed} failed`);
+  if (noCheck) bits.push(`${noCheck} NO CHECK`);
+  const t1 = g ? excelTimeShort(g.first) : '';
+  const t2 = g ? excelTimeShort(g.last) : '';
+  return {
+    passed, failed, noCheck,
+    result: bits.join(', ') || '',
+    fails: failLines,
+    period: t1 && t2 && t1 !== t2 ? `${t1} – ${t2}` : (t1 || t2 || '')
+  };
+}
+function complianceDayGroups(y, m, dd, line) {
+  return complianceDayGroupRaw(y, m, dd, line).map(g => {
+    const sum = complianceGroupSummary(g);
     return {
       item: itemWithTargets(g.item, g.mspec) || g.item || '--',
       desc: sapDescFor(g.item, y, m, dd, line) || g.desc || '',
       mspec: g.mspec ? mspecWithTarget(g.mspec) : '',
-      period: t1 && t2 && t1 !== t2 ? `${t1} - ${t2}` : (t1 || t2 || ''),
-      result: bits.join(', ') || '--',
-      fails: failLines.join('; '),
-      failed
+      period: sum.period.replace('–', '-'),
+      result: sum.result || '--',
+      fails: sum.fails.join('; '),
+      failed: !!sum.failed
     };
   });
+}
+function complianceMergedRows(y, m, d, line) {
+  refreshSapHits(line);
+  const groups = complianceDayGroupRaw(y, m, d, line);
+  const byItem = new Map(groups.map(g => [sapItemKey(g.item), g]));
+  const sapRows = sapAudit ? sapRowsForYmd(y, m, d, line) : [];
+  const used = new Set();
+  const out = [];
+  const add = (sap, g) => {
+    const hits = sap ? (sap.hits || []) : ((g && g.rows) || []);
+    const fromHits = hits.length ? hits : ((g && g.rows) || []);
+    const sum = complianceGroupSummary(fromHits.length && g ? Object.assign({}, g, { rows: fromHits }) : g);
+    const check = sapCheckLabel(hits);
+    const item = (sap && sap.item) || (g && g.item) || '';
+    const mspec = g && g.mspec ? g.mspec : '';
+    const desc = (sap && sap.desc) || sapDescFor(item, y, m, d, line) || (g && g.desc) || '';
+    const status = sap
+      ? (check.kind === 'miss' ? 'No check' : (check.kind === 'prev' ? 'Checked previous day' : 'Checked'))
+      : (fromHits.length ? 'Checked' : 'No check');
+    const result = [status, sum.result].filter(Boolean).join(' · ');
+    const kind = sum.failed ? 'fail' : (sap ? check.kind : (fromHits.length ? 'ok' : 'miss'));
+    out.push({
+      item,
+      itemLabel: itemWithTargets(item, mspec) || item || '—',
+      desc,
+      line: (sap && sap.line) || (g && g.rows && g.rows[0] && g.rows[0].line) || '',
+      mspec,
+      mspecLabel: mspec ? mspecWithTarget(mspec) : '',
+      qty: sap ? sapQtyText(sap) : '',
+      posted: sap ? (sap.timeText || '') : '',
+      period: sum.period,
+      result,
+      fails: sum.fails,
+      kind,
+      hasSap: !!sap,
+      viewItem: item
+    });
+  };
+  for (const sap of sapRows) {
+    const g = byItem.get(sap.itemKey);
+    if (g) used.add(sap.itemKey);
+    add(sap, g);
+  }
+  for (const g of groups) {
+    if (used.has(sapItemKey(g.item))) continue;
+    add(null, g);
+  }
+  return out;
 }
 function sapItemKey(v) {
   let s = String(v ?? '').trim();
   if (!s) return '';
   if (/^\d+\.0+$/.test(s)) s = String(Math.round(Number(s)));
+  else {
+    const n = parseSapNumber(s);
+    if (isFinite(n) && n > 0 && n < 1e12 && Math.abs(n - Math.round(n)) < 1e-6) s = String(Math.round(n));
+  }
   return s.toUpperCase();
 }
 function sapLineKey(v) {
@@ -3589,12 +3662,20 @@ function clockText(hour, minute) {
   const am = h24 < 12 ? 'AM' : 'PM';
   return `${h}:${String(finiteNum(minute) ? minute : 0).padStart(2, '0')} ${am}`;
 }
+function parseSapNumber(v) {
+  if (v == null || v === '') return NaN;
+  if (typeof v === 'number' && isFinite(v)) return v;
+  const s = String(v).trim().replace(/,/g, '');
+  if (!s || s[0] === '#') return NaN;
+  const n = Number(s);
+  return isFinite(n) ? n : NaN;
+}
 function parseSapTime(v) {
   if (v == null || v === '') return { hour: NaN, minute: 0, text: '' };
   const s = String(v).trim();
   if (!s) return { hour: NaN, minute: 0, text: '' };
-  if (/^-?\d+(\.\d+)?$/.test(s)) {
-    const n = Number(s);
+  const n = parseSapNumber(s);
+  if (isFinite(n)) {
     if (n > 20000 && n < 80000) {
       const dt = excelSerialDate(n);
       if (!isNaN(dt.getTime())) {
@@ -3618,22 +3699,20 @@ function parseSapTime(v) {
     if (ap === 'AM' && hour === 12) hour = 0;
     return { hour, minute, text: clockText(hour, minute) };
   }
-  return { hour: NaN, minute: 0, text: s };
+  return { hour: NaN, minute: 0, text: /e/i.test(s) ? '' : s };
 }
 function parseSapDate(v) {
   if (v == null || v === '') return null;
   const s = String(v).trim();
   if (!s) return null;
-  if (/^-?\d+(\.\d+)?$/.test(s)) {
-    const n = Number(s);
-    if (n > 20000 && n < 80000) {
-      const p = dateParts(n);
-      if (p.y) return { y: p.y, m: p.m, d: p.d };
-    }
-    if (/^\d{8}$/.test(s)) {
-      const y = +s.slice(0, 4), m = +s.slice(4, 6), d = +s.slice(6, 8);
-      if (m >= 1 && m <= 12 && d >= 1 && d <= 31) return { y, m, d };
-    }
+  const n = parseSapNumber(s);
+  if (isFinite(n) && n > 20000 && n < 80000) {
+    const p = dateParts(n);
+    if (p.y) return { y: p.y, m: p.m, d: p.d };
+  }
+  if (/^\d{8}$/.test(s)) {
+    const y = +s.slice(0, 4), mo = +s.slice(4, 6), d = +s.slice(6, 8);
+    if (mo >= 1 && mo <= 12 && d >= 1 && d <= 31) return { y, m: mo, d };
   }
   let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/);
   if (m) return { y: +m[1], m: +m[2], d: +m[3] };
@@ -3701,7 +3780,7 @@ function parseSapPairs(grid) {
     const dateVal = cols.entryDate >= 0 ? row[cols.entryDate] : row[cols.date];
     const fromDate = parseSapTime(dateVal);
     const hour = finiteNum(tm.hour) ? tm.hour : fromDate.hour;
-    const timeText = tm.text || (finiteNum(fromDate.hour) && String(dateVal || '').includes('.') ? fromDate.text : '');
+    const timeText = tm.text || (finiteNum(fromDate.hour) && (String(dateVal || '').includes('.') || /e/i.test(String(dateVal || ''))) ? fromDate.text : '');
     const qty = cols.qty >= 0 ? String(row[cols.qty] ?? '').trim() : (cols.qtyEntry >= 0 ? String(row[cols.qtyEntry] ?? '').trim() : '');
     out.push({
       y: dt.y, m: dt.m, d: dt.d, item, itemKey: sapItemKey(item), line,
@@ -3799,61 +3878,44 @@ function sapCheckLabel(hits) {
   if (failNotes.length) text += ' · ' + failNotes.join('; ');
   return { kind: failed ? 'fail' : (prev ? 'prev' : 'ok'), text };
 }
-function sapPdfCols() {
-  if (sapHasDetail()) {
+function compliancePdfCols(rows) {
+  const showSap = (rows || []).some(r => r.hasSap);
+  if (showSap) {
     return [
-      { title: 'Material', w: 68 },
-      { title: 'Description', w: 118 },
-      { title: 'Line', w: 36 },
-      { title: 'Qty', w: 62 },
-      { title: 'Posted', w: 52 },
-      { title: 'Quality check', w: 196 }
+      { title: 'Material', w: 58 },
+      { title: 'Description', w: 78 },
+      { title: 'Line', w: 28 },
+      { title: 'MSPEC', w: 46 },
+      { title: 'Qty', w: 40 },
+      { title: 'Posted', w: 40 },
+      { title: 'Period', w: 48 },
+      { title: 'Quality check', w: 104 },
+      { title: 'Fail notes', w: 90 }
     ];
   }
-  const showLine = !!(sapAudit && sapAudit.rows.some(r => r.line));
-  return showLine
-    ? [{ title: 'SAP item', w: 150 }, { title: 'Line', w: 70 }, { title: 'Quality check', w: 312 }]
-    : [{ title: 'SAP item', w: 180 }, { title: 'Quality check', w: 352 }];
+  return [
+    { title: 'Item', w: 80 },
+    { title: 'Description', w: 118 },
+    { title: 'MSPEC', w: 70 },
+    { title: 'Period', w: 70 },
+    { title: 'Quality check', w: 100 },
+    { title: 'Fail notes', w: 94 }
+  ];
 }
-function sapPdfRowsForYmd(y, m, d, line) {
-  refreshSapHits(line);
-  const rich = sapHasDetail();
-  return sapRowsForYmd(y, m, d, line).map(r => {
-    const check = sapCheckLabel(r.hits || []);
-    const row = rich
-      ? [r.item, r.desc || '—', r.line || '—', sapQtyText(r) || '—', r.timeText || '—', check.text]
-      : (sapAudit.rows.some(x => x.line) ? [r.item, r.line || '—', check.text] : [r.item, check.text]);
-    if (check.kind === 'miss') { row._color = '#991b1b'; row._bg = '#fff7f7'; }
-    else if (check.kind === 'fail') { row._color = '#991b1b'; row._bg = '#fff7f7'; }
+function compliancePdfRows(y, m, d, line) {
+  const rows = complianceMergedRows(y, m, d, line);
+  const showSap = rows.some(r => r.hasSap);
+  return rows.map(r => {
+    const row = showSap
+      ? [r.itemLabel, r.desc || '—', r.line || '—', r.mspecLabel || '—', r.qty || '—', r.posted || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—']
+      : [r.itemLabel, r.desc || '—', r.mspecLabel || '—', r.period || '—', r.result || '—', r.fails.join('; ') || '—'];
+    if (r.kind === 'miss' || r.kind === 'fail') { row._color = '#991b1b'; row._bg = '#fff7f7'; }
     else { row._color = '#166534'; row._bg = '#f0fdf4'; }
     return row;
   });
 }
 function sapDayHtml(y, m, d) {
-  if (!sapAudit || !sapAudit.rows.length) return '';
-  refreshSapHits(activeLine);
-  const rows = sapRowsForYmd(y, m, d, activeLine);
-  if (!rows.length) return '';
-  const rich = sapHasDetail();
-  const showLine = sapAudit.rows.some(r => r.line);
-  const ok = rows.filter(r => r.hits && r.hits.length).length;
-  const head = rich
-    ? '<tr><th>Material</th><th>Description</th><th>Line</th><th>Qty</th><th>Posted</th><th>Quality check</th></tr>'
-    : (showLine
-      ? '<tr><th>Item</th><th>Line</th><th>Quality check</th></tr>'
-      : '<tr><th>Item</th><th>Quality check</th></tr>');
-  const body = rows.map(r => {
-    const check = sapCheckLabel(r.hits || []);
-    const cls = check.kind === 'miss' || check.kind === 'fail' ? 'bad' : (check.kind === 'prev' ? 'warn' : 'good');
-    const status = `<td class="check ${cls}">${esc(check.text)}</td>`;
-    if (rich) {
-      return `<tr><td>${esc(r.item)}</td><td class="desc">${esc(r.desc || '—')}</td><td>${esc(r.line || '—')}</td><td>${esc(sapQtyText(r) || '—')}</td><td>${esc(r.timeText || '—')}</td>${status}</tr>`;
-    }
-    return showLine
-      ? `<tr><td>${esc(r.item)}</td><td>${esc(r.line || '—')}</td>${status}</tr>`
-      : `<tr><td>${esc(r.item)}</td>${status}</tr>`;
-  }).join('');
-  return `<div class="comp-sap"><b>SAP · ${ok} of ${rows.length} posting${rows.length === 1 ? '' : 's'} checked</b><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  return complianceDayTableHtml(y, m, d);
 }
 function decodeXmlText(s) {
   return String(s || '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
@@ -4127,14 +4189,6 @@ function buildCompliancePdf(dayIdxs, line) {
   const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   const SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const doc = newPdfDoc(612, 792);
-  const cols = [
-    { title: 'Item', w: 92 },
-    { title: 'Description', w: 118 },
-    { title: 'MSPEC', w: 70 },
-    { title: 'Period', w: 70 },
-    { title: 'Result', w: 88 },
-    { title: 'Fail notes', w: 94 }
-  ];
   let page = pdfAddPage(doc);
     const subtitle = `Week ${week}, ${year}  |  ${fmtWeekDate(monday)} - ${fmtWeekDate(sunday)}` + (line ? `  |  Line ${line}` : '');
     pdfHeader(page, 'Compliance report', subtitle);
@@ -4180,12 +4234,9 @@ function buildCompliancePdf(dayIdxs, line) {
       if (ymdNum(ymd.y, ymd.m, ymd.dd) > ymdNum(today.y, today.m, today.d)) {
         pdfText(page, 40, y + 10, 'Not yet', { size: 9, color: '#3e4a55' });
         y += 18;
-        const futureSap = sapPdfRowsForYmd(ymd.y, ymd.m, ymd.dd, line);
-        if (futureSap.length) {
-          const sapCols = sapPdfCols();
-          pdfText(page, 40, y + 10, 'SAP', { size: 10, bold: true });
-          y += 14;
-          const drawnSap = pdfDrawTable(doc, page, y, sapCols, futureSap, { margin: 40, size: 8 });
+        const futureRows = compliancePdfRows(ymd.y, ymd.m, ymd.dd, line);
+        if (futureRows.length) {
+          const drawnSap = pdfDrawTable(doc, page, y, compliancePdfCols(complianceMergedRows(ymd.y, ymd.m, ymd.dd, line)), futureRows, { margin: 40, size: 7 });
           page = drawnSap.page;
           y = drawnSap.y + 14;
         }
@@ -4204,33 +4255,15 @@ function buildCompliancePdf(dayIdxs, line) {
       pdfFillStrokeRect(page, 40, y, 532, missH, missing.length ? '#fee2e2' : '#f8fafc', missing.length ? '#991b1b' : '#d5dde4', 0.6);
       missLines.forEach((ln, i) => pdfText(page, 48, y + 12 + i * 11, ln, { size: 8, color: missing.length ? '#991b1b' : '#3e4a55', bold: true }));
       y += missH + 8;
-      const groups = complianceDayGroups(ymd.y, ymd.m, ymd.dd, line);
-      if (!groups.length) {
+      const merged = complianceMergedRows(ymd.y, ymd.m, ymd.dd, line);
+      const tableRows = compliancePdfRows(ymd.y, ymd.m, ymd.dd, line);
+      if (!tableRows.length) {
         pdfText(page, 40, y + 10, 'No items', { size: 9, color: '#3e4a55' });
         y += 18;
       } else {
-        const tableRows = groups.map(g => {
-          const row = [g.item, g.desc, g.mspec, g.period, g.result, g.fails];
-          if (g.failed) { row._color = '#991b1b'; row._bg = '#fff7f7'; }
-          return row;
-        });
-        const drawn = pdfDrawTable(doc, page, y, cols, tableRows, { margin: 40, size: 8 });
+        const drawn = pdfDrawTable(doc, page, y, compliancePdfCols(merged), tableRows, { margin: 40, size: 7 });
         page = drawn.page;
         y = drawn.y + 14;
-      }
-      const sapRows = sapPdfRowsForYmd(ymd.y, ymd.m, ymd.dd, line);
-      if (sapRows.length) {
-        if (y + 40 > page.h - 40) {
-          page = pdfAddPage(doc);
-          pdfHeader(page, 'Compliance report', subtitle);
-          y = 72;
-        }
-        const sapCols = sapPdfCols();
-        pdfText(page, 40, y + 10, 'SAP', { size: 10, bold: true });
-        y += 14;
-        const drawnSap = pdfDrawTable(doc, page, y, sapCols, sapRows, { margin: 40, size: 8 });
-        page = drawnSap.page;
-        y = drawnSap.y + 14;
       }
     }
   return { doc, week, year, line };

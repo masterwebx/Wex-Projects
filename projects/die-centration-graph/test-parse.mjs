@@ -238,6 +238,7 @@ assert.match(html, /data-comp-item/);
 assert.match(html, /APP_VERSION = '1\.7\.21'/);
 assert.match(html, /function complianceUncheckedByLine/);
 assert.match(html, /function renderComplianceAllLines/);
+assert.match(html, /\.comp-legend\[hidden\]/);
 assert.match(html, /Posted items with no quality check/);
 assert.match(html, /Every posted item this week has a quality check/);
 assert.match(html, /which lines posted items without a quality check/);

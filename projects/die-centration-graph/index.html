@@ -707,7 +707,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.28';
+const APP_VERSION = '1.7.29';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -4166,6 +4166,37 @@ function looksLikeLineValue(v) {
 function looksLikeWorkCenter(v) {
   return /^VIS[A-Z]{2,3}\d{2}$/i.test(String(v || '').trim());
 }
+function sapLooksUnit(v) {
+  return /^(EA|PC|PCS|KG|LB|M|FT|CS|RL|ROL|BDL|BAG|PAL|PK|PKS|BOX)$/i.test(String(v || '').trim());
+}
+/* MB51 sometimes drops Qty in unit of entry (or Unit), so Time / Work Center slide left. */
+function sapRealignRow(row, cols) {
+  const wcIdx = cols && cols.wc;
+  if (!row || wcIdx == null || wcIdx < 0) return row;
+  if (looksLikeWorkCenter(row[wcIdx])) return row;
+  let found = -1;
+  for (let i = 0; i < row.length; i++) {
+    if (looksLikeWorkCenter(row[i])) { found = i; break; }
+  }
+  if (found < 0 || found === wcIdx) return row;
+  const out = row.slice();
+  const delta = wcIdx - found;
+  let at = -1;
+  if (cols.qtyEntry >= 0 && sapLooksUnit(out[cols.qtyEntry]) && !sapLooksUnit(out[cols.unit])) at = cols.qtyEntry;
+  else if (cols.unit >= 0 && !sapLooksUnit(out[cols.unit]) && isFinite(parseSapNumber(out[cols.unit]))) at = cols.unit;
+  else if (cols.qty >= 0 && sapLooksUnit(out[cols.qty])) at = cols.qty;
+  if (at < 0) {
+    at = delta > 0
+      ? (cols.unit >= 0 ? cols.unit + 1 : (cols.qtyEntry >= 0 ? cols.qtyEntry + 1 : wcIdx))
+      : wcIdx;
+  }
+  if (delta > 0) {
+    for (let k = 0; k < delta; k++) out.splice(at, 0, '');
+  } else {
+    out.splice(at, -delta);
+  }
+  return out;
+}
 function clockText(hour, minute) {
   if (!finiteNum(hour)) return '';
   const h24 = ((Number(hour) % 24) + 24) % 24;
@@ -4350,8 +4381,9 @@ function parseSapPairs(grid) {
   }
   const hasLineCol = cols.wc >= 0 || cols.line >= 0;
   for (let i = start; i < grid.length; i++) {
-    const row = grid[i];
+    let row = grid[i];
     if (!row || !row.length) continue;
+    row = sapRealignRow(row, cols);
     const dt = sapPickDate(row, cols);
     const item = String(row[cols.item] ?? '').trim();
     if (!dt || !sapItemKey(item)) continue;
@@ -4611,7 +4643,8 @@ function parseDelimitedGrid(text) {
       const ch = line[i];
       if (ch === '"') {
         if (q && line[i + 1] === '"') { cur += '"'; i++; }
-        else q = !q;
+        else if (q || cur.length === 0) q = !q;
+        else cur += ch;
       } else if (ch === delim && !q) { out.push(cur); cur = ''; }
       else cur += ch;
     }

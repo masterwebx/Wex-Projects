@@ -651,7 +651,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.7.4';
+const APP_VERSION = '1.7.5';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -818,17 +818,45 @@ function openPackDb() {
     req.onerror = () => reject(req.error);
   });
 }
+function sapAuditToStore() {
+  if (!sapAudit || !Array.isArray(sapAudit.rows) || !sapAudit.rows.length) return null;
+  return {
+    name: sapAudit.name || '',
+    rows: sapAudit.rows.map(r => ({
+      y: r.y, m: r.m, d: r.d, item: r.item, itemKey: r.itemKey, line: r.line || ''
+    }))
+  };
+}
+function applyStoredSapAudit(data) {
+  const src = data && data.sapAudit;
+  if (!src || !Array.isArray(src.rows) || !src.rows.length) {
+    sapAudit = null;
+    return;
+  }
+  sapAudit = {
+    name: src.name || '',
+    rows: src.rows.map(r => ({
+      y: +r.y, m: +r.m, d: +r.d,
+      item: String(r.item || ''),
+      itemKey: sapItemKey(r.itemKey || r.item || ''),
+      line: String(r.line || ''),
+      hits: []
+    })).filter(r => r.y && r.d && r.itemKey)
+  };
+  if (!sapAudit.rows.length) sapAudit = null;
+}
 async function persistPack() {
-  if (!historyPack) return;
+  if (!historyPack && !sapAudit) return;
   try {
     const db = await openPackDb();
     await new Promise((resolve, reject) => {
       const tx = db.transaction(PACK_STORE, 'readwrite');
       tx.objectStore(PACK_STORE).put({
-        rows: historyPack.rows,
-        lookupRows: historyPack.lookupRows || [],
-        specPatches: historyPack.specPatches || {},
+        rows: (historyPack && historyPack.rows) || [],
+        lookupRows: (historyPack && historyPack.lookupRows) || [],
+        specPatches: (historyPack && historyPack.specPatches) || {},
         snapshot: currentSnapshot,
+        sapAudit: sapAuditToStore(),
         savedAt: Date.now(),
         version: APP_VERSION,
         schema: PACK_SCHEMA
@@ -3688,6 +3716,7 @@ async function loadSapFile(file) {
   if (!rows.length) { toast('No date / item rows found'); return; }
   sapAudit = { name, rows };
   refreshSapHits(activeLine);
+  persistPack();
   renderCompliance();
   const days = new Set(rows.map(r => `${r.y}-${r.m}-${r.d}`)).size;
   toast(`Loaded ${rows.length} SAP row${rows.length === 1 ? '' : 's'} · ${days} day${days === 1 ? '' : 's'}`);
@@ -4707,6 +4736,7 @@ document.getElementById('complianceSapFile').onchange = async (e) => {
 };
 document.getElementById('complianceSapClear').onclick = () => {
   sapAudit = null;
+  persistPack();
   renderCompliance();
 };
 document.getElementById('mspecBack').onclick = () => {
@@ -4976,6 +5006,7 @@ restorePack().then(async data => {
     lookupByMspec: buildLookupMap(data.lookupRows || [])
   };
   if (data.specPatches) historyPack.specPatches = data.specPatches;
+  applyStoredSapAudit(data);
   await indexHistory();
   if (!plantRows().length) {
     const next = Object.keys(PLANTS).find(k => plantRows(k).length);

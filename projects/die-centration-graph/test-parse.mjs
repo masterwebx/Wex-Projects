@@ -234,7 +234,14 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.6\.9'/);
+assert.match(html, /APP_VERSION = '1\.7\.1'/);
+assert.match(html, /function allLineChoices/);
+assert.match(html, /function rowsForLine/);
+assert.match(html, /function failLinesForRows/);
+assert.match(html, /function thicknessAvgFromRow/);
+assert.match(html, /function buildCompliancePdf/);
+assert.match(html, /function lineFileTag/);
+assert.match(html, /Downloaded \$\{lineList\.length\} compliance PDFs/);
 assert.match(html, /function complianceSumHtml/);
 assert.match(html, /function pickPfMin/);
 assert.doesNotMatch(html, /id="cellMaxSpec"/);
@@ -318,6 +325,42 @@ assert.match(html, /function plantRows/);
 assert.match(html, /tableToneShow/);
 assert.match(html, /function inferPlant/);
 assert.match(html, /function resetSort/);
+assert.match(html, /function histCols/);
+assert.match(html, /function withNotesLast/);
+assert.match(html, /const FOAM_COLS/);
+assert.match(html, /const BUBBLE_COLS/);
+assert.match(html, /const P1_COLS/);
+assert.match(html, /const RTS_COLS/);
+assert.match(html, /const PLANT_COLS/);
+function parseJsStringArray(name) {
+  const m = html.match(new RegExp(`const ${name} = \\[([^\\]]+)\\]`));
+  assert.ok(m, name);
+  return m[1].split(',').map(s => s.trim().replace(/^'|'$/g, ''));
+}
+const foamCols = parseJsStringArray('FOAM_COLS');
+const bubbleCols = parseJsStringArray('BUBBLE_COLS');
+const p1Cols = parseJsStringArray('P1_COLS');
+const rtsCols = parseJsStringArray('RTS_COLS');
+assert.equal(foamCols.at(-1), 'Notes');
+assert.equal(bubbleCols.at(-1), 'Notes');
+assert.equal(p1Cols.at(-1), 'Notes');
+assert.equal(rtsCols.at(-1), 'Notes');
+assert.ok(foamCols.includes('Slit/Width'));
+assert.ok(foamCols.includes('MSPEC'));
+assert.ok(!bubbleCols.includes('Slit/Width'));
+assert.ok(!bubbleCols.includes('MSPEC'));
+assert.ok(!bubbleCols.includes('Bundle #'));
+assert.ok(!bubbleCols.includes('Thickness Average'));
+assert.ok(!p1Cols.includes('Slit/Width'));
+assert.ok(!p1Cols.includes('MSPEC'));
+assert.ok(!p1Cols.includes('Bundle #'));
+assert.ok(!rtsCols.includes('Slit/Width'));
+assert.ok(!rtsCols.includes('MSPEC'));
+assert.ok(!rtsCols.includes('Thickness Average'));
+assert.ok(bubbleCols.includes('Item Description'));
+assert.ok(bubbleCols.includes('Product Verification'));
+assert.ok(p1Cols.includes('Average Single Shot'));
+assert.ok(rtsCols.includes('Parent Material'));
 assert.match(html, /TONE_COLS/);
 assert.match(html, /viewMode !== 'spc'/);
 assert.match(html, /function applySharedOutliers/);
@@ -544,7 +587,7 @@ const dupes = [
 const firstWins = buildLookupMap(dupes);
 const colW = html.match(/const HIST_COL_W = \[([^\]]+)\]/);
 assert.ok(colW);
-assert.equal(colW[1].split(',').length, 15);
+assert.equal(colW[1].split(',').length, 16);
 
 function excelSerialDate(n) {
   return new Date(Math.round((Number(n) - 25569) * 86400000));
@@ -716,6 +759,31 @@ assert.ok(failReasonsForRow({
   'Cell Count MD': '10',
   'Cell Count MD Pass/Fail': 'Pass'
 }, { cellMin: 18, cellMax: 24 }).includes('cell count MD under'));
+function looksLikeThicknessIn(n) {
+  return isFinite(n) && n > 0 && n < 4;
+}
+function thicknessFromPoints(row) {
+  const pts = [];
+  for (let i = 1; i <= 13; i++) {
+    const n = parseFloat(row['T' + i]);
+    if (looksLikeThicknessIn(n)) pts.push(n);
+  }
+  if (pts.length < 3) return NaN;
+  return pts.reduce((a, b) => a + b, 0) / pts.length;
+}
+function thicknessAvgFromRow(row) {
+  const stored = parseFloat(col(row, 'Thickness Average'));
+  if (looksLikeThicknessIn(stored)) return stored;
+  const fromPts = thicknessFromPoints(row);
+  if (isFinite(fromPts)) return fromPts;
+  return stored;
+}
+assert.ok(Math.abs(thicknessAvgFromRow({
+  'Thickness Average': '20',
+  T1: '0.120', T2: '0.125', T3: '0.124', T4: '0.122'
+}) - 0.12275) < 1e-6);
+assert.equal(thicknessAvgFromRow({ 'Thickness Average': '0.125', T1: '0.120', T2: '0.125', T3: '0.124' }), 0.125);
+assert.doesNotMatch(html, /r\.pf === 'Pass\*'\) \{\s*starred \+= 1;\s*failLines\.push/);
 assert.equal(mspecWithTargetFromLookup(m4780), '4780 (.515 1.60#)');
 function mspecWithTargetFromLookup(row) {
   const key = String(col(row, 'MSPEC #')).replace(/\.0+$/, '');

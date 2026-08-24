@@ -28,12 +28,12 @@ Private Const GMEM_MOVEABLE As Long = &H2
 Private Const GRAPH_HTML As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\centration.html"
 
 ' Import this module into the S1 S3 quality check workbook only.
-' The S4 book uses CopyForGraph.bas — do not put both in the same file.
+' The S4 book uses CopyForGraphS4.bas — do not put both in the same file.
 ' Button name: Copy for Graph  (macro CopyForGraphS1S3.CopyForGraph)
 ' Copies current S1 S3 values, lookup specs from the same Master Sheet
 ' S1 S3 VLOOKUPs (Quality AIO / linked workbook, not the stale local copy),
 ' and the full Data S1 S3 TableS1S3 table as DIEGRAPH2 text for the HTML graph.
-' History is tagged [TABLES4] so the same graph parser can ingest S4 and S1 S3.
+' History is tagged [TABLES1S3] so foam history keeps S1 S3 column names.
 ' Internal CopyForGraphS1S3.bas is optional if you use CopyForGraphFromQuality.bas from Personal.xlsb.
 Public Sub CopyForGraph()
     Dim wsForm As Worksheet
@@ -61,7 +61,7 @@ Public Sub CopyForGraph()
     
     Application.StatusBar = "Copying TableS1S3..."
     tsvTable = ListObjectToTsv(TableS1S3ListObject())
-    payload = payload & "[TABLES4]" & vbCrLf
+    payload = payload & "[TABLES1S3]" & vbCrLf
     If LenB(tsvTable) > 0 Then
         payload = payload & tsvTable & vbCrLf
     End If

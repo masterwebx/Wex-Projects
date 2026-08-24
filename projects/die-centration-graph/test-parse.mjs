@@ -7,7 +7,7 @@ import zlib from 'node:zlib';
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
-const vba = fs.readFileSync(path.join(dir, 'CopyForGraph.bas'), 'utf8');
+const vba = fs.readFileSync(path.join(dir, 'CopyForGraphS4.bas'), 'utf8');
 const vbaS1 = fs.readFileSync(path.join(dir, 'CopyForGraphS1S3.bas'), 'utf8');
 const vbaFrom = fs.readFileSync(path.join(dir, 'CopyForGraphFromQuality.bas'), 'utf8');
 const payload = fs.readFileSync(path.join(dir, 'fixtures/sample-diegraph2.txt'), 'utf8');
@@ -75,25 +75,38 @@ function col(row, ...names) {
 }
 
 assert.doesNotMatch(vba, /Item # must be filled in/);
+assert.ok(!fs.existsSync(path.join(dir, 'CopyForGraph.bas')));
+assert.match(vba, /Attribute VB_Name = "CopyForGraphS4"/);
 assert.match(vba, /densMin=/);
 assert.match(vba, /cellMd=/);
 assert.match(vba, /width=/);
 assert.match(vba, /CopyForGraphS1S3\.bas/);
 assert.match(vba, /OpenGraphHtml/);
 assert.match(vba, /1 - Quality\\centration\.html/);
+assert.match(vba, /\[TABLES4\]/);
+assert.match(vba, /source=S4/);
+assert.match(vba, /SheetByName\("S4"\)/);
+assert.match(vba, /Data S4/);
+assert.match(vba, /TableS4/);
+assert.match(vba, /Range\("B8"\)/);
+assert.match(vba, /Range\("B12"\)/);
+assert.doesNotMatch(vba, /\[TABLES1S3\]/);
 assert.match(vbaS1, /OpenGraphHtml/);
 assert.match(vbaS1, /1 - Quality\\centration\.html/);
 
 assert.match(vbaS1, /Attribute VB_Name = "CopyForGraphS1S3"/);
+assert.match(vbaS1, /CopyForGraphS4\.bas/);
 assert.match(vbaS1, /SheetByName\("S1 S3"\)/);
 assert.match(vbaS1, /Data S1 S3/);
 assert.match(vbaS1, /TableS1S3/);
 assert.match(vbaS1, /source=S1S3/);
+assert.match(vbaS1, /\[TABLES1S3\]/);
 assert.match(vbaS1, /Range\("B14"\)/);
 assert.match(vbaS1, /Range\("B12"\)/);
 assert.match(vbaS1, /Range\("B10"\)/);
 assert.doesNotMatch(vbaS1, /Data S4/);
 assert.doesNotMatch(vbaS1, /SheetByName\("S4"\)/);
+assert.doesNotMatch(vbaS1, /\[TABLES4\]/);
 
 assert.ok(!fs.existsSync(path.join(dir, 'CopyForGraphFromS4.bas')));
 assert.ok(!fs.existsSync(path.join(dir, 'CopyForGraphFromS1S3.bas')));

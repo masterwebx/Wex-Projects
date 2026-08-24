@@ -12,6 +12,7 @@ Option Explicit
 ' it. No macro inside the quality workbooks is used.
 '
 ' Button: CopyForGraphFromQuality.CopyForGraphFromQuality
+' In-workbook buttons use CopyForGraphS4.bas / CopyForGraphS1S3.bas.
 ' [CURRENT] comes from the active foam sheet (S4 or S1 S3) when one
 ' is in front. [TABLES4] / [TABLES1S3] are Extrusion Foam history.
 ' [TABLESBUBBLE] is Extrusion Bubble, [TABLESP1] is P1, [TABLESRTS]

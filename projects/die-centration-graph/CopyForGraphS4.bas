@@ -1,4 +1,4 @@
-Attribute VB_Name = "CopyForGraph"
+Attribute VB_Name = "CopyForGraphS4"
 Option Explicit
 
 #If Mac Then
@@ -27,12 +27,14 @@ Private Const CF_UNICODETEXT As Long = 13
 Private Const GMEM_MOVEABLE As Long = &H2
 Private Const GRAPH_HTML As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\centration.html"
 
-' Button name: Copy for Graph
+' Import this module into the S4 quality check workbook only.
+' The S1 S3 book uses CopyForGraphS1S3.bas — do not put both in the same file.
+' Button name: Copy for Graph  (macro CopyForGraphS4.CopyForGraph)
 ' Copies current S4 values (if any), lookup specs from the same Master Sheet
 ' S4 VLOOKUPs (Quality AIO / linked workbook, not the stale local copy),
 ' and the full Data S4 TableS4 table as DIEGRAPH2 text for the HTML graph.
-' For the S1 S3 quality check workbook, import CopyForGraphS1S3.bas instead.
-' Internal CopyForGraph.bas is optional if you use CopyForGraphFromQuality.bas from Personal.xlsb.
+' If you previously imported CopyForGraph.bas, remove that module first.
+' Internal CopyForGraphS4.bas is optional if you use CopyForGraphFromQuality.bas from Personal.xlsb.
 Public Sub CopyForGraph()
     Dim wsS4 As Worksheet
     Dim payload As String

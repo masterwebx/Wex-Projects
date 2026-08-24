@@ -1,20 +1,22 @@
 Attribute VB_Name = "CopyForGraphFromQuality"
 Option Explicit
 
-' Import into Personal.xlsb or a launcher workbook — NOT into S4.xlsm
-' and NOT into S1 S3.xlsm.
-' One paste from both quality books: copies S4.xlsm and S1 S3.xlsm into
-' %TEMP%, opens those copies hidden (macros disabled), builds one
-' DIEGRAPH2 payload with both history tables, then closes and deletes
-' the temp copies. Never writes into the quality Files folder
-' (Permission denied on G:). If a book is already open, uses that
-' workbook and does not close it. No macro inside S4 or S1 S3 is used.
+' Import into Personal.xlsb or a launcher workbook — NOT into S4.xlsm,
+' S1 S3.xlsm, Bubble.xlsm, P1.xlsm, or RTS.xlsm.
+' One paste from the quality Files folder: copies S4.xlsm, S1 S3.xlsm,
+' Bubble.xlsm, P1.xlsm, and RTS.xlsm into %TEMP%, opens those copies
+' hidden (macros disabled), builds one DIEGRAPH2 payload with all
+' history tables, then closes and deletes the temp copies. Never
+' writes into the quality Files folder (Permission denied on G:).
+' If a book is already open, uses that workbook and does not close
+' it. No macro inside the quality workbooks is used.
 '
 ' Button: CopyForGraphFromQuality.CopyForGraphFromQuality
-' [CURRENT] comes from the active quality sheet when one is in front.
-' [TABLES4] is S4 history and [TABLES1S3] is S1 S3 history.
-' CopyForGraphFromS4 and CopyForGraphFromS1S3 remain as aliases.
-' If you previously imported CopyForGraphFromS4.bas and
+' [CURRENT] comes from the active foam sheet (S4 or S1 S3) when one
+' is in front. [TABLES4] / [TABLES1S3] are Extrusion Foam history.
+' [TABLESBUBBLE] is Extrusion Bubble, [TABLESP1] is P1, [TABLESRTS]
+' is RTS. CopyForGraphFromS4 and CopyForGraphFromS1S3 remain as
+' aliases. If you previously imported CopyForGraphFromS4.bas and
 ' CopyForGraphFromS1S3.bas, remove those modules first so the public
 ' Sub names are not duplicated.
 
@@ -48,6 +50,9 @@ Private Const GRAPH_HTML As String = "G:\Shipping\100% Inspection Sheets\Product
 
 Private Const SOURCE_S4 As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Files\S4.xlsm"
 Private Const SOURCE_S1S3 As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Files\S1 S3.xlsm"
+Private Const SOURCE_BUBBLE As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Files\Bubble.xlsm"
+Private Const SOURCE_P1 As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Files\P1.xlsm"
+Private Const SOURCE_RTS As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Files\RTS.xlsm"
 
 Private dataWb As Workbook
 Private openedByLauncher As Boolean
@@ -55,10 +60,19 @@ Private copyPathToDelete As String
 Private sourceKind As String
 Private wbS4 As Workbook
 Private wbS1 As Workbook
+Private wbBubble As Workbook
+Private wbP1 As Workbook
+Private wbRts As Workbook
 Private openedS4 As Boolean
 Private openedS1 As Boolean
+Private openedBubble As Boolean
+Private openedP1 As Boolean
+Private openedRts As Boolean
 Private pathS4 As String
 Private pathS1 As String
+Private pathBubble As String
+Private pathP1 As String
+Private pathRts As String
 
 Public Sub CopyForGraphFromQuality()
     CopyForGraphFromBothBooks
@@ -87,10 +101,19 @@ Private Sub CopyForGraphFromBothBooks()
     Set dataWb = Nothing
     Set wbS4 = Nothing
     Set wbS1 = Nothing
+    Set wbBubble = Nothing
+    Set wbP1 = Nothing
+    Set wbRts = Nothing
     openedS4 = False
     openedS1 = False
+    openedBubble = False
+    openedP1 = False
+    openedRts = False
     pathS4 = vbNullString
     pathS1 = vbNullString
+    pathBubble = vbNullString
+    pathP1 = vbNullString
+    pathRts = vbNullString
     sourceKind = vbNullString
     
     prevSU = Application.ScreenUpdating
@@ -105,12 +128,15 @@ Private Sub CopyForGraphFromBothBooks()
     
     AcquireSource "S4"
     AcquireSource "S1S3"
+    AcquireSource "BUBBLE"
+    AcquireSource "P1"
+    AcquireSource "RTS"
     
-    If wbS4 Is Nothing And wbS1 Is Nothing Then
+    If wbS4 Is Nothing And wbS1 Is Nothing And wbBubble Is Nothing And wbP1 Is Nothing And wbRts Is Nothing Then
         RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
         Application.Cursor = xlDefault
         Application.StatusBar = False
-        MsgBox "Could not find S4.xlsm or S1 S3.xlsm:" & vbCrLf & SOURCE_S4 & vbCrLf & SOURCE_S1S3, vbCritical, "Copy for Graph"
+        MsgBox "Could not find any quality workbooks:" & vbCrLf & SOURCE_S4 & vbCrLf & SOURCE_S1S3 & vbCrLf & SOURCE_BUBBLE & vbCrLf & SOURCE_P1 & vbCrLf & SOURCE_RTS, vbCritical, "Copy for Graph"
         Exit Sub
     End If
     
@@ -123,7 +149,7 @@ Private Sub CopyForGraphFromBothBooks()
     
     ReleaseAll
     RestoreApp prevSU, prevEA, prevDA, prevCur, prevSec
-    Application.StatusBar = "Copied for graph from S4 and S1 S3"
+    Application.StatusBar = "Copied for graph from quality sheets"
     Exit Sub
     
 ErrHandler:
@@ -166,15 +192,28 @@ Private Function AcquireSource(ByVal kind As String) As Workbook
         Application.StatusBar = "Using already-open " & wb.Name
     End If
     
-    If StrComp(kind, "S1S3", vbTextCompare) = 0 Then
-        Set wbS1 = wb
-        openedS1 = opened
-        pathS1 = copyPath
-    Else
-        Set wbS4 = wb
-        openedS4 = opened
-        pathS4 = copyPath
-    End If
+    Select Case UCase$(kind)
+        Case "S1S3"
+            Set wbS1 = wb
+            openedS1 = opened
+            pathS1 = copyPath
+        Case "BUBBLE"
+            Set wbBubble = wb
+            openedBubble = opened
+            pathBubble = copyPath
+        Case "P1"
+            Set wbP1 = wb
+            openedP1 = opened
+            pathP1 = copyPath
+        Case "RTS"
+            Set wbRts = wb
+            openedRts = opened
+            pathRts = copyPath
+        Case Else
+            Set wbS4 = wb
+            openedS4 = opened
+            pathS4 = copyPath
+    End Select
     If opened Then
         openedByLauncher = True
         If LenB(copyPathToDelete) = 0 Then copyPathToDelete = copyPath
@@ -188,11 +227,18 @@ Private Sub UseBook(ByVal wb As Workbook, ByVal kind As String)
 End Sub
 
 Private Function BookForKind(ByVal kind As String) As Workbook
-    If StrComp(kind, "S1S3", vbTextCompare) = 0 Then
-        Set BookForKind = wbS1
-    Else
-        Set BookForKind = wbS4
-    End If
+    Select Case UCase$(kind)
+        Case "S1S3"
+            Set BookForKind = wbS1
+        Case "BUBBLE"
+            Set BookForKind = wbBubble
+        Case "P1"
+            Set BookForKind = wbP1
+        Case "RTS"
+            Set BookForKind = wbRts
+        Case Else
+            Set BookForKind = wbS4
+    End Select
 End Function
 
 Private Function PreferredCurrentKind() As String
@@ -216,11 +262,18 @@ Private Function PreferredCurrentKind() As String
 End Function
 
 Private Function SourcePathForKind(ByVal kind As String) As String
-    If StrComp(kind, "S1S3", vbTextCompare) = 0 Then
-        SourcePathForKind = SOURCE_S1S3
-    Else
-        SourcePathForKind = SOURCE_S4
-    End If
+    Select Case UCase$(kind)
+        Case "S1S3"
+            SourcePathForKind = SOURCE_S1S3
+        Case "BUBBLE"
+            SourcePathForKind = SOURCE_BUBBLE
+        Case "P1"
+            SourcePathForKind = SOURCE_P1
+        Case "RTS"
+            SourcePathForKind = SOURCE_RTS
+        Case Else
+            SourcePathForKind = SOURCE_S4
+    End Select
 End Function
 
 Private Function IsS1S3() As Boolean
@@ -241,6 +294,19 @@ Private Function DetectKindFromWorkbook(ByVal wb As Workbook) As String
     Dim sheetName As String
     
     If IsIgnoredWorkbook(wb) Then Exit Function
+    
+    If WorkbookHasSheet(wb, "Bubble") And WorkbookHasSheet(wb, "Data Bubble") Then
+        DetectKindFromWorkbook = "BUBBLE"
+        Exit Function
+    End If
+    If WorkbookHasSheet(wb, "P1") And WorkbookHasSheet(wb, "Data P1") Then
+        DetectKindFromWorkbook = "P1"
+        Exit Function
+    End If
+    If WorkbookHasSheet(wb, "RTS") And WorkbookHasSheet(wb, "Data RTS") Then
+        DetectKindFromWorkbook = "RTS"
+        Exit Function
+    End If
     
     hasS4 = WorkbookHasSheet(wb, "S4") And WorkbookHasSheet(wb, "Data S4")
     hasS1 = WorkbookHasSheet(wb, "S1 S3") And WorkbookHasSheet(wb, "Data S1 S3")
@@ -269,6 +335,18 @@ Private Function DetectKindFromWorkbook(ByVal wb As Workbook) As String
     End If
     If StrComp(wb.Name, "S1 S3.xlsm", vbTextCompare) = 0 Then
         DetectKindFromWorkbook = "S1S3"
+        Exit Function
+    End If
+    If StrComp(wb.Name, "Bubble.xlsm", vbTextCompare) = 0 Then
+        DetectKindFromWorkbook = "BUBBLE"
+        Exit Function
+    End If
+    If StrComp(wb.Name, "P1.xlsm", vbTextCompare) = 0 Then
+        DetectKindFromWorkbook = "P1"
+        Exit Function
+    End If
+    If StrComp(wb.Name, "RTS.xlsm", vbTextCompare) = 0 Then
+        DetectKindFromWorkbook = "RTS"
     End If
 End Function
 
@@ -336,6 +414,9 @@ Private Sub CopyForGraphFromOpenCopies()
     Dim tsvLookup As String
     Dim tsvS4 As String
     Dim tsvS1 As String
+    Dim tsvBubble As String
+    Dim tsvP1 As String
+    Dim tsvRts As String
     Dim preferred As String
     
     On Error GoTo CopyErr
@@ -374,16 +455,37 @@ Private Sub CopyForGraphFromOpenCopies()
         Application.StatusBar = "Copying TableS1S3..."
         tsvS1 = ListObjectToTsv(HistoryListObject())
     End If
+    If Not wbBubble Is Nothing Then
+        UseBook wbBubble, "BUBBLE"
+        Application.StatusBar = "Copying TableBubble..."
+        tsvBubble = ListObjectToTsv(HistoryListObject())
+    End If
+    If Not wbP1 Is Nothing Then
+        UseBook wbP1, "P1"
+        Application.StatusBar = "Copying TableP1..."
+        tsvP1 = ListObjectToTsv(HistoryListObject())
+    End If
+    If Not wbRts Is Nothing Then
+        UseBook wbRts, "RTS"
+        Application.StatusBar = "Copying TableRTS..."
+        tsvRts = ListObjectToTsv(HistoryListObject())
+    End If
     
     payload = payload & "[TABLES4]" & vbCrLf
     If LenB(tsvS4) > 0 Then payload = payload & tsvS4 & vbCrLf
     payload = payload & "[TABLES1S3]" & vbCrLf
     If LenB(tsvS1) > 0 Then payload = payload & tsvS1 & vbCrLf
+    payload = payload & "[TABLESBUBBLE]" & vbCrLf
+    If LenB(tsvBubble) > 0 Then payload = payload & tsvBubble & vbCrLf
+    payload = payload & "[TABLESP1]" & vbCrLf
+    If LenB(tsvP1) > 0 Then payload = payload & tsvP1 & vbCrLf
+    payload = payload & "[TABLESRTS]" & vbCrLf
+    If LenB(tsvRts) > 0 Then payload = payload & tsvRts & vbCrLf
     
     PutTextOnClipboard payload
     OpenGraphHtml
     
-    Application.StatusBar = "Copied for graph (current + lookup + TableS4 + TableS1S3)"
+    Application.StatusBar = "Copied for graph (current + lookup + all quality tables)"
     Application.Cursor = xlDefault
     Exit Sub
     
@@ -448,13 +550,23 @@ Private Function HistoryListObject() As ListObject
     Dim sheetName As String
     Dim tableName As String
     
-    If IsS1S3() Then
-        sheetName = "Data S1 S3"
-        tableName = "TableS1S3"
-    Else
-        sheetName = "Data S4"
-        tableName = "TableS4"
-    End If
+    Select Case UCase$(sourceKind)
+        Case "S1S3"
+            sheetName = "Data S1 S3"
+            tableName = "TableS1S3"
+        Case "BUBBLE"
+            sheetName = "Data Bubble"
+            tableName = "TableBubble"
+        Case "P1"
+            sheetName = "Data P1"
+            tableName = "TableP1"
+        Case "RTS"
+            sheetName = "Data RTS"
+            tableName = "TableRTS"
+        Case Else
+            sheetName = "Data S4"
+            tableName = "TableS4"
+    End Select
     
     Set ws = SheetByName(sheetName)
     If ws Is Nothing Then Exit Function
@@ -1202,13 +1314,25 @@ Private Sub ReleaseAll()
     Application.EnableEvents = False
     ReleaseOne wbS4, openedS4, pathS4
     ReleaseOne wbS1, openedS1, pathS1
+    ReleaseOne wbBubble, openedBubble, pathBubble
+    ReleaseOne wbP1, openedP1, pathP1
+    ReleaseOne wbRts, openedRts, pathRts
     Set dataWb = Nothing
     Set wbS4 = Nothing
     Set wbS1 = Nothing
+    Set wbBubble = Nothing
+    Set wbP1 = Nothing
+    Set wbRts = Nothing
     openedS4 = False
     openedS1 = False
+    openedBubble = False
+    openedP1 = False
+    openedRts = False
     pathS4 = vbNullString
     pathS1 = vbNullString
+    pathBubble = vbNullString
+    pathP1 = vbNullString
+    pathRts = vbNullString
     openedByLauncher = False
     copyPathToDelete = vbNullString
 End Sub

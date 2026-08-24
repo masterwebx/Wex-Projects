@@ -131,8 +131,9 @@ try {
     width: 22px; min-height: 22px; padding: 0; border-radius: 50%;
     background: var(--accent); color: #fff; font-size: 14px; line-height: 1;
   }
-  #histResetFilters, #histResetFiltersBar { min-height: 36px; padding: 6px 12px; margin-left: auto; }
-  #histResetFilters:disabled { opacity: .4; cursor: default; }
+  #histResetFilters, #histResetFiltersBar, #histResetSort { min-height: 36px; padding: 6px 12px; }
+  #histResetFilters { margin-left: auto; }
+  #histResetFilters:disabled, #histResetSort:disabled { opacity: .4; cursor: default; }
   .filter-pop {
     position: fixed; z-index: 40; width: min(280px, calc(100vw - 16px));
     background: var(--bg-elev); color: var(--text); border: 1px solid var(--line);
@@ -183,6 +184,10 @@ try {
   .line-filter select {
     border: 2px solid var(--line); border-radius: 10px; padding: 7px 10px; font: inherit; font-size: 16px;
     background: var(--idle); color: var(--text); min-width: 88px;
+  }
+  .plant-filter select { min-width: 168px; }
+  .filter-pop button.sort-btn.on {
+    background: var(--accent); color: #fff; border-color: var(--accent);
   }
   .comp-chart {
     padding: 10px 14px 8px; display: grid; gap: 8px; overflow: auto; min-height: 0;
@@ -364,7 +369,7 @@ try {
 <section class="screen" id="screenWelcome">
   <div class="card welcome">
     <h1>Die Centration Graph</h1>
-    <p>Press Ctrl+V to paste Copy for Graph from the S4 and S1 S3 quality check sheets.</p>
+    <p>Press Ctrl+V to paste Copy for Graph from the S4, S1 S3, Bubble, P1, and RTS quality check sheets.</p>
     <div class="actions">
       <button type="button" id="welcomePaste">Paste results</button>
     </div>
@@ -379,12 +384,21 @@ try {
       <p class="hist-meta" id="histMeta"></p>
     </div>
     <div class="toolbar">
+      <label class="line-filter plant-filter">Line
+        <select id="histPlant" aria-label="Quality line group">
+          <option value="foam">Extrusion Foam</option>
+          <option value="bubble">Extrusion Bubble</option>
+          <option value="p1">P1</option>
+          <option value="rts">RTS</option>
+        </select>
+      </label>
       <button type="button" id="histPaste">Paste more data</button>
       <button class="secondary" type="button" id="histCompliance">Compliance</button>
       <button class="secondary" type="button" id="histMspecs">View MSPECs</button>
       <button class="secondary" type="button" id="histSpc">SPC mode</button>
       <button class="secondary" type="button" id="histDownload">Download Excel</button>
       <button type="button" id="histResetFilters" disabled>Reset filters</button>
+      <button type="button" id="histResetSort" disabled>Reset sort</button>
       <button class="secondary" type="button" id="histTheme">Dark mode</button>
     </div>
   </header>
@@ -610,7 +624,7 @@ try {
 </div>
 
 <script>
-const APP_VERSION = '1.6.8';
+const APP_VERSION = '1.6.9';
 const STORE = 'dieGraphState.v5';
 const PACK_DB = 'dieGraphPack.v2';
 const PACK_SCHEMA = 2;
@@ -620,10 +634,10 @@ const HIST_COL_W = [52, 280, 180, 240, 170, 110, 80, 120, 100, 110, 130, 130, 15
 const MSPEC_COL_W = [90, 80, 96, 108, 96, 74, 84, 88, 100, 88];
 const COL_ALIASES = {
   'Item #': ['Item #', 'Item', 'Item Number'],
-  'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription'],
+  'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription', 'Description'],
   'MSPEC': ['MSPEC', 'MSPEC #', 'M-Spec Number', 'MSpec', 'MSpec Number'],
   'Slit/Width': ['Slit/Width', 'Width', 'Slit Width'],
-  'Slit/Width Pass/Fail': ['Slit/Width Pass/Fail', 'Width Pass/Fail'],
+  'Slit/Width Pass/Fail': ['Slit/Width Pass/Fail', 'Width Pass/Fail', 'Width Pass'],
   'Cell Count Min': ['Cell Count Min', 'Cell Min', 'Min Cell Count', 'CellCountMin'],
   'Cell Count Max': ['Cell Count Max', 'Cell Max', 'Max Cell Count', 'CellCountMax'],
   'Lower Control': ['Lower Control', 'Lower Control Limit', 'LCL', 'Min Thickness'],
@@ -639,6 +653,15 @@ const COL_ALIASES = {
 };
 const NUM_COLS = new Set(['Item #','MSPEC','Bundle #','Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
 const TONE_COLS = new Set(['Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
+const PLANTS = { foam: 'Extrusion Foam', bubble: 'Extrusion Bubble', p1: 'P1', rts: 'RTS' };
+const HISTORY_SECTIONS = [
+  ['TABLES4', 'foam'],
+  ['TABLES1S3', 'foam'],
+  ['TABLESBUBBLE', 'bubble'],
+  ['TABLESP1', 'p1'],
+  ['TABLESRTS', 'rts']
+];
+const TONE_SHOW_LABEL = { in: 'passing', thin: 'under', thick: 'over' };
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const ROW_H = 42;
 const EYE = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
@@ -659,7 +682,9 @@ let historyPack = null;
 let currentSnapshot = {};
 let viewingIdx = 'current';
 let tableFilters = {};
+let tableToneShow = {};
 let tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
+let activePlant = 'foam';
 let histPaint = 0;
 let histRangeKey = '';
 let indexedRows = [];
@@ -737,7 +762,8 @@ function saveState() {
     min: document.getElementById('minThickness').value,
     max: document.getElementById('maxThickness').value,
     range: document.getElementById('rangeSpec').value,
-    hasHistory: indexedRows.length > 0 || !!prev.hasHistory
+    hasHistory: indexedRows.length > 0 || !!prev.hasHistory,
+    plant: activePlant
   }));
 }
 function markHasHistory(on) {
@@ -796,7 +822,7 @@ function syncWelcome() {
 }
 function rowIdentity(row) {
   return [
-    col(row, 'Date/Time'), canonMspec(col(row, 'MSPEC')), col(row, 'Item #'),
+    inferPlant(row), col(row, 'Line'), col(row, 'Date/Time'), canonMspec(col(row, 'MSPEC')), col(row, 'Item #'),
     col(row, 'Bundle #'), col(row, 'Thickness Average'), col(row, 'Density'), col(row, 'User')
   ].join('|');
 }
@@ -817,7 +843,8 @@ function syncViewChrome() {
   }
   const modeBtn = document.getElementById('modeBtn');
   if (modeBtn) {
-    if (viewMode === 'spc') modeBtn.hidden = !spcPointSelected;
+    if (!isFoamPlant()) modeBtn.hidden = true;
+    else if (viewMode === 'spc') modeBtn.hidden = !spcPointSelected;
     else modeBtn.hidden = !hasHist || enterMode;
   }
   const nav = hasHist && !enterMode && screenName === 'view' && viewMode !== 'spc';
@@ -1112,14 +1139,98 @@ function parseTsv(lines) {
 }
 function isTsvHeaderLine(line) {
   const heads = String(line ?? '').split('\t').map(s => s.trim());
-  return heads.some(h => /^(mspec#?|mspec)$/i.test(String(h).replace(/\s+/g, '')) || /^mspec\s*#?$/i.test(h));
+  if (!heads.length) return false;
+  const compact = heads.map(h => String(h).replace(/\s+/g, '').toLowerCase());
+  if (compact.some(h => h === 'mspec' || h === 'mspec#')) return true;
+  const hasDate = heads.some(h => /^date\/?time$/i.test(h));
+  const hasLine = heads.some(h => /^line$/i.test(h));
+  const hasItem = compact.some(h => h === 'item' || h === 'item#' || h === 'itemnumber' || h === 'itemdesc' || h === 'itemdescription' || h === 'description');
+  const hasPf = heads.some(h => /^pass\/?fail$/i.test(h));
+  return hasDate && (hasLine || hasItem || hasPf);
+}
+function isHistoryHeaderRow(row) {
+  const line = String(col(row, 'Line') || '').trim();
+  const when = String(col(row, 'Date/Time') || '').trim();
+  return /^line$/i.test(line) || /^date\/?time$/i.test(when);
+}
+function inferPlant(row, tagged) {
+  const t = String(tagged || (row && row.__plant) || '').toLowerCase();
+  if (PLANTS[t]) return t;
+  const line = String(col(row, 'Line') || '').trim().toUpperCase();
+  if (line === 'COEX' || line === 'MONO') return 'bubble';
+  if (line === 'P1') return 'p1';
+  if (line === 'RTS') return 'rts';
+  return 'foam';
+}
+function isFoamPlant(plant) {
+  return (plant || activePlant) === 'foam';
+}
+function plantRows(plant) {
+  const want = plant || activePlant || 'foam';
+  return indexedRows.filter(r => (r.plant || 'foam') === want);
+}
+function defaultSort() {
+  return { col: 'Date/Time', dir: 'desc', mode: 'date' };
+}
+function isDefaultSort() {
+  return tableSort.col === 'Date/Time' && tableSort.dir === 'desc' && tableSort.mode === 'date';
+}
+function resetSort() {
+  tableSort = defaultSort();
+  filteredDirty = true;
+  closeFilterPop();
+  if (screenName === 'history') {
+    renderHistoryChrome();
+    renderHistoryBody(true);
+  }
+}
+function histColWidths() {
+  return isFoamPlant() ? HIST_COL_W : HIST_COL_W.slice(1);
+}
+function syncPlantChrome() {
+  const foam = isFoamPlant();
+  const plantEl = document.getElementById('histPlant');
+  if (plantEl && plantEl.value !== activePlant) plantEl.value = activePlant;
+  document.documentElement.setAttribute('data-plant', activePlant);
+  const histSpc = document.getElementById('histSpc');
+  const histMspecs = document.getElementById('histMspecs');
+  const complianceMspecs = document.getElementById('complianceMspecs');
+  if (histSpc) histSpc.hidden = !foam;
+  if (histMspecs) histMspecs.hidden = !foam;
+  if (complianceMspecs) complianceMspecs.hidden = !foam;
+  if (!foam && (screenName === 'view' || screenName === 'mspecs' || viewMode === 'spc')) {
+    setViewMode('centration');
+    setScreen('history');
+  }
+  syncViewChrome();
+}
+function setActivePlant(plant, opts) {
+  const next = PLANTS[plant] ? plant : 'foam';
+  const keepFilters = opts && opts.keepFilters;
+  if (next === activePlant && !(opts && opts.force)) {
+    syncPlantChrome();
+    return;
+  }
+  activePlant = next;
+  if (!keepFilters) {
+    tableFilters = {};
+    tableToneShow = {};
+    tableSort = defaultSort();
+  }
+  document.documentElement.setAttribute('data-plant', activePlant);
+  fillLineSelects();
+  syncPlantChrome();
+  saveState();
+  filteredDirty = true;
+  if (screenName === 'history') renderHistoryTable();
+  if (screenName === 'compliance') renderCompliance();
 }
 function splitDieGraph2(text) {
   const lines = text.replace(/\r/g, '').split('\n');
-  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [] };
+  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [], TABLESBUBBLE: [], TABLESP1: [], TABLESRTS: [] };
   let cur = null;
   for (const line of lines.slice(1)) {
-    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|HISTORY)\]$/i);
+    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|TABLESBUBBLE|TABLESP1|TABLESRTS|HISTORY)\]$/i);
     if (m) {
       const name = m[1].toUpperCase();
       cur = (name === 'HISTORY') ? 'TABLES4' : name;
@@ -1656,6 +1767,7 @@ async function indexHistory(onProg) {
       num[k] = k === 'Thickness Range' ? rangeAsThousandths(raw) : numVal(raw);
       text[k] = String(raw ?? '').trim();
     }
+    if (!row.__plant) row.__plant = inferPlant(row);
     indexedRows[idx] = {
       idx, row, serial: parts.serial, y: parts.y, m: parts.m, d: parts.d,
       display, num, text, tone,
@@ -1663,7 +1775,8 @@ async function indexHistory(onProg) {
       mspec,
       desc: String(col(row, 'Item Desc', 'Item Description') || '').trim(),
       pf: pfLabel,
-      line: String(col(row, 'Line') || '').trim()
+      line: String(col(row, 'Line') || '').trim(),
+      plant: inferPlant(row)
     };
     if (onProg && idx % 400 === 0) {
       onProg(idx, rows.length);
@@ -1674,7 +1787,7 @@ async function indexHistory(onProg) {
 }
 function rowsMatchingExcept(exceptKey) {
   const df = dateFilter();
-  return indexedRows.filter(r => {
+  return plantRows().filter(r => {
     if (exceptKey !== 'Date/Time') {
       if (df.year && r.y !== +df.year) return false;
       if (df.month && r.m !== +df.month) return false;
@@ -1685,6 +1798,7 @@ function rowsMatchingExcept(exceptKey) {
       const sel = tableFilters[k];
       if (sel instanceof Set && !sel.has(r.text[k])) return false;
     }
+    if (!rowMatchesTone(r, exceptKey)) return false;
     return true;
   });
 }
@@ -1708,14 +1822,14 @@ function pruneFilters() {
   }
 }
 function lineChoices() {
-  return uniqueSorted([...new Set(indexedRows.map(r => r.line).filter(Boolean))], false);
+  return uniqueSorted([...new Set(plantRows().map(r => r.line).filter(Boolean))], false);
 }
 function preferredLine() {
   const lines = lineChoices();
   const cur = String((currentSnapshot && currentSnapshot.line) || '').trim();
   if (cur && lines.includes(cur)) return cur;
   const counts = {};
-  for (const r of indexedRows) {
+  for (const r of plantRows()) {
     if (!r.line) continue;
     counts[r.line] = (counts[r.line] || 0) + 1;
   }
@@ -1727,7 +1841,7 @@ function preferredLine() {
   return best;
 }
 function lineFilteredRows(rows, line) {
-  const src = rows || indexedRows;
+  const src = rows || plantRows();
   const want = line !== undefined ? String(line || '').trim() : String(activeLine || '').trim();
   if (!want) return src;
   return src.filter(r => r.line === want);
@@ -1759,6 +1873,15 @@ function uniqueSorted(values, numeric) {
   return out;
 }
 function dateFilter() { return tableFilters['Date/Time'] || { year: '', month: '', day: '' }; }
+function rowMatchesTone(r, exceptKey) {
+  for (const k of TONE_COLS) {
+    if (k === exceptKey) continue;
+    const want = tableToneShow[k];
+    if (!want) continue;
+    if ((r.tone && r.tone[k]) !== want) return false;
+  }
+  return true;
+}
 function rowMatches(r) {
   const df = dateFilter();
   if (df.year && r.y !== +df.year) return false;
@@ -1769,26 +1892,10 @@ function rowMatches(r) {
     const sel = tableFilters[k];
     if (sel instanceof Set && !sel.has(r.text[k])) return false;
   }
-  return true;
-}
-function toneRank(tone, first) {
-  const order = first === 'thin' ? { thin: 0, in: 1, thick: 2 }
-    : first === 'thick' ? { thick: 0, in: 1, thin: 2 }
-    : { in: 0, thin: 1, thick: 2 };
-  return order[tone] != null ? order[tone] : 3;
+  return rowMatchesTone(r);
 }
 function compareIndexed(a, b) {
   const col = tableSort.col, dir = tableSort.dir === 'asc' ? 1 : -1, mode = tableSort.mode;
-  if (mode === 'tone') {
-    const av = toneRank(a.tone && a.tone[col], tableSort.dir);
-    const bv = toneRank(b.tone && b.tone[col], tableSort.dir);
-    if (av !== bv) return av - bv;
-    const an = a.num[col], bn = b.num[col];
-    const aOk = isFinite(an), bOk = isFinite(bn);
-    if (aOk && bOk && an !== bn) return an - bn;
-    if (aOk !== bOk) return aOk ? -1 : 1;
-    return (a.serial || 0) - (b.serial || 0);
-  }
   if (col === 'Date/Time' || mode === 'date') return dir * ((a.serial || 0) - (b.serial || 0));
   if (mode === 'num' || (mode !== 'text' && NUM_COLS.has(col))) {
     const av = a.num[col], bv = b.num[col];
@@ -1800,7 +1907,7 @@ function compareIndexed(a, b) {
 }
 function getFilteredRows() {
   if (!filteredDirty) return filteredCache;
-  const rows = indexedRows.filter(rowMatches);
+  const rows = plantRows().filter(rowMatches);
   rows.sort(compareIndexed);
   filteredCache = rows;
   filteredDirty = false;
@@ -1851,10 +1958,11 @@ function isColFiltered(k) {
     const df = dateFilter();
     return !!(df.year || df.month || df.day);
   }
-  return !!(tableFilters[k] && tableFilters[k].size);
+  return !!(tableFilters[k] && tableFilters[k].size) || !!tableToneShow[k];
 }
 function hasActiveFilters() {
   if (isColFiltered('Date/Time')) return true;
+  if (Object.keys(tableToneShow).some(k => tableToneShow[k])) return true;
   return TABLE_COLS.some(k => k !== 'Date/Time' && isColFiltered(k));
 }
 function activeFilterSummaries() {
@@ -1867,16 +1975,20 @@ function activeFilterSummaries() {
   for (const k of TABLE_COLS) {
     if (k === 'Date/Time') continue;
     const sel = tableFilters[k];
-    if (!(sel instanceof Set) || !sel.size) continue;
-    const vals = [...sel];
-    const shown = vals.slice(0, 2).join(', ');
-    out.push({ col: k, text: `${k} ${shown}${vals.length > 2 ? ` +${vals.length - 2}` : ''}` });
+    if (sel instanceof Set && sel.size) {
+      const vals = [...sel];
+      const shown = vals.slice(0, 2).join(', ');
+      out.push({ col: k, text: `${k} ${shown}${vals.length > 2 ? ` +${vals.length - 2}` : ''}` });
+    }
+    const tone = tableToneShow[k];
+    if (tone) out.push({ col: k, tone: true, text: `Show all ${TONE_SHOW_LABEL[tone] || tone}` });
   }
   return out;
 }
 function resetFilters() {
   tableFilters = {};
-  tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
+  tableToneShow = {};
+  tableSort = defaultSort();
   renderHistoryTable();
 }
 function syncFilterBar() {
@@ -1885,19 +1997,25 @@ function syncFilterBar() {
   const chips = document.getElementById('filterChips');
   const btn = document.getElementById('histResetFilters');
   const barBtn = document.getElementById('histResetFiltersBar');
+  const sortBtn = document.getElementById('histResetSort');
   if (bar) bar.classList.toggle('show', on);
   if (btn) {
     btn.disabled = !on;
     btn.classList.toggle('secondary', !on);
   }
+  if (sortBtn) {
+    const sortOn = !isDefaultSort();
+    sortBtn.disabled = !sortOn;
+    sortBtn.classList.toggle('secondary', !sortOn);
+  }
   if (chips) {
     chips.innerHTML = activeFilterSummaries().map(f =>
-      `<span class="filter-chip">${esc(f.text)}<button type="button" data-clear-col="${esc(f.col)}" aria-label="Remove ${esc(f.col)} filter">×</button></span>`
+      `<span class="filter-chip">${esc(f.text)}<button type="button" data-clear-col="${esc(f.col)}"${f.tone ? ' data-clear-tone="1"' : ''} aria-label="Remove ${esc(f.col)} filter">×</button></span>`
     ).join('');
   }
 }
 function histTableWidth() {
-  return HIST_COL_W.reduce((a, b) => a + b, 0);
+  return histColWidths().reduce((a, b) => a + b, 0);
 }
 function applyHistColgroup(table) {
   if (!table) return;
@@ -1906,7 +2024,7 @@ function applyHistColgroup(table) {
     cg = document.createElement('colgroup');
     table.insertBefore(cg, table.firstChild);
   }
-  cg.innerHTML = HIST_COL_W.map(w => `<col style="width:${w}px">`).join('');
+  cg.innerHTML = histColWidths().map(w => `<col style="width:${w}px">`).join('');
   table.style.width = histTableWidth() + 'px';
   table.style.minWidth = histTableWidth() + 'px';
 }
@@ -1939,21 +2057,21 @@ function syncMspecHeaderGutter() {
 }
 function renderHistoryChrome() {
   const head = document.getElementById('histHead');
-  const dateTh = `<th class="${isColFiltered('Date/Time') ? 'filtered' : ''}"><div class="th-inner">Date/Time <button class="th-menu${tableSort.col === 'Date/Time' ? ' active' : ''}${isColFiltered('Date/Time') ? ' filtered' : ''}" type="button" data-col="Date/Time" aria-label="Sort Date/Time">▾</button></div><div class="date-slicers">
+  const dateTh = `<th class="${isColFiltered('Date/Time') ? 'filtered' : ''}"><div class="th-inner">Date/Time <button class="th-menu${tableSort.col === 'Date/Time' && !isDefaultSort() ? ' active' : ''}${isColFiltered('Date/Time') ? ' filtered' : ''}" type="button" data-col="Date/Time" aria-label="Sort Date/Time">▾</button></div><div class="date-slicers">
     <label class="cal-jump" title="Jump to date"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg><input type="date" id="histJumpDate" aria-label="Jump to date"></label>
     <select id="dateYear"></select><select id="dateMonth"></select><select id="dateDay"></select>
   </div></th>`;
   const others = TABLE_COLS.slice(1).map(k => {
-    const sortHint = tableSort.col === k
-      ? (tableSort.mode === 'tone'
-        ? (tableSort.dir === 'in' ? ' ✓' : tableSort.dir === 'thin' ? ' ↓' : ' ↑')
-        : (tableSort.dir === 'asc' ? ' ▲' : ' ▼'))
+    const toneHint = tableToneShow[k] === 'in' ? ' ✓' : tableToneShow[k] === 'thin' ? ' ↓' : tableToneShow[k] === 'thick' ? ' ↑' : '';
+    const sortHint = tableSort.col === k && tableSort.mode !== 'date'
+      ? (tableSort.dir === 'asc' ? ' ▲' : ' ▼')
       : '';
-    const on = tableSort.col === k ? ' active' : '';
+    const on = tableSort.col === k && !isDefaultSort() ? ' active' : '';
     const filtered = isColFiltered(k) ? ' filtered' : '';
-    return `<th class="${isColFiltered(k) ? 'filtered' : ''}"><div class="th-inner">${esc(k)}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
+    return `<th class="${isColFiltered(k) ? 'filtered' : ''}"><div class="th-inner">${esc(k)}${toneHint}${sortHint}<button class="th-menu${on}${filtered}" type="button" data-col="${esc(k)}" aria-label="Filter ${esc(k)}">▾</button></div></th>`;
   }).join('');
-  head.innerHTML = `<tr><th class="sticky-eye"></th>${dateTh}${others}</tr>`;
+  const eyeTh = isFoamPlant() ? '<th class="sticky-eye"></th>' : '';
+  head.innerHTML = `<tr>${eyeTh}${dateTh}${others}</tr>`;
   applyHistColgroup(document.getElementById('histHeadTable'));
   fillDateSlicers();
   document.getElementById('dateYear').onchange = () => {
@@ -1987,7 +2105,8 @@ function rowHtml(r) {
     const tone = r.tone && r.tone[k] ? ` class="tone-${r.tone[k]}"` : '';
     return `<td${tone}>${r.display[k]}</td>`;
   }).join('');
-  return `<tr><td class="sticky-eye"><button class="icon" type="button" data-view="${r.idx}" title="View result">${EYE}</button></td>${tds}</tr>`;
+  const eye = isFoamPlant() ? `<td class="sticky-eye"><button class="icon" type="button" data-view="${r.idx}" title="View result">${EYE}</button></td>` : '';
+  return `<tr>${eye}${tds}</tr>`;
 }
 function spacerRow(h) {
   return `<tr class="spacer"><td colspan="20"><div style="height:${Math.max(0, h)}px"></div></td></tr>`;
@@ -1996,14 +2115,16 @@ function renderHistoryBody(force) {
   const body = document.getElementById('histBody');
   const wrap = document.getElementById('histWrap');
   const rows = getFilteredRows();
-  const current = hasCurrentSheet() && !Object.values(tableFilters).some(v => v && (v.size || v.year || v.month || v.day));
+  const plantTotal = plantRows().length;
+  const current = isFoamPlant() && hasCurrentSheet() && !hasActiveFilters();
   const extra = current ? 1 : 0;
   const total = rows.length + extra;
   const viewH = wrap.clientHeight || 400;
   const start = Math.max(0, Math.floor(wrap.scrollTop / ROW_H) - 8);
   const vis = Math.ceil(viewH / ROW_H) + 16;
   const end = Math.min(total, start + vis);
-  const key = `${start}:${end}:${total}:${tableSort.col}:${tableSort.dir}:${tableSort.mode}`;
+  const toneKey = Object.keys(tableToneShow).filter(k => tableToneShow[k]).map(k => k + ':' + tableToneShow[k]).join(',');
+  const key = `${activePlant}:${start}:${end}:${total}:${tableSort.col}:${tableSort.dir}:${tableSort.mode}:${toneKey}`;
   if (!force && key === histRangeKey) return;
   histRangeKey = key;
   const topH = start * ROW_H;
@@ -2022,9 +2143,10 @@ function renderHistoryBody(force) {
   const maxScroll = Math.max(0, wrap.scrollHeight - wrap.clientHeight);
   if (wrap.scrollTop > maxScroll) wrap.scrollTop = maxScroll;
   const on = hasActiveFilters();
+  const plantName = PLANTS[activePlant] || 'Extrusion Foam';
   document.getElementById('histMeta').textContent = on
-    ? `Showing ${rows.length} of ${indexedRows.length} results · filters on`
-    : `Showing ${rows.length} of ${indexedRows.length} results`;
+    ? `Showing ${rows.length} of ${plantTotal} ${plantName} results · filters on`
+    : `Showing ${rows.length} of ${plantTotal} ${plantName} results`;
   applyHistColgroup(document.getElementById('histTable'));
   lastHistH = wrap.clientHeight || 0;
   syncHistHeaderGutter();
@@ -2049,10 +2171,11 @@ function openFilterMenu(col, anchor) {
   const numeric = NUM_COLS.has(col);
   if (col === 'Date/Time') {
     pop.innerHTML = `<button class="secondary sort-btn" type="button" data-sort="asc" data-mode="date">Sort oldest to newest</button>
-      <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="date">Sort newest to oldest</button>`;
+      <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="date">Sort newest to oldest</button>
+      <button class="secondary sort-btn" type="button" data-reset-sort="1">Reset sort</button>`;
     const r = anchor.getBoundingClientRect();
     pop.style.left = Math.min(r.left, window.innerWidth - 300) + 'px';
-    pop.style.top = Math.min(r.bottom + 4, window.innerHeight - 160) + 'px';
+    pop.style.top = Math.min(r.bottom + 4, window.innerHeight - 200) + 'px';
     pop.classList.add('show');
     pop.querySelectorAll('[data-sort]').forEach(btn => {
       btn.onclick = () => {
@@ -2063,6 +2186,8 @@ function openFilterMenu(col, anchor) {
         renderHistoryBody(true);
       };
     });
+    const reset = pop.querySelector('[data-reset-sort]');
+    if (reset) reset.onclick = resetSort;
     return;
   }
   const selected = tableFilters[col];
@@ -2070,15 +2195,17 @@ function openFilterMenu(col, anchor) {
   let values = valuesForFilter(col);
   if (q) values = values.filter(v => String(v).toLowerCase().includes(q));
   const shown = values.slice(0, 250);
+  const toneOn = tableToneShow[col];
   const toneBtns = TONE_COLS.has(col)
-    ? `<button class="secondary sort-btn" type="button" data-sort="in" data-mode="tone">Sort all passing</button>
-       <button class="secondary sort-btn" type="button" data-sort="thin" data-mode="tone">Sort all under</button>
-       <button class="secondary sort-btn" type="button" data-sort="thick" data-mode="tone">Sort all over</button>`
+    ? `<button class="${toneOn === 'in' ? '' : 'secondary '}sort-btn${toneOn === 'in' ? ' on' : ''}" type="button" data-tone="in">Show all passing</button>
+       <button class="${toneOn === 'thin' ? '' : 'secondary '}sort-btn${toneOn === 'thin' ? ' on' : ''}" type="button" data-tone="thin">Show all under</button>
+       <button class="${toneOn === 'thick' ? '' : 'secondary '}sort-btn${toneOn === 'thick' ? ' on' : ''}" type="button" data-tone="thick">Show all over</button>`
     : '';
   const sortBtns = `<button class="secondary sort-btn" type="button" data-sort="asc" data-mode="text">Sort A to Z</button>
        <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="text">Sort Z to A</button>
        <button class="secondary sort-btn" type="button" data-sort="asc" data-mode="num">Sort smallest to largest</button>
-       <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="num">Sort largest to smallest</button>${toneBtns}`;
+       <button class="secondary sort-btn" type="button" data-sort="desc" data-mode="num">Sort largest to smallest</button>
+       <button class="secondary sort-btn" type="button" data-reset-sort="1">Reset sort</button>${toneBtns}`;
   const checks = shown.map(v => {
     const on = !selected || selected.has(String(v));
     const label = (col === 'MSPEC')
@@ -2093,11 +2220,24 @@ function openFilterMenu(col, anchor) {
     <div class="modal-actions"><button type="button" id="filterApply">Apply</button><button class="secondary" type="button" id="filterClear">Clear</button></div>`;
   const r = anchor.getBoundingClientRect();
   pop.style.left = Math.min(r.left, window.innerWidth - 300) + 'px';
-    pop.style.top = Math.min(r.bottom + 4, window.innerHeight - (TONE_COLS.has(col) ? 460 : 360)) + 'px';
+    pop.style.top = Math.min(r.bottom + 4, window.innerHeight - (TONE_COLS.has(col) ? 520 : 400)) + 'px';
   pop.classList.add('show');
     pop.querySelectorAll('[data-sort]').forEach(btn => {
       btn.onclick = () => {
         tableSort = { col, dir: btn.dataset.sort, mode: btn.dataset.mode || (numeric ? 'num' : 'text') };
+        filteredDirty = true;
+        closeFilterPop();
+        renderHistoryChrome();
+        renderHistoryBody(true);
+      };
+    });
+    const reset = pop.querySelector('[data-reset-sort]');
+    if (reset) reset.onclick = resetSort;
+    pop.querySelectorAll('[data-tone]').forEach(btn => {
+      btn.onclick = () => {
+        const tone = btn.dataset.tone;
+        if (tableToneShow[col] === tone) delete tableToneShow[col];
+        else tableToneShow[col] = tone;
         filteredDirty = true;
         closeFilterPop();
         renderHistoryChrome();
@@ -2174,7 +2314,7 @@ function spcOptionLabel(v, by) {
   return by === 'mspec' ? mspecWithTarget(v) : itemWithTargets(v, mspecForItem(v));
 }
 function spcRowsInDateRange(rows) {
-  let out = lineFilteredRows(rows || indexedRows);
+  let out = lineFilteredRows(rows || plantRows('foam'));
   const fromEl = document.getElementById('spcFrom');
   const toEl = document.getElementById('spcTo');
   const from = fromEl && fromEl.value;
@@ -2191,7 +2331,7 @@ function spcRowsInDateRange(rows) {
 }
 function spcComboValues() {
   const by = document.getElementById('spcBy').value;
-  return uniqueSorted([...new Set(spcRowsInDateRange(indexedRows).map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
+  return uniqueSorted([...new Set(spcRowsInDateRange(plantRows('foam')).map(r => by === 'mspec' ? r.mspec : r.item).filter(Boolean))], true);
 }
 function renderSpcValueList(q) {
   const list = document.getElementById('spcValueList');
@@ -2254,7 +2394,7 @@ function spcSelectedRows() {
   return rows;
 }
 function syncSpcDates(force) {
-  const serials = indexedRows.map(r => r.serial).filter(isFinite);
+  const serials = plantRows('foam').map(r => r.serial).filter(isFinite);
   if (!serials.length) return;
   const fromEl = document.getElementById('spcFrom');
   const toEl = document.getElementById('spcTo');
@@ -2325,6 +2465,7 @@ function goHistoryRow(idx) {
   else viewResult(idx);
 }
 function openSpc() {
+  if (!isFoamPlant()) { toast('SPC is only for Extrusion Foam'); return; }
   if (!indexedRows.length || enterMode) { toast('Paste TableS4 results first'); return; }
   spcPointSelected = false;
   fillLineSelects();
@@ -2550,6 +2691,7 @@ function renderMspecTable() {
   syncMspecHeaderGutter();
 }
 function openMspecs() {
+  if (!isFoamPlant()) { toast('MSPECs are only for Extrusion Foam'); return; }
   if (!historyPack || !(historyPack.lookupRows || []).length) { toast('Paste results first'); return; }
   setScreen('mspecs');
   renderMspecTable();
@@ -2562,6 +2704,7 @@ function downloadMspecExcel() {
 }
 function openHistoryForItemDay(item, y, m, d) {
   tableFilters = {};
+  tableToneShow = {};
   if (item) tableFilters['Item #'] = new Set([String(item)]);
   tableFilters['Date/Time'] = { year: String(y), month: String(m), day: String(d) };
   tableSort = { col: 'Date/Time', dir: 'asc', mode: 'date' };
@@ -2735,7 +2878,7 @@ function histCellValue(r, k) {
   return r.text[k] || '';
 }
 function downloadHistoryExcel() {
-  if (!indexedRows.length) { toast('Paste results first'); return; }
+  if (!plantRows().length) { toast('Paste results first'); return; }
   const rows = getFilteredRows();
   const headers = TABLE_COLS.concat(['Fail reasons']);
   const data = rows.map(r => headers.map(k => {
@@ -3231,7 +3374,7 @@ function rptDateRows() {
   const saveTo = document.getElementById('spcTo').value;
   document.getElementById('spcFrom').value = document.getElementById('rptFrom').value;
   document.getElementById('spcTo').value = document.getElementById('rptTo').value;
-  const rows = spcRowsInDateRange(indexedRows);
+  const rows = spcRowsInDateRange(plantRows('foam'));
   document.getElementById('spcFrom').value = saveFrom;
   document.getElementById('spcTo').value = saveTo;
   return rows;
@@ -3297,12 +3440,14 @@ async function downloadSpcReportPdf() {
   toast('Downloaded SPC report');
 }
 function viewResult(idx) {
+  if (!isFoamPlant()) return;
   if (!applyHistoryRow(idx)) return;
   setViewMode('centration');
   setScreen('view');
   refreshChecks();
 }
 function viewCurrent() {
+  if (!isFoamPlant()) return;
   viewingIdx = 'current';
   applySnapshot(currentSnapshot);
   fillSpecPanel(specsFor(currentSnapshot.mspec), currentSnapshot.mspec);
@@ -3331,6 +3476,7 @@ async function parseTsvAsync(lines, onProg) {
   let headers = [];
   for (let i = 0; i < nonempty.length; i++) {
     if (isTsvHeaderLine(nonempty[i])) {
+      if (headers.length) continue;
       headers = nonempty[i].split('\t').map(s => s.trim());
       headers.forEach(h => { if (h && !allHeaders.includes(h)) allHeaders.push(h); });
       continue;
@@ -3344,6 +3490,24 @@ async function parseTsvAsync(lines, onProg) {
   }
   return { headers: allHeaders, rows };
 }
+async function parseHistorySections(sections, onProg) {
+  const rows = [];
+  let done = 0;
+  const totalLines = HISTORY_SECTIONS.reduce((n, [key]) => n + (sections[key] || []).length, 0);
+  for (const [key, plant] of HISTORY_SECTIONS) {
+    const lines = sections[key] || [];
+    const table = await parseTsvAsync(lines, (i) => {
+      if (onProg) onProg(done + i, Math.max(totalLines, 1));
+    });
+    done += lines.length;
+    for (const r of table.rows || []) {
+      if (isHistoryHeaderRow(r)) continue;
+      r.__plant = plant;
+      rows.push(r);
+    }
+  }
+  return rows;
+}
 async function applyDieGraph2(text, append) {
   showProgress(append ? 'Adding new results' : 'Reading clipboard', 8, 'Parsing Copy for Graph data');
   await yieldUi();
@@ -3354,13 +3518,12 @@ async function applyDieGraph2(text, append) {
   showProgress('Loading lookup', 28, 'Master Sheet specs');
   await yieldUi();
   const lookup = await parseTsvAsync(sections.LOOKUP);
-  const historyLines = (sections.TABLES4 || []).concat(sections.TABLES1S3 || []);
-  showProgress('Loading history', 40, `${historyLines.length.toLocaleString()} lines`);
-  const table = await parseTsvAsync(historyLines, (i, n) => {
+  const incomingRows = await parseHistorySections(sections, (i, n) => {
     showProgress('Loading history', 40 + Math.round(30 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()} rows`);
   });
+  showProgress('Loading history', 70, `${incomingRows.length.toLocaleString()} rows`);
   const incomingLookup = buildLookupMap(lookup.rows);
-  let rows = table.rows || [];
+  let rows = incomingRows || [];
   let lookupRows = lookup.rows || [];
   let added = rows.length;
   if (append && historyPack && historyPack.rows && historyPack.rows.length) {
@@ -3394,13 +3557,19 @@ async function applyDieGraph2(text, append) {
     lookupByMspec: buildLookupMap(lookupRows)
   };
   tableFilters = {};
-  tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
+  tableToneShow = {};
+  tableSort = defaultSort();
   enterMode = false;
   showProgress('Indexing results', 72, `${rows.length.toLocaleString()} results`);
   await indexHistory((i, n) => {
     showProgress('Indexing results', 72 + Math.round(22 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
   });
+  if (!plantRows().length) {
+    const next = Object.keys(PLANTS).find(k => plantRows(k).length);
+    if (next) activePlant = next;
+  }
   fillLineSelects();
+  syncPlantChrome();
   fillSpecPanel(specsFor(canonMspec(meta.mspec)), meta.mspec);
   await persistPack();
   markHasHistory(true);
@@ -4048,16 +4217,20 @@ document.getElementById('prevResult').onclick = viewPrev;
 document.getElementById('nextResult').onclick = viewNext;
 document.getElementById('histResetFilters').onclick = resetFilters;
 document.getElementById('histResetFiltersBar').onclick = resetFilters;
+document.getElementById('histResetSort').onclick = resetSort;
+document.getElementById('histPlant').onchange = () => setActivePlant(document.getElementById('histPlant').value);
 document.getElementById('filterChips').onclick = (e) => {
   const btn = e.target.closest('button[data-clear-col]');
   if (!btn) return;
-  tableFilters[btn.dataset.clearCol] = null;
+  if (btn.dataset.clearTone) delete tableToneShow[btn.dataset.clearCol];
+  else tableFilters[btn.dataset.clearCol] = null;
   filteredDirty = true;
   renderHistoryTable();
 };
 document.getElementById('copyBtn').onclick = copyValues;
 document.getElementById('clearBtn').onclick = clearValues;
 document.getElementById('modeBtn').onclick = () => {
+  if (!isFoamPlant()) return;
   if (viewMode === 'spc') { setViewMode('centration'); }
   else openSpc();
 };
@@ -4206,6 +4379,8 @@ document.getElementById('saveSettings').onclick = () => {
 };
 
 const saved = loadState();
+if (PLANTS[saved.plant]) activePlant = saved.plant;
+document.documentElement.setAttribute('data-plant', activePlant);
 if (saved.TOTAL) TOTAL = saved.TOTAL;
 NUM_BOLTS = Math.max(4, saved.NUM_BOLTS || 4);
 startBoltsFromBottom = !!saved.startBoltsFromBottom;
@@ -4243,7 +4418,12 @@ restorePack().then(async data => {
   };
   if (data.specPatches) historyPack.specPatches = data.specPatches;
   await indexHistory();
+  if (!plantRows().length) {
+    const next = Object.keys(PLANTS).find(k => plantRows(k).length);
+    if (next) activePlant = next;
+  }
   fillLineSelects();
+  syncPlantChrome();
   syncWelcome();
   markHasHistory(true);
   setScreen('history');

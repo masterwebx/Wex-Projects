@@ -18,7 +18,14 @@ function parseRangeSpec(raw) {
 }
 function isTsvHeaderLine(line) {
   const heads = String(line ?? '').split('\t').map(s => s.trim());
-  return heads.some(h => /^(mspec#?|mspec)$/i.test(String(h).replace(/\s+/g, '')) || /^mspec\s*#?$/i.test(h));
+  if (!heads.length) return false;
+  const compact = heads.map(h => String(h).replace(/\s+/g, '').toLowerCase());
+  if (compact.some(h => h === 'mspec' || h === 'mspec#')) return true;
+  const hasDate = heads.some(h => /^date\/?time$/i.test(h));
+  const hasLine = heads.some(h => /^line$/i.test(h));
+  const hasItem = compact.some(h => h === 'item' || h === 'item#' || h === 'itemnumber' || h === 'itemdesc' || h === 'itemdescription' || h === 'description');
+  const hasPf = heads.some(h => /^pass\/?fail$/i.test(h));
+  return hasDate && (hasLine || hasItem || hasPf);
 }
 function parseTsv(lines) {
   const nonempty = lines.map(s => String(s ?? '').replace(/\r/g, '')).filter(l => l.length);
@@ -42,10 +49,10 @@ function parseTsv(lines) {
 }
 function splitDieGraph2(text) {
   const lines = text.replace(/\r/g, '').split('\n');
-  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [] };
+  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [], TABLESBUBBLE: [], TABLESP1: [], TABLESRTS: [] };
   let cur = null;
   for (const line of lines.slice(1)) {
-    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|HISTORY)\]$/i);
+    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|TABLESBUBBLE|TABLESP1|TABLESRTS|HISTORY)\]$/i);
     if (m) {
       const name = m[1].toUpperCase();
       cur = (name === 'HISTORY') ? 'TABLES4' : name;
@@ -99,10 +106,25 @@ assert.match(vbaFrom, /Function PreferredCurrentKind/);
 assert.match(vbaFrom, /Function DetectKindFromWorkbook/);
 assert.match(vbaFrom, /\[TABLES4\]/);
 assert.match(vbaFrom, /\[TABLES1S3\]/);
+assert.match(vbaFrom, /\[TABLESBUBBLE\]/);
+assert.match(vbaFrom, /\[TABLESP1\]/);
+assert.match(vbaFrom, /\[TABLESRTS\]/);
 assert.match(vbaFrom, /Copying TableS4/);
 assert.match(vbaFrom, /Copying TableS1S3/);
+assert.match(vbaFrom, /Copying TableBubble/);
+assert.match(vbaFrom, /Copying TableP1/);
+assert.match(vbaFrom, /Copying TableRTS/);
 assert.match(vbaFrom, /Files\\S4\.xlsm/);
 assert.match(vbaFrom, /Files\\S1 S3\.xlsm/);
+assert.match(vbaFrom, /Files\\Bubble\.xlsm/);
+assert.match(vbaFrom, /Files\\P1\.xlsm/);
+assert.match(vbaFrom, /Files\\RTS\.xlsm/);
+assert.match(vbaFrom, /TableBubble/);
+assert.match(vbaFrom, /TableP1/);
+assert.match(vbaFrom, /TableRTS/);
+assert.match(vbaFrom, /Data Bubble/);
+assert.match(vbaFrom, /Data P1/);
+assert.match(vbaFrom, /Data RTS/);
 assert.match(vbaFrom, /FileCopy src, dest/);
 assert.match(vbaFrom, /Environ\$\("TEMP"\)/);
 assert.match(vbaFrom, /CopyWorkbookFile/);
@@ -122,14 +144,14 @@ assert.match(vbaFrom, /densMin=/);
 assert.match(vbaFrom, /PutTextOnClipboard/);
 assert.match(vbaFrom, /OpenGraphHtml/);
 assert.match(vbaFrom, /NOT into S4\.xlsm/);
-assert.match(vbaFrom, /NOT into S1 S3\.xlsm/);
+assert.match(vbaFrom, /S1 S3\.xlsm, Bubble\.xlsm, P1\.xlsm, or RTS\.xlsm/);
 assert.doesNotMatch(vbaFrom, /Application\.Run/);
 assert.doesNotMatch(vbaFrom, /CopyForGraph\.CopyForGraph/);
 assert.doesNotMatch(vbaFrom, /CopyForGraphS1S3\.CopyForGraph/);
 assert.doesNotMatch(vbaFrom, /Left\$\(src, i\)/);
 
 assert.match(html, /data-screen="welcome"/);
-assert.match(html, /S1 S3 quality check sheet/);
+assert.match(html, /S4, S1 S3, Bubble, P1, and RTS quality check sheets/);
 assert.match(html, /function currentSheetSourceLabel/);
 assert.match(html, /TABLES1S3/);
 assert.match(html, /Paste results/);
@@ -212,12 +234,15 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.6\.8'/);
+assert.match(html, /APP_VERSION = '1\.6\.9'/);
 assert.match(html, /function complianceSumHtml/);
 assert.match(html, /function pickPfMin/);
 assert.doesNotMatch(html, /id="cellMaxSpec"/);
 assert.match(html, /function isTsvHeaderLine/);
-assert.match(html, /sections\.TABLES4 \|\| \[\]\)\.concat\(sections\.TABLES1S3/);
+assert.match(html, /function parseHistorySections/);
+assert.match(html, /TABLESBUBBLE/);
+assert.match(html, /TABLESP1/);
+assert.match(html, /TABLESRTS/);
 assert.match(html, /Missing checks/);
 assert.match(html, /function asThousandths/);
 assert.match(html, /function specTargetsText/);
@@ -278,9 +303,21 @@ assert.match(html, /function applyMspecColgroup/);
 assert.match(html, /setLineDash\(\[7, 6\]\)/);
 assert.match(html, /class="card comp-chart"/);
 assert.match(html, /repeat\(24, 18px\)/);
-assert.match(html, /Sort all passing/);
-assert.match(html, /Sort all under/);
-assert.match(html, /Sort all over/);
+assert.match(html, /Show all passing/);
+assert.match(html, /Show all under/);
+assert.match(html, /Show all over/);
+assert.doesNotMatch(html, /Sort all passing/);
+assert.match(html, /Reset sort/);
+assert.match(html, /id="histResetSort"/);
+assert.match(html, /id="histPlant"/);
+assert.match(html, /Extrusion Foam/);
+assert.match(html, /Extrusion Bubble/);
+assert.match(html, /function setActivePlant/);
+assert.match(html, /function isFoamPlant/);
+assert.match(html, /function plantRows/);
+assert.match(html, /tableToneShow/);
+assert.match(html, /function inferPlant/);
+assert.match(html, /function resetSort/);
 assert.match(html, /TONE_COLS/);
 assert.match(html, /viewMode !== 'spc'/);
 assert.match(html, /function applySharedOutliers/);
@@ -741,6 +778,63 @@ function failLineForCheck(when, details) {
   return `${when} ${details.map(x => x.detail).join('; ')}`;
 }
 assert.equal(failLineForCheck('1:00 AM', [{ detail: 'thickness over (max 0.530, got 0.535)' }, { detail: 'range over (max 40.0, got 50.0)' }]), '1:00 AM thickness over (max 0.530, got 0.535); range over (max 40.0, got 50.0)');
+
+function inferPlant(row, tagged) {
+  const t = String(tagged || (row && row.__plant) || '').toLowerCase();
+  if (t === 'foam' || t === 'bubble' || t === 'p1' || t === 'rts') return t;
+  const line = String(col(row, 'Line') || '').trim().toUpperCase();
+  if (line === 'COEX' || line === 'MONO') return 'bubble';
+  if (line === 'P1') return 'p1';
+  if (line === 'RTS') return 'rts';
+  return 'foam';
+}
+assert.equal(inferPlant({ Line: 'S4' }), 'foam');
+assert.equal(inferPlant({ Line: 'S1' }), 'foam');
+assert.equal(inferPlant({ Line: 'COEX' }), 'bubble');
+assert.equal(inferPlant({ Line: 'MONO' }), 'bubble');
+assert.equal(inferPlant({ Line: 'P1' }), 'p1');
+assert.equal(inferPlant({ Line: 'RTS' }), 'rts');
+assert.ok(isTsvHeaderLine('Item Description\tDate/Time\tLine\tItem\tWidth\tPass/Fail'));
+assert.ok(isTsvHeaderLine('Description\tDate/Time\tLine\tItem #\tWidth\tPass/Fail'));
+assert.ok(isTsvHeaderLine('Item Description\tDate/Time\tLine\tItem #\tDensity\tPass/Fail'));
+
+const plantPayload = [
+  'DIEGRAPH2',
+  '[CURRENT]',
+  'source=S4',
+  '[LOOKUP]',
+  '[TABLES4]',
+  'Date/Time\tLine\tItem #\tMSPEC\tPass/Fail\tDensity',
+  '45900.5\tS4\t1001\t4003\tPass\t1.2',
+  '[TABLES1S3]',
+  'Date/Time\tLine\tItem #\tMSPEC\tPass/Fail\tDensity',
+  '45900.6\tS1\t1002\t4003\tPass\t1.1',
+  '[TABLESBUBBLE]',
+  'Item Description\tDate/Time\tLine\tItem\tWidth\tDensity\tPass/Fail\tUser',
+  'SAB 12\t45900.7\tMONO\t4077550\t12\t7.23\tPass\tMPEREZ',
+  'SPC SLIP\t45900.8\tCOEX\t3036576\t16\t5.8\tFail\tJVELASQUEZ',
+  '[TABLESP1]',
+  'Item Description\tDate/Time\tLine\tItem #\tCell Count MD\tDensity\tPass/Fail\tUser',
+  'Old Item Description\tDate/Time\tLine\tItem #\tCell Count MD\tDensity\tPass/Fail\tUser',
+  'PE PLK\t45900.9\tP1\t471232\t24\t3.78\tFail\tJJAIMES',
+  '[TABLESRTS]',
+  'Description\tDate/Time\tLine\tItem #\tWidth\tLength\tPass/Fail\tUser',
+  'PE LAM\t45901.1\tRTS\t4072527\t48\t108\tFail\tGWEXLER'
+].join('\n');
+const plantSecs = splitDieGraph2(plantPayload);
+assert.ok(plantSecs.TABLESBUBBLE.length > 0);
+assert.ok(plantSecs.TABLESP1.length > 0);
+assert.ok(plantSecs.TABLESRTS.length > 0);
+const bubble = parseTsv(plantSecs.TABLESBUBBLE);
+assert.equal(bubble.rows.length, 2);
+assert.equal(col(bubble.rows[0], 'Line'), 'MONO');
+assert.equal(col(bubble.rows[1], 'Line'), 'COEX');
+assert.equal(String(col(bubble.rows[0], 'Item') || col(bubble.rows[0], 'Item #')), '4077550');
+const p1 = parseTsv(plantSecs.TABLESP1);
+assert.ok(p1.rows.some(r => col(r, 'Line') === 'P1' && col(r, 'Item #') === '471232'));
+const rts = parseTsv(plantSecs.TABLESRTS);
+assert.equal(col(rts.rows[0], 'Line'), 'RTS');
+assert.equal(col(rts.rows[0], 'Item #'), '4072527');
 
 const declaredIds = new Set([...html.matchAll(/\bid=["']([^"']+)["']/g)].map(m => m[1]));
 const missingIds = [];

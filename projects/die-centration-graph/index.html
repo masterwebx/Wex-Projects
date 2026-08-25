@@ -422,8 +422,7 @@ try {
     font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .04em;
     pointer-events: none;
   }
-  .welcome-extra { display: none; gap: 10px; }
-  html[data-has-history="1"] .welcome-extra { display: grid; }
+  .welcome-extra { display: grid; gap: 10px; }
   .hub-grid { grid-template-columns: 1fr 1fr; }
   .hub-tile {
     display: grid; gap: 4px; text-align: left; padding: 16px 18px;
@@ -6312,7 +6311,7 @@ function drawSpc(opts) {
   const selectedIdx = viewingIdx === 'current' ? -1 : Number(viewingIdx);
   const charts = chartsPre;
   const { pts, flagged } = applySharedOutliers(rawPts, charts);
-  renderSpcStats(pts, charts);
+  renderSpcStats(pts.length ? pts : rawPts, charts);
   if (!pts.length) {
     ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';

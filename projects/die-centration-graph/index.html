@@ -385,8 +385,21 @@ try {
   .legend { display: flex; gap: 12px; flex-wrap: wrap; }
   .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 6px; }
   html[data-mode="spc"] .centration-only { display: none !important; }
-  html[data-mode="spc"] .stage { align-items: stretch; }
+  html[data-mode="spc"] .stage { align-items: stretch; min-height: 0; }
   html[data-mode="spc"] canvas { width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
+  html[data-spc-series="points"] .stage {
+    overflow-x: hidden;
+    overflow-y: auto;
+    align-items: start;
+    justify-content: stretch;
+    min-height: 0;
+  }
+  html[data-spc-series="points"] canvas {
+    width: 100%;
+    height: auto !important;
+    max-width: 100%;
+    max-height: none !important;
+  }
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 20; padding: 16px; }
   .overlay.show { display: flex; }
   .modal { width: min(440px, 100%); background: var(--bg-elev); color: var(--text); border-radius: 16px; padding: 18px; border: 1px solid var(--line); }
@@ -466,7 +479,7 @@ try {
   .cpk-ok { background: var(--thin-bg); color: var(--thin); }
   .cpk-bad { background: var(--thick-bg); color: var(--thick); }
   .cpk-na { background: var(--idle); color: var(--muted); }
-  html[data-spc-series="points"] .stage { overflow: auto; align-items: start; }
+  html[data-spc-series="points"] .canvas-wrap { overflow: hidden; }
   @media (max-width: 900px) {
     .hub-grid, .trends-charts { grid-template-columns: 1fr; }
   }
@@ -499,6 +512,7 @@ try {
     <p>Press Ctrl+V to paste Copy for Graph from the S4, S1 S3, Bubble, P1, and RTS quality check sheets.</p>
     <div class="actions">
       <button type="button" id="welcomePaste">Paste results</button>
+      <button class="secondary" type="button" id="welcomeSap" title="Excel or CSV from SAP">SAP audit</button>
     </div>
     <div class="hub-grid welcome-extra">
       <button class="hub-tile" type="button" id="welcomeHistory"><b>Results history</b><span>Filter and open past quality checks.</span></button>
@@ -830,7 +844,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.30';
+const APP_VERSION = '1.7.31';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -1114,9 +1128,9 @@ function syncWelcome() {
     if (el) el.disabled = !has;
   });
   const mspecBtn = document.getElementById('welcomeMspecs');
-  if (mspecBtn) mspecBtn.disabled = !isFoamPlant() || !(historyPack && (historyPack.lookupRows || []).length);
+  if (mspecBtn) mspecBtn.disabled = !(historyPack && (historyPack.lookupRows || []).length);
   const spcBtn = document.getElementById('welcomeSpc');
-  if (spcBtn) spcBtn.disabled = !has || !isFoamPlant();
+  if (spcBtn) spcBtn.disabled = !plantRows('foam').length;
 }
 function screenLabel(name, mode) {
   if (name === 'welcome') return 'Home';
@@ -3357,8 +3371,8 @@ function goHistoryRow(idx) {
   else viewResult(idx);
 }
 function openSpc() {
-  if (!isFoamPlant()) { toast('SPC is only for Extrusion Foam'); return; }
-  if (!indexedRows.length || enterMode) { toast('Paste TableS4 results first'); return; }
+  if (!plantRows('foam').length || enterMode) { toast('Paste TableS4 results first'); return; }
+  if (!isFoamPlant()) setActivePlant('foam', { keepFilters: true });
   spcPointSelected = false;
   const foam = uniqueSorted([...new Set(plantRows('foam').map(r => realLineName(r.line)).filter(Boolean))], false);
   if (foam.length && !foam.includes(activeLine)) activeLine = foam[0];
@@ -3930,8 +3944,8 @@ function renderMspecTable() {
   syncMspecHeaderGutter();
 }
 function openMspecs() {
-  if (!isFoamPlant()) { toast('MSPECs are only for Extrusion Foam'); return; }
   if (!historyPack || !(historyPack.lookupRows || []).length) { toast('Paste results first'); return; }
+  if (!isFoamPlant()) setActivePlant('foam', { keepFilters: true });
   goTo('mspecs');
   renderMspecTable();
 }
@@ -5985,7 +5999,7 @@ function layoutCanvas() {
   } else if (viewMode === 'spc') {
     sizeW = Math.max(280, Math.floor(stage.clientWidth || 280));
     const chartsN = Number(document.documentElement.getAttribute('data-spc-charts') || 3);
-    const want = spcSeriesMode() === 'points' ? Math.max(360, chartsN * 170) : Math.max(360, Math.floor(stage.clientHeight || 360));
+    const want = spcSeriesMode() === 'points' ? Math.max(360, chartsN * 200) : Math.max(360, Math.floor(stage.clientHeight || 360));
     sizeH = want;
   } else {
     const size = Math.max(280, Math.floor(Math.min(stage.clientWidth || 280, stage.clientHeight || 280)));
@@ -5993,7 +6007,7 @@ function layoutCanvas() {
   }
   sizeW = Math.min(sizeW, 1400);
   sizeH = Math.min(sizeH, spcSeriesMode() === 'points' && viewMode === 'spc' ? 4800 : 1400);
-  const key = sizeW + 'x' + sizeH + '@' + dpr + ':' + viewMode;
+  const key = sizeW + 'x' + sizeH + '@' + dpr + ':' + viewMode + ':' + (viewMode === 'spc' ? spcSeriesMode() : '');
   if (key === canvasLayoutKey && canvas.width === sizeW * dpr) return false;
   canvasLayoutKey = key;
   canvas.width = sizeW * dpr; canvas.height = sizeH * dpr;
@@ -6506,6 +6520,7 @@ window.addEventListener('resize', () => {
   }, 220);
 });
 document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true);
+document.getElementById('welcomeSap').onclick = () => document.getElementById('complianceSapFile').click();
 document.getElementById('welcomeHistory').onclick = () => {
   if (!indexedRows.length) { toast('Paste results first'); return; }
   goTo('history');

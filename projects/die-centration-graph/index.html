@@ -8,7 +8,7 @@
 <script>
 try {
   var _dgBoot = JSON.parse(localStorage.getItem('dieGraphState.v5') || '{}');
-  if (_dgBoot && _dgBoot.hasHistory) document.documentElement.setAttribute('data-screen', 'history');
+  if (_dgBoot && _dgBoot.hasHistory) document.documentElement.setAttribute('data-has-history', '1');
 } catch (e) {}
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -51,9 +51,22 @@ try {
   html[data-screen="view"] #screenView { display: grid; }
   html[data-screen="compliance"] #screenCompliance { display: grid; }
   html[data-screen="mspecs"] #screenMspecs { display: grid; }
+  html[data-screen="trends"] #screenTrends { display: grid; }
   header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   h1 { font-size: 24px; margin: 0; }
+  .crumbs {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+    margin: 0 0 4px; font-size: 13px; font-weight: 700; color: var(--muted);
+  }
+  .crumbs button {
+    min-height: 28px; padding: 2px 8px; border-radius: 8px; font-size: 13px;
+    background: transparent; color: var(--accent); border: 0;
+  }
+  .crumbs button:hover { text-decoration: underline; }
+  .crumbs span { color: var(--muted); font-weight: 400; }
+  .crumbs .here { color: var(--text); font-weight: 700; }
   .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+  .toolbar.page-tools button { min-height: 36px; padding: 6px 12px; font-size: 14px; }
   button {
     border: 0; border-radius: 12px; padding: 10px 14px; cursor: pointer;
     background: var(--accent); color: #fff; font: inherit; font-size: 16px; font-weight: 700; min-height: 44px;
@@ -68,7 +81,7 @@ try {
   button.icon:hover { border-color: var(--accent); color: var(--accent); }
   .card { background: var(--bg-elev); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); min-height: 0; }
   #screenWelcome { align-items: center; justify-content: center; padding: 24px; }
-  .welcome { width: min(460px, 100%); padding: 28px; display: grid; gap: 14px; text-align: center; }
+  .welcome { width: min(720px, 100%); padding: 28px; display: grid; gap: 14px; text-align: center; }
   .welcome-mark { display: flex; justify-content: center; }
   .welcome-mark svg { display: block; }
   .welcome h1 { margin: 0; letter-spacing: -0.02em; }
@@ -409,8 +422,54 @@ try {
     font-size: 12px; color: var(--muted); font-weight: 700; letter-spacing: .04em;
     pointer-events: none;
   }
-  .welcome-extra { display: none; gap: 10px; }
-  html[data-has-history="1"] .welcome-extra { display: grid; }
+  .welcome-extra { display: grid; gap: 10px; }
+  .hub-grid { grid-template-columns: 1fr 1fr; }
+  .hub-tile {
+    display: grid; gap: 4px; text-align: left; padding: 16px 18px;
+    min-height: 88px; border-radius: 14px; background: var(--idle);
+    color: var(--text); border: 2px solid var(--line);
+  }
+  .hub-tile:hover { border-color: var(--accent); }
+  .hub-tile b { font-size: 18px; }
+  .hub-tile span { font-size: 13px; font-weight: 400; color: var(--muted); line-height: 1.35; }
+  .hub-tile:disabled { opacity: .45; cursor: default; border-color: var(--line); }
+  #screenTrends { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  .trends-body { display: grid; gap: 10px; overflow: auto; min-height: 0; padding: 12px; }
+  .trends-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
+  .trends-filters label {
+    display: grid; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .trends-filters input, .trends-filters select {
+    border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
+    font: inherit; font-size: 16px; background: var(--idle); color: var(--text); min-width: 140px;
+  }
+  .trends-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .trend-chart { min-height: 280px; padding: 10px; }
+  .trend-chart h2 { margin: 0 0 8px; font-size: 16px; }
+  .trend-chart canvas { width: 100% !important; height: 240px !important; }
+  .trend-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+  .trend-stat { padding: 12px; }
+  .trend-stat b { display: block; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .trend-stat strong { display: block; margin-top: 4px; font-size: 20px; }
+  .trend-stat p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+  .pareto { display: grid; gap: 6px; }
+  .pareto-row { display: grid; grid-template-columns: 140px 1fr 40px; gap: 8px; align-items: center; font-size: 14px; }
+  .pareto-bar { height: 12px; background: #ef4444; border-radius: 6px; }
+  .cpk-list { display: grid; gap: 10px; }
+  .cpk-card { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--idle); }
+  .cpk-card h3 { margin: 0 0 6px; font-size: 15px; }
+  .cpk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 14px; }
+  .cpk-grid span { color: var(--muted); }
+  .cpk-pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-weight: 700; }
+  .cpk-good { background: var(--ok-bg); color: var(--ok); }
+  .cpk-ok { background: var(--thin-bg); color: var(--thin); }
+  .cpk-bad { background: var(--thick-bg); color: var(--thick); }
+  .cpk-na { background: var(--idle); color: var(--muted); }
+  html[data-spc-series="points"] .stage { overflow: auto; align-items: start; }
+  @media (max-width: 900px) {
+    .hub-grid, .trends-charts { grid-template-columns: 1fr; }
+  }
   @media (max-width: 1100px) {
     body { overflow: auto; }
     .screen { height: auto; min-height: 100dvh; }
@@ -436,10 +495,17 @@ try {
       </svg>
     </div>
     <h1>Quality Desk</h1>
-    <p class="welcome-tag">History, specs, compliance, and posting checks.</p>
+    <p class="welcome-tag">History, specs, compliance, trends, and posting checks.</p>
     <p>Press Ctrl+V to paste Copy for Graph from the S4, S1 S3, Bubble, P1, and RTS quality check sheets.</p>
     <div class="actions">
       <button type="button" id="welcomePaste">Paste results</button>
+    </div>
+    <div class="hub-grid welcome-extra">
+      <button class="hub-tile" type="button" id="welcomeHistory"><b>Results history</b><span>Filter and open past quality checks.</span></button>
+      <button class="hub-tile" type="button" id="welcomeCompliance"><b>Compliance</b><span>Weekly checks vs SAP postings.</span></button>
+      <button class="hub-tile" type="button" id="welcomeTrends"><b>Trends</b><span>Missed checks, fail Pareto, and line progress.</span></button>
+      <button class="hub-tile" type="button" id="welcomeMspecs"><b>MSPECs</b><span>Audit Master Sheet specs.</span></button>
+      <button class="hub-tile" type="button" id="welcomeSpc"><b>SPC charts</b><span>Average, range, density, and each T point.</span></button>
     </div>
     <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
   </div>
@@ -448,10 +514,11 @@ try {
 <section class="screen" id="screenHistory">
   <header>
     <div>
+      <nav class="crumbs" aria-label="Breadcrumb"></nav>
       <h1>Results history</h1>
       <p class="hist-meta" id="histMeta"></p>
     </div>
-    <div class="toolbar">
+    <div class="toolbar page-tools">
       <label class="line-filter plant-filter">Line
         <select id="histPlant" aria-label="Quality line group">
           <option value="foam">Extrusion Foam</option>
@@ -463,6 +530,7 @@ try {
       </label>
       <button type="button" id="histPaste">Paste more data</button>
       <button class="secondary" type="button" id="histCompliance">Compliance</button>
+      <button class="secondary" type="button" id="histTrends">Trends</button>
       <button class="secondary" type="button" id="histSap" title="Excel or CSV from SAP" hidden>SAP audit</button>
       <button class="secondary" type="button" id="histMspecs">View MSPECs</button>
       <button class="secondary" type="button" id="histSpc">SPC mode</button>
@@ -487,10 +555,11 @@ try {
 <section class="screen" id="screenCompliance">
   <header class="comp-head">
     <div class="comp-head-title">
+      <nav class="crumbs" aria-label="Breadcrumb"></nav>
       <h1>Compliance</h1>
       <p class="hist-meta" id="complianceWeekLabel"></p>
     </div>
-    <div class="toolbar comp-tools">
+    <div class="toolbar page-tools comp-tools">
       <div class="week-nav">
         <button class="secondary icon" type="button" id="compliancePrevWeek" title="Previous week" aria-label="Previous week">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
@@ -556,10 +625,11 @@ try {
 <section class="screen" id="screenMspecs">
   <header>
     <div>
+      <nav class="crumbs" aria-label="Breadcrumb"></nav>
       <h1>MSPEC specs</h1>
       <p class="hist-meta" id="mspecMeta">Imported Master Sheet rows. Use this to audit missing or dummy density values.</p>
     </div>
-    <div class="toolbar">
+    <div class="toolbar page-tools">
       <button class="secondary" type="button" id="mspecBack">Back</button>
       <button class="secondary" type="button" id="mspecDownload">Download Excel</button>
       <button class="secondary" type="button" id="mspecTheme">Dark mode</button>
@@ -577,10 +647,11 @@ try {
 <section class="screen" id="screenView">
   <header>
     <div>
+      <nav class="crumbs" aria-label="Breadcrumb"></nav>
       <h1 id="pageTitle">Centration graph</h1>
       <p class="view-meta" id="viewMeta"></p>
     </div>
-    <div class="toolbar">
+    <div class="toolbar page-tools">
       <button class="secondary" type="button" id="viewBack">Back</button>
       <button class="secondary" type="button" id="prevResult">Previous result</button>
       <button class="secondary" type="button" id="nextResult">Next result</button>
@@ -615,7 +686,14 @@ try {
         </label>
         <label>From <input type="date" id="spcFrom"></label>
         <label>To <input type="date" id="spcTo"></label>
+        <label>Charts
+          <select id="spcSeries">
+            <option value="summary">Average / range / density</option>
+            <option value="points">Each T point over time</option>
+          </select>
+        </label>
         <p class="hist-meta" id="spcDateHint">Date range limits the Item/MSPEC list to what ran in that period.</p>
+        <button class="secondary full" type="button" id="spcStatsBtn">Show CPK stats</button>
         <button class="secondary full" type="button" id="spcOutliers">Show outliers</button>
         <button class="secondary full" type="button" id="spcDownloadPdf">Download SPC PDF</button>
         <button class="secondary full" type="button" id="spcReportBtn">SPC report…</button>
@@ -649,11 +727,55 @@ try {
         <label>Density max <input type="number" id="densMaxSpec" step="0.01" value=""></label>
         <label>Cell count min <input type="number" id="cellMinSpec" step="1" value=""></label>
       </div>
+      <div class="spc-only" id="spcStatsBox" hidden>
+        <h2>CPK stats</h2>
+        <p class="hist-meta">Cpk ≥ 1.33 capable · 1.00–1.33 marginal · below 1.00 not capable.</p>
+        <div class="cpk-list" id="spcStats"></div>
+      </div>
       <div class="results-only">
         <h2>Results</h2>
         <div id="summary"></div>
       </div>
     </aside>
+  </div>
+</section>
+
+<section class="screen" id="screenTrends">
+  <header>
+    <div>
+      <nav class="crumbs" aria-label="Breadcrumb"></nav>
+      <h1>Trends</h1>
+      <p class="hist-meta" id="trendsMeta">Missed checks, fail types, and items that keep failing.</p>
+    </div>
+    <div class="toolbar page-tools">
+      <button class="secondary" type="button" id="trendsBack">Back</button>
+      <button class="secondary" type="button" id="trendsTheme">Dark mode</button>
+    </div>
+  </header>
+  <div class="card trends-body" id="trendsSection">
+    <div class="trends-filters">
+      <label>From <input type="date" id="trendFrom"></label>
+      <label>To <input type="date" id="trendTo"></label>
+      <label>Line <select id="trendLine"><option value="">All lines</option></select></label>
+      <label>Item # <input type="search" id="trendItem" placeholder="Any item"></label>
+      <label>MSPEC <input type="search" id="trendMspec" placeholder="Any MSPEC"></label>
+      <label>Fail type <select id="trendFailType"><option value="">All fail types</option></select></label>
+    </div>
+    <div class="trends-charts">
+      <div class="card trend-chart">
+        <h2>Missed checks over time</h2>
+        <canvas id="trendMissedChart" width="640" height="240"></canvas>
+      </div>
+      <div class="card trend-chart">
+        <h2>Fails over time</h2>
+        <canvas id="trendFailChart" width="640" height="240"></canvas>
+      </div>
+    </div>
+    <div class="card trend-stat">
+      <b>Top quality fails</b>
+      <div class="pareto" id="trendPareto"></div>
+    </div>
+    <div class="trend-summary" id="trendSummary"></div>
   </div>
 </section>
 
@@ -706,8 +828,9 @@ try {
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.29';
+const APP_VERSION = '1.7.30';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -791,6 +914,11 @@ let openFilterCol = null;
 let enterMode = false;
 let complianceMonday = null;
 let complianceBackTo = 'welcome';
+let navStack = [];
+let spcShowStats = false;
+let trendCharts = { missed: null, fails: null };
+let complianceData = [];
+let trendFailEvents = [];
 let spcComboHi = -1;
 let activeLine = '';
 let sapAudit = null;
@@ -979,7 +1107,74 @@ async function restorePack() {
   } catch { return null; }
 }
 function syncWelcome() {
-  document.documentElement.setAttribute('data-has-history', indexedRows.length ? '1' : '0');
+  const has = indexedRows.length > 0;
+  document.documentElement.setAttribute('data-has-history', has ? '1' : '0');
+  ['welcomeHistory','welcomeCompliance','welcomeTrends'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = !has;
+  });
+  const mspecBtn = document.getElementById('welcomeMspecs');
+  if (mspecBtn) mspecBtn.disabled = !isFoamPlant() || !(historyPack && (historyPack.lookupRows || []).length);
+  const spcBtn = document.getElementById('welcomeSpc');
+  if (spcBtn) spcBtn.disabled = !has || !isFoamPlant();
+}
+function screenLabel(name, mode) {
+  if (name === 'welcome') return 'Home';
+  if (name === 'history') return 'History';
+  if (name === 'compliance') return 'Compliance';
+  if (name === 'mspecs') return 'MSPECs';
+  if (name === 'trends') return 'Trends';
+  if (name === 'view') return mode === 'spc' ? 'SPC' : 'Graph';
+  return name;
+}
+function renderCrumbs() {
+  const trail = navStack.concat([{ screen: screenName, viewMode }]);
+  const html = trail.map((step, i) => {
+    const label = screenLabel(step.screen, step.viewMode);
+    const last = i === trail.length - 1;
+    if (last) return `<span class="here">${esc(label)}</span>`;
+    return `<button type="button" data-crumb="${i}">${esc(label)}</button><span aria-hidden="true">›</span>`;
+  }).join('');
+  document.querySelectorAll('.crumbs').forEach(el => { el.innerHTML = html; });
+}
+function afterShowScreen(name) {
+  if (name === 'history') requestAnimationFrame(() => renderHistoryBody(true));
+  if (name === 'compliance') renderCompliance();
+  if (name === 'mspecs') renderMspecTable();
+  if (name === 'trends') renderTrends();
+}
+function goTo(name, opts) {
+  const replace = opts && opts.replace;
+  const mode = opts && opts.mode;
+  if (!replace && screenName && (screenName !== name || (mode && mode !== viewMode))) {
+    navStack.push({ screen: screenName, viewMode });
+    if (navStack.length > 24) navStack.shift();
+  }
+  if (mode) setViewMode(mode === 'spc' ? 'spc' : 'centration', opts && opts.fromView);
+  setScreen(name);
+}
+function goHome() {
+  navStack = [];
+  setViewMode('centration');
+  setScreen('welcome');
+}
+function goBack() {
+  const prev = navStack.pop();
+  if (!prev) { goHome(); return; }
+  if (prev.viewMode) setViewMode(prev.viewMode);
+  setScreen(prev.screen);
+  afterShowScreen(prev.screen);
+}
+function jumpToCrumb(i) {
+  const n = Number(i);
+  if (!isFinite(n) || n < 0) return;
+  if (n === 0) { goHome(); return; }
+  const target = navStack[n];
+  if (!target) return;
+  navStack = navStack.slice(0, n);
+  if (target.viewMode) setViewMode(target.viewMode);
+  setScreen(target.screen);
+  afterShowScreen(target.screen);
 }
 function rowIdentity(row) {
   const when = col(row, 'Date/Time');
@@ -1014,7 +1209,7 @@ function applyTheme(theme) {
   const dark = theme === 'dark';
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   const label = dark ? 'Light mode' : 'Dark mode';
-  ['themeBtn','welcomeTheme','histTheme','complianceTheme','mspecTheme'].forEach(id => {
+  ['themeBtn','welcomeTheme','histTheme','complianceTheme','mspecTheme','trendsTheme'].forEach(id => {
     const el = document.getElementById(id); if (el) el.textContent = label;
   });
 }
@@ -1023,7 +1218,7 @@ function syncViewChrome() {
   const back = document.getElementById('viewBack');
   if (back) {
     back.hidden = false;
-    back.textContent = hasHist && !enterMode ? 'Back to history' : 'Back';
+    back.textContent = 'Back';
   }
   const modeBtn = document.getElementById('modeBtn');
   if (modeBtn) {
@@ -1044,6 +1239,7 @@ function syncDocTitle() {
   if (screenName === 'history') part = 'History';
   else if (screenName === 'compliance') part = 'Compliance';
   else if (screenName === 'mspecs') part = 'MSPECs';
+  else if (screenName === 'trends') part = 'Trends';
   else if (screenName === 'view') part = viewMode === 'spc' ? 'SPC' : 'Centration';
   document.title = part ? APP_NAME + ' · ' + part : APP_NAME;
 }
@@ -1053,6 +1249,7 @@ function setScreen(name) {
   syncWelcome();
   syncViewChrome();
   syncDocTitle();
+  renderCrumbs();
   if (name === 'view') requestAnimationFrame(() => { calculate(); });
 }
 function setViewMode(mode, fromView) {
@@ -1101,6 +1298,28 @@ function asThousandths(v) {
   const n = parseFloat(v);
   if (!finiteNum(n)) return NaN;
   return Math.abs(n) < 1 ? n * 1000 : n;
+}
+function cpkBundle(values, lsl, usl) {
+  const xs = (values || []).filter(v => finiteNum(v)).map(Number);
+  const n = xs.length;
+  if (n < 2) return { n, mean: NaN, stdev: NaN, cp: NaN, cpk: NaN, cpl: NaN, cpu: NaN };
+  const mean = xs.reduce((a, b) => a + b, 0) / n;
+  const stdev = Math.sqrt(xs.reduce((s, x) => s + (x - mean) * (x - mean), 0) / (n - 1));
+  const cpl = finiteNum(lsl) && stdev > 0 ? (mean - Number(lsl)) / (3 * stdev) : NaN;
+  const cpu = finiteNum(usl) && stdev > 0 ? (Number(usl) - mean) / (3 * stdev) : NaN;
+  const sides = [cpl, cpu].filter(finiteNum);
+  const cpk = sides.length ? Math.min.apply(null, sides) : NaN;
+  const cp = finiteNum(lsl) && finiteNum(usl) && stdev > 0 ? (Number(usl) - Number(lsl)) / (6 * stdev) : NaN;
+  return { n, mean, stdev, cp, cpk, cpl, cpu };
+}
+function cpkTone(cpk) {
+  if (!finiteNum(cpk)) return 'na';
+  if (cpk >= 1.33) return 'good';
+  if (cpk >= 1) return 'ok';
+  return 'bad';
+}
+function fmtCpk(v, digits) {
+  return finiteNum(v) ? Number(v).toFixed(digits == null ? 3 : digits) : '—';
 }
 function normHeader(s) {
   return String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -3144,9 +3363,8 @@ function openSpc() {
   const foam = uniqueSorted([...new Set(plantRows('foam').map(r => realLineName(r.line)).filter(Boolean))], false);
   if (foam.length && !foam.includes(activeLine)) activeLine = foam[0];
   fillLineSelects();
-  setViewMode('spc', true);
   syncSpcDates(true);
-  setScreen('view');
+  goTo('view', { mode: 'spc', fromView: true });
   syncViewChrome();
   requestAnimationFrame(() => draw());
 }
@@ -3156,9 +3374,292 @@ function openCompliance(from) {
   complianceMonday = mondayOfLocalDate(new Date());
   if (isPostingsPlant()) setActivePlant('foam', { keepFilters: true });
   fillLineSelects();
-  setViewMode('centration');
-  setScreen('compliance');
+  goTo('compliance', { mode: 'centration' });
   renderCompliance();
+}
+function openTrends() {
+  if (!indexedRows.length) { toast('Paste results first'); return; }
+  buildComplianceData();
+  fillTrendFilters();
+  goTo('trends', { mode: 'centration' });
+  renderTrends();
+}
+function ymdStamp(y, m, d) {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+function buildComplianceData() {
+  const map = new Map();
+  const fails = [];
+  const slot = (y, m, d, line, item, mspec) => {
+    const date = ymdStamp(y, m, d);
+    const key = `${date}|${sapLineKey(line)}|${sapItemKey(item)}`;
+    if (!map.has(key)) {
+      map.set(key, {
+        date, line: realLineName(line) || String(line || ''), itemNumber: String(item || ''),
+        mspec: canonMspec(mspec) || '',
+        expectedChecks: 0, completedChecks: 0, missedChecks: 0, failCount: 0, failType: ''
+      });
+    }
+    const rec = map.get(key);
+    if (mspec && !rec.mspec) rec.mspec = canonMspec(mspec);
+    return rec;
+  };
+  for (const r of indexedRows) {
+    if (!r.y || !r.item) continue;
+    const rec = slot(r.y, r.m, r.d, r.line, r.item, r.mspec);
+    rec.expectedChecks += 1;
+    if (r.pf === 'NO CHECK' || isNoCheckPf(r.pf)) rec.missedChecks += 1;
+    else rec.completedChecks += 1;
+    if (r.pf === 'Fail') {
+      rec.failCount += 1;
+      const reasons = failReasonsForRow(r.row, lookupSpecs(r.mspec) || specsFor(r.mspec) || {});
+      const type = reasons[0] || 'failed check';
+      rec.failType = rec.failType && rec.failType !== type ? rec.failType + ', ' + type : type;
+      fails.push({ date: rec.date, line: rec.line, itemNumber: rec.itemNumber, mspec: rec.mspec, failType: type });
+    }
+  }
+  if (sapAudit && sapAudit.rows && sapAudit.rows.length) {
+    refreshSapHits('');
+    for (const sap of sapAudit.rows) {
+      if (!sap.y || !sap.item) continue;
+      const rec = slot(sap.y, sap.m, sap.d, sap.line, sap.item, '');
+      const hit = sap.hits && sap.hits.length;
+      if (rec.expectedChecks === 0) {
+        rec.expectedChecks = 1;
+        if (hit) rec.completedChecks = 1;
+        else rec.missedChecks = 1;
+      } else if (!hit && rec.completedChecks === 0) rec.missedChecks = Math.max(rec.missedChecks, 1);
+    }
+  }
+  complianceData = [...map.values()].sort((a, b) => a.date.localeCompare(b.date) || a.line.localeCompare(b.line));
+  trendFailEvents = fails;
+}
+function trendFilterValues() {
+  return {
+    from: String((document.getElementById('trendFrom') || {}).value || ''),
+    to: String((document.getElementById('trendTo') || {}).value || ''),
+    line: String((document.getElementById('trendLine') || {}).value || ''),
+    item: String((document.getElementById('trendItem') || {}).value || '').trim(),
+    mspec: String((document.getElementById('trendMspec') || {}).value || '').trim(),
+    failType: String((document.getElementById('trendFailType') || {}).value || '')
+  };
+}
+function filterComplianceData(rows, filters) {
+  const f = filters || {};
+  return (rows || []).filter(r => {
+    if (f.from && r.date < f.from) return false;
+    if (f.to && r.date > f.to) return false;
+    if (f.line && sapLineKey(r.line) !== sapLineKey(f.line)) return false;
+    if (f.item && !String(r.itemNumber).toUpperCase().includes(f.item.toUpperCase())) return false;
+    if (f.mspec && !String(r.mspec).toUpperCase().includes(f.mspec.toUpperCase())) return false;
+    if (f.failType && !(r.failType || '').includes(f.failType)) return false;
+    return true;
+  });
+}
+function filterTrendFails(rows, filters) {
+  const f = filters || {};
+  return (rows || []).filter(r => {
+    if (f.from && r.date < f.from) return false;
+    if (f.to && r.date > f.to) return false;
+    if (f.line && sapLineKey(r.line) !== sapLineKey(f.line)) return false;
+    if (f.item && !String(r.itemNumber).toUpperCase().includes(f.item.toUpperCase())) return false;
+    if (f.mspec && !String(r.mspec).toUpperCase().includes(f.mspec.toUpperCase())) return false;
+    if (f.failType && r.failType !== f.failType) return false;
+    return true;
+  });
+}
+function aggregateMissedByDay(rows, perLine) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const key = perLine ? `${r.date}|${r.line || '—'}` : r.date;
+    if (!map.has(key)) map.set(key, { date: r.date, line: r.line || '', missed: 0 });
+    map.get(key).missed += Number(r.missedChecks || 0);
+  }
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date) || String(a.line).localeCompare(String(b.line)));
+}
+function aggregateFailsByDay(rows) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const type = r.failType || 'failed check';
+    const key = `${r.date}|${type}`;
+    if (!map.has(key)) map.set(key, { date: r.date, failType: type, count: 0 });
+    map.get(key).count += 1;
+  }
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+function groupFailTypes(rows) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const type = r.failType || 'failed check';
+    map.set(type, (map.get(type) || 0) + 1);
+  }
+  return [...map.entries()].map(([failType, count]) => ({ failType, count })).sort((a, b) => b.count - a.count);
+}
+function fillTrendFilters() {
+  if (!complianceData.length) buildComplianceData();
+  const lineEl = document.getElementById('trendLine');
+  const typeEl = document.getElementById('trendFailType');
+  const keepLine = lineEl ? lineEl.value : '';
+  const keepType = typeEl ? typeEl.value : '';
+  const lines = uniqueSorted([...new Set(complianceData.map(r => r.line).filter(Boolean))], false);
+  if (lineEl) {
+    lineEl.innerHTML = '<option value="">All lines</option>' + lines.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('');
+    if (keepLine && lines.includes(keepLine)) lineEl.value = keepLine;
+  }
+  const types = groupFailTypes(trendFailEvents).map(x => x.failType);
+  if (typeEl) {
+    typeEl.innerHTML = '<option value="">All fail types</option>' + types.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    if (keepType && types.includes(keepType)) typeEl.value = keepType;
+  }
+  const dates = complianceData.map(r => r.date).filter(Boolean).sort();
+  const fromEl = document.getElementById('trendFrom');
+  const toEl = document.getElementById('trendTo');
+  if (fromEl && !fromEl.value && dates[0]) fromEl.value = dates[0];
+  if (toEl && !toEl.value && dates.length) toEl.value = dates[dates.length - 1];
+}
+function destroyTrendCharts() {
+  if (trendCharts.missed && trendCharts.missed.destroy) trendCharts.missed.destroy();
+  if (trendCharts.fails && trendCharts.fails.destroy) trendCharts.fails.destroy();
+  trendCharts.missed = null;
+  trendCharts.fails = null;
+}
+function trendTextColor() {
+  return isDark() ? '#f3f7fb' : '#12202b';
+}
+function trendGridColor() {
+  return isDark() ? 'rgba(255,255,255,.12)' : 'rgba(18,32,43,.12)';
+}
+function drawFallbackChart(canvas, labels, series, stacked) {
+  if (!canvas) return;
+  const w = canvas.width, h = canvas.height;
+  const c = canvas.getContext('2d');
+  c.clearRect(0, 0, w, h);
+  const pad = { l: 36, r: 10, t: 12, b: 28 };
+  const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+  const colors = ['#2563eb', '#ef4444', '#16a34a', '#f59e0b', '#7c3aed', '#0d9488', '#db2777'];
+  let max = 1;
+  labels.forEach((_, i) => {
+    if (stacked) {
+      let sum = 0;
+      series.forEach(s => { sum += Number((s.data || [])[i] || 0); });
+      if (sum > max) max = sum;
+    } else {
+      series.forEach(s => { const v = Number((s.data || [])[i] || 0); if (v > max) max = v; });
+    }
+  });
+  c.strokeStyle = trendGridColor(); c.beginPath();
+  c.moveTo(pad.l, pad.t); c.lineTo(pad.l, pad.t + plotH); c.lineTo(pad.l + plotW, pad.t + plotH); c.stroke();
+  c.fillStyle = trendTextColor(); c.font = '12px Atkinson Hyperlegible, Arial';
+  c.textAlign = 'right'; c.textBaseline = 'middle';
+  c.fillText(String(Math.round(max)), pad.l - 6, pad.t);
+  c.fillText('0', pad.l - 6, pad.t + plotH);
+  const n = Math.max(labels.length, 1);
+  const xAt = i => pad.l + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
+  series.forEach((s, si) => {
+    c.strokeStyle = s.color || colors[si % colors.length];
+    c.lineWidth = 2; c.beginPath();
+    labels.forEach((_, i) => {
+      const v = Number((s.data || [])[i] || 0);
+      const x = xAt(i), y = pad.t + plotH - (v / max) * plotH;
+      if (i === 0) c.moveTo(x, y); else c.lineTo(x, y);
+    });
+    c.stroke();
+  });
+  c.fillStyle = trendTextColor(); c.textAlign = 'center'; c.textBaseline = 'top';
+  if (labels.length) {
+    c.fillText(labels[0], xAt(0), pad.t + plotH + 6);
+    c.fillText(labels[labels.length - 1], xAt(labels.length - 1), pad.t + plotH + 6);
+  }
+}
+function renderTrendChart(kind, canvas, labels, datasets, stacked) {
+  if (!canvas) return;
+  if (typeof Chart === 'undefined') {
+    drawFallbackChart(canvas, labels, datasets.map((d, i) => ({ data: d.data, color: d.borderColor || d.backgroundColor })), stacked);
+    return;
+  }
+  if (trendCharts[kind]) { trendCharts[kind].destroy(); trendCharts[kind] = null; }
+  const text = trendTextColor();
+  trendCharts[kind] = new Chart(canvas.getContext('2d'), {
+    type: stacked ? 'bar' : 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: text } } },
+      scales: {
+        x: { stacked: !!stacked, ticks: { color: text, maxRotation: 0, autoSkip: true }, grid: { color: trendGridColor() } },
+        y: { stacked: !!stacked, beginAtZero: true, ticks: { color: text, precision: 0 }, grid: { color: trendGridColor() } }
+      }
+    }
+  });
+}
+function renderTrends() {
+  if (screenName !== 'trends') return;
+  if (!complianceData.length) buildComplianceData();
+  const filters = trendFilterValues();
+  const rows = filterComplianceData(complianceData, filters);
+  const fails = filterTrendFails(trendFailEvents, filters);
+  const perLine = !filters.line;
+  const missed = aggregateMissedByDay(rows, perLine);
+  const days = uniqueSorted([...new Set(missed.map(r => r.date).concat(fails.map(r => r.date)))], false);
+  const lines = uniqueSorted([...new Set(missed.map(r => r.line).filter(Boolean))], false);
+  const palette = ['#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0d9488', '#db2777', '#0891b2'];
+  const missedSets = (perLine && lines.length > 1 ? lines : ['']).map((line, i) => ({
+    label: line || 'Missed checks',
+    data: days.map(d => missed.filter(r => r.date === d && (!line || r.line === line)).reduce((n, r) => n + r.missed, 0)),
+    borderColor: palette[i % palette.length],
+    backgroundColor: palette[i % palette.length],
+    tension: 0.2,
+    fill: false
+  }));
+  const types = groupFailTypes(fails);
+  const failDays = aggregateFailsByDay(fails);
+  const failSets = types.slice(0, 8).map((t, i) => ({
+    label: t.failType,
+    data: days.map(d => failDays.filter(r => r.date === d && r.failType === t.failType).reduce((n, r) => n + r.count, 0)),
+    backgroundColor: palette[i % palette.length],
+    borderColor: palette[i % palette.length]
+  }));
+  renderTrendChart('missed', document.getElementById('trendMissedChart'), days, missedSets.length ? missedSets : [{ label: 'Missed checks', data: days.map(() => 0), borderColor: '#2563eb' }], false);
+  renderTrendChart('fails', document.getElementById('trendFailChart'), days, failSets.length ? failSets : [{ label: 'Fails', data: days.map(() => 0), backgroundColor: '#ef4444' }], true);
+  const maxType = types[0] ? types[0].count : 1;
+  const pareto = document.getElementById('trendPareto');
+  if (pareto) {
+    pareto.innerHTML = types.length
+      ? types.slice(0, 10).map(t => `<div class="pareto-row"><span>${esc(t.failType)}</span><div class="pareto-bar" style="width:${Math.max(8, Math.round(100 * t.count / maxType))}%"></div><b>${t.count}</b></div>`).join('')
+      : '<p class="hist-meta">No fails in this filter.</p>';
+  }
+  const dayMiss = new Map();
+  missed.forEach(r => dayMiss.set(r.date, (dayMiss.get(r.date) || 0) + r.missed));
+  const missDays = [...dayMiss.entries()];
+  const avgMiss = missDays.length ? (missDays.reduce((n, x) => n + x[1], 0) / missDays.length) : 0;
+  const failByDay = new Map();
+  fails.forEach(r => failByDay.set(r.date, (failByDay.get(r.date) || 0) + 1));
+  let highDay = '', highN = 0;
+  failByDay.forEach((n, d) => { if (n > highN) { highN = n; highDay = d; } });
+  const itemFails = new Map();
+  fails.forEach(r => itemFails.set(r.itemNumber, (itemFails.get(r.itemNumber) || 0) + 1));
+  const repeatItems = [...itemFails.entries()].filter(x => x[1] >= 2).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const lineMiss = new Map(), lineExp = new Map();
+  rows.forEach(r => {
+    lineMiss.set(r.line, (lineMiss.get(r.line) || 0) + Number(r.missedChecks || 0));
+    lineExp.set(r.line, (lineExp.get(r.line) || 0) + Number(r.expectedChecks || 0));
+  });
+  const chronic = [...lineMiss.entries()].map(([line, miss]) => {
+    const exp = lineExp.get(line) || 0;
+    return { line, miss, rate: exp ? miss / exp : 0 };
+  }).filter(x => x.line && x.miss > 0).sort((a, b) => b.rate - a.rate || b.miss - a.miss).slice(0, 4);
+  const sum = document.getElementById('trendSummary');
+  if (sum) {
+    sum.innerHTML = `
+      <div class="card trend-stat"><b>Avg missed / day</b><strong>${avgMiss.toFixed(1)}</strong><p>${missDays.length} days in range</p></div>
+      <div class="card trend-stat"><b>Highest fail day</b><strong>${highDay || '—'}</strong><p>${highN ? highN + ' fails' : 'No fails'}</p></div>
+      <div class="card trend-stat"><b>Most common fail</b><strong>${types[0] ? esc(types[0].failType) : '—'}</strong><p>${types[0] ? types[0].count + ' times' : 'No fails'}</p></div>
+      <div class="card trend-stat"><b>Repeat fail items</b><strong>${repeatItems.length ? esc(repeatItems[0][0]) : '—'}</strong><p>${repeatItems.length ? repeatItems.map(x => x[0] + ' ×' + x[1]).join(' · ') : 'No item failed twice'}</p></div>
+      <div class="card trend-stat"><b>Chronic lines</b><strong>${chronic[0] ? esc(chronic[0].line) : '—'}</strong><p>${chronic.length ? chronic.map(x => x.line + ' ' + Math.round(x.rate * 100) + '% missed').join(' · ') : 'No missed checks'}</p></div>`;
+  }
+  const meta = document.getElementById('trendsMeta');
+  if (meta) meta.textContent = `${rows.length} item-days · ${fails.length} fails` + (filters.line ? ` · ${filters.line}` : '');
 }
 function renderCompliance() {
   if (!complianceMonday) complianceMonday = mondayOfLocalDate(new Date());
@@ -3431,7 +3932,7 @@ function renderMspecTable() {
 function openMspecs() {
   if (!isFoamPlant()) { toast('MSPECs are only for Extrusion Foam'); return; }
   if (!historyPack || !(historyPack.lookupRows || []).length) { toast('Paste results first'); return; }
-  setScreen('mspecs');
+  goTo('mspecs');
   renderMspecTable();
 }
 function downloadMspecExcel() {
@@ -3486,8 +3987,7 @@ function openHistoryForItemDay(item, y, m, d, line) {
   tableSort = { col: 'Date/Time', dir: 'asc', mode: 'date' };
   filteredDirty = true;
   setActivePlant(plant, { keepFilters: true });
-  setViewMode('centration');
-  setScreen('history');
+  goTo('history', { mode: 'centration' });
   requestAnimationFrame(() => renderHistoryTable());
 }
 function downloadBlob(filename, bytes, mime) {
@@ -5212,8 +5712,7 @@ async function downloadSpcReportPdf() {
 function viewResult(idx) {
   if (!isFoamPlant()) return;
   if (!applyHistoryRow(idx)) return;
-  setViewMode('centration');
-  setScreen('view');
+  goTo('view', { mode: 'centration' });
   refreshChecks();
 }
 function viewCurrent() {
@@ -5221,8 +5720,7 @@ function viewCurrent() {
   viewingIdx = 'current';
   applySnapshot(currentSnapshot);
   fillSpecPanel(specsFor(currentSnapshot.mspec), currentSnapshot.mspec);
-  setViewMode('centration');
-  setScreen('view');
+  goTo('view', { mode: 'centration' });
   refreshChecks();
 }
 async function clearClipboard() {
@@ -5357,11 +5855,11 @@ async function applyDieGraph2(text, append) {
   if (append) toast(added ? `Added ${added} new result${added === 1 ? '' : 's'}` : 'No new rows to add');
   else toast(rows.length ? `Loaded ${rows.length} past result${rows.length === 1 ? '' : 's'}` : 'Loaded current sheet');
   if (rows.length) {
-    setScreen('history');
+    goTo('history');
     renderHistoryTable();
   } else {
     viewingIdx = 'current';
-    setScreen('view');
+    goTo('view', { mode: 'centration' });
     refreshChecks();
   }
   persistPack();
@@ -5486,13 +5984,15 @@ function layoutCanvas() {
     sizeH = layoutOverride.h;
   } else if (viewMode === 'spc') {
     sizeW = Math.max(280, Math.floor(stage.clientWidth || 280));
-    sizeH = Math.max(360, Math.floor(stage.clientHeight || 360));
+    const chartsN = Number(document.documentElement.getAttribute('data-spc-charts') || 3);
+    const want = spcSeriesMode() === 'points' ? Math.max(360, chartsN * 170) : Math.max(360, Math.floor(stage.clientHeight || 360));
+    sizeH = want;
   } else {
     const size = Math.max(280, Math.floor(Math.min(stage.clientWidth || 280, stage.clientHeight || 280)));
     sizeW = size; sizeH = size;
   }
   sizeW = Math.min(sizeW, 1400);
-  sizeH = Math.min(sizeH, 1400);
+  sizeH = Math.min(sizeH, spcSeriesMode() === 'points' && viewMode === 'spc' ? 4800 : 1400);
   const key = sizeW + 'x' + sizeH + '@' + dpr + ':' + viewMode;
   if (key === canvasLayoutKey && canvas.width === sizeW * dpr) return false;
   canvasLayoutKey = key;
@@ -5625,25 +6125,76 @@ function rangeAsThousandths(v) {
   if (!finiteNum(n)) return NaN;
   return Math.abs(n) < 1 ? n * 1000 : n;
 }
-function spcPointRows() {
-  return spcSelectedRows().map(r => ({
-    idx: r.idx, row: r.row, t: r.serial,
-    avg: r.num['Thickness Average'],
-    range: r.num['Thickness Range'],
-    density: r.num['Density'],
-    pf: r.pf
-  }));
+function spcSeriesMode() {
+  const el = document.getElementById('spcSeries');
+  return el && el.value === 'points' ? 'points' : 'summary';
 }
-function spcChartDefs(mspec, flags) {
+function spcPointRows() {
+  return spcSelectedRows().map(r => {
+    const pt = {
+      idx: r.idx, row: r.row, t: r.serial,
+      avg: r.num['Thickness Average'],
+      range: r.num['Thickness Range'],
+      density: r.num['Density'],
+      pf: r.pf
+    };
+    const tvs = rowTValues(r.row);
+    for (let i = 0; i < tvs.length; i++) {
+      const n = parseFloat(tvs[i]);
+      pt['t' + (i + 1)] = isFinite(n) ? n : NaN;
+    }
+    return pt;
+  });
+}
+function spcChartDefs(mspec, flags, pts) {
   const specs = specsFor(mspec);
   const panel = readPanelSpecs();
   const on = flags || spcChartFlags || { avg: true, range: true, density: true };
   const charts = [];
+  if (spcSeriesMode() === 'points' && pts && pts.length) {
+    const min = firstFinite(panel.min, specs.min);
+    const max = firstFinite(panel.max, specs.max);
+    const target = firstFinite(panel.target, specs.target);
+    const rows = pts || [];
+    for (let i = 1; i <= TOTAL; i++) {
+      const key = 't' + i;
+      if (rows.some(p => finiteNum(p[key]))) charts.push({ key, title: 'T' + i, unit: 'in', min, max, target });
+    }
+    if (!charts.length) charts.push({ key: 't1', title: 'T1', unit: 'in', min, max, target });
+    return charts;
+  }
   if (on.avg) charts.push({ key: 'avg', title: 'Average', unit: 'in', min: firstFinite(panel.min, specs.min), max: firstFinite(panel.max, specs.max), target: firstFinite(panel.target, specs.target) });
   if (on.range) charts.push({ key: 'range', title: 'Range', unit: 'x0.001 in', min: 0, max: firstFinite(asThousandths(panel.range), specs.rangeThou), target: NaN });
   if (on.density) charts.push({ key: 'density', title: 'Density', unit: 'pcf', min: firstFinite(panel.densMin, specs.densMin), max: firstFinite(panel.densMax, specs.densMax), target: firstFinite(panel.densTarget, specs.densTarget) });
   if (!charts.length) charts.push({ key: 'avg', title: 'Average', unit: 'in', min: firstFinite(panel.min, specs.min), max: firstFinite(panel.max, specs.max), target: firstFinite(panel.target, specs.target) });
   return charts;
+}
+function renderSpcStats(pts, charts) {
+  const box = document.getElementById('spcStatsBox');
+  const el = document.getElementById('spcStats');
+  const btn = document.getElementById('spcStatsBtn');
+  if (btn) btn.textContent = spcShowStats ? 'Hide CPK stats' : 'Show CPK stats';
+  if (box) box.hidden = !spcShowStats;
+  if (!el || !spcShowStats) return;
+  if (!charts || !charts.length || !pts || !pts.length) {
+    el.innerHTML = '<p class="hist-meta">Pick an Item / MSPEC to see CPK.</p>';
+    return;
+  }
+  el.innerHTML = charts.map(ch => {
+    const stats = cpkBundle(pts.map(p => p[ch.key]), ch.min, ch.max);
+    const tone = cpkTone(stats.cpk);
+    return `<div class="cpk-card">
+      <h3>${esc(ch.title)} <span class="cpk-pill cpk-${tone}">Cpk ${fmtCpk(stats.cpk, 2)}</span></h3>
+      <div class="cpk-grid">
+        <div><span>n</span> ${stats.n}</div>
+        <div><span>Mean</span> ${fmtCpk(stats.mean, ch.unit === 'in' ? 3 : 2)}</div>
+        <div><span>Stdev</span> ${fmtCpk(stats.stdev, 4)}</div>
+        <div><span>Cp</span> ${fmtCpk(stats.cp, 2)}</div>
+        <div><span>Cpl</span> ${fmtCpk(stats.cpl, 2)}</div>
+        <div><span>Cpu</span> ${fmtCpk(stats.cpu, 2)}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 function applySharedOutliers(pts, charts) {
   const flagged = pts.map(p => charts.some(ch => specOutlier(p[ch.key], ch.min, ch.max)));
@@ -5735,23 +6286,32 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
   ctx.restore();
 }
 function drawSpc(opts) {
+  const rawPts = spcPointRows();
+  const byEl = document.getElementById('spcBy');
+  const mspecGuess = rawPts.length
+    ? ((byEl && byEl.value === 'mspec') ? document.getElementById('spcValue').value : (col(rawPts[rawPts.length - 1].row, 'MSPEC') || currentSnapshot.mspec))
+    : '';
+  const chartsPre = rawPts.length ? spcChartDefs(mspecGuess, null, rawPts) : [];
+  document.documentElement.setAttribute('data-spc-series', spcSeriesMode());
+  document.documentElement.setAttribute('data-spc-charts', String(chartsPre.length || 3));
   layoutCanvas();
   const c = palette();
   if (!(opts && opts.light)) spcHits = [];
   ctx.clearRect(0, 0, canvasW, canvasH);
   ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
-  const rawPts = spcPointRows();
   if (!rawPts.length) {
+    renderSpcStats([], []);
     ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(indexedRows.length ? 'No rows for this series / time frame' : 'Paste TableS4 data to see SPC', canvasW / 2, canvasH / 2);
     return;
   }
-  const by = document.getElementById('spcBy').value;
-  const mspec = by === 'mspec' ? document.getElementById('spcValue').value : (col(rawPts[rawPts.length - 1].row, 'MSPEC') || currentSnapshot.mspec);
+  const by = byEl.value;
+  const mspec = mspecGuess;
   const selectedIdx = viewingIdx === 'current' ? -1 : Number(viewingIdx);
-  const charts = spcChartDefs(mspec);
+  const charts = chartsPre;
   const { pts, flagged } = applySharedOutliers(rawPts, charts);
+  renderSpcStats(pts.length ? pts : rawPts, charts);
   if (!pts.length) {
     ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -5946,8 +6506,18 @@ window.addEventListener('resize', () => {
   }, 220);
 });
 document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true);
+document.getElementById('welcomeHistory').onclick = () => {
+  if (!indexedRows.length) { toast('Paste results first'); return; }
+  goTo('history');
+  requestAnimationFrame(() => renderHistoryTable());
+};
+document.getElementById('welcomeCompliance').onclick = () => openCompliance('welcome');
+document.getElementById('welcomeTrends').onclick = openTrends;
+document.getElementById('welcomeMspecs').onclick = openMspecs;
+document.getElementById('welcomeSpc').onclick = openSpc;
 document.getElementById('histPaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histCompliance').onclick = () => openCompliance('history');
+document.getElementById('histTrends').onclick = openTrends;
 document.getElementById('histMspecs').onclick = openMspecs;
 document.getElementById('complianceMspecs').onclick = openMspecs;
 document.getElementById('histSpc').onclick = openSpc;
@@ -5964,11 +6534,7 @@ document.getElementById('complianceSapFile').onchange = async (e) => {
     toast('Could not read that file. Try a CSV export from SAP.');
   }
 };
-document.getElementById('mspecBack').onclick = () => {
-  setViewMode('centration');
-  setScreen(indexedRows.length ? 'history' : 'welcome');
-  if (indexedRows.length) requestAnimationFrame(() => renderHistoryTable());
-};
+document.getElementById('mspecBack').onclick = goBack;
 document.getElementById('mspecDownload').onclick = downloadMspecExcel;
 document.getElementById('mspecSearch').oninput = renderMspecTable;
 document.getElementById('compRptCancel').onclick = () => document.getElementById('complianceReportOverlay').classList.remove('show');
@@ -5989,11 +6555,7 @@ document.getElementById('compRptDownload').onclick = () => {
   document.getElementById('complianceReportOverlay').classList.remove('show');
   downloadCompliancePdf(days, lines);
 };
-document.getElementById('complianceBack').onclick = () => {
-  setViewMode('centration');
-  setScreen('history');
-  requestAnimationFrame(() => renderHistoryTable());
-};
+document.getElementById('complianceBack').onclick = goBack;
 document.getElementById('compliancePrevWeek').onclick = () => {
   complianceMonday = shiftMonday(complianceMonday || mondayOfLocalDate(new Date()), -1);
   renderCompliance();
@@ -6021,17 +6583,20 @@ document.getElementById('complianceDays').onclick = (e) => {
   if (!btn) return;
   openHistoryForItemDay(btn.dataset.compItem, +btn.dataset.compY, +btn.dataset.compM, +btn.dataset.compD, btn.dataset.compLine);
 };
-document.getElementById('viewBack').onclick = () => {
-  if (indexedRows.length && !enterMode) {
-    setViewMode('centration');
-    setScreen('history');
-    requestAnimationFrame(() => renderHistoryBody(true));
-  } else {
-    enterMode = false;
-    setViewMode('centration');
-    setScreen('welcome');
-  }
-};
+document.getElementById('viewBack').onclick = goBack;
+document.getElementById('trendsBack').onclick = goBack;
+document.addEventListener('click', (e) => {
+  const crumb = e.target.closest('button[data-crumb]');
+  if (crumb) jumpToCrumb(crumb.dataset.crumb);
+});
+['trendFrom','trendTo','trendLine','trendFailType'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.onchange = renderTrends;
+});
+['trendItem','trendMspec'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.oninput = renderTrends;
+});
 document.getElementById('prevResult').onclick = viewPrev;
 document.getElementById('nextResult').onclick = viewNext;
 document.getElementById('histResetFilters').onclick = resetFilters;
@@ -6103,6 +6668,15 @@ const redrawSpcDates = () => {
 };
 document.getElementById('spcFrom').onchange = document.getElementById('spcFrom').oninput = redrawSpcDates;
 document.getElementById('spcTo').onchange = document.getElementById('spcTo').oninput = redrawSpcDates;
+document.getElementById('spcSeries').onchange = () => {
+  document.documentElement.setAttribute('data-spc-series', spcSeriesMode());
+  canvasLayoutKey = '';
+  requestAnimationFrame(() => draw());
+};
+document.getElementById('spcStatsBtn').onclick = () => {
+  spcShowStats = !spcShowStats;
+  requestAnimationFrame(() => draw());
+};
 document.getElementById('spcOutliers').onclick = () => {
   spcHideOutliers = !spcHideOutliers;
   document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
@@ -6170,7 +6744,7 @@ document.addEventListener('paste', (e) => {
   if (tag === 'INPUT' && e.target.id !== 'clipCatcher') return;
   if (tag === 'SELECT') return;
   const text = (e.clipboardData || window.clipboardData).getData('text');
-  if (pasteIntent || screenName === 'welcome' || screenName === 'history' || screenName === 'mspecs' || e.target.id === 'clipCatcher') {
+  if (pasteIntent || screenName === 'welcome' || screenName === 'history' || screenName === 'mspecs' || screenName === 'trends' || e.target.id === 'clipCatcher') {
     e.preventDefault();
     applyClipboardText(text, !!(historyPack && historyPack.rows && historyPack.rows.length));
   }
@@ -6182,8 +6756,11 @@ document.getElementById('rangeSpec').oninput = document.getElementById('targetTh
 });
 document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };
 document.getElementById('arrowToggle').onclick = () => { setArrowVisible(!showArrow); draw(); saveState(); };
-document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = document.getElementById('complianceTheme').onclick = document.getElementById('mspecTheme').onclick = () => {
-  applyTheme(isDark() ? 'light' : 'dark'); if (screenName === 'view') draw(); saveState();
+document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = document.getElementById('complianceTheme').onclick = document.getElementById('mspecTheme').onclick = document.getElementById('trendsTheme').onclick = () => {
+  applyTheme(isDark() ? 'light' : 'dark');
+  if (screenName === 'view') draw();
+  if (screenName === 'trends') renderTrends();
+  saveState();
 };
 document.getElementById('settingsBtn').onclick = () => {
   document.getElementById('setPoints').value = TOTAL;
@@ -6217,15 +6794,7 @@ customArrow = !!saved.customArrow;
 if (saved.arrow) arrow = saved.arrow;
 setupInputs([]);
 setViewMode('centration');
-if (saved.hasHistory) {
-  screenName = 'history';
-  document.documentElement.setAttribute('data-screen', 'history');
-  syncWelcome();
-  syncViewChrome();
-  syncDocTitle();
-} else {
-  setScreen('welcome');
-}
+setScreen('welcome');
 document.getElementById('appVersion').textContent = 'v' + APP_VERSION;
 restorePack().then(async data => {
   if (!data || !Array.isArray(data.rows) || !data.rows.length) {
@@ -6259,8 +6828,7 @@ restorePack().then(async data => {
     syncPlantChrome();
     syncWelcome();
     markHasHistory(true);
-    setScreen('history');
-    requestAnimationFrame(() => renderHistoryTable());
+    setScreen('welcome');
   } finally {
     hideProgress();
   }

@@ -172,9 +172,26 @@ assert.match(html, /Paste results/);
 assert.match(html, /Paste more data/);
 assert.match(html, /id="histMspecs"/);
 assert.match(html, /id="screenMspecs"/);
-assert.doesNotMatch(html, /id="welcomeHistory"/);
+assert.match(html, /id="welcomeHistory"/);
+assert.match(html, /id="welcomeTrends"/);
+assert.match(html, /id="welcomeSpc"/);
+assert.match(html, /id="welcomeCompliance"/);
+assert.match(html, /id="screenTrends"/);
+assert.match(html, /id="trendsSection"/);
+assert.match(html, /function goTo/);
+assert.match(html, /function goBack/);
+assert.match(html, /function renderCrumbs/);
+assert.match(html, /function cpkBundle/);
+assert.match(html, /function buildComplianceData/);
+assert.match(html, /function filterComplianceData/);
+assert.match(html, /function aggregateMissedByDay/);
+assert.match(html, /function aggregateFailsByDay/);
+assert.match(html, /function groupFailTypes/);
+assert.match(html, /id="spcSeries"/);
+assert.match(html, /Each T point over time/);
+assert.match(html, /id="spcStatsBtn"/);
+assert.match(html, /cdn.jsdelivr.net\/npm\/chart.js/);
 assert.doesNotMatch(html, /id="welcomeEnter"/);
-assert.doesNotMatch(html, /id="welcomeSpc"/);
 assert.match(html, /APP_VERSION/);
 assert.match(html, /function persistPack/);
 assert.match(html, /function canonMspec/);
@@ -190,7 +207,8 @@ assert.match(html, /excelSerialDate/);
 assert.match(html, /isoToExcelSerial/);
 assert.doesNotMatch(html, /id="histClearFilters"/);
 assert.match(html, /data-view/);
-assert.match(html, /Back to history/);
+assert.match(html, /id="viewBack"/);
+assert.match(html, /class="crumbs"/);
 assert.match(html, /SPC mode/);
 assert.match(html, /Cell count MD/);
 assert.match(html, /Density/);
@@ -248,7 +266,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.29'/);
+assert.match(html, /APP_VERSION = '1\.7\.30'/);
 assert.match(html, /function sapRealignRow/);
 assert.match(html, /function sapLooksUnit/);
 assert.match(html, /id="histSpace"/);
@@ -266,7 +284,7 @@ assert.match(html, /canvasLayoutKey/);
 assert.doesNotMatch(html, /rows\.map\(r => rowHtml\(r\)\)\.join\(''\)/);
 assert.match(html, /<title>Quality Desk<\/title>/);
 assert.match(html, /<h1>Quality Desk<\/h1>/);
-assert.match(html, /History, specs, compliance, and posting checks/);
+assert.match(html, /History, specs, compliance, trends, and posting checks/);
 assert.match(html, /Centration graph/);
 assert.match(html, /function syncDocTitle/);
 assert.match(html, /FILE_PREFIX = 'quality-desk'/);
@@ -2007,5 +2025,65 @@ const mspecCounts = countBySpcKey([
 ], 'mspec');
 assert.equal(mspecCounts['4780'], 3);
 assert.equal(html.includes("c === 1 ? '1 pt' : `${c} pts`"), true);
+
+function cpkBundle(values, lsl, usl) {
+  const xs = (values || []).filter(v => finiteNum(v)).map(Number);
+  const n = xs.length;
+  if (n < 2) return { n, mean: NaN, stdev: NaN, cp: NaN, cpk: NaN, cpl: NaN, cpu: NaN };
+  const mean = xs.reduce((a, b) => a + b, 0) / n;
+  const stdev = Math.sqrt(xs.reduce((s, x) => s + (x - mean) * (x - mean), 0) / (n - 1));
+  const cpl = finiteNum(lsl) && stdev > 0 ? (mean - Number(lsl)) / (3 * stdev) : NaN;
+  const cpu = finiteNum(usl) && stdev > 0 ? (Number(usl) - mean) / (3 * stdev) : NaN;
+  const sides = [cpl, cpu].filter(finiteNum);
+  const cpk = sides.length ? Math.min.apply(null, sides) : NaN;
+  const cp = finiteNum(lsl) && finiteNum(usl) && stdev > 0 ? (Number(usl) - Number(lsl)) / (6 * stdev) : NaN;
+  return { n, mean, stdev, cp, cpk, cpl, cpu };
+}
+function cpkTone(cpk) {
+  if (!finiteNum(cpk)) return 'na';
+  if (cpk >= 1.33) return 'good';
+  if (cpk >= 1) return 'ok';
+  return 'bad';
+}
+const cpkOk = cpkBundle([0.248, 0.250, 0.251, 0.249, 0.250, 0.252], 0.240, 0.260);
+assert.equal(cpkOk.n, 6);
+assert.ok(cpkOk.cpk > 2);
+assert.equal(cpkTone(cpkOk.cpk), 'good');
+const cpkBad = cpkBundle([0.230, 0.270, 0.220, 0.280], 0.240, 0.260);
+assert.equal(cpkTone(cpkBad.cpk), 'bad');
+function filterComplianceData(rows, filters) {
+  const f = filters || {};
+  return (rows || []).filter(r => {
+    if (f.from && r.date < f.from) return false;
+    if (f.to && r.date > f.to) return false;
+    if (f.line && r.line !== f.line) return false;
+    if (f.item && !String(r.itemNumber).includes(f.item)) return false;
+    if (f.failType && !(r.failType || '').includes(f.failType)) return false;
+    return true;
+  });
+}
+function aggregateMissedByDay(rows) {
+  const map = new Map();
+  for (const r of rows || []) {
+    if (!map.has(r.date)) map.set(r.date, { date: r.date, missed: 0 });
+    map.get(r.date).missed += Number(r.missedChecks || 0);
+  }
+  return [...map.values()];
+}
+function groupFailTypes(rows) {
+  const map = new Map();
+  for (const r of rows || []) map.set(r.failType, (map.get(r.failType) || 0) + 1);
+  return [...map.entries()].map(([failType, count]) => ({ failType, count })).sort((a, b) => b.count - a.count);
+}
+const complianceData = [
+  { date: '2026-08-13', line: 'S1', itemNumber: '43013', expectedChecks: 2, completedChecks: 1, missedChecks: 1, failCount: 1, failType: 'thickness over' },
+  { date: '2026-08-13', line: 'S4', itemNumber: '300715', expectedChecks: 1, completedChecks: 1, missedChecks: 0, failCount: 0, failType: '' },
+  { date: '2026-08-14', line: 'S1', itemNumber: '43013', expectedChecks: 1, completedChecks: 0, missedChecks: 1, failCount: 1, failType: 'density under' }
+];
+assert.equal(filterComplianceData(complianceData, { line: 'S1' }).length, 2);
+assert.equal(filterComplianceData(complianceData, { item: '300715' }).length, 1);
+assert.equal(aggregateMissedByDay(complianceData).find(r => r.date === '2026-08-13').missed, 1);
+assert.equal(groupFailTypes([{ failType: 'thickness over' }, { failType: 'thickness over' }, { failType: 'density under' }])[0].failType, 'thickness over');
+assert.match(html, /let complianceData = \[\]/);
 
 console.log('parse-diegraph tests passed');

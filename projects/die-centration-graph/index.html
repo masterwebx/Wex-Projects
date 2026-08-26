@@ -362,6 +362,7 @@ try {
     gap: 12px;
   }
   .panel { padding: 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  #spcControls { overflow: auto; min-height: 0; flex: 1; }
   .panel h2, .side h2 { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; overflow: auto; flex: 1; min-height: 0; padding-right: 4px; }
   .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -757,6 +758,7 @@ try {
         </label>
         <label>From <input type="date" id="spcFrom"></label>
         <label>To <input type="date" id="spcTo"></label>
+        <button class="secondary full spc-charts-only" type="button" id="spcSeriesGraph">Series Centration Graph</button>
         <label class="spc-charts-only">Charts
           <select id="spcSeries">
             <option value="summary">Average / range / density</option>
@@ -767,7 +769,6 @@ try {
         <button class="secondary full spc-charts-only" type="button" id="spcOutliers">Show outliers</button>
         <button class="secondary full spc-charts-only" type="button" id="spcDownloadPdf">Download SPC PDF</button>
         <button class="secondary full spc-charts-only" type="button" id="spcReportBtn">SPC report…</button>
-        <button class="secondary full spc-charts-only" type="button" id="spcSeriesGraph">Series Centration Graph</button>
         <p class="hist-meta spc-charts-only" id="spcHint">Average, range, and density over time with min/max spec lines. Open Series Centration Graph to overlay every die check in the range.</p>
         <div class="series-only" id="seriesControls">
           <label>Show checks

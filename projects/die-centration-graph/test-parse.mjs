@@ -272,7 +272,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.35'/);
+assert.match(html, /APP_VERSION = '1\.7\.36'/);
 assert.match(html, /id="spcSeriesGraph"/);
 assert.match(html, /id="seriesLimit"/);
 assert.match(html, /id="seriesBtn"/);
@@ -304,6 +304,8 @@ assert.equal((function seriesLimitN(raw) {
 assert.match(html, /function firstOfPriorMonthYmd/);
 assert.match(html, /function sortKeysByCount/);
 assert.match(html, /function spcXAt/);
+assert.match(html, /function spcXLayout/);
+assert.match(html, /function spcFilledTimes/);
 assert.match(html, /function showDocsTopic/);
 assert.match(html, /function bindTrendCombo/);
 assert.match(html, /function trendNeedle/);
@@ -335,10 +337,68 @@ function sortKeysByCount(counts) {
     || String(a).localeCompare(String(b), undefined, { numeric: true }));
 }
 assert.deepEqual(sortKeysByCount({ a: 2, b: 9, c: 9 }), ['b', 'c', 'a']);
-function spcXAt(plot, pts, iOrTick) {
+function spcFilledTimes(pts) {
+  const n = (pts || []).length;
+  const times = new Array(n);
+  let prev = NaN;
+  for (let i = 0; i < n; i++) {
+    const t = Number(pts[i] && pts[i].t);
+    if (isFinite(t) && t > 0) { times[i] = t; prev = t; }
+    else times[i] = prev;
+  }
+  let next = NaN;
+  for (let i = n - 1; i >= 0; i--) {
+    if (isFinite(times[i])) next = times[i];
+    else times[i] = next;
+  }
+  return times;
+}
+function spcCalX(plot, t, t0, span) {
+  const u = Math.min(1, Math.max(0, ((isFinite(t) ? t : t0) - t0) / span));
+  return plot.x + u * plot.w;
+}
+function spcXLayout(plot, pts) {
+  const n = (pts || []).length;
+  if (!plot || n <= 0) return [];
+  if (n === 1) return [plot.x + plot.w / 2];
+  const times = spcFilledTimes(pts);
+  const t0 = isFinite(times[0]) ? times[0] : 0;
+  const t1 = isFinite(times[n - 1]) ? times[n - 1] : t0;
+  const span = Math.max(t1 - t0, 1 / 1440);
+  const xs = new Array(n);
+  let i = 0;
+  while (i < n) {
+    const t = times[i];
+    let j = i + 1;
+    while (j < n && times[j] === t) j++;
+    const k = j - i;
+    const x0 = spcCalX(plot, isFinite(t) ? t : t0, t0, span);
+    const x1 = j < n && isFinite(times[j]) && times[j] > (isFinite(t) ? t : t0)
+      ? spcCalX(plot, times[j], t0, span)
+      : plot.x + plot.w;
+    if (k === 1) xs[i] = x0;
+    else {
+      const width = Math.max(x1 - x0, 0);
+      const use = width > 1 ? width * 0.92 : Math.max(k * 2.5, 8);
+      const left = width > 1 ? x0 : Math.max(plot.x, x0 - use / 2);
+      for (let p = 0; p < k; p++) xs[i + p] = left + ((p + 0.5) / k) * use;
+    }
+    i = j;
+  }
+  xs[0] = Math.min(plot.x + plot.w, Math.max(plot.x, xs[0]));
+  const eps = 0.35;
+  for (let p = 1; p < n; p++) xs[p] = Math.min(plot.x + plot.w, Math.max(xs[p], xs[p - 1] + eps));
+  if (xs[n - 1] > plot.x + plot.w + 0.01) {
+    const left = xs[0], right = plot.x + plot.w, spanX = xs[n - 1] - left;
+    if (spanX > 0) for (let p = 0; p < n; p++) xs[p] = left + (xs[p] - left) * (right - left) / spanX;
+  }
+  return xs;
+}
+function spcXAt(plot, pts, iOrTick, xs) {
   const n = (pts || []).length;
   if (!plot || n <= 0) return 0;
   if (n === 1) return plot.x + plot.w / 2;
+  if (typeof iOrTick === 'number' && xs && isFinite(xs[iOrTick])) return xs[iOrTick];
   const t0 = Number(pts[0].t) || 0;
   const t1 = Number(pts[n - 1].t) || 0;
   const span = Math.max(t1 - t0, 1 / 1440);
@@ -346,13 +406,23 @@ function spcXAt(plot, pts, iOrTick) {
   if (iOrTick && typeof iOrTick === 'object') t = Number(iOrTick.t);
   else if (typeof iOrTick === 'number') t = Number(pts[iOrTick] && pts[iOrTick].t);
   if (!isFinite(t)) t = t0;
-  const u = Math.min(1, Math.max(0, (t - t0) / span));
-  return plot.x + u * plot.w;
+  return spcCalX(plot, t, t0, span);
 }
 const plot = { x: 100, w: 200 };
 assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], 0), 100);
 assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], 1), 300);
 assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], { t: 15 }), 200);
+const stacked = [{ t: 10, avg: 1 }, { t: 10, avg: 40 }, { t: 10, avg: 2 }, { t: 20, avg: 3 }];
+const stackedXs = spcXLayout(plot, stacked);
+assert.ok(stackedXs[1] > stackedXs[0] + 0.3);
+assert.ok(stackedXs[2] > stackedXs[1] + 0.3);
+assert.ok(stackedXs[2] < stackedXs[3]);
+assert.equal(spcXAt(plot, stacked, 0, stackedXs), stackedXs[0]);
+const sameDay = [{ t: 45800 }, { t: 45800 }, { t: 45800 }, { t: 45800 }, { t: 45800 }];
+const sameXs = spcXLayout({ x: 0, w: 400 }, sameDay);
+assert.ok(sameXs[0] < sameXs[4]);
+assert.ok(sameXs[4] - sameXs[0] > 50);
+for (let i = 1; i < sameXs.length; i++) assert.ok(sameXs[i] > sameXs[i - 1]);
 assert.match(html, /id="welcomeSap"/);
 assert.match(html, /plantRows\('foam'\)\.length/);
 assert.match(html, /data-spc-series="points"] canvas/);

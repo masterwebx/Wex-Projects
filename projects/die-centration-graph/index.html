@@ -1210,7 +1210,7 @@ try {
             <text x="412" y="166" font-size="11" fill="#fff">Aug 12 · 0.247 in</text>
             <text x="412" y="182" font-size="10" fill="#93c5fd">Hover a dot — same as this card</text>
             <text x="16" y="270" font-size="12" fill="var(--text)"><tspan fill="#16a34a">●</tspan> In spec   <tspan fill="#dc2626">●</tspan> Out of spec   <tspan fill="#2563eb">●</tspan> Selected check   <tspan fill="#f59e0b">✕</tspan> Outlier (hidden unless you show them)</text>
-            <text x="16" y="292" font-size="12" fill="var(--muted)">Months sit on the calendar, not on “point number,” so Jun and Jul no longer pile on top of each other.</text>
+            <text x="16" y="292" font-size="12" fill="var(--muted)">Months sit on the calendar. Checks from the same hour sit next to each other so the line does not spike up and down.</text>
           </svg>
           <figcaption>Read the chart like a timeline. Left is older, right is newer. The dashed lines are the spec window from the Master Sheet (or the boxes you typed on the right).</figcaption>
         </figure>
@@ -1476,7 +1476,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.35';
+const APP_VERSION = '1.7.36';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -2661,10 +2661,68 @@ function spcIndexAtSerial(pts, serial) {
   }
   return n - 1;
 }
-function spcXAt(plot, pts, iOrTick) {
+function spcFilledTimes(pts) {
+  const n = (pts || []).length;
+  const times = new Array(n);
+  let prev = NaN;
+  for (let i = 0; i < n; i++) {
+    const t = Number(pts[i] && pts[i].t);
+    if (isFinite(t) && t > 0) { times[i] = t; prev = t; }
+    else times[i] = prev;
+  }
+  let next = NaN;
+  for (let i = n - 1; i >= 0; i--) {
+    if (isFinite(times[i])) next = times[i];
+    else times[i] = next;
+  }
+  return times;
+}
+function spcCalX(plot, t, t0, span) {
+  const u = Math.min(1, Math.max(0, ((isFinite(t) ? t : t0) - t0) / span));
+  return plot.x + u * plot.w;
+}
+function spcXLayout(plot, pts) {
+  const n = (pts || []).length;
+  if (!plot || n <= 0) return [];
+  if (n === 1) return [plot.x + plot.w / 2];
+  const times = spcFilledTimes(pts);
+  const t0 = isFinite(times[0]) ? times[0] : 0;
+  const t1 = isFinite(times[n - 1]) ? times[n - 1] : t0;
+  const span = Math.max(t1 - t0, 1 / 1440);
+  const xs = new Array(n);
+  let i = 0;
+  while (i < n) {
+    const t = times[i];
+    let j = i + 1;
+    while (j < n && times[j] === t) j++;
+    const k = j - i;
+    const x0 = spcCalX(plot, isFinite(t) ? t : t0, t0, span);
+    const x1 = j < n && isFinite(times[j]) && times[j] > (isFinite(t) ? t : t0)
+      ? spcCalX(plot, times[j], t0, span)
+      : plot.x + plot.w;
+    if (k === 1) xs[i] = x0;
+    else {
+      const width = Math.max(x1 - x0, 0);
+      const use = width > 1 ? width * 0.92 : Math.max(k * 2.5, 8);
+      const left = width > 1 ? x0 : Math.max(plot.x, x0 - use / 2);
+      for (let p = 0; p < k; p++) xs[i + p] = left + ((p + 0.5) / k) * use;
+    }
+    i = j;
+  }
+  xs[0] = Math.min(plot.x + plot.w, Math.max(plot.x, xs[0]));
+  const eps = 0.35;
+  for (let p = 1; p < n; p++) xs[p] = Math.min(plot.x + plot.w, Math.max(xs[p], xs[p - 1] + eps));
+  if (xs[n - 1] > plot.x + plot.w + 0.01) {
+    const left = xs[0], right = plot.x + plot.w, spanX = xs[n - 1] - left;
+    if (spanX > 0) for (let p = 0; p < n; p++) xs[p] = left + (xs[p] - left) * (right - left) / spanX;
+  }
+  return xs;
+}
+function spcXAt(plot, pts, iOrTick, xs) {
   const n = (pts || []).length;
   if (!plot || n <= 0) return 0;
   if (n === 1) return plot.x + plot.w / 2;
+  if (typeof iOrTick === 'number' && xs && isFinite(xs[iOrTick])) return xs[iOrTick];
   const t0 = Number(pts[0].t) || 0;
   const t1 = Number(pts[n - 1].t) || 0;
   const span = Math.max(t1 - t0, 1 / 1440);
@@ -2672,8 +2730,7 @@ function spcXAt(plot, pts, iOrTick) {
   if (iOrTick && typeof iOrTick === 'object') t = Number(iOrTick.t);
   else if (typeof iOrTick === 'number') t = Number(pts[iOrTick] && pts[iOrTick].t);
   if (!isFinite(t)) t = t0;
-  const u = Math.min(1, Math.max(0, (t - t0) / span));
-  return plot.x + u * plot.w;
+  return spcCalX(plot, t, t0, span);
 }
 function spcAxisTicks(pts) {
   if (!pts.length) return [];
@@ -5319,16 +5376,17 @@ function pdfDrawSpcChart(page, box, pts, flagged, ch) {
   pdfLine(page, plot.x, plot.y + plot.h, plot.x + plot.w, plot.y + plot.h, '#94a3b8', 0.6);
   pdfText(page, plot.x - 6, plot.y + 3, ym.max.toFixed(digits), { size: 7, color: '#3e4a55', align: 'right' });
   pdfText(page, plot.x - 6, plot.y + plot.h + 3, ym.min.toFixed(digits), { size: 7, color: '#3e4a55', align: 'right' });
+  const xs = spcXLayout(plot, pts);
   let last = null;
   pts.forEach((p, i) => {
     if (!finiteNum(p[ch.key]) || (spcHideOutliers && flagged[i])) return;
-    const xx = spcXAt(plot, pts, i), yy = yAt(p[ch.key]);
-    if (last) pdfLine(page, last.x, last.y, xx, yy, '#12202b', 1);
+    const xx = spcXAt(plot, pts, i, xs), yy = yAt(p[ch.key]);
+    if (last && Math.abs(xx - last.x) >= 0.6) pdfLine(page, last.x, last.y, xx, yy, '#12202b', 1);
     last = { x: xx, y: yy };
   });
   pts.forEach((p, i) => {
     if (!finiteNum(p[ch.key]) || (spcHideOutliers && flagged[i])) return;
-    const xx = spcXAt(plot, pts, i), yy = yAt(p[ch.key]);
+    const xx = spcXAt(plot, pts, i, xs), yy = yAt(p[ch.key]);
     const fail = judgeBetween(p[ch.key], ch.min, ch.max) === 'Fail';
     if (flagged[i] && !spcHideOutliers) {
       pdfLine(page, xx - 3, yy - 3, xx + 3, yy + 3, '#d97706', 1);
@@ -7139,12 +7197,16 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
   ctx.fillText(ym.max.toFixed(digits), plot.x - 8, plot.y);
   ctx.fillText(ym.min.toFixed(digits), plot.x - 8, plot.y + plot.h);
   const n = pts.length;
+  const xs = spcXLayout(plot, pts);
   ctx.strokeStyle = c.text; ctx.globalAlpha = 0.85; ctx.lineWidth = 2; ctx.beginPath();
-  let started = false;
+  let started = false, lastX = NaN;
   pts.forEach((p, i) => {
     if (!finiteNum(p[key]) || (spcHideOutliers && flagged[i])) return;
-    const xx = spcXAt(plot, pts, i), yy = yAt(p[key]);
-    if (!started) { ctx.moveTo(xx, yy); started = true; } else ctx.lineTo(xx, yy);
+    const xx = spcXAt(plot, pts, i, xs), yy = yAt(p[key]);
+    if (!started) { ctx.moveTo(xx, yy); started = true; }
+    else if (Math.abs(xx - lastX) < 0.6) ctx.moveTo(xx, yy);
+    else ctx.lineTo(xx, yy);
+    lastX = xx;
   });
   ctx.stroke(); ctx.globalAlpha = 1;
   const light = opts && opts.light;
@@ -7155,8 +7217,11 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
       if (!finiteNum(p[key])) continue;
       if (spcHideOutliers && flagged[i]) continue;
       const selected = p.idx === selectedIdx;
-      if (stride > 1 && i % stride && !selected) continue;
-      const xx = spcXAt(plot, pts, i), yy = yAt(p[key]);
+      const peak = i === 0 || i === n - 1
+        || (finiteNum(pts[i - 1][key]) && finiteNum(pts[i + 1][key])
+          && ((p[key] - pts[i - 1][key]) * (pts[i + 1][key] - p[key]) < 0));
+      if (stride > 1 && i % stride && !selected && !peak) continue;
+      const xx = spcXAt(plot, pts, i, xs), yy = yAt(p[key]);
       const outlier = flagged[i];
       const inSpec = judgeBetween(p[key], specMin, specMax);
       if (outlier && !spcHideOutliers) {

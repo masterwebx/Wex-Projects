@@ -165,20 +165,32 @@ try {
   .filter-list { max-height: 220px; overflow: auto; display: grid; gap: 4px; font-size: 14px; }
   .filter-list label { display: flex; gap: 8px; align-items: center; font-weight: 400; }
   .spc-only { display: none !important; }
-  html[data-mode="spc"] .spc-only { display: flex !important; flex-direction: column; gap: 8px; }
-  html[data-mode="spc"] .spc-only label {
+  html[data-mode="spc"] .spc-only,
+  html[data-mode="series"] .spc-only { display: flex !important; flex-direction: column; gap: 8px; }
+  html[data-mode="spc"] .spc-only label,
+  html[data-mode="series"] .spc-only label,
+  html[data-mode="series"] .series-only label {
     display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 700; color: var(--muted);
     text-transform: uppercase; letter-spacing: .04em;
   }
   html[data-mode="spc"] .spc-only .combo,
   html[data-mode="spc"] .spc-only .combo input,
-  html[data-mode="spc"] .spc-only .combo-list { text-transform: none; letter-spacing: normal; }
+  html[data-mode="spc"] .spc-only .combo-list,
+  html[data-mode="series"] .spc-only .combo,
+  html[data-mode="series"] .spc-only .combo input,
+  html[data-mode="series"] .spc-only .combo-list { text-transform: none; letter-spacing: normal; }
   html[data-mode="spc"] .spc-only select,
   html[data-mode="spc"] .spc-only input[type="date"],
-  html[data-mode="spc"] .spc-only input[type="search"] {
+  html[data-mode="spc"] .spc-only input[type="search"],
+  html[data-mode="series"] .spc-only select,
+  html[data-mode="series"] .spc-only input[type="date"],
+  html[data-mode="series"] .spc-only input[type="search"] {
     width: 100%; border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
     font: inherit; font-size: 16px; background: var(--idle); color: var(--text);
   }
+  .series-only { display: none !important; }
+  html[data-mode="series"] .series-only { display: flex !important; flex-direction: column; gap: 8px; }
+  html[data-mode="series"] .spc-charts-only { display: none !important; }
   .combo { position: relative; }
   .combo-list {
     position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 16;
@@ -350,6 +362,7 @@ try {
     gap: 12px;
   }
   .panel { padding: 12px; overflow: hidden; display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+  #spcControls { overflow: auto; min-height: 0; flex: 1; }
   .panel h2, .side h2 { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-content: start; overflow: auto; flex: 1; min-height: 0; padding-right: 4px; }
   .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
@@ -385,7 +398,8 @@ try {
   canvas { display: block; max-width: 100%; max-height: 100%; }
   .legend { display: flex; gap: 12px; flex-wrap: wrap; }
   .swatch { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-  html[data-mode="spc"] .centration-only { display: none !important; }
+  html[data-mode="spc"] .centration-only,
+  html[data-mode="series"] .centration-only { display: none !important; }
   html[data-mode="spc"] .stage { align-items: stretch; min-height: 0; }
   html[data-mode="spc"] canvas { width: 100%; height: 100%; max-width: 100%; max-height: 100%; }
   html[data-spc-series="points"] .stage {
@@ -560,7 +574,7 @@ try {
       <button class="hub-tile" type="button" id="welcomeCompliance"><b>Compliance</b><span>Weekly checks vs SAP postings.</span></button>
       <button class="hub-tile" type="button" id="welcomeTrends"><b>Trends</b><span>Missed checks, fail Pareto, and line progress.</span></button>
       <button class="hub-tile" type="button" id="welcomeMspecs"><b>MSPECs</b><span>Audit Master Sheet specs.</span></button>
-      <button class="hub-tile" type="button" id="welcomeSpc"><b>SPC charts</b><span>Average, range, density, and each T point.</span></button>
+      <button class="hub-tile" type="button" id="welcomeSpc"><b>SPC charts</b><span>Average, range, density, T points, and series overlay.</span></button>
       <button class="hub-tile" type="button" id="welcomeDocs"><b>Documentation</b><span>Click a page for pictures and what every number means.</span></button>
     </div>
     <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
@@ -712,6 +726,7 @@ try {
       <button class="secondary" type="button" id="prevResult">Previous result</button>
       <button class="secondary" type="button" id="nextResult">Next result</button>
       <button class="secondary" type="button" id="modeBtn">SPC mode</button>
+      <button class="secondary" type="button" id="seriesBtn">Series graph</button>
       <button class="secondary" type="button" id="themeBtn">Dark mode</button>
       <button class="secondary centration-only" type="button" id="settingsBtn">Settings</button>
       <button class="secondary centration-only" type="button" id="arrowToggle">Show arrow</button>
@@ -723,7 +738,8 @@ try {
       <h2 class="centration-only">Thickness points</h2>
       <div class="grid centration-only" id="inputs"></div>
       <div class="spc-only" id="spcControls">
-        <h2>SPC series</h2>
+        <h2 class="spc-charts-only">SPC series</h2>
+        <h2 class="series-only">Series graph</h2>
         <label>View by
           <select id="spcBy">
             <option value="item">Item #</option>
@@ -742,17 +758,31 @@ try {
         </label>
         <label>From <input type="date" id="spcFrom"></label>
         <label>To <input type="date" id="spcTo"></label>
-        <label>Charts
+        <button class="secondary full spc-charts-only" type="button" id="spcSeriesGraph">Series Centration Graph</button>
+        <label class="spc-charts-only">Charts
           <select id="spcSeries">
             <option value="summary">Average / range / density</option>
             <option value="points">Each T point over time</option>
           </select>
         </label>
-        <p class="hist-meta" id="spcDateHint">Date range limits the Item/MSPEC list to what ran in that period.</p>
-        <button class="secondary full" type="button" id="spcOutliers">Show outliers</button>
-        <button class="secondary full" type="button" id="spcDownloadPdf">Download SPC PDF</button>
-        <button class="secondary full" type="button" id="spcReportBtn">SPC report…</button>
-        <p class="hist-meta" id="spcHint">Average, range, and density over time with min/max spec lines. Points way outside the spec window are hidden by default.</p>
+        <p class="hist-meta spc-charts-only" id="spcDateHint">Date range limits the Item/MSPEC list to what ran in that period.</p>
+        <button class="secondary full spc-charts-only" type="button" id="spcOutliers">Show outliers</button>
+        <button class="secondary full spc-charts-only" type="button" id="spcDownloadPdf">Download SPC PDF</button>
+        <button class="secondary full spc-charts-only" type="button" id="spcReportBtn">SPC report…</button>
+        <p class="hist-meta spc-charts-only" id="spcHint">Average, range, and density over time with min/max spec lines. Open Series Centration Graph to overlay every die check in the range.</p>
+        <div class="series-only" id="seriesControls">
+          <label>Show checks
+            <select id="seriesLimit">
+              <option value="10">Last 10</option>
+              <option value="20">Last 20</option>
+              <option value="50" selected>Last 50</option>
+              <option value="100">Last 100</option>
+              <option value="all">All in date range</option>
+            </select>
+          </label>
+          <p class="hist-meta">Each ring is one hourly check. Older checks are faint and thin; the newest is bold with green / yellow / red dots. Hover a ring for time. Click it to open that single graph.</p>
+          <button class="secondary full" type="button" id="seriesOpenLatest">Open latest as single graph</button>
+        </div>
       </div>
       <div class="actions">
         <button class="secondary full centration-only" type="button" id="copyBtn">Copy values</button>
@@ -782,7 +812,7 @@ try {
         <label>Density max <input type="number" id="densMaxSpec" step="0.01" value=""></label>
         <label>Cell count min <input type="number" id="cellMinSpec" step="1" value=""></label>
       </div>
-      <div class="spc-only" id="spcStatsBox">
+      <div class="spc-only spc-charts-only" id="spcStatsBox">
         <h2>CPK stats</h2>
         <p class="hist-meta">Cpk ≥ 1.33 capable · 1.00–1.33 marginal · below 1.00 not capable.</p>
         <div class="cpk-list" id="spcStats"></div>
@@ -859,6 +889,7 @@ try {
       <button type="button" class="docs-navbtn" data-docs="spc">SPC charts</button>
       <button type="button" class="docs-navbtn" data-docs="cpk">CPK stats</button>
       <button type="button" class="docs-navbtn" data-docs="radial">Centration graph</button>
+      <button type="button" class="docs-navbtn" data-docs="series">Series graph</button>
       <button type="button" class="docs-navbtn" data-docs="trail">Cookie trail</button>
     </nav>
     <div class="docs-main" id="docsMain">
@@ -1180,6 +1211,7 @@ try {
           <li><b>Each T point over time</b> — one chart per die location (T1, T2, …). Scroll if there are many. Use this when one side of the die is drifting.</li>
           <li><b>Hide / Show outliers</b> — points way outside the spec window are hidden by default so one bad type-in does not squash the scale.</li>
           <li>Click a dot, then use <b>Centration graph</b> in the tools bar to open that exact check. The trail becomes Home › SPC › Graph.</li>
+          <li><b>Series Centration Graph</b> overlays every die check in the date range on one radial map — see the Series graph topic.</li>
         </ul>
         <p class="docs-tip">Hover any point on the live chart for date, value, and which check it is. CPK numbers on the right are explained in the CPK stats topic.</p>
       </article>
@@ -1303,7 +1335,55 @@ try {
           <li>Previous / Next walks History rows for the current filters.</li>
           <li>Settings changes how many T-points and bolts are drawn — match the sheet (often 13 points).</li>
           <li>Show arrow draws the shift from the center of the readings toward the thick side.</li>
+          <li><b>Series graph</b> on the tools bar overlays many checks at once instead of one hour.</li>
         </ul>
+      </article>
+
+      <article class="docs-panel" data-docs="series" id="docs-series" hidden>
+        <h2>Series centration graph</h2>
+        <p class="hist-meta">One picture of many hourly die checks stacked on the same radial map. Use it to see whether the die is drifting, not just whether the last hour passed.</p>
+        <figure class="docs-aid" id="docs-aid-series">
+          <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Series centration overlay">
+            <circle cx="230" cy="170" r="120" fill="#fde68a" stroke="#ca8a04" stroke-width="1.5"/>
+            <circle cx="230" cy="170" r="80" fill="#86efac" stroke="#166534" stroke-width="1.5"/>
+            <polygon points="230,62 292,92 318,160 292,228 230,258 168,228 142,160 168,92" fill="none" stroke="#94a3b8" stroke-width="1" opacity="0.45"/>
+            <polygon points="230,70 284,98 306,162 280,220 230,248 176,222 158,164 176,98" fill="none" stroke="#64748b" stroke-width="1.1" opacity="0.55"/>
+            <polygon points="230,78 274,104 294,164 268,214 230,236 188,216 174,166 186,106" fill="none" stroke="#3b82f6" stroke-width="1.4" opacity="0.75"/>
+            <polygon points="230,86 262,112 280,166 258,206 230,224 200,208 188,168 198,114" fill="none" stroke="#1d4ed8" stroke-width="2.2"/>
+            <circle cx="230" cy="86" r="3.4" fill="#22c55e" stroke="#14532d"/>
+            <circle cx="262" cy="112" r="3.4" fill="#22c55e" stroke="#14532d"/>
+            <circle cx="280" cy="166" r="3.4" fill="#22c55e" stroke="#14532d"/>
+            <circle cx="258" cy="206" r="3.4" fill="#eab308" stroke="#854d0e"/>
+            <circle cx="230" cy="224" r="3.4" fill="#22c55e" stroke="#14532d"/>
+            <circle cx="200" cy="208" r="3.4" fill="#22c55e" stroke="#14532d"/>
+            <circle cx="188" cy="168" r="3.4" fill="#ef4444" stroke="#7f1d1d"/>
+            <circle cx="198" cy="114" r="3.4" fill="#22c55e" stroke="#14532d"/>
+            <text x="400" y="70" font-size="13" fill="var(--text)">Faint gray rings = older checks</text>
+            <text x="400" y="94" font-size="13" fill="var(--text)">Blue ring = newest check</text>
+            <text x="400" y="118" font-size="13" fill="var(--text)">Newest dots keep spec colors</text>
+            <text x="400" y="150" font-size="13" fill="var(--muted)">Green = in spec</text>
+            <text x="400" y="172" font-size="13" fill="var(--muted)">Yellow = thin · Red = thick</text>
+            <text x="400" y="204" font-size="13" fill="var(--text)">Dashed ring (on the live graph)</text>
+            <text x="400" y="226" font-size="13" fill="var(--text)">is the average shape of all shown checks</text>
+            <text x="400" y="258" font-size="13" fill="var(--muted)">Hover any ring for date and T value.</text>
+            <text x="400" y="280" font-size="13" fill="var(--muted)">Click a ring to open that single hour.</text>
+            <text x="400" y="312" font-size="13" fill="var(--muted)">Show last 10 / 20 / 50 / 100 / all.</text>
+          </svg>
+          <figcaption>If the blue newest ring sits in a different place than the faint older rings, that sector of the die has moved. That is the point of the series view — one hour cannot show drift.</figcaption>
+        </figure>
+        <h3>How to open it</h3>
+        <ul>
+          <li>From <b>SPC charts</b>, pick Item # or MSPEC and a date range, then press <b>Series Centration Graph</b>.</li>
+          <li>From a single centration graph, press <b>Series graph</b> in the tools bar. It uses the same Item / MSPEC and the SPC date range (From defaults to the first of last month).</li>
+        </ul>
+        <h3>What you are looking at</h3>
+        <ul>
+          <li>The green and yellow bands are still the spec window. A check inside the green band is in spec at that T-point.</li>
+          <li>Lines and dots are thinner than the single-check graph so 20 or 50 overlays stay readable.</li>
+          <li><b>Show checks</b> picks the newest 10, 20, 50, 100, or every check in the From / To range.</li>
+          <li>The dashed average shape is the typical die for those checks. If the newest ring pulls away from it, the process just shifted.</li>
+        </ul>
+        <p class="docs-tip">Foam only, same as SPC. Bubble, P1, and RTS do not use this view.</p>
       </article>
 
       <article class="docs-panel" data-docs="trail" id="docs-trail" hidden>
@@ -1384,7 +1464,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.33';
+const APP_VERSION = '1.7.34';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -1678,7 +1758,7 @@ function screenLabel(name, mode) {
   if (name === 'mspecs') return 'MSPECs';
   if (name === 'trends') return 'Trends';
   if (name === 'docs') return 'Docs';
-  if (name === 'view') return mode === 'spc' ? 'SPC' : 'Graph';
+  if (name === 'view') return mode === 'spc' ? 'SPC' : (mode === 'series' ? 'Series' : 'Graph');
   return name;
 }
 function renderCrumbs() {
@@ -1704,7 +1784,7 @@ function goTo(name, opts) {
     navStack.push({ screen: screenName, viewMode });
     if (navStack.length > 24) navStack.shift();
   }
-  if (mode) setViewMode(mode === 'spc' ? 'spc' : 'centration', opts && opts.fromView);
+  if (mode) setViewMode(mode, opts && opts.fromView);
   setScreen(name);
 }
 function goHome() {
@@ -1777,10 +1857,13 @@ function syncViewChrome() {
   const modeBtn = document.getElementById('modeBtn');
   if (modeBtn) {
     if (!isFoamPlant()) modeBtn.hidden = true;
+    else if (viewMode === 'series') modeBtn.hidden = true;
     else if (viewMode === 'spc') modeBtn.hidden = !spcPointSelected;
     else modeBtn.hidden = !hasHist || enterMode;
   }
-  const nav = hasHist && !enterMode && screenName === 'view' && viewMode !== 'spc';
+  const seriesBtn = document.getElementById('seriesBtn');
+  if (seriesBtn) seriesBtn.hidden = !isFoamPlant() || !hasHist || enterMode || viewMode === 'series';
+  const nav = hasHist && !enterMode && screenName === 'view' && viewMode !== 'spc' && viewMode !== 'series';
   const { i, rows } = historyNav();
   const prev = document.getElementById('prevResult');
   const next = document.getElementById('nextResult');
@@ -1795,7 +1878,7 @@ function syncDocTitle() {
   else if (screenName === 'mspecs') part = 'MSPECs';
   else   if (screenName === 'trends') part = 'Trends';
   else if (screenName === 'docs') part = 'Docs';
-  else if (screenName === 'view') part = viewMode === 'spc' ? 'SPC' : 'Centration';
+  else if (screenName === 'view') part = viewMode === 'spc' ? 'SPC' : (viewMode === 'series' ? 'Series' : 'Centration');
   document.title = part ? APP_NAME + ' · ' + part : APP_NAME;
 }
 function setScreen(name) {
@@ -1807,22 +1890,29 @@ function setScreen(name) {
   renderCrumbs();
   if (name === 'view') requestAnimationFrame(() => { calculate(); });
 }
+function normalizeViewMode(mode) {
+  if (mode === 'spc' || mode === 'series') return mode;
+  return 'centration';
+}
 function setViewMode(mode, fromView) {
-  const leavingSpc = viewMode === 'spc' && mode !== 'spc';
-  viewMode = mode === 'spc' ? 'spc' : 'centration';
+  const next = normalizeViewMode(mode);
+  const leavingChart = (viewMode === 'spc' || viewMode === 'series') && next === 'centration';
+  viewMode = next;
   document.documentElement.setAttribute('data-mode', viewMode);
-  document.getElementById('pageTitle').textContent = viewMode === 'spc' ? 'SPC charts' : 'Centration graph';
+  document.getElementById('pageTitle').textContent = viewMode === 'spc' ? 'SPC charts' : (viewMode === 'series' ? 'Series centration' : 'Centration graph');
   document.getElementById('modeBtn').textContent = viewMode === 'spc' ? 'Centration graph' : 'SPC mode';
   syncDocTitle();
   const legend = document.getElementById('canvasLegend');
   legend.innerHTML = viewMode === 'spc'
     ? `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#c24141"></i>Out of spec</span><span><i class="swatch" style="background:#f59e0b"></i>Outlier</span><span><i class="swatch" style="background:#1d4ed8"></i>Selected</span>`
-    : `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#e2b340"></i>Thin</span><span><i class="swatch" style="background:#c24141"></i>Thick</span>`;
-  if (viewMode !== 'spc') hideSpcTip();
-  if (viewMode === 'spc') fillSpcControls(fromView);
+    : viewMode === 'series'
+      ? `<span><i class="swatch" style="background:#94a3b8"></i>Older</span><span><i class="swatch" style="background:#1d4ed8"></i>Newest</span><span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#e2b340"></i>Thin</span><span><i class="swatch" style="background:#c24141"></i>Thick</span>`
+      : `<span><i class="swatch" style="background:#3c9d5a"></i>In spec</span><span><i class="swatch" style="background:#e2b340"></i>Thin</span><span><i class="swatch" style="background:#c24141"></i>Thick</span>`;
+  if (viewMode !== 'spc' && viewMode !== 'series') hideSpcTip();
+  if (viewMode === 'spc' || viewMode === 'series') fillSpcControls(fromView);
   syncViewChrome();
   renderCrumbs();
-  if (leavingSpc && screenName === 'view') requestAnimationFrame(() => calculate());
+  if (leavingChart && screenName === 'view') requestAnimationFrame(() => calculate());
 }
 function setArrowVisible(on) {
   showArrow = !!on;
@@ -2415,7 +2505,7 @@ function syncPlantChrome() {
   if (complianceMspecs) complianceMspecs.hidden = !foam;
   const histSap = document.getElementById('histSap');
   if (histSap) histSap.hidden = !isPostingsPlant();
-  if (!foam && (screenName === 'view' || screenName === 'mspecs' || viewMode === 'spc')) {
+  if (!foam && (screenName === 'view' || screenName === 'mspecs' || viewMode === 'spc' || viewMode === 'series')) {
     setViewMode('centration');
     setScreen('history');
   }
@@ -3291,7 +3381,7 @@ function setActiveLine(line, from) {
   activeLine = String(line || '').trim();
   fillLineSelects();
   if (from === 'compliance' || screenName === 'compliance') renderCompliance();
-  if (from === 'spc' || viewMode === 'spc') {
+  if (from === 'spc' || viewMode === 'spc' || viewMode === 'series') {
     fillSpcControls();
     redrawSpc();
   }
@@ -3865,7 +3955,7 @@ function pickSpcValue(v) {
   redrawSpc();
 }
 function redrawSpc() {
-  if (screenName !== 'view' || viewMode !== 'spc') return;
+  if (screenName !== 'view' || (viewMode !== 'spc' && viewMode !== 'series')) return;
   const by = document.getElementById('spcBy').value;
   const val = String(document.getElementById('spcValue').value || '').trim();
   const mspec = by === 'mspec' ? val : ((indexedRows.find(r => r.item === val) || {}).mspec || currentSnapshot.mspec);
@@ -3912,13 +4002,16 @@ function refreshViewMeta() {
   const el = document.getElementById('viewMeta');
   if (!el) return;
   if (screenName !== 'view') { el.textContent = ''; return; }
-  if (viewMode === 'spc') {
+  if (viewMode === 'spc' || viewMode === 'series') {
     const by = document.getElementById('spcBy');
     const val = document.getElementById('spcValue');
     if (by && val && val.value) {
       const n = spcComboStats().counts[val.value] || 0;
+      const shown = viewMode === 'series' ? seriesPointRows().length : n;
       const name = by.value === 'mspec' ? mspecWithTarget(val.value) : itemWithTargets(val.value, mspecForItem(val.value));
-      el.textContent = `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${name} · ${spcPtsLabel(n)}`;
+      el.textContent = viewMode === 'series'
+        ? `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${name} · showing ${shown} of ${spcPtsLabel(n)}`
+        : `${by.value === 'mspec' ? 'MSPEC' : 'Item #'} ${name} · ${spcPtsLabel(n)}`;
     } else el.textContent = '';
     return;
   }
@@ -3937,12 +4030,12 @@ function refreshViewMeta() {
   el.textContent = [when, item && `Item ${itemWithTargets(item, mspec)}`, desc, mspec && `MSPEC ${mspecWithTarget(mspec)}`].filter(Boolean).join(' · ');
 }
 function viewPrev() {
-  if (viewMode === 'spc') return;
+  if (viewMode === 'spc' || viewMode === 'series') return;
   const { rows, i } = historyNav();
   if (i > 0) goHistoryRow(rows[i - 1].idx);
 }
 function viewNext() {
-  if (viewMode === 'spc') return;
+  if (viewMode === 'spc' || viewMode === 'series') return;
   const { rows, i } = historyNav();
   if (i >= 0 && i < rows.length - 1) goHistoryRow(rows[i + 1].idx);
   else if (viewingIdx === 'current' && rows.length) goHistoryRow(rows[0].idx);
@@ -3980,6 +4073,42 @@ function openSpc() {
   goTo('view', { mode: 'spc', fromView: true });
   syncViewChrome();
   requestAnimationFrame(() => draw());
+}
+function seriesLimitN() {
+  const raw = String((document.getElementById('seriesLimit') || {}).value || '50');
+  if (raw === 'all') return Infinity;
+  const n = parseInt(raw, 10);
+  return isFinite(n) && n > 0 ? n : 50;
+}
+function takeLast(rows, n) {
+  const list = rows || [];
+  if (!isFinite(n) || list.length <= n) return list;
+  return list.slice(list.length - n);
+}
+function seriesHasShape(p) {
+  let n = 0;
+  for (let i = 1; i <= TOTAL; i++) if (finiteNum(p && p['t' + i])) n += 1;
+  return n >= 3;
+}
+function seriesPointRows() {
+  return takeLast(spcPointRows().filter(seriesHasShape), seriesLimitN());
+}
+function openSeriesGraph() {
+  if (!plantRows('foam').length || enterMode) { toast('Paste TableS4 results first'); return; }
+  if (!isFoamPlant()) setActivePlant('foam', { keepFilters: true });
+  const foam = uniqueSorted([...new Set(plantRows('foam').map(r => realLineName(r.line)).filter(Boolean))], false);
+  if (foam.length && !foam.includes(activeLine)) activeLine = foam[0];
+  fillLineSelects();
+  if (!(document.getElementById('spcFrom') || {}).value) syncSpcDates(true);
+  goTo('view', { mode: 'series' });
+  syncViewChrome();
+  requestAnimationFrame(() => draw());
+}
+function openSeriesLatest() {
+  const pts = seriesPointRows();
+  const last = pts[pts.length - 1];
+  if (!last) { toast('No checks in this range'); return; }
+  viewResult(last.idx);
 }
 function openCompliance(from) {
   if (!indexedRows.length) { toast('Paste results first'); return; }
@@ -7051,9 +7180,142 @@ function drawCentration() {
   const range = isFinite(maxVal) && isFinite(minVal) ? maxVal - minVal : NaN;
   updateSummary(avg, range, min, max, lastRangeSpec);
 }
+function seriesAge(i, n) {
+  return n <= 1 ? 1 : i / (n - 1);
+}
+function seriesStroke(t) {
+  const u = Math.min(1, Math.max(0, t));
+  const r = Math.round(148 + (29 - 148) * u);
+  const g = Math.round(163 + (78 - 163) * u);
+  const b = Math.round(184 + (216 - 184) * u);
+  const a = 0.16 + 0.8 * u;
+  return `rgba(${r},${g},${b},${a})`;
+}
+function seriesPlotFor(values, min, max) {
+  const plot = [];
+  for (let i = 0; i < TOTAL; i++) {
+    const v = values[i], a = pointAngle(i), r = valueToRadius(v, min, max);
+    plot.push({ idx: i, val: v, x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r });
+  }
+  return plot;
+}
+function drawSeriesShape(plot, stroke, width) {
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = width;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  for (let i = 0; i < TOTAL; i++) {
+    const a = plot[i], b = plot[(i + 1) % TOTAL];
+    if (!isFinite(a.val) || !isFinite(b.val)) continue;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+  }
+}
+function updateSeriesSummary(pts, allN, min, max) {
+  const el = document.getElementById('summary');
+  if (!el) return;
+  const last = pts[pts.length - 1];
+  const lastVals = last ? Array.from({ length: TOTAL }, (_, i) => last['t' + (i + 1)]) : [];
+  const valid = lastVals.filter(finiteNum);
+  const avg = valid.length ? valid.reduce((a, b) => a + b, 0) / valid.length : NaN;
+  let lo = Infinity, hi = -Infinity;
+  valid.forEach(v => { if (v < lo) lo = v; if (v > hi) hi = v; });
+  const range = isFinite(lo) && isFinite(hi) ? hi - lo : NaN;
+  let out = 0;
+  lastVals.forEach(v => {
+    if (!finiteNum(v)) return;
+    if ((finiteNum(min) && v < min) || (finiteNum(max) && v > max)) out += 1;
+  });
+  const first = pts[0];
+  const span = first && last ? `${excelDateOnly(first.t)} – ${excelDateOnly(last.t)}` : '';
+  el.innerHTML = `
+    <div class="stat">${pts.length} checks shown<b>${allN && allN !== pts.length ? 'of ' + allN : ''}</b></div>
+    <div class="stat">${span || 'No range'}<b>span</b></div>
+    <div class="stat ${finiteNum(avg) && finiteNum(min) && finiteNum(max) && (avg < min || avg > max) ? 'bad' : 'good'}">Latest average <b>${finiteNum(avg) ? avg.toFixed(3) : '--'}</b></div>
+    <div class="stat">Latest range <b>${finiteNum(range) ? range.toFixed(3) : '--'}</b></div>
+    <div class="alert ${out ? 'bad' : 'good'}">${out ? out + ' newest T-points out of spec' : 'Newest check in spec at every T'}</div>
+  `;
+}
+function drawSeriesCentration() {
+  layoutCanvas();
+  const min = lastMin, max = lastMax, c = palette(), bolts = boltSet();
+  ctx.clearRect(0, 0, canvasW, canvasH); ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
+  ctx.globalAlpha = 0.96;
+  ctx.fillStyle = c.yellow; ctx.beginPath(); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = c.green; ctx.beginPath(); ctx.arc(center.x, center.y, GREEN_R, 0, Math.PI * 2); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2, true); ctx.fill();
+  ctx.globalAlpha = 1; ctx.lineWidth = 2;
+  ctx.strokeStyle = c.greenStroke; ctx.beginPath(); ctx.arc(center.x, center.y, GREEN_R, 0, Math.PI * 2); ctx.stroke();
+  ctx.strokeStyle = c.yellowStroke; ctx.beginPath(); ctx.arc(center.x, center.y, YELLOW_R, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = c.text; ctx.beginPath(); ctx.arc(center.x, center.y, 3, 0, Math.PI * 2); ctx.fill();
+  bolts.forEach(b => drawBolt(c, b));
+  const all = spcPointRows().filter(seriesHasShape);
+  const pts = takeLast(all, seriesLimitN());
+  spcHits = [];
+  if (!pts.length) {
+    ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(all.length || indexedRows.length ? 'No T-point checks in this range' : 'Paste TableS4 data to see a series', canvasW / 2, canvasH / 2);
+    updateSeriesSummary([], all.length, min, max);
+    return;
+  }
+  const n = pts.length;
+  const thin = n > 30;
+  const mean = [];
+  for (let i = 0; i < TOTAL; i++) {
+    const xs = pts.map(p => p['t' + (i + 1)]).filter(finiteNum);
+    mean[i] = xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN;
+  }
+  ctx.setLineDash([5, 4]);
+  drawSeriesShape(seriesPlotFor(mean, min, max), isDark() ? 'rgba(243,247,251,.7)' : 'rgba(18,32,43,.55)', thin ? 1.1 : 1.4);
+  ctx.setLineDash([]);
+  pts.forEach((p, i) => {
+    const t = seriesAge(i, n);
+    const values = Array.from({ length: TOTAL }, (_, k) => p['t' + (k + 1)]);
+    const plot = seriesPlotFor(values, min, max);
+    const newest = i === n - 1;
+    const width = (thin ? 0.45 : 0.65) + (newest ? 1.5 : 1.05) * t;
+    drawSeriesShape(plot, seriesStroke(t), width);
+    const dotR = (thin ? 1.0 : 1.2) + (newest ? 2.4 : 1.6) * t;
+    plot.forEach(pt => {
+      if (!isFinite(pt.val)) return;
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, newest ? Math.max(3.2, dotR) : dotR, 0, Math.PI * 2);
+      if (newest) {
+        ctx.fillStyle = pt.val < min ? c.thinDot : (pt.val > max ? c.thickDot : c.inDot);
+      } else {
+        ctx.fillStyle = seriesStroke(t);
+      }
+      ctx.fill();
+      if (newest) {
+        ctx.lineWidth = 1; ctx.strokeStyle = c.pointStroke; ctx.stroke();
+      }
+      spcHits.push({
+        x: pt.x, y: pt.y, r: newest ? 10 : 7, idx: p.idx, key: 't' + (pt.idx + 1),
+        title: `T${pt.idx + 1} · ${i + 1}/${n}`, value: pt.val, t: p.t, unit: 'in'
+      });
+    });
+  });
+  ctx.font = `700 ${Math.max(13, S * 0.02)}px "Atkinson Hyperlegible", Arial`;
+  ctx.textBaseline = 'middle';
+  for (let i = 0; i < TOTAL; i++) {
+    const ang = pointAngle(i), ca = Math.cos(ang), sa = Math.sin(ang), r = labelRadius(ang, bolts);
+    const tx = center.x + ca * r, ty = center.y + sa * r;
+    ctx.textAlign = Math.abs(ca) < 0.25 ? 'center' : (ca > 0 ? 'left' : 'right');
+    const text = 'T' + (i + 1);
+    ctx.lineWidth = 4; ctx.strokeStyle = c.halo; ctx.strokeText(text, tx, ty);
+    ctx.fillStyle = c.muted; ctx.fillText(text, tx, ty);
+  }
+  ctx.font = `700 ${Math.max(12, S * 0.018)}px "Atkinson Hyperlegible", Arial`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillStyle = c.muted;
+  ctx.fillText('older → newer   ·   dashed = average of shown checks', center.x, canvasH - 8);
+  updateSeriesSummary(pts, all.length, min, max);
+}
 function draw(opts) {
   if (screenName !== 'view') return;
-  if (viewMode === 'spc') drawSpc(opts); else drawCentration();
+  if (viewMode === 'spc') drawSpc(opts);
+  else if (viewMode === 'series') {
+    syncPlotFromInputs();
+    drawSeriesCentration();
+  } else drawCentration();
 }
 function hideSpcTip() {
   const tip = document.getElementById('spcTip');
@@ -7074,27 +7336,31 @@ function canvasPoint(evt) {
   const r = canvas.getBoundingClientRect(), src = evt.touches ? evt.touches[0] : evt;
   return { x: (src.clientX - r.left) * (canvasW / r.width), y: (src.clientY - r.top) * (canvasH / r.height) };
 }
+function hitSpcPoint(pt) {
+  let best = null, bestD = Infinity;
+  for (let i = (spcHits || []).length - 1; i >= 0; i--) {
+    const h = spcHits[i];
+    const d = Math.hypot(pt.x - h.x, pt.y - h.y);
+    if (d <= h.r && d < bestD) { best = h; bestD = d; }
+  }
+  return best;
+}
 function hitHandle(pt) {
-  if (viewMode === 'spc' || !showArrow || !arrow.head || !arrow.tail) return null;
+  if (viewMode === 'spc' || viewMode === 'series' || !showArrow || !arrow.head || !arrow.tail) return null;
   const dh = Math.hypot(pt.x - arrow.head.x, pt.y - arrow.head.y);
   const dt = Math.hypot(pt.x - arrow.tail.x, pt.y - arrow.tail.y);
   if (dh <= HANDLE_R && dh <= dt) return 'head';
   if (dt <= HANDLE_R) return 'tail';
   return null;
 }
-function hitSpcPoint(pt) {
-  let best = null, bestD = Infinity;
-  for (const h of spcHits) {
-    const d = Math.hypot(pt.x - h.x, pt.y - h.y);
-    if (d <= h.r && d < bestD) { best = h; bestD = d; }
-  }
-  return best;
-}
 function onPointerDown(e) {
   const pt = canvasPoint(e);
-  if (viewMode === 'spc') {
+  if (viewMode === 'spc' || viewMode === 'series') {
     const hit = hitSpcPoint(pt);
-    if (hit && hit.idx != null) selectSpcPoint(hit.idx);
+    if (hit && hit.idx != null) {
+      if (viewMode === 'series') viewResult(hit.idx);
+      else selectSpcPoint(hit.idx);
+    }
     return;
   }
   const k = hitHandle(pt); if (!k) return;
@@ -7103,7 +7369,7 @@ function onPointerDown(e) {
 function onPointerMove(e) {
   const src = e.touches ? e.touches[0] : e;
   const box = canvas.getBoundingClientRect();
-  if (viewMode === 'spc') {
+  if (viewMode === 'spc' || viewMode === 'series') {
     if (!src || src.clientX < box.left || src.clientX > box.right || src.clientY < box.top || src.clientY > box.bottom) {
       hideSpcTip();
       return;
@@ -7268,6 +7534,13 @@ document.getElementById('modeBtn').onclick = () => {
   if (viewMode === 'spc') goTo('view', { mode: 'centration' });
   else openSpc();
 };
+document.getElementById('seriesBtn').onclick = openSeriesGraph;
+document.getElementById('spcSeriesGraph').onclick = openSeriesGraph;
+document.getElementById('seriesOpenLatest').onclick = openSeriesLatest;
+document.getElementById('seriesLimit').onchange = () => {
+  refreshViewMeta();
+  requestAnimationFrame(() => draw());
+};
 document.getElementById('spcBy').onchange = () => {
   document.getElementById('spcValue').value = '';
   spcPointSelected = false;
@@ -7310,7 +7583,7 @@ document.getElementById('spcValueList').onclick = (e) => {
   if (btn) pickSpcValue(btn.dataset.val);
 };
 const redrawSpcDates = () => {
-  if (viewMode !== 'spc') return;
+  if (viewMode !== 'spc' && viewMode !== 'series') return;
   spcPointSelected = false;
   syncViewChrome();
   fillSpcControls();
@@ -7403,7 +7676,7 @@ document.addEventListener('paste', (e) => {
 document.getElementById('minThickness').oninput = document.getElementById('maxThickness').oninput = () => { customArrow = false; calculate(); };
 document.getElementById('rangeSpec').oninput = document.getElementById('targetThickness').oninput = calculate;
 ['densMinSpec','densTargetSpec','densMaxSpec','cellMinSpec'].forEach(id => {
-  document.getElementById(id).oninput = () => { if (viewMode === 'spc') draw(); else refreshChecks(); };
+  document.getElementById(id).oninput = () => { if (viewMode === 'spc' || viewMode === 'series') draw(); else refreshChecks(); };
 });
 document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };
 document.getElementById('arrowToggle').onclick = () => { setArrowVisible(!showArrow); draw(); saveState(); };

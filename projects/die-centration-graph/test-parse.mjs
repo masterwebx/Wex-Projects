@@ -232,7 +232,7 @@ assert.match(html, /function spcPreferredFromView/);
 assert.match(html, /function selectSpcPoint/);
 assert.match(html, /function specsHaveValues/);
 assert.match(html, /function syncPlotFromInputs/);
-assert.match(html, /leavingSpc && screenName === 'view'/);
+assert.match(html, /leavingChart && screenName === 'view'/);
 assert.match(html, /syncPlotFromInputs\(\);/);
 assert.match(html, /No Master Sheet row for MSPEC/);
 assert.doesNotMatch(html, /keeping last specs/);
@@ -272,7 +272,35 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.33'/);
+assert.match(html, /APP_VERSION = '1\.7\.34'/);
+assert.match(html, /id="spcSeriesGraph"/);
+assert.match(html, /id="seriesLimit"/);
+assert.match(html, /id="seriesBtn"/);
+assert.match(html, /function openSeriesGraph/);
+assert.match(html, /function drawSeriesCentration/);
+assert.match(html, /function seriesPointRows/);
+assert.match(html, /function seriesLimitN/);
+assert.match(html, /function takeLast/);
+assert.match(html, /function normalizeViewMode/);
+assert.match(html, /docs-aid-series/);
+assert.match(html, /data-docs="series"/);
+function takeLast(rows, n) {
+  const list = rows || [];
+  if (!isFinite(n) || list.length <= n) return list;
+  return list.slice(list.length - n);
+}
+assert.deepEqual(takeLast([1, 2, 3, 4, 5], 2), [4, 5]);
+assert.deepEqual(takeLast([1, 2], Infinity), [1, 2]);
+assert.equal((function seriesLimitN(raw) {
+  if (raw === 'all') return Infinity;
+  const n = parseInt(raw, 10);
+  return isFinite(n) && n > 0 ? n : 50;
+})('50'), 50);
+assert.equal((function seriesLimitN(raw) {
+  if (raw === 'all') return Infinity;
+  const n = parseInt(raw, 10);
+  return isFinite(n) && n > 0 ? n : 50;
+})('all'), Infinity);
 assert.match(html, /function firstOfPriorMonthYmd/);
 assert.match(html, /function sortKeysByCount/);
 assert.match(html, /function spcXAt/);

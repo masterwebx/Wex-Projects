@@ -185,8 +185,23 @@ assert.match(html, /function cpkBundle/);
 assert.match(html, /function buildComplianceData/);
 assert.match(html, /function filterComplianceData/);
 assert.match(html, /function aggregateMissedByDay/);
-assert.match(html, /function aggregateFailsByDay/);
+assert.match(html, /function aggregateMissedByWeek/);
+assert.match(html, /function aggregateFailsByWeek/);
 assert.match(html, /function groupFailTypes/);
+assert.match(html, /function groupFailKeys/);
+assert.match(html, /function weekKeyFromYmd/);
+assert.match(html, /function spcDataMonths/);
+assert.match(html, /function spcCompressedScale/);
+assert.match(html, /function openHistoryForTrendBar/);
+assert.match(html, /id="trendItemChart"/);
+assert.match(html, /id="trendMspecChart"/);
+assert.match(html, /Quality fails by item #/);
+assert.match(html, /Fails by MSPEC/);
+assert.match(html, /Missed checks by week/);
+assert.match(html, /Fails by week/);
+assert.match(html, /Only months that have checks are shown/);
+assert.match(html, /No failing items/);
+assert.match(html, /trendFailPtsLabel/);
 assert.match(html, /id="spcSeries"/);
 assert.match(html, /Each T point over time/);
 assert.doesNotMatch(html, /id="spcStatsBtn"/);
@@ -272,7 +287,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.36'/);
+assert.match(html, /APP_VERSION = '1\.7\.37'/);
 assert.match(html, /id="spcSeriesGraph"/);
 assert.match(html, /id="seriesLimit"/);
 assert.match(html, /id="seriesBtn"/);
@@ -2252,8 +2267,70 @@ assert.equal(filterComplianceData(complianceData, { line: 'S1' }).length, 2);
 assert.equal(filterComplianceData(complianceData, { item: '300715' }).length, 1);
 assert.equal(aggregateMissedByDay(complianceData).find(r => r.date === '2026-08-13').missed, 1);
 assert.equal(groupFailTypes([{ failType: 'thickness over' }, { failType: 'thickness over' }, { failType: 'density under' }])[0].failType, 'thickness over');
+function ymdStamp(y, m, d) {
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
+function mondayFromYmd(ymd) {
+  const parts = String(ymd || '').split('-').map(Number);
+  if (parts.length < 3 || !parts[0]) return null;
+  return mondayOfLocalDate(new Date(parts[0], parts[1] - 1, parts[2]));
+}
+function weekKeyFromYmd(ymd) {
+  const mon = mondayFromYmd(ymd);
+  if (!mon) return String(ymd || '');
+  return ymdStamp(mon.getUTCFullYear(), mon.getUTCMonth() + 1, mon.getUTCDate());
+}
+assert.equal(weekKeyFromYmd('2026-08-13'), '2026-08-10');
+assert.equal(weekKeyFromYmd('2026-08-10'), '2026-08-10');
+assert.equal(weekKeyFromYmd('2026-08-16'), '2026-08-10');
+assert.equal(weekKeyFromYmd('2026-08-17'), '2026-08-17');
+function aggregateMissedByWeek(rows) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const week = weekKeyFromYmd(r.date);
+    if (!map.has(week)) map.set(week, { date: week, missed: 0 });
+    map.get(week).missed += Number(r.missedChecks || 0);
+  }
+  return [...map.values()];
+}
+assert.equal(aggregateMissedByWeek(complianceData).find(r => r.date === '2026-08-10').missed, 2);
+function groupFailKeys(rows, keyFn) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const key = keyFn(r);
+    if (!key) continue;
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+  return [...map.entries()].map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
+}
+assert.equal(groupFailKeys([{ itemNumber: 'A' }, { itemNumber: 'A' }, { itemNumber: 'B' }], r => r.itemNumber)[0].key, 'A');
+function isoToExcelSerial(iso) {
+  const parts = String(iso || '').split('-').map(Number);
+  return Date.UTC(parts[0], parts[1] - 1, parts[2]) / 86400000 + 25569;
+}
+function excelDatePartsFromSerial(v) {
+  const n = parseFloat(v);
+  if (!isFinite(n) || n < 20000 || n > 90000) return null;
+  const d = excelSerialDate(n);
+  return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), serial: n };
+}
+function spcDataMonths(pts) {
+  const map = new Map();
+  for (const p of pts || []) {
+    const dp = excelDatePartsFromSerial(p.t);
+    if (!dp) continue;
+    const key = dp.y + '-' + String(dp.m).padStart(2, '0');
+    if (!map.has(key)) map.set(key, { y: dp.y, m: dp.m, key });
+  }
+  return [...map.values()].sort((a, b) => a.y - b.y || a.m - b.m);
+}
+const jul = isoToExcelSerial('2026-07-15');
+const sep = isoToExcelSerial('2026-09-02');
+const dataMonths = spcDataMonths([{ t: jul }, { t: sep }]);
+assert.deepEqual(dataMonths.map(m => m.key), ['2026-07', '2026-09']);
+assert.ok(!dataMonths.some(m => m.key === '2026-08'));
 assert.match(html, /let complianceData = \[\]/);
-assert.match(html, /MONTHS\[m - 1\]\.slice\(0, 3\) \+ ' ' \+ String\(y\)\.slice\(2\)/);
+assert.match(html, /MONTHS\[mo\.m - 1\]\.slice\(0, 3\) \+ ' ' \+ String\(mo\.y\)\.slice\(2\)/);
 assert.doesNotMatch(html, /const maxTicks = 10/);
 
 console.log('parse-diegraph tests passed');

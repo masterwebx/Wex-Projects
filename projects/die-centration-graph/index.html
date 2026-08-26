@@ -478,6 +478,8 @@ try {
   .trend-chart { min-height: 280px; padding: 10px; }
   .trend-chart h2 { margin: 0 0 8px; font-size: 16px; }
   .trend-chart canvas { width: 100% !important; height: 240px !important; }
+  .trend-chart.trend-clickable canvas { cursor: pointer; }
+  .trend-chart .hist-meta { margin: 0 0 6px; }
   .trend-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
   .trend-stat { padding: 12px; }
   .trend-stat b { display: block; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
@@ -860,12 +862,22 @@ try {
     </div>
     <div class="trends-charts">
       <div class="card trend-chart">
-        <h2>Missed checks over time</h2>
+        <h2>Missed checks by week</h2>
         <canvas id="trendMissedChart" width="640" height="240"></canvas>
       </div>
       <div class="card trend-chart">
-        <h2>Fails over time</h2>
+        <h2>Fails by week</h2>
         <canvas id="trendFailChart" width="640" height="240"></canvas>
+      </div>
+      <div class="card trend-chart trend-clickable">
+        <h2>Quality fails by item #</h2>
+        <p class="hist-meta">Click a bar to open History for that item.</p>
+        <canvas id="trendItemChart" width="640" height="240"></canvas>
+      </div>
+      <div class="card trend-chart trend-clickable">
+        <h2>Fails by MSPEC</h2>
+        <p class="hist-meta">Click a bar to open History for that MSPEC.</p>
+        <canvas id="trendMspecChart" width="640" height="240"></canvas>
       </div>
     </div>
     <div class="card trend-stat">
@@ -1101,14 +1113,14 @@ try {
         <figure class="docs-aid" id="docs-aid-trends">
           <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Trends charts explained">
             <rect x="8" y="8" width="704" height="36" rx="8" fill="var(--idle)" stroke="var(--line)"/>
-            <text x="18" y="31" font-size="12" fill="var(--muted)">From Jul 1   To today   Line All   Item # ▾ (most points first)   MSPEC ▾   Fail type ▾</text>
+            <text x="18" y="31" font-size="12" fill="var(--muted)">From Jul 1   To today   Line All   Item # ▾ (failing only)   MSPEC ▾   Fail type ▾</text>
             <rect x="8" y="54" width="348" height="160" rx="12" fill="var(--bg)" stroke="var(--line)"/>
-            <text x="20" y="76" font-size="13" font-weight="700" fill="var(--text)">Missed checks over time</text>
+            <text x="20" y="76" font-size="13" font-weight="700" fill="var(--text)">Missed checks by week</text>
             <polyline points="36,180 80,150 130,158 180,120 230,128 280,96 330,110" fill="none" stroke="#2563eb" stroke-width="2.5"/>
             <polyline points="36,188 80,170 130,166 180,154 230,148 280,140 330,136" fill="none" stroke="#16a34a" stroke-width="2.5"/>
             <text x="36" y="202" font-size="10" fill="var(--muted)">Each colored line is one machine when All lines is selected</text>
             <rect x="364" y="54" width="348" height="160" rx="12" fill="var(--bg)" stroke="var(--line)"/>
-            <text x="376" y="76" font-size="13" font-weight="700" fill="var(--text)">Fails over time</text>
+            <text x="376" y="76" font-size="13" font-weight="700" fill="var(--text)">Fails by week</text>
             <rect x="392" y="140" width="28" height="50" fill="#2563eb"/>
             <rect x="392" y="116" width="28" height="24" fill="#ef4444"/>
             <rect x="436" y="128" width="28" height="62" fill="#2563eb"/>
@@ -1119,7 +1131,7 @@ try {
             <rect x="568" y="134" width="28" height="56" fill="#2563eb"/>
             <rect x="612" y="110" width="28" height="80" fill="#2563eb"/>
             <rect x="612" y="88" width="28" height="22" fill="#ef4444"/>
-            <text x="376" y="202" font-size="10" fill="var(--muted)">Stacked bars = fail types stacked on the same day</text>
+            <text x="376" y="202" font-size="10" fill="var(--muted)">Stacked bars = fail types stacked on the same week</text>
             <rect x="8" y="224" width="704" height="104" rx="12" fill="var(--bg)" stroke="var(--line)"/>
             <text x="20" y="246" font-size="13" font-weight="700" fill="var(--text)">Top quality fails (Pareto)</text>
             <rect x="160" y="258" width="420" height="12" rx="6" fill="#ef4444"/>
@@ -1132,16 +1144,20 @@ try {
             <text x="20" y="313" font-size="12" fill="var(--text)">range over</text>
             <text x="320" y="313" font-size="12" font-weight="700" fill="var(--text)">6</text>
           </svg>
-          <figcaption>Filters update both charts and the cards below immediately. Type an Item # or MSPEC, or pick from the list. The list is sorted from the most records to the fewest so busy products sit at the top.</figcaption>
+          <figcaption>Filters update the charts immediately. Item # and MSPEC lists only include products that have fails for the Fail type you picked. Click a bar on the item or MSPEC chart to open those fails in History.</figcaption>
         </figure>
         <h3>What each chart is telling you</h3>
         <div class="docs-term">
-          <h3>Missed checks over time</h3>
-          <p>A <b>missed check</b> is a posted item-day with no quality measurement. The line going up means more holes in coverage. When Line is “All lines”, you get one colored line per machine — hover a line in the legend to see which machine it is. A flat zero line is the goal.</p>
+          <h3>Missed checks by week</h3>
+          <p>A <b>missed check</b> is a posted item-day with no quality measurement. Each point is one week. The line going up means more holes that week. When Line is “All lines”, you get one colored line per machine — hover a line in the legend to see which machine it is. A flat zero line is the goal.</p>
         </div>
         <div class="docs-term">
-          <h3>Fails over time</h3>
-          <p>Each bar is one day. Colors stack, so a tall bar that is half red and half blue means two different fail reasons that day. Typical reasons: thickness over, thickness under, density under, density over, range over, cell count. Use the Fail type dropdown to isolate one reason.</p>
+          <h3>Fails by week</h3>
+          <p>Each bar is one week. Colors stack, so a tall bar that is half red and half blue means two different fail reasons that week. Typical reasons: thickness over, thickness under, density under, density over, range over, cell count. Use the Fail type dropdown to isolate one reason.</p>
+        </div>
+        <div class="docs-term">
+          <h3>Quality fails by item # / MSPEC</h3>
+          <p>How many quality fails each item or MSPEC has in the current filters. <b>Click a bar</b> to open History for that item or MSPEC (fails in the date range). Item # and MSPEC lists only include products that have fails for the Fail type you picked.</p>
         </div>
         <div class="docs-term">
           <h3>Top quality fails</h3>
@@ -1149,8 +1165,8 @@ try {
         </div>
         <h3>Summary cards</h3>
         <ul>
-          <li><b>Avg missed / day</b> — typical daily holes. Compare weeks after you change the date range.</li>
-          <li><b>Highest fail day</b> — the worst calendar day in range. Open History on that date to see the lots.</li>
+          <li><b>Avg missed / week</b> — typical weekly holes. Compare after you change the date range.</li>
+          <li><b>Highest fail week</b> — the worst week in range.</li>
           <li><b>Most common fail</b> — same as the top Pareto bar, in words.</li>
           <li><b>Repeat fail items</b> — items that failed at least twice. Those are chronic, not one-offs.</li>
           <li><b>Chronic lines</b> — machines with the highest share of missed checks.</li>
@@ -1210,7 +1226,7 @@ try {
             <text x="412" y="166" font-size="11" fill="#fff">Aug 12 · 0.247 in</text>
             <text x="412" y="182" font-size="10" fill="#93c5fd">Hover a dot — same as this card</text>
             <text x="16" y="270" font-size="12" fill="var(--text)"><tspan fill="#16a34a">●</tspan> In spec   <tspan fill="#dc2626">●</tspan> Out of spec   <tspan fill="#2563eb">●</tspan> Selected check   <tspan fill="#f59e0b">✕</tspan> Outlier (hidden unless you show them)</text>
-            <text x="16" y="292" font-size="12" fill="var(--muted)">Months sit on the calendar. Checks from the same hour sit next to each other so the line does not spike up and down.</text>
+            <text x="16" y="292" font-size="12" fill="var(--muted)">Only months that have checks are shown. Empty months are left out so the data is not stretched.</text>
           </svg>
           <figcaption>Read the chart like a timeline. Left is older, right is newer. The dashed lines are the spec window from the Master Sheet (or the boxes you typed on the right).</figcaption>
         </figure>
@@ -1476,7 +1492,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.36';
+const APP_VERSION = '1.7.37';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -1561,7 +1577,7 @@ let enterMode = false;
 let complianceMonday = null;
 let complianceBackTo = 'welcome';
 let navStack = [];
-let trendCharts = { missed: null, fails: null };
+let trendCharts = { missed: null, fails: null, items: null, mspecs: null };
 let complianceData = [];
 let trendFailEvents = [];
 let spcComboHi = -1;
@@ -2677,8 +2693,72 @@ function spcFilledTimes(pts) {
   }
   return times;
 }
-function spcCalX(plot, t, t0, span) {
-  const u = Math.min(1, Math.max(0, ((isFinite(t) ? t : t0) - t0) / span));
+function spcDataMonths(pts) {
+  const map = new Map();
+  for (const p of pts || []) {
+    const dp = excelDatePartsFromSerial(p.t);
+    if (!dp) continue;
+    const key = dp.y + '-' + String(dp.m).padStart(2, '0');
+    if (!map.has(key)) map.set(key, { y: dp.y, m: dp.m, key });
+  }
+  return [...map.values()].sort((a, b) => a.y - b.y || a.m - b.m);
+}
+function spcMonthStartSerial(y, m) {
+  return isoToExcelSerial(isoFromParts(y, m, 1));
+}
+function spcMonthEndSerial(y, m) {
+  const nm = m === 12 ? 1 : m + 1;
+  const ny = m === 12 ? y + 1 : y;
+  return isoToExcelSerial(isoFromParts(ny, nm, 1));
+}
+function spcCompressedScale(pts) {
+  const n = (pts || []).length;
+  const t0 = n ? Number(pts[0].t) || 0 : 0;
+  const t1 = n ? Number(pts[n - 1].t) || t0 : t0;
+  const months = spcDataMonths(pts);
+  if (months.length < 2) {
+    const span = Math.max(t1 - t0, 1 / 1440);
+    return {
+      months,
+      toU(t) {
+        const v = Number(t);
+        if (!isFinite(v)) return 0;
+        return Math.min(1, Math.max(0, (v - t0) / span));
+      }
+    };
+  }
+  let acc = 0;
+  const ranges = months.map(mo => {
+    const start = spcMonthStartSerial(mo.y, mo.m);
+    const end = spcMonthEndSerial(mo.y, mo.m);
+    const lo = isFinite(start) ? start : acc;
+    const hi = isFinite(end) ? end : lo + 30;
+    const width = Math.max(hi - lo, 1);
+    const from = acc;
+    acc += width;
+    return { y: mo.y, m: mo.m, start: lo, end: hi, from, width };
+  });
+  const span = Math.max(acc, 1 / 1440);
+  return {
+    months,
+    ranges,
+    toU(t) {
+      const v = Number(t);
+      if (!isFinite(v)) return 0;
+      for (let i = 0; i < ranges.length; i++) {
+        const r = ranges[i];
+        if (v < r.end || i === ranges.length - 1) {
+          return Math.min(1, Math.max(0, (r.from + Math.min(r.width, Math.max(0, v - r.start))) / span));
+        }
+      }
+      return 1;
+    }
+  };
+}
+function spcCalX(plot, t, t0, span, scale) {
+  const u = scale && scale.toU
+    ? scale.toU(t)
+    : Math.min(1, Math.max(0, ((isFinite(t) ? t : t0) - t0) / span));
   return plot.x + u * plot.w;
 }
 function spcXLayout(plot, pts) {
@@ -2689,6 +2769,7 @@ function spcXLayout(plot, pts) {
   const t0 = isFinite(times[0]) ? times[0] : 0;
   const t1 = isFinite(times[n - 1]) ? times[n - 1] : t0;
   const span = Math.max(t1 - t0, 1 / 1440);
+  const scale = spcCompressedScale(pts);
   const xs = new Array(n);
   let i = 0;
   while (i < n) {
@@ -2696,9 +2777,9 @@ function spcXLayout(plot, pts) {
     let j = i + 1;
     while (j < n && times[j] === t) j++;
     const k = j - i;
-    const x0 = spcCalX(plot, isFinite(t) ? t : t0, t0, span);
+    const x0 = spcCalX(plot, isFinite(t) ? t : t0, t0, span, scale);
     const x1 = j < n && isFinite(times[j]) && times[j] > (isFinite(t) ? t : t0)
-      ? spcCalX(plot, times[j], t0, span)
+      ? spcCalX(plot, times[j], t0, span, scale)
       : plot.x + plot.w;
     if (k === 1) xs[i] = x0;
     else {
@@ -2727,37 +2808,36 @@ function spcXAt(plot, pts, iOrTick, xs) {
   if (n === 1) return plot.x + plot.w / 2;
   if (typeof iOrTick === 'number' && xs && isFinite(xs[iOrTick])) return xs[iOrTick];
   const t0 = Number(pts[0].t) || 0;
-  const t1 = Number(pts[n - 1].t) || 0;
-  const span = Math.max(t1 - t0, 1 / 1440);
+  const scale = spcCompressedScale(pts);
   let t;
   if (iOrTick && typeof iOrTick === 'object') t = Number(iOrTick.t);
   else if (typeof iOrTick === 'number') t = Number(pts[iOrTick] && pts[iOrTick].t);
   if (!isFinite(t)) t = t0;
-  return spcCalX(plot, t, t0, span);
+  return plot.x + scale.toU(t) * plot.w;
 }
 function spcAxisTicks(pts) {
   if (!pts.length) return [];
   const t0 = Number(pts[0].t) || 0;
-  const t1 = Number(pts[pts.length - 1].t) || 0;
-  const first = excelDatePartsFromSerial(t0);
-  const last = excelDatePartsFromSerial(t1);
-  const span = t1 - t0;
-  if (first && last && span > 40) {
-    const ticks = [];
-    let y = first.y, m = first.m;
-    while (y < last.y || (y === last.y && m <= last.m)) {
-      const serial = isoToExcelSerial(isoFromParts(y, m, 1));
-      const t = Math.min(t1, Math.max(t0, isFinite(serial) ? serial : t0));
-      ticks.push({
-        t,
-        i: spcIndexAtSerial(pts, t),
-        label: MONTHS[m - 1].slice(0, 3) + ' ' + String(y).slice(2),
-        row: ticks.length % 2
-      });
-      m += 1;
-      if (m > 12) { m = 1; y += 1; }
+  const dataMonths = spcDataMonths(pts);
+  if (dataMonths.length >= 2) {
+    let list = dataMonths;
+    if (list.length > 14) {
+      const out = [list[0]];
+      const step = (list.length - 1) / 11;
+      for (let k = 1; k < 11; k++) {
+        const pick = list[Math.round(k * step)];
+        if (pick && pick.key !== out[out.length - 1].key) out.push(pick);
+      }
+      const lastMo = list[list.length - 1];
+      if (lastMo && lastMo.key !== out[out.length - 1].key) out.push(lastMo);
+      list = out;
     }
-    return ticks;
+    return list.map((mo, i) => ({
+      t: spcMonthStartSerial(mo.y, mo.m),
+      i: spcIndexAtSerial(pts, spcMonthStartSerial(mo.y, mo.m)),
+      label: MONTHS[mo.m - 1].slice(0, 3) + ' ' + String(mo.y).slice(2),
+      row: i % 2
+    }));
   }
   const ticks = [];
   const seen = new Set();
@@ -3011,6 +3091,26 @@ function shiftMonday(monday, weeks) {
 }
 function fmtWeekDate(d) {
   return d.toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' });
+}
+function mondayFromYmd(ymd) {
+  const parts = String(ymd || '').split('-').map(Number);
+  if (parts.length < 3 || !parts[0]) return null;
+  return mondayOfLocalDate(new Date(parts[0], parts[1] - 1, parts[2]));
+}
+function weekKeyFromYmd(ymd) {
+  const mon = mondayFromYmd(ymd);
+  if (!mon) return String(ymd || '');
+  return ymdStamp(mon.getUTCFullYear(), mon.getUTCMonth() + 1, mon.getUTCDate());
+}
+function weekLabelFromKey(key) {
+  const mon = mondayFromYmd(key);
+  if (!mon) return String(key || '');
+  const sun = new Date(mon.getTime());
+  sun.setUTCDate(mon.getUTCDate() + 6);
+  const a = mon.toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric' });
+  if (mon.getUTCMonth() === sun.getUTCMonth()) return a + '–' + sun.getUTCDate();
+  const b = sun.toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric' });
+  return a + '–' + b;
 }
 const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 function fmtDayDate(y, m, d) {
@@ -3472,7 +3572,7 @@ function sortKeysByCount(counts) {
     (Number(counts[b]) || 0) - (Number(counts[a]) || 0)
     || String(a).localeCompare(String(b), undefined, { numeric: true }));
 }
-function dateFilter() { return tableFilters['Date/Time'] || { year: '', month: '', day: '' }; }
+function dateFilter() { return tableFilters['Date/Time'] || { year: '', month: '', day: '', from: '', to: '' }; }
 function rowMatchesTone(r, exceptKey) {
   for (const k of TONE_COLS) {
     if (k === exceptKey) continue;
@@ -3484,6 +3584,11 @@ function rowMatchesTone(r, exceptKey) {
 }
 function rowMatches(r) {
   const df = dateFilter();
+  if (df.from || df.to) {
+    const ymd = r.y && r.m && r.d ? ymdStamp(r.y, r.m, r.d) : '';
+    if (df.from && (!ymd || ymd < df.from)) return false;
+    if (df.to && (!ymd || ymd > df.to)) return false;
+  }
   if (df.year && r.y !== +df.year) return false;
   if (df.month && r.m !== +df.month) return false;
   if (df.day && r.d !== +df.day) return false;
@@ -3556,7 +3661,7 @@ function fillDateSlicers() {
 function isColFiltered(k) {
   if (k === 'Date/Time') {
     const df = dateFilter();
-    return !!(df.year || df.month || df.day);
+    return !!(df.year || df.month || df.day || df.from || df.to);
   }
   return !!(tableFilters[k] && tableFilters[k].size) || !!tableToneShow[k];
 }
@@ -3568,7 +3673,9 @@ function hasActiveFilters() {
 function activeFilterSummaries() {
   const out = [];
   const df = dateFilter();
-  if (df.year || df.month || df.day) {
+  if (df.from || df.to) {
+    out.push({ col: 'Date/Time', text: [df.from, df.to].filter(Boolean).join(' – ') });
+  } else if (df.year || df.month || df.day) {
     const bits = [df.year, df.month && MONTHS[+df.month - 1], df.day].filter(Boolean);
     out.push({ col: 'Date/Time', text: bits.join(' ') });
   }
@@ -4321,12 +4428,33 @@ function aggregateMissedByDay(rows, perLine) {
   }
   return [...map.values()].sort((a, b) => a.date.localeCompare(b.date) || String(a.line).localeCompare(String(b.line)));
 }
+function aggregateMissedByWeek(rows, perLine) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const week = weekKeyFromYmd(r.date);
+    const key = perLine ? `${week}|${r.line || '—'}` : week;
+    if (!map.has(key)) map.set(key, { date: week, line: r.line || '', missed: 0 });
+    map.get(key).missed += Number(r.missedChecks || 0);
+  }
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date) || String(a.line).localeCompare(String(b.line)));
+}
 function aggregateFailsByDay(rows) {
   const map = new Map();
   for (const r of rows || []) {
     const type = r.failType || 'failed check';
     const key = `${r.date}|${type}`;
     if (!map.has(key)) map.set(key, { date: r.date, failType: type, count: 0 });
+    map.get(key).count += 1;
+  }
+  return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+function aggregateFailsByWeek(rows) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const type = r.failType || 'failed check';
+    const week = weekKeyFromYmd(r.date);
+    const key = `${week}|${type}`;
+    if (!map.has(key)) map.set(key, { date: week, failType: type, count: 0 });
     map.get(key).count += 1;
   }
   return [...map.values()].sort((a, b) => a.date.localeCompare(b.date));
@@ -4338,6 +4466,20 @@ function groupFailTypes(rows) {
     map.set(type, (map.get(type) || 0) + 1);
   }
   return [...map.entries()].map(([failType, count]) => ({ failType, count })).sort((a, b) => b.count - a.count);
+}
+function groupFailKeys(rows, keyFn) {
+  const map = new Map();
+  for (const r of rows || []) {
+    const key = keyFn(r);
+    if (!key) continue;
+    map.set(key, (map.get(key) || 0) + 1);
+  }
+  return [...map.entries()].map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count || String(a.key).localeCompare(String(b.key), undefined, { numeric: true }));
+}
+function trendFailPtsLabel(n) {
+  const c = Number(n) || 0;
+  return c === 1 ? '1 fail' : `${c} fails`;
 }
 function fillTrendFilters() {
   if (!complianceData.length) buildComplianceData();
@@ -4366,10 +4508,17 @@ function fillTrendFilters() {
   }
   const from = fromEl && fromEl.value;
   const to = toEl && toEl.value;
-  const inRange = complianceData.filter(r => (!from || r.date >= from) && (!to || r.date <= to));
+  const failType = keepType;
+  const failRows = (trendFailEvents || []).filter(r => {
+    if (from && r.date < from) return false;
+    if (to && r.date > to) return false;
+    if (keepLine && sapLineKey(r.line) !== sapLineKey(keepLine)) return false;
+    if (failType && r.failType !== failType) return false;
+    return true;
+  });
   const itemCounts = Object.create(null);
   const mspecCounts = Object.create(null);
-  for (const r of inRange) {
+  for (const r of failRows) {
     const item = String(r.itemNumber || '').trim();
     const ms = canonMspec(r.mspec);
     if (item) itemCounts[item] = (itemCounts[item] || 0) + 1;
@@ -4392,7 +4541,7 @@ function trendComboDisplay(kind, key) {
   if (!key) return '';
   const n = (trendComboCounts[kind] || {})[key] || 0;
   const lab = trendComboLabel(kind, key);
-  return n ? `${lab} · ${spcPtsLabel(n)}` : lab;
+  return n ? `${lab} · ${trendFailPtsLabel(n)}` : lab;
 }
 function syncTrendComboDisplay(kind) {
   const { input } = trendComboEls(kind);
@@ -4414,8 +4563,8 @@ function renderTrendComboList(kind, q) {
   trendComboHi[kind] = keys.findIndex(k => k === selected);
   const allBtn = `<button type="button" data-val="" class="${selected ? '' : 'active'}"><span>${kind === 'mspec' ? 'All MSPECs' : 'All items'}</span></button>`;
   list.innerHTML = allBtn + (keys.map((k, i) =>
-    `<button type="button" data-val="${esc(k)}" class="${i === trendComboHi[kind] ? 'active' : ''}"><span>${esc(trendComboLabel(kind, k))}</span><span class="spc-pts">${esc(spcPtsLabel(counts[k] || 0))}</span></button>`
-  ).join('') || `<div class="hist-meta">No matches</div>`);
+    `<button type="button" data-val="${esc(k)}" class="${i === trendComboHi[kind] ? 'active' : ''}"><span>${esc(trendComboLabel(kind, k))}</span><span class="spc-pts">${esc(trendFailPtsLabel(counts[k] || 0))}</span></button>`
+  ).join('') || `<div class="hist-meta">${needle ? 'No matches' : (kind === 'mspec' ? 'No failing MSPECs' : 'No failing items')}</div>`);
 }
 function showTrendComboList(kind) {
   const { list } = trendComboEls(kind);
@@ -4476,10 +4625,10 @@ function bindTrendCombo(kind) {
   };
 }
 function destroyTrendCharts() {
-  if (trendCharts.missed && trendCharts.missed.destroy) trendCharts.missed.destroy();
-  if (trendCharts.fails && trendCharts.fails.destroy) trendCharts.fails.destroy();
-  trendCharts.missed = null;
-  trendCharts.fails = null;
+  ['missed', 'fails', 'items', 'mspecs'].forEach(k => {
+    if (trendCharts[k] && trendCharts[k].destroy) trendCharts[k].destroy();
+    trendCharts[k] = null;
+  });
 }
 function trendTextColor() {
   return isDark() ? '#f3f7fb' : '#12202b';
@@ -4529,7 +4678,53 @@ function drawFallbackChart(canvas, labels, series, stacked) {
     c.fillText(labels[labels.length - 1], xAt(labels.length - 1), pad.t + plotH + 6);
   }
 }
-function renderTrendChart(kind, canvas, labels, datasets, stacked) {
+function bindTrendBarClicks(canvas, labels, onBar) {
+  if (!canvas) return;
+  canvas.onclick = (e) => {
+    if (!onBar || !labels || !labels.length) return;
+    const hits = canvas._trendHits;
+    if (hits && hits.length) {
+      const r = canvas.getBoundingClientRect();
+      const x = (e.clientX - r.left) * (canvas.width / r.width);
+      const y = (e.clientY - r.top) * (canvas.height / r.height);
+      const hit = hits.find(h => x >= h.x && x <= h.x + h.w && y >= h.y && y <= h.y + h.h);
+      if (hit) onBar(hit.key);
+      return;
+    }
+    if (typeof Chart === 'undefined' || !trendCharts) return;
+  };
+}
+function drawFallbackBars(canvas, labels, data, color) {
+  if (!canvas) return;
+  const w = canvas.width, h = canvas.height;
+  const c = canvas.getContext('2d');
+  c.clearRect(0, 0, w, h);
+  const pad = { l: 36, r: 10, t: 12, b: 36 };
+  const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+  const max = Math.max(1, ...data.map(v => Number(v) || 0));
+  const n = Math.max(labels.length, 1);
+  const bw = Math.max(8, plotW / n * 0.7);
+  const gap = plotW / n;
+  c.strokeStyle = trendGridColor(); c.beginPath();
+  c.moveTo(pad.l, pad.t); c.lineTo(pad.l, pad.t + plotH); c.lineTo(pad.l + plotW, pad.t + plotH); c.stroke();
+  canvas._trendHits = [];
+  labels.forEach((lab, i) => {
+    const v = Number(data[i] || 0);
+    const bh = (v / max) * plotH;
+    const x = pad.l + i * gap + (gap - bw) / 2;
+    const y = pad.t + plotH - bh;
+    c.fillStyle = color || '#ef4444';
+    c.fillRect(x, y, bw, Math.max(bh, v ? 2 : 0));
+    canvas._trendHits.push({ x, y, w: bw, h: Math.max(bh, 8), key: lab });
+  });
+  c.fillStyle = trendTextColor(); c.font = '11px Atkinson Hyperlegible, Arial';
+  c.textAlign = 'center'; c.textBaseline = 'top';
+  if (labels.length) {
+    c.fillText(String(labels[0]), pad.l + gap / 2, pad.t + plotH + 6);
+    c.fillText(String(labels[labels.length - 1]), pad.l + plotW - gap / 2, pad.t + plotH + 6);
+  }
+}
+function renderTrendChart(kind, canvas, labels, datasets, stacked, onBar) {
   if (!canvas) return;
   if (typeof Chart === 'undefined') {
     drawFallbackChart(canvas, labels, datasets.map((d, i) => ({ data: d.data, color: d.borderColor || d.backgroundColor })), stacked);
@@ -4544,12 +4739,34 @@ function renderTrendChart(kind, canvas, labels, datasets, stacked) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { labels: { color: text } } },
+      onClick(evt, els) {
+        if (!onBar || !els.length) return;
+        onBar(labels[els[0].index]);
+      },
+      onHover(evt, els) {
+        const t = evt && evt.native && evt.native.target;
+        if (t) t.style.cursor = onBar && els.length ? 'pointer' : 'default';
+      },
       scales: {
         x: { stacked: !!stacked, ticks: { color: text, maxRotation: 0, autoSkip: true }, grid: { color: trendGridColor() } },
         y: { stacked: !!stacked, beginAtZero: true, ticks: { color: text, precision: 0 }, grid: { color: trendGridColor() } }
       }
     }
   });
+}
+function renderTrendBarChart(kind, canvas, labels, data, color, onBar) {
+  if (!canvas) return;
+  if (typeof Chart === 'undefined') {
+    drawFallbackBars(canvas, labels, data, color);
+    bindTrendBarClicks(canvas, labels, onBar);
+    return;
+  }
+  renderTrendChart(kind, canvas, labels, [{
+    label: 'Fails',
+    data,
+    backgroundColor: color || '#ef4444',
+    borderColor: color || '#ef4444'
+  }], true, onBar);
 }
 function renderTrends() {
   if (screenName !== 'trends') return;
@@ -4558,28 +4775,37 @@ function renderTrends() {
   const rows = filterComplianceData(complianceData, filters);
   const fails = filterTrendFails(trendFailEvents, filters);
   const perLine = !filters.line;
-  const missed = aggregateMissedByDay(rows, perLine);
-  const days = uniqueSorted([...new Set(missed.map(r => r.date).concat(fails.map(r => r.date)))], false);
+  const missed = aggregateMissedByWeek(rows, perLine);
+  const weeks = uniqueSorted([...new Set(missed.map(r => r.date).concat(fails.map(r => weekKeyFromYmd(r.date))))], false);
+  const weekLabels = weeks.map(weekLabelFromKey);
   const lines = uniqueSorted([...new Set(missed.map(r => r.line).filter(Boolean))], false);
   const palette = ['#2563eb', '#16a34a', '#f59e0b', '#7c3aed', '#0d9488', '#db2777', '#0891b2'];
   const missedSets = (perLine && lines.length > 1 ? lines : ['']).map((line, i) => ({
     label: line || 'Missed checks',
-    data: days.map(d => missed.filter(r => r.date === d && (!line || r.line === line)).reduce((n, r) => n + r.missed, 0)),
+    data: weeks.map(d => missed.filter(r => r.date === d && (!line || r.line === line)).reduce((n, r) => n + r.missed, 0)),
     borderColor: palette[i % palette.length],
     backgroundColor: palette[i % palette.length],
     tension: 0.2,
     fill: false
   }));
   const types = groupFailTypes(fails);
-  const failDays = aggregateFailsByDay(fails);
+  const failWeeks = aggregateFailsByWeek(fails);
   const failSets = types.slice(0, 8).map((t, i) => ({
     label: t.failType,
-    data: days.map(d => failDays.filter(r => r.date === d && r.failType === t.failType).reduce((n, r) => n + r.count, 0)),
+    data: weeks.map(d => failWeeks.filter(r => r.date === d && r.failType === t.failType).reduce((n, r) => n + r.count, 0)),
     backgroundColor: palette[i % palette.length],
     borderColor: palette[i % palette.length]
   }));
-  renderTrendChart('missed', document.getElementById('trendMissedChart'), days, missedSets.length ? missedSets : [{ label: 'Missed checks', data: days.map(() => 0), borderColor: '#2563eb' }], false);
-  renderTrendChart('fails', document.getElementById('trendFailChart'), days, failSets.length ? failSets : [{ label: 'Fails', data: days.map(() => 0), backgroundColor: '#ef4444' }], true);
+  renderTrendChart('missed', document.getElementById('trendMissedChart'), weekLabels, missedSets.length ? missedSets : [{ label: 'Missed checks', data: weeks.map(() => 0), borderColor: '#2563eb' }], false);
+  renderTrendChart('fails', document.getElementById('trendFailChart'), weekLabels, failSets.length ? failSets : [{ label: 'Fails', data: weeks.map(() => 0), backgroundColor: '#ef4444' }], true);
+  const itemFails = groupFailKeys(fails, r => String(r.itemNumber || '').trim()).slice(0, 12);
+  const mspecFails = groupFailKeys(fails, r => canonMspec(r.mspec)).slice(0, 12);
+  renderTrendBarChart('items', document.getElementById('trendItemChart'),
+    itemFails.map(x => x.key), itemFails.map(x => x.count), '#dc2626',
+    key => openHistoryForTrendBar('item', key));
+  renderTrendBarChart('mspecs', document.getElementById('trendMspecChart'),
+    mspecFails.map(x => x.key), mspecFails.map(x => x.count), '#7c3aed',
+    key => openHistoryForTrendBar('mspec', key));
   const maxType = types[0] ? types[0].count : 1;
   const pareto = document.getElementById('trendPareto');
   if (pareto) {
@@ -4587,17 +4813,20 @@ function renderTrends() {
       ? types.slice(0, 10).map(t => `<div class="pareto-row"><span>${esc(t.failType)}</span><div class="pareto-bar" style="width:${Math.max(8, Math.round(100 * t.count / maxType))}%"></div><b>${t.count}</b></div>`).join('')
       : '<p class="hist-meta">No fails in this filter.</p>';
   }
-  const dayMiss = new Map();
-  missed.forEach(r => dayMiss.set(r.date, (dayMiss.get(r.date) || 0) + r.missed));
-  const missDays = [...dayMiss.entries()];
-  const avgMiss = missDays.length ? (missDays.reduce((n, x) => n + x[1], 0) / missDays.length) : 0;
-  const failByDay = new Map();
-  fails.forEach(r => failByDay.set(r.date, (failByDay.get(r.date) || 0) + 1));
-  let highDay = '', highN = 0;
-  failByDay.forEach((n, d) => { if (n > highN) { highN = n; highDay = d; } });
-  const itemFails = new Map();
-  fails.forEach(r => itemFails.set(r.itemNumber, (itemFails.get(r.itemNumber) || 0) + 1));
-  const repeatItems = [...itemFails.entries()].filter(x => x[1] >= 2).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const weekMiss = new Map();
+  missed.forEach(r => weekMiss.set(r.date, (weekMiss.get(r.date) || 0) + r.missed));
+  const missWeeks = [...weekMiss.entries()];
+  const avgMiss = missWeeks.length ? (missWeeks.reduce((n, x) => n + x[1], 0) / missWeeks.length) : 0;
+  const failByWeek = new Map();
+  fails.forEach(r => {
+    const w = weekKeyFromYmd(r.date);
+    failByWeek.set(w, (failByWeek.get(w) || 0) + 1);
+  });
+  let highWeek = '', highN = 0;
+  failByWeek.forEach((n, d) => { if (n > highN) { highN = n; highWeek = d; } });
+  const repeatMap = new Map();
+  fails.forEach(r => repeatMap.set(r.itemNumber, (repeatMap.get(r.itemNumber) || 0) + 1));
+  const repeatItems = [...repeatMap.entries()].filter(x => x[1] >= 2).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const lineMiss = new Map(), lineExp = new Map();
   rows.forEach(r => {
     lineMiss.set(r.line, (lineMiss.get(r.line) || 0) + Number(r.missedChecks || 0));
@@ -4610,8 +4839,8 @@ function renderTrends() {
   const sum = document.getElementById('trendSummary');
   if (sum) {
     sum.innerHTML = `
-      <div class="card trend-stat"><b>Avg missed / day</b><strong>${avgMiss.toFixed(1)}</strong><p>${missDays.length} days in range</p></div>
-      <div class="card trend-stat"><b>Highest fail day</b><strong>${highDay || '—'}</strong><p>${highN ? highN + ' fails' : 'No fails'}</p></div>
+      <div class="card trend-stat"><b>Avg missed / week</b><strong>${avgMiss.toFixed(1)}</strong><p>${missWeeks.length} weeks in range</p></div>
+      <div class="card trend-stat"><b>Highest fail week</b><strong>${highWeek ? esc(weekLabelFromKey(highWeek)) : '—'}</strong><p>${highN ? highN + ' fails' : 'No fails'}</p></div>
       <div class="card trend-stat"><b>Most common fail</b><strong>${types[0] ? esc(types[0].failType) : '—'}</strong><p>${types[0] ? types[0].count + ' times' : 'No fails'}</p></div>
       <div class="card trend-stat"><b>Repeat fail items</b><strong>${repeatItems.length ? esc(repeatItems[0][0]) : '—'}</strong><p>${repeatItems.length ? repeatItems.map(x => x[0] + ' ×' + x[1]).join(' · ') : 'No item failed twice'}</p></div>
       <div class="card trend-stat"><b>Chronic lines</b><strong>${chronic[0] ? esc(chronic[0].line) : '—'}</strong><p>${chronic.length ? chronic.map(x => x.line + ' ' + Math.round(x.rate * 100) + '% missed').join(' · ') : 'No missed checks'}</p></div>`;
@@ -4928,6 +5157,37 @@ function plantForItemDay(item, y, m, d, line) {
     if (plants.length) return plants[0];
   }
   return plantFromLine(wantLine) || activePlant || 'foam';
+}
+function historyDateFilterFromTrends() {
+  const from = String((document.getElementById('trendFrom') || {}).value || '');
+  const to = String((document.getElementById('trendTo') || {}).value || '');
+  return { year: '', month: '', day: '', from, to };
+}
+function openHistoryForTrendBar(kind, key) {
+  if (!key) return;
+  const line = String((document.getElementById('trendLine') || {}).value || '');
+  const plant = plantFromLine(line) || plantForItemDay(kind === 'item' ? key : '', 0, 0, 0, line) || 'foam';
+  tableFilters = {};
+  tableToneShow = {};
+  if (kind === 'mspec') {
+    const want = canonMspec(key);
+    const hit = plantRows(plant).find(r => canonMspec(r.mspec) === want || canonMspec(r.text.MSPEC) === want);
+    tableFilters['MSPEC'] = new Set([hit && hit.text.MSPEC ? hit.text.MSPEC : String(key)]);
+  } else {
+    const itemKey = itemFilterKey(plant);
+    const want = sapItemKey(key);
+    const hit = plantRows(plant).find(r => sapItemKey(r.item) === want);
+    tableFilters[itemKey] = new Set([hit && hit.text[itemKey] ? hit.text[itemKey] : String(key)]);
+  }
+  const lineName = realLineName(line);
+  if (lineName) tableFilters['Line'] = new Set([lineName]);
+  tableFilters['Pass/Fail'] = new Set(['Fail']);
+  tableFilters['Date/Time'] = historyDateFilterFromTrends();
+  tableSort = { col: 'Date/Time', dir: 'desc', mode: 'date' };
+  filteredDirty = true;
+  setActivePlant(plant, { keepFilters: true });
+  goTo('history', { mode: 'centration' });
+  requestAnimationFrame(() => renderHistoryTable());
 }
 function openHistoryForItemDay(item, y, m, d, line) {
   const plant = plantForItemDay(item, y, m, d, line);
@@ -7694,7 +7954,7 @@ document.addEventListener('click', (e) => {
   const el = document.getElementById(id);
   if (!el) return;
   el.onchange = () => {
-    if (id === 'trendFrom' || id === 'trendTo') fillTrendFilters();
+    fillTrendFilters();
     renderTrends();
   };
 });

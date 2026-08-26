@@ -461,8 +461,12 @@ try {
   .hub-tile b { font-size: 18px; }
   .hub-tile span { font-size: 13px; font-weight: 400; color: var(--muted); line-height: 1.35; }
   .hub-tile:disabled { opacity: .45; cursor: default; border-color: var(--line); }
-  #screenTrends { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
-  .trends-body { display: grid; gap: 10px; overflow: auto; min-height: 0; padding: 12px; }
+  #screenTrends { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; min-height: 0; overflow: hidden; }
+  .trends-body {
+    display: flex; flex-direction: column; gap: 10px; overflow: auto;
+    min-height: 0; padding: 12px 12px 28px; align-items: stretch;
+  }
+  .trends-body > * { flex: 0 0 auto; min-height: auto; }
   .trends-filters { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; }
   .trends-filters label {
     display: grid; gap: 4px; font-size: 12px; font-weight: 700; color: var(--muted);
@@ -481,8 +485,10 @@ try {
   .trend-plot canvas { display: block; width: 100% !important; height: 100% !important; }
   .trend-chart.trend-clickable canvas { cursor: pointer; }
   .trend-chart .hist-meta { margin: 0 0 6px; }
-  .trend-pareto { position: relative; z-index: 1; overflow: hidden; }
-  .trend-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; position: relative; z-index: 1; }
+  .trend-pareto { position: relative; overflow: visible; }
+  .trend-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; position: relative; }
+  .trends-filters label.on { color: var(--accent); }
+  .trends-filters label.on input { border-color: var(--accent); }
   .trend-stat { padding: 12px; }
   .trend-stat b { display: block; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
   .trend-stat strong { display: block; margin-top: 4px; font-size: 20px; }
@@ -1146,7 +1152,7 @@ try {
             <text x="20" y="313" font-size="12" fill="var(--text)">range over</text>
             <text x="320" y="313" font-size="12" font-weight="700" fill="var(--text)">6</text>
           </svg>
-          <figcaption>Filters update the charts immediately. Item # and MSPEC lists only include products that have fails for the Fail type you picked. Click a bar on the item or MSPEC chart to open those fails in History.</figcaption>
+          <figcaption>Filters update the charts immediately. Item # and MSPEC are one at a time — picking one clears the other. Lists only include products that have fails for the Fail type you picked. Click a bar on the item or MSPEC chart to open those fails in History. Scroll to see Top quality fails and the cards below.</figcaption>
         </figure>
         <h3>What each chart is telling you</h3>
         <div class="docs-term">
@@ -1494,7 +1500,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.38';
+const APP_VERSION = '1.7.39';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -4505,6 +4511,8 @@ function fillTrendFilters() {
   trendComboCounts.mspec = mspecCounts;
   syncTrendComboDisplay('item');
   syncTrendComboDisplay('mspec');
+  if (trendSelectedKey('item') && trendSelectedKey('mspec')) clearTrendCombo('mspec');
+  syncTrendExclusiveUi();
 }
 function trendComboEls(kind) {
   return kind === 'mspec'
@@ -4552,11 +4560,30 @@ function hideTrendComboList(kind) {
   if (list) list.classList.remove('show');
   trendComboHi[kind] = -1;
 }
+function clearTrendCombo(kind) {
+  trendPick[kind] = '';
+  const { input } = trendComboEls(kind);
+  if (input) input.value = '';
+  hideTrendComboList(kind);
+}
+function exclusiveTrendPick(kind) {
+  if (!trendPick[kind]) return;
+  const other = kind === 'item' ? 'mspec' : 'item';
+  if (trendPick[other] || trendNeedle((trendComboEls(other).input || {}).value || '')) clearTrendCombo(other);
+}
+function syncTrendExclusiveUi() {
+  const itemLab = document.getElementById('trendItem') && document.getElementById('trendItem').closest('label');
+  const msLab = document.getElementById('trendMspec') && document.getElementById('trendMspec').closest('label');
+  if (itemLab) itemLab.classList.toggle('on', !!trendPick.item);
+  if (msLab) msLab.classList.toggle('on', !!trendPick.mspec);
+}
 function pickTrendCombo(kind, v) {
   trendPick[kind] = v || '';
   const { input } = trendComboEls(kind);
   if (input) input.value = v ? trendComboDisplay(kind, v) : '';
   hideTrendComboList(kind);
+  if (v) exclusiveTrendPick(kind);
+  syncTrendExclusiveUi();
   renderTrends();
 }
 function bindTrendCombo(kind) {
@@ -4570,6 +4597,8 @@ function bindTrendCombo(kind) {
   };
   input.oninput = () => {
     trendPick[kind] = trendNeedle(input.value);
+    if (trendPick[kind]) exclusiveTrendPick(kind);
+    syncTrendExclusiveUi();
     renderTrendComboList(kind, input.value);
     showTrendComboList(kind);
     renderTrends();

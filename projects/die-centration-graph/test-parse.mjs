@@ -380,17 +380,20 @@ function spcXLayout(plot, pts) {
     else {
       const width = Math.max(x1 - x0, 0);
       const use = width > 1 ? width * 0.92 : Math.max(k * 2.5, 8);
-      const left = width > 1 ? x0 : Math.max(plot.x, x0 - use / 2);
+      let left = width > 1 ? x0 : x0 - use * 0.5;
+      if (left + use > plot.x + plot.w) left = plot.x + plot.w - use;
+      if (left < plot.x) left = plot.x;
       for (let p = 0; p < k; p++) xs[i + p] = left + ((p + 0.5) / k) * use;
     }
     i = j;
   }
-  xs[0] = Math.min(plot.x + plot.w, Math.max(plot.x, xs[0]));
+  xs[0] = Math.max(plot.x, xs[0]);
   const eps = 0.35;
-  for (let p = 1; p < n; p++) xs[p] = Math.min(plot.x + plot.w, Math.max(xs[p], xs[p - 1] + eps));
-  if (xs[n - 1] > plot.x + plot.w + 0.01) {
-    const left = xs[0], right = plot.x + plot.w, spanX = xs[n - 1] - left;
-    if (spanX > 0) for (let p = 0; p < n; p++) xs[p] = left + (xs[p] - left) * (right - left) / spanX;
+  for (let p = 1; p < n; p++) xs[p] = Math.max(xs[p], xs[p - 1] + eps);
+  const right = plot.x + plot.w;
+  if (xs[n - 1] > right && xs[n - 1] > xs[0]) {
+    const left = xs[0], spanX = xs[n - 1] - left;
+    for (let p = 0; p < n; p++) xs[p] = left + (xs[p] - left) * (right - left) / spanX;
   }
   return xs;
 }
@@ -423,6 +426,11 @@ const sameXs = spcXLayout({ x: 0, w: 400 }, sameDay);
 assert.ok(sameXs[0] < sameXs[4]);
 assert.ok(sameXs[4] - sameXs[0] > 50);
 for (let i = 1; i < sameXs.length; i++) assert.ok(sameXs[i] > sameXs[i - 1]);
+const endStack = [{ t: 10 }, { t: 20 }, { t: 30 }, { t: 30 }, { t: 30 }, { t: 30 }, { t: 30 }, { t: 30 }, { t: 30 }, { t: 30 }];
+const endXs = spcXLayout({ x: 0, w: 200 }, endStack);
+for (let i = 1; i < endXs.length; i++) assert.ok(endXs[i] > endXs[i - 1] + 0.2);
+assert.ok(endXs[endXs.length - 1] <= 200 + 1e-6);
+assert.ok(endXs[endXs.length - 1] - endXs[2] > 10);
 assert.match(html, /id="welcomeSap"/);
 assert.match(html, /plantRows\('foam'\)\.length/);
 assert.match(html, /data-spc-series="points"] canvas/);

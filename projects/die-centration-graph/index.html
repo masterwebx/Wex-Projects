@@ -52,6 +52,7 @@ try {
   html[data-screen="compliance"] #screenCompliance { display: grid; }
   html[data-screen="mspecs"] #screenMspecs { display: grid; }
   html[data-screen="trends"] #screenTrends { display: grid; }
+  html[data-screen="docs"] #screenDocs { display: grid; }
   header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   h1 { font-size: 24px; margin: 0; }
   .crumbs {
@@ -480,6 +481,13 @@ try {
   .cpk-bad { background: var(--thick-bg); color: var(--thick); }
   .cpk-na { background: var(--idle); color: var(--muted); }
   html[data-spc-series="points"] .canvas-wrap { overflow: hidden; }
+  #screenDocs { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
+  .docs-body { overflow: auto; min-height: 0; padding: 18px 22px 28px; }
+  .docs-body h2 { margin: 22px 0 8px; font-size: 20px; }
+  .docs-body h2:first-child { margin-top: 0; }
+  .docs-body p, .docs-body li { color: var(--text); line-height: 1.45; }
+  .docs-body ul { margin: 0 0 8px; padding-left: 22px; }
+  .docs-body .hist-meta { margin: 0 0 8px; }
   @media (max-width: 900px) {
     .hub-grid, .trends-charts { grid-template-columns: 1fr; }
   }
@@ -520,6 +528,7 @@ try {
       <button class="hub-tile" type="button" id="welcomeTrends"><b>Trends</b><span>Missed checks, fail Pareto, and line progress.</span></button>
       <button class="hub-tile" type="button" id="welcomeMspecs"><b>MSPECs</b><span>Audit Master Sheet specs.</span></button>
       <button class="hub-tile" type="button" id="welcomeSpc"><b>SPC charts</b><span>Average, range, density, and each T point.</span></button>
+      <button class="hub-tile" type="button" id="welcomeDocs"><b>Documentation</b><span>How to navigate each page and what the numbers mean.</span></button>
     </div>
     <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
   </div>
@@ -707,7 +716,6 @@ try {
           </select>
         </label>
         <p class="hist-meta" id="spcDateHint">Date range limits the Item/MSPEC list to what ran in that period.</p>
-        <button class="secondary full" type="button" id="spcStatsBtn">Show CPK stats</button>
         <button class="secondary full" type="button" id="spcOutliers">Show outliers</button>
         <button class="secondary full" type="button" id="spcDownloadPdf">Download SPC PDF</button>
         <button class="secondary full" type="button" id="spcReportBtn">SPC report…</button>
@@ -741,7 +749,7 @@ try {
         <label>Density max <input type="number" id="densMaxSpec" step="0.01" value=""></label>
         <label>Cell count min <input type="number" id="cellMinSpec" step="1" value=""></label>
       </div>
-      <div class="spc-only" id="spcStatsBox" hidden>
+      <div class="spc-only" id="spcStatsBox">
         <h2>CPK stats</h2>
         <p class="hist-meta">Cpk ≥ 1.33 capable · 1.00–1.33 marginal · below 1.00 not capable.</p>
         <div class="cpk-list" id="spcStats"></div>
@@ -790,6 +798,78 @@ try {
       <div class="pareto" id="trendPareto"></div>
     </div>
     <div class="trend-summary" id="trendSummary"></div>
+  </div>
+</section>
+
+<section class="screen" id="screenDocs">
+  <header>
+    <div>
+      <nav class="crumbs" aria-label="Breadcrumb"></nav>
+      <h1>Documentation</h1>
+      <p class="hist-meta">How to use Quality Desk, page by page.</p>
+    </div>
+    <div class="toolbar page-tools">
+      <button class="secondary" type="button" id="docsBack">Back</button>
+      <button class="secondary" type="button" id="docsTheme">Dark mode</button>
+    </div>
+  </header>
+  <div class="card docs-body">
+    <h2>Home</h2>
+    <p>Quality Desk always opens here. Use the big tiles to jump to a page. The trail at the top of each page (Home › History, and so on) is the cookie trail: click any step to go back without losing filters. Back does the same, one step at a time. Page buttons on the right are tools for that screen, not the main navigation.</p>
+    <ul>
+      <li><b>Paste results</b> — reads Copy for Graph from the clipboard (or press Ctrl+V).</li>
+      <li><b>SAP audit</b> — load an SAP Excel/CSV export of goods movements.</li>
+      <li>History, Compliance, Trends, MSPECs, and SPC stay available after you have foam results, even if you last looked at Postings.</li>
+    </ul>
+
+    <h2>Paste / Copy for Graph</h2>
+    <p>On the S4, S1 S3, Bubble, P1, or RTS quality sheet, run <b>Copy for Graph</b>. Then paste here. The first paste loads the table; Paste more data on History adds new rows. The HTML file on the G: drive is still <code>centration.html</code>. Do not import FromQuality into the quality workbook.</p>
+
+    <h2>Results history</h2>
+    <p>Every pasted check, filterable by the column menus. Line (top right) switches Extrusion Foam, Bubble, P1, RTS, or Postings.</p>
+    <ul>
+      <li>The eye opens the centration graph for that row (foam only).</li>
+      <li>Green / yellow / red cells are in spec, thin, or thick.</li>
+      <li>Pass* is a pass that still has a note. NO CHECK means the sheet was marked with no measurement.</li>
+      <li>Reset filters / Reset sort clear the table menus only, not other pages.</li>
+    </ul>
+
+    <h2>Postings</h2>
+    <p>After an SAP audit, Postings lists each production posting matched to a quality check. Posted (PT) is SAP Time of Entry as exported. Quality check and Fail notes come from the pasted sheets.</p>
+
+    <h2>SAP audit</h2>
+    <p>Use a CSV or Excel MB51-style export with Material, dates, Quantity, Time of Entry, and Work Center. Only COEX, S1, S3, S4, MONO, P1, and RTS work centers count as production. Labor and empty-Material rows are skipped. If SAP drops a quantity column, Quality Desk realigns the row so Time and Work Center still line up.</p>
+
+    <h2>Compliance</h2>
+    <p>Week view of whether posted items got a quality check. Pick a line or All lines. Green = checked, gray = NO CHECK, red = posted with no check, empty = not yet. Click an item to jump to History for that day. Week arrows and the calendar stay where you left them when you go Back.</p>
+
+    <h2>Trends</h2>
+    <p>Longer-range view of missed checks and fail types. Filters (date, line, item #, MSPEC, fail type) update the charts immediately.</p>
+    <ul>
+      <li><b>Missed checks over time</b> — one line per machine when All lines is selected.</li>
+      <li><b>Fails over time</b> — stacked by fail type (thickness over, density under, and so on).</li>
+      <li><b>Top quality fails</b> — Pareto of the most common fail reasons.</li>
+      <li>Summary cards: average missed per day, highest fail day, most common fail, items that failed more than once, lines with the most missed checks.</li>
+    </ul>
+
+    <h2>MSPECs</h2>
+    <p>Master Sheet specs imported with Copy for Graph. Search by MSPEC or AF#. Use this to spot missing or dummy density values. Foam only.</p>
+
+    <h2>SPC charts</h2>
+    <p>Foam only. Pick Item # or MSPEC, a line, and a date range. Charts are Average, Range, and Density, or <b>Each T point over time</b> (T1, T2, …) with a scroll bar when there are many points.</p>
+    <ul>
+      <li>Green dots are in spec, red out of spec, orange outliers (hidden by default), blue the selected check.</li>
+      <li>The month labels under the chart show every month in the range, on two rows so they do not overlap.</li>
+      <li><b>CPK stats</b> stay on the right under Specs: n, mean, stdev, Cp, Cpk, Cpl, Cpu. Green Cpk ≥ 1.33 (capable), yellow 1.00–1.33 (marginal), red below 1.00 (not capable).</li>
+      <li>Centration graph in the tools bar opens the die graph for the selected point and keeps Home › SPC › Graph in the trail.</li>
+    </ul>
+    <p class="hist-meta">SPC is not used for Bubble, P1, or RTS.</p>
+
+    <h2>Centration graph</h2>
+    <p>The die map of T1–T13 (or however many points the sheet uses). Green ring is in spec, yellow thin, red thick. Specs on the right come from the Master Sheet for that MSPEC; you can edit them for this view. Previous / Next walks History rows. Settings changes point count and bolts.</p>
+
+    <h2>Cookie trail and Back</h2>
+    <p>Every inner page starts with Home. Opening History then SPC then the graph shows Home › History › SPC › Graph. Back returns to the previous page with its filters still set. Home in the trail clears the stack and returns to the hub.</p>
   </div>
 </section>
 
@@ -844,7 +924,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.31';
+const APP_VERSION = '1.7.32';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -929,7 +1009,6 @@ let enterMode = false;
 let complianceMonday = null;
 let complianceBackTo = 'welcome';
 let navStack = [];
-let spcShowStats = false;
 let trendCharts = { missed: null, fails: null };
 let complianceData = [];
 let trendFailEvents = [];
@@ -1138,6 +1217,7 @@ function screenLabel(name, mode) {
   if (name === 'compliance') return 'Compliance';
   if (name === 'mspecs') return 'MSPECs';
   if (name === 'trends') return 'Trends';
+  if (name === 'docs') return 'Docs';
   if (name === 'view') return mode === 'spc' ? 'SPC' : 'Graph';
   return name;
 }
@@ -1223,7 +1303,7 @@ function applyTheme(theme) {
   const dark = theme === 'dark';
   document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
   const label = dark ? 'Light mode' : 'Dark mode';
-  ['themeBtn','welcomeTheme','histTheme','complianceTheme','mspecTheme','trendsTheme'].forEach(id => {
+  ['themeBtn','welcomeTheme','histTheme','complianceTheme','mspecTheme','trendsTheme','docsTheme'].forEach(id => {
     const el = document.getElementById(id); if (el) el.textContent = label;
   });
 }
@@ -1253,7 +1333,8 @@ function syncDocTitle() {
   if (screenName === 'history') part = 'History';
   else if (screenName === 'compliance') part = 'Compliance';
   else if (screenName === 'mspecs') part = 'MSPECs';
-  else if (screenName === 'trends') part = 'Trends';
+  else   if (screenName === 'trends') part = 'Trends';
+  else if (screenName === 'docs') part = 'Docs';
   else if (screenName === 'view') part = viewMode === 'spc' ? 'SPC' : 'Centration';
   document.title = part ? APP_NAME + ' · ' + part : APP_NAME;
 }
@@ -1280,6 +1361,7 @@ function setViewMode(mode, fromView) {
   if (viewMode !== 'spc') hideSpcTip();
   if (viewMode === 'spc') fillSpcControls(fromView);
   syncViewChrome();
+  renderCrumbs();
   if (leavingSpc && screenName === 'view') requestAnimationFrame(() => calculate());
 }
 function setArrowVisible(on) {
@@ -2001,34 +2083,58 @@ function excelMonthOnly(v) {
   if (!p) return excelDateOnly(v);
   return `${MONTHS[p.m - 1].slice(0, 3)} ${p.y}`;
 }
+function spcIndexAtSerial(pts, serial) {
+  const n = (pts || []).length;
+  if (n <= 1) return 0;
+  const t0 = Number(pts[0].t) || 0;
+  const t1 = Number(pts[n - 1].t) || 0;
+  if (serial <= t0) return 0;
+  if (serial >= t1) return n - 1;
+  for (let i = 0; i < n - 1; i++) {
+    const a = Number(pts[i].t) || 0;
+    const b = Number(pts[i + 1].t) || 0;
+    if (serial >= a && serial <= b) return b === a ? i : i + (serial - a) / (b - a);
+  }
+  return n - 1;
+}
 function spcAxisTicks(pts) {
   if (!pts.length) return [];
+  const first = excelDatePartsFromSerial(pts[0].t);
+  const last = excelDatePartsFromSerial(pts[pts.length - 1].t);
   const span = (Number(pts[pts.length - 1].t) || 0) - (Number(pts[0].t) || 0);
-  const monthKeys = new Set();
-  for (const p of pts) {
-    const dp = excelDatePartsFromSerial(p.t);
-    if (dp) monthKeys.add(dp.y + '-' + dp.m);
+  if (first && last && span > 40) {
+    const ticks = [];
+    let y = first.y, m = first.m;
+    while (y < last.y || (y === last.y && m <= last.m)) {
+      const serial = isoToExcelSerial(isoFromParts(y, m, 1));
+      ticks.push({
+        i: spcIndexAtSerial(pts, isFinite(serial) ? serial : Number(pts[0].t) || 0),
+        label: MONTHS[m - 1].slice(0, 3) + ' ' + String(y).slice(2),
+        row: ticks.length % 2
+      });
+      m += 1;
+      if (m > 12) { m = 1; y += 1; }
+    }
+    return ticks;
   }
-  const byMonth = monthKeys.size >= 2 && span > 40;
   const ticks = [];
   const seen = new Set();
   pts.forEach((p, i) => {
     const dp = excelDatePartsFromSerial(p.t);
-    const key = dp ? (byMonth ? dp.y + '-' + dp.m : dp.y + '-' + dp.m + '-' + dp.d) : 'i' + i;
+    const key = dp ? dp.y + '-' + dp.m + '-' + dp.d : 'i' + i;
     if (seen.has(key)) return;
     seen.add(key);
-    ticks.push({ i, label: byMonth ? excelMonthOnly(p.t) : excelDateShort(p.t) });
+    ticks.push({ i, label: excelDateShort(p.t), row: ticks.length % 2 });
   });
-  const maxTicks = 10;
-  if (ticks.length <= maxTicks) return ticks;
+  if (ticks.length <= 12) return ticks;
   const out = [ticks[0]];
-  const step = (ticks.length - 1) / (maxTicks - 1);
-  for (let k = 1; k < maxTicks - 1; k++) {
+  const step = (ticks.length - 1) / 11;
+  for (let k = 1; k < 11; k++) {
     const pick = ticks[Math.round(k * step)];
     if (pick && pick.i !== out[out.length - 1].i) out.push(pick);
   }
-  const last = ticks[ticks.length - 1];
-  if (last && last.i !== out[out.length - 1].i) out.push(last);
+  const lastTick = ticks[ticks.length - 1];
+  if (lastTick && lastTick.i !== out[out.length - 1].i) out.push(lastTick);
   return out;
 }
 function applySpecPatch(base, patch) {
@@ -3391,6 +3497,9 @@ function openCompliance(from) {
   goTo('compliance', { mode: 'centration' });
   renderCompliance();
 }
+function openDocs() {
+  goTo('docs');
+}
 function openTrends() {
   if (!indexedRows.length) { toast('Paste results first'); return; }
   buildComplianceData();
@@ -4459,7 +4568,7 @@ function pdfDrawSpcChart(page, box, pts, flagged, ch) {
   ticks.forEach((tick, ti) => {
     const xx = xAt(tick.i, n);
     const align = ti === 0 ? 'left' : (ti === ticks.length - 1 ? 'right' : 'center');
-    pdfText(page, xx, plot.y + plot.h + 12, tick.label, { size: 7, color: '#3e4a55', align });
+    pdfText(page, xx, plot.y + plot.h + 12 + (tick.row ? 9 : 0), tick.label, { size: 7, color: '#3e4a55', align });
   });
 }
 function pdfHeader(page, title, subtitle) {
@@ -6186,10 +6295,8 @@ function spcChartDefs(mspec, flags, pts) {
 function renderSpcStats(pts, charts) {
   const box = document.getElementById('spcStatsBox');
   const el = document.getElementById('spcStats');
-  const btn = document.getElementById('spcStatsBtn');
-  if (btn) btn.textContent = spcShowStats ? 'Hide CPK stats' : 'Show CPK stats';
-  if (box) box.hidden = !spcShowStats;
-  if (!el || !spcShowStats) return;
+  if (box) box.hidden = false;
+  if (!el) return;
   if (!charts || !charts.length || !pts || !pts.length) {
     el.innerHTML = '<p class="hist-meta">Pick an Item / MSPEC to see CPK.</p>';
     return;
@@ -6228,7 +6335,9 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
   ctx.fillStyle = c.text; ctx.font = `700 ${titleSize}px "Atkinson Hyperlegible", Arial`;
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText(title + (unit ? '  (' + unit + ')' : ''), x + 12, y + 10);
-  const padL = Math.max(56, labelSize * 5), padR = 12, padT = titleSize + 22, padB = labelSize + 28;
+  const axisTicks = spcAxisTicks(pts);
+  const twoRow = axisTicks.length > 1;
+  const padL = Math.max(56, labelSize * 5), padR = 12, padT = titleSize + 22, padB = labelSize + 28 + (twoRow ? labelSize + 8 : 0);
   const plot = { x: x + padL, y: y + padT, w: Math.max(20, w - padL - padR), h: Math.max(20, h - padT - padB) };
   const plotVals = pts.filter((p, i) => finiteNum(p[key]) && !(spcHideOutliers && flagged[i])).map(p => p[key]);
   const ym = axisRange(plotVals, [specMin, specMax, specTarget]);
@@ -6289,13 +6398,12 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
       spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx, key, title, value: p[key], t: p.t, unit });
     }
   }
-  const ticks = spcAxisTicks(pts);
   ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Atkinson Hyperlegible", Arial`;
   ctx.textBaseline = 'top';
-  ticks.forEach((tick, ti) => {
+  axisTicks.forEach((tick, ti) => {
     const xx = xAt(tick.i, n);
-    ctx.textAlign = ti === 0 ? 'left' : (ti === ticks.length - 1 ? 'right' : 'center');
-    ctx.fillText(tick.label, xx, plot.y + plot.h + 8);
+    ctx.textAlign = ti === 0 ? 'left' : (ti === axisTicks.length - 1 ? 'right' : 'center');
+    ctx.fillText(tick.label, xx, plot.y + plot.h + 8 + (tick.row ? labelSize + 2 : 0));
   });
   ctx.restore();
 }
@@ -6530,6 +6638,7 @@ document.getElementById('welcomeCompliance').onclick = () => openCompliance('wel
 document.getElementById('welcomeTrends').onclick = openTrends;
 document.getElementById('welcomeMspecs').onclick = openMspecs;
 document.getElementById('welcomeSpc').onclick = openSpc;
+document.getElementById('welcomeDocs').onclick = openDocs;
 document.getElementById('histPaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histCompliance').onclick = () => openCompliance('history');
 document.getElementById('histTrends').onclick = openTrends;
@@ -6630,7 +6739,7 @@ document.getElementById('copyBtn').onclick = copyValues;
 document.getElementById('clearBtn').onclick = clearValues;
 document.getElementById('modeBtn').onclick = () => {
   if (!isFoamPlant()) return;
-  if (viewMode === 'spc') { setViewMode('centration'); }
+  if (viewMode === 'spc') goTo('view', { mode: 'centration' });
   else openSpc();
 };
 document.getElementById('spcBy').onchange = () => {
@@ -6688,10 +6797,7 @@ document.getElementById('spcSeries').onchange = () => {
   canvasLayoutKey = '';
   requestAnimationFrame(() => draw());
 };
-document.getElementById('spcStatsBtn').onclick = () => {
-  spcShowStats = !spcShowStats;
-  requestAnimationFrame(() => draw());
-};
+document.getElementById('docsBack').onclick = goBack;
 document.getElementById('spcOutliers').onclick = () => {
   spcHideOutliers = !spcHideOutliers;
   document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';
@@ -6771,7 +6877,7 @@ document.getElementById('rangeSpec').oninput = document.getElementById('targetTh
 });
 document.getElementById('resetArrowBtn').onclick = () => { customArrow = false; draw(); saveState(); };
 document.getElementById('arrowToggle').onclick = () => { setArrowVisible(!showArrow); draw(); saveState(); };
-document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = document.getElementById('complianceTheme').onclick = document.getElementById('mspecTheme').onclick = document.getElementById('trendsTheme').onclick = () => {
+document.getElementById('themeBtn').onclick = document.getElementById('welcomeTheme').onclick = document.getElementById('histTheme').onclick = document.getElementById('complianceTheme').onclick = document.getElementById('mspecTheme').onclick = document.getElementById('trendsTheme').onclick = document.getElementById('docsTheme').onclick = () => {
   applyTheme(isDark() ? 'light' : 'dark');
   if (screenName === 'view') draw();
   if (screenName === 'trends') renderTrends();

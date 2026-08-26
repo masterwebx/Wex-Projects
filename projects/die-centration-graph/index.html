@@ -482,12 +482,45 @@ try {
   .cpk-na { background: var(--idle); color: var(--muted); }
   html[data-spc-series="points"] .canvas-wrap { overflow: hidden; }
   #screenDocs { grid-template-rows: auto 1fr; padding: 10px 12px; gap: 8px; }
-  .docs-body { overflow: auto; min-height: 0; padding: 18px 22px 28px; }
-  .docs-body h2 { margin: 22px 0 8px; font-size: 20px; }
-  .docs-body h2:first-child { margin-top: 0; }
-  .docs-body p, .docs-body li { color: var(--text); line-height: 1.45; }
-  .docs-body ul { margin: 0 0 8px; padding-left: 22px; }
-  .docs-body .hist-meta { margin: 0 0 8px; }
+  .docs-shell { display: grid; grid-template-columns: 220px 1fr; min-height: 0; overflow: hidden; padding: 0; }
+  .docs-nav { overflow: auto; border-right: 1px solid var(--line); padding: 10px 8px; background: var(--idle); }
+  .docs-navbtn {
+    display: block; width: 100%; text-align: left; margin: 0 0 4px; padding: 9px 10px;
+    border: 0; border-radius: 10px; background: transparent; color: var(--text);
+    font: inherit; font-weight: 700; font-size: 14px; cursor: pointer;
+  }
+  .docs-navbtn:hover { background: var(--bg); }
+  .docs-navbtn.active { background: var(--accent); color: #fff; }
+  .docs-main { overflow: auto; min-height: 0; padding: 18px 22px 36px; }
+  .docs-panel[hidden] { display: none !important; }
+  .docs-panel h2 { margin: 0 0 8px; font-size: 24px; }
+  .docs-panel h3 { margin: 18px 0 6px; font-size: 17px; }
+  .docs-panel p, .docs-panel li { color: var(--text); line-height: 1.5; }
+  .docs-panel ul { margin: 0 0 10px; padding-left: 22px; }
+  .docs-panel .hist-meta { margin: 0 0 12px; }
+  .docs-aid {
+    margin: 12px 0 16px; padding: 12px 12px 10px; border: 1px solid var(--line);
+    border-radius: 14px; background: var(--bg);
+  }
+  .docs-aid svg { width: 100%; height: auto; display: block; max-width: 760px; }
+  .docs-aid figcaption { margin: 8px 2px 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+  .docs-term {
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+    margin: 8px 0; background: var(--idle);
+  }
+  .docs-term h3 { margin: 0 0 6px; font-size: 16px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .docs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .docs-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+  .docs-tip {
+    border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0;
+    background: var(--idle); border-radius: 0 10px 10px 0;
+  }
+  @media (max-width: 900px) {
+    .docs-shell { grid-template-columns: 1fr; }
+    .docs-nav { display: flex; gap: 6px; overflow: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    .docs-navbtn { width: auto; white-space: nowrap; }
+    .docs-grid { grid-template-columns: 1fr; }
+  }
   @media (max-width: 900px) {
     .hub-grid, .trends-charts { grid-template-columns: 1fr; }
   }
@@ -528,7 +561,7 @@ try {
       <button class="hub-tile" type="button" id="welcomeTrends"><b>Trends</b><span>Missed checks, fail Pareto, and line progress.</span></button>
       <button class="hub-tile" type="button" id="welcomeMspecs"><b>MSPECs</b><span>Audit Master Sheet specs.</span></button>
       <button class="hub-tile" type="button" id="welcomeSpc"><b>SPC charts</b><span>Average, range, density, and each T point.</span></button>
-      <button class="hub-tile" type="button" id="welcomeDocs"><b>Documentation</b><span>How to navigate each page and what the numbers mean.</span></button>
+      <button class="hub-tile" type="button" id="welcomeDocs"><b>Documentation</b><span>Click a page for pictures and what every number means.</span></button>
     </div>
     <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
   </div>
@@ -779,8 +812,8 @@ try {
       <label>From <input type="date" id="trendFrom"></label>
       <label>To <input type="date" id="trendTo"></label>
       <label>Line <select id="trendLine"><option value="">All lines</option></select></label>
-      <label>Item # <input type="search" id="trendItem" placeholder="Any item"></label>
-      <label>MSPEC <input type="search" id="trendMspec" placeholder="Any MSPEC"></label>
+      <label>Item # <select id="trendItem"><option value="">All items</option></select></label>
+      <label>MSPEC <select id="trendMspec"><option value="">All MSPECs</option></select></label>
       <label>Fail type <select id="trendFailType"><option value="">All fail types</option></select></label>
     </div>
     <div class="trends-charts">
@@ -806,70 +839,497 @@ try {
     <div>
       <nav class="crumbs" aria-label="Breadcrumb"></nav>
       <h1>Documentation</h1>
-      <p class="hist-meta">How to use Quality Desk, page by page.</p>
+      <p class="hist-meta">Click a topic on the left. Each page has pictures and plain-language explanations.</p>
     </div>
     <div class="toolbar page-tools">
       <button class="secondary" type="button" id="docsBack">Back</button>
       <button class="secondary" type="button" id="docsTheme">Dark mode</button>
     </div>
   </header>
-  <div class="card docs-body">
-    <h2>Home</h2>
-    <p>Quality Desk always opens here. Use the big tiles to jump to a page. The trail at the top of each page (Home › History, and so on) is the cookie trail: click any step to go back without losing filters. Back does the same, one step at a time. Page buttons on the right are tools for that screen, not the main navigation.</p>
-    <ul>
-      <li><b>Paste results</b> — reads Copy for Graph from the clipboard (or press Ctrl+V).</li>
-      <li><b>SAP audit</b> — load an SAP Excel/CSV export of goods movements.</li>
-      <li>History, Compliance, Trends, MSPECs, and SPC stay available after you have foam results, even if you last looked at Postings.</li>
-    </ul>
+  <div class="card docs-shell">
+    <nav class="docs-nav" id="docsNav" aria-label="Documentation topics">
+      <button type="button" class="docs-navbtn active" data-docs="home">Home</button>
+      <button type="button" class="docs-navbtn" data-docs="paste">Paste results</button>
+      <button type="button" class="docs-navbtn" data-docs="history">Results history</button>
+      <button type="button" class="docs-navbtn" data-docs="postings">Postings</button>
+      <button type="button" class="docs-navbtn" data-docs="sap">SAP audit</button>
+      <button type="button" class="docs-navbtn" data-docs="compliance">Compliance</button>
+      <button type="button" class="docs-navbtn" data-docs="trends">Trends</button>
+      <button type="button" class="docs-navbtn" data-docs="mspecs">MSPECs</button>
+      <button type="button" class="docs-navbtn" data-docs="spc">SPC charts</button>
+      <button type="button" class="docs-navbtn" data-docs="cpk">CPK stats</button>
+      <button type="button" class="docs-navbtn" data-docs="radial">Centration graph</button>
+      <button type="button" class="docs-navbtn" data-docs="trail">Cookie trail</button>
+    </nav>
+    <div class="docs-main" id="docsMain">
 
-    <h2>Paste / Copy for Graph</h2>
-    <p>On the S4, S1 S3, Bubble, P1, or RTS quality sheet, run <b>Copy for Graph</b>. Then paste here. The first paste loads the table; Paste more data on History adds new rows. The HTML file on the G: drive is still <code>centration.html</code>. Do not import FromQuality into the quality workbook.</p>
+      <article class="docs-panel" data-docs="home" id="docs-home">
+        <h2>Home</h2>
+        <p class="hist-meta">Quality Desk always opens here. This is the hub — every other page is one click away.</p>
+        <figure class="docs-aid" id="docs-aid-home">
+          <svg viewBox="0 0 720 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Home screen tiles">
+            <rect x="8" y="8" width="704" height="264" rx="16" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="28" y="40" font-size="20" font-weight="700" fill="var(--text)">Quality Desk</text>
+            <text x="28" y="62" font-size="12" fill="var(--muted)">Press Ctrl+V to paste Copy for Graph</text>
+            <rect x="28" y="78" width="120" height="32" rx="8" fill="#1d4ed8"/>
+            <text x="88" y="99" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Paste results</text>
+            <rect x="158" y="78" width="100" height="32" rx="8" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="208" y="99" text-anchor="middle" font-size="12" fill="var(--text)">SAP audit</text>
+            <rect x="28" y="128" width="210" height="56" rx="10" fill="var(--bg)" stroke="#1d4ed8" stroke-width="2"/>
+            <text x="40" y="152" font-size="13" font-weight="700" fill="var(--text)">Results history</text>
+            <text x="40" y="170" font-size="11" fill="var(--muted)">Every pasted check</text>
+            <rect x="250" y="128" width="210" height="56" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="262" y="152" font-size="13" font-weight="700" fill="var(--text)">Compliance</text>
+            <text x="262" y="170" font-size="11" fill="var(--muted)">Week vs SAP postings</text>
+            <rect x="472" y="128" width="210" height="56" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="484" y="152" font-size="13" font-weight="700" fill="var(--text)">Trends</text>
+            <text x="484" y="170" font-size="11" fill="var(--muted)">Missed checks &amp; fails</text>
+            <rect x="28" y="196" width="210" height="56" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="40" y="220" font-size="13" font-weight="700" fill="var(--text)">MSPECs</text>
+            <text x="40" y="238" font-size="11" fill="var(--muted)">Master Sheet limits</text>
+            <rect x="250" y="196" width="210" height="56" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="262" y="220" font-size="13" font-weight="700" fill="var(--text)">SPC charts</text>
+            <text x="262" y="238" font-size="11" fill="var(--muted)">Process over time</text>
+            <rect x="472" y="196" width="210" height="56" rx="10" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="484" y="220" font-size="13" font-weight="700" fill="var(--text)">Documentation</text>
+            <text x="484" y="238" font-size="11" fill="var(--muted)">You are here</text>
+          </svg>
+          <figcaption>The Home tiles. Grayed-out tiles need data first — paste results (and SAP for Postings/Compliance) before those pages unlock.</figcaption>
+        </figure>
+        <ul>
+          <li><b>Paste results</b> reads Copy for Graph from the clipboard. You can also press Ctrl+V anywhere on Home.</li>
+          <li><b>SAP audit</b> loads an SAP Excel or CSV of goods movements so Compliance and Postings know what ran.</li>
+          <li>History, Compliance, Trends, MSPECs, and SPC stay available after you have foam results, even if you last looked at Postings.</li>
+          <li>Buttons on the <b>right</b> of later pages are tools for that screen (theme, download, Back). The trail at the top is how you move between pages.</li>
+        </ul>
+        <p class="docs-tip">If a tile is dim, it is not broken — Quality Desk is waiting for a paste or an SAP file.</p>
+      </article>
 
-    <h2>Results history</h2>
-    <p>Every pasted check, filterable by the column menus. Line (top right) switches Extrusion Foam, Bubble, P1, RTS, or Postings.</p>
-    <ul>
-      <li>The eye opens the centration graph for that row (foam only).</li>
-      <li>Green / yellow / red cells are in spec, thin, or thick.</li>
-      <li>Pass* is a pass that still has a note. NO CHECK means the sheet was marked with no measurement.</li>
-      <li>Reset filters / Reset sort clear the table menus only, not other pages.</li>
-    </ul>
+      <article class="docs-panel" data-docs="paste" id="docs-paste" hidden>
+        <h2>Paste results</h2>
+        <p class="hist-meta">This is how measurement data gets into Quality Desk. Nothing is typed by hand.</p>
+        <figure class="docs-aid" id="docs-aid-paste">
+          <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Copy for Graph paste flow">
+            <rect x="16" y="30" width="180" height="120" rx="12" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="106" y="70" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">Quality sheet</text>
+            <text x="106" y="92" text-anchor="middle" font-size="12" fill="var(--muted)">S4 · S1 S3 · Bubble</text>
+            <text x="106" y="112" text-anchor="middle" font-size="12" fill="var(--muted)">P1 · RTS</text>
+            <text x="106" y="134" text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">Copy for Graph</text>
+            <path d="M210 90h70" stroke="#1d4ed8" stroke-width="3"/>
+            <polygon points="280,84 296,90 280,96" fill="#1d4ed8"/>
+            <rect x="310" y="50" width="140" height="80" rx="12" fill="#1d4ed8"/>
+            <text x="380" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Clipboard</text>
+            <text x="380" y="108" text-anchor="middle" font-size="12" fill="#dbeafe">DIEGRAPH2</text>
+            <path d="M464 90h70" stroke="#1d4ed8" stroke-width="3"/>
+            <polygon points="534,84 550,90 534,96" fill="#1d4ed8"/>
+            <rect x="564" y="30" width="140" height="120" rx="12" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="634" y="80" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">Quality Desk</text>
+            <text x="634" y="104" text-anchor="middle" font-size="12" fill="var(--muted)">Ctrl+V or Paste</text>
+            <text x="634" y="126" text-anchor="middle" font-size="12" fill="var(--muted)">History fills in</text>
+          </svg>
+          <figcaption>On the quality workbook, run Copy for Graph. Come back here and paste. The first paste loads the table; Paste more data on History adds new rows.</figcaption>
+        </figure>
+        <ul>
+          <li>The HTML file on the G: drive is still <code>centration.html</code> — that name did not change.</li>
+          <li>Do not import FromQuality into the quality workbook. Copy for Graph stays in Personal.xlsb.</li>
+          <li>Paste format is still <b>DIEGRAPH2</b> (current sheet, Master Sheet lookup, and history tables).</li>
+        </ul>
+      </article>
 
-    <h2>Postings</h2>
-    <p>After an SAP audit, Postings lists each production posting matched to a quality check. Posted (PT) is SAP Time of Entry as exported. Quality check and Fail notes come from the pasted sheets.</p>
+      <article class="docs-panel" data-docs="history" id="docs-history" hidden>
+        <h2>Results history</h2>
+        <p class="hist-meta">Every pasted quality check, in a filterable table. This is the daily working list.</p>
+        <figure class="docs-aid" id="docs-aid-history">
+          <svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="History table colors">
+            <rect x="8" y="8" width="704" height="214" rx="14" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="24" y="32" font-size="14" font-weight="700" fill="var(--text)">Line ▾ Extrusion Foam</text>
+            <rect x="20" y="48" width="680" height="28" rx="4" fill="var(--bg)"/>
+            <text x="28" y="67" font-size="12" font-weight="700" fill="var(--muted)">Date/Time ▾   Item # ▾   MSPEC ▾   Avg   Range   Density   Pass/Fail</text>
+            <rect x="20" y="84" width="680" height="26" rx="3" fill="var(--bg)"/>
+            <rect x="300" y="88" width="54" height="18" rx="3" fill="#dcfce7"/>
+            <text x="327" y="101" text-anchor="middle" font-size="11" fill="#166534">0.248</text>
+            <text x="28" y="102" font-size="12" fill="var(--text)">8/24 06:12   401234   MS-88</text>
+            <text x="620" y="102" font-size="12" fill="#166534">Pass</text>
+            <rect x="20" y="114" width="680" height="26" rx="3" fill="var(--bg)"/>
+            <rect x="300" y="118" width="54" height="18" rx="3" fill="#fef3c7"/>
+            <text x="327" y="131" text-anchor="middle" font-size="11" fill="#92400e">0.238</text>
+            <text x="28" y="132" font-size="12" fill="var(--text)">8/24 07:40   401234   MS-88</text>
+            <text x="620" y="132" font-size="12" fill="#92400e">Pass*</text>
+            <rect x="20" y="144" width="680" height="26" rx="3" fill="var(--bg)"/>
+            <rect x="300" y="148" width="54" height="18" rx="3" fill="#fee2e2"/>
+            <text x="327" y="161" text-anchor="middle" font-size="11" fill="#991b1b">0.271</text>
+            <text x="28" y="162" font-size="12" fill="var(--text)">8/24 09:05   409876   MS-12</text>
+            <text x="620" y="162" font-size="12" fill="#991b1b">Fail</text>
+            <circle cx="690" cy="97" r="8" fill="#1d4ed8"/>
+            <path d="M687 97h6M690 94v6" stroke="#fff" stroke-width="1.4"/>
+            <text x="24" y="204" font-size="12" fill="var(--muted)"><tspan fill="#166534">Green</tspan> in spec   <tspan fill="#92400e">Yellow</tspan> thin / note   <tspan fill="#991b1b">Red</tspan> out of spec   Eye opens the graph</text>
+          </svg>
+          <figcaption>Click a column header for sort and filter menus, the same idea as Excel. The eye on a foam row opens that check on the centration graph.</figcaption>
+        </figure>
+        <ul>
+          <li><b>Line</b> (top right) switches Extrusion Foam, Bubble, P1, RTS, or Postings.</li>
+          <li><b>Pass*</b> is still a pass, but the sheet had a note. Read Notes before you treat it as clean.</li>
+          <li><b>NO CHECK</b> means the sheet was marked with no measurement for that slot.</li>
+          <li>Reset filters / Reset sort clear the table menus only — they do not wipe other pages.</li>
+        </ul>
+      </article>
 
-    <h2>SAP audit</h2>
-    <p>Use a CSV or Excel MB51-style export with Material, dates, Quantity, Time of Entry, and Work Center. Only COEX, S1, S3, S4, MONO, P1, and RTS work centers count as production. Labor and empty-Material rows are skipped. If SAP drops a quantity column, Quality Desk realigns the row so Time and Work Center still line up.</p>
+      <article class="docs-panel" data-docs="postings" id="docs-postings" hidden>
+        <h2>Postings</h2>
+        <p class="hist-meta">After an SAP audit, this list is each production posting matched to a quality check.</p>
+        <figure class="docs-aid" id="docs-aid-postings">
+          <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Postings match">
+            <rect x="20" y="24" width="280" height="120" rx="12" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="160" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">SAP posting</text>
+            <text x="160" y="76" text-anchor="middle" font-size="12" fill="var(--muted)">Item 401234 · S4</text>
+            <text x="160" y="96" text-anchor="middle" font-size="12" fill="var(--muted)">Posted (PT) 06:18</text>
+            <text x="160" y="116" text-anchor="middle" font-size="12" fill="var(--muted)">Qty 1,240</text>
+            <path d="M316 84h80" stroke="#1d4ed8" stroke-width="3"/>
+            <polygon points="396,78 412,84 396,90" fill="#1d4ed8"/>
+            <rect x="420" y="24" width="280" height="120" rx="12" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="560" y="52" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">Quality check</text>
+            <text x="560" y="76" text-anchor="middle" font-size="12" fill="#166534">Checked 06:22</text>
+            <text x="560" y="96" text-anchor="middle" font-size="12" fill="var(--muted)">Fail notes from the sheet</text>
+            <text x="560" y="116" text-anchor="middle" font-size="12" fill="var(--muted)">or empty if it passed</text>
+          </svg>
+          <figcaption>Posted (PT) is SAP Time of Entry as exported. Quality check time and fail notes come from the pasted sheets, not from SAP.</figcaption>
+        </figure>
+        <p>If a posting has no matching check, it shows as missed — the same idea as a red cell on Compliance.</p>
+      </article>
 
-    <h2>Compliance</h2>
-    <p>Week view of whether posted items got a quality check. Pick a line or All lines. Green = checked, gray = NO CHECK, red = posted with no check, empty = not yet. Click an item to jump to History for that day. Week arrows and the calendar stay where you left them when you go Back.</p>
+      <article class="docs-panel" data-docs="sap" id="docs-sap" hidden>
+        <h2>SAP audit</h2>
+        <p class="hist-meta">An Excel or CSV dump of goods movements. Quality Desk uses it to know what should have been checked.</p>
+        <figure class="docs-aid" id="docs-aid-sap">
+          <svg viewBox="0 0 720 160" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SAP columns">
+            <rect x="16" y="20" width="688" height="36" rx="6" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="28" y="43" font-size="12" font-weight="700" fill="var(--muted)">Material   Plant   Qty   Unit   Date   Time of Entry   Work Center</text>
+            <rect x="16" y="64" width="688" height="28" rx="4" fill="var(--idle)"/>
+            <text x="28" y="83" font-size="12" fill="var(--text)">401234     1210    1240  ROL   8/24   06:18:02         S4</text>
+            <rect x="16" y="100" width="688" height="28" rx="4" fill="#fef3c7"/>
+            <text x="28" y="119" font-size="12" fill="#92400e">Labor rows and empty Material are skipped · only COEX, S1, S3, S4, MONO, P1, RTS count</text>
+          </svg>
+          <figcaption>Use an MB51-style export. If SAP drops a quantity column, Quality Desk slides the remaining cells so Time and Work Center still line up.</figcaption>
+        </figure>
+        <ul>
+          <li>Only production work centers count: <b>COEX, S1, S3, S4, MONO, P1, RTS</b>.</li>
+          <li>Labor and empty-Material rows are ignored.</li>
+          <li>You can start an audit from Home or from Compliance.</li>
+        </ul>
+      </article>
 
-    <h2>Trends</h2>
-    <p>Longer-range view of missed checks and fail types. Filters (date, line, item #, MSPEC, fail type) update the charts immediately.</p>
-    <ul>
-      <li><b>Missed checks over time</b> — one line per machine when All lines is selected.</li>
-      <li><b>Fails over time</b> — stacked by fail type (thickness over, density under, and so on).</li>
-      <li><b>Top quality fails</b> — Pareto of the most common fail reasons.</li>
-      <li>Summary cards: average missed per day, highest fail day, most common fail, items that failed more than once, lines with the most missed checks.</li>
-    </ul>
+      <article class="docs-panel" data-docs="compliance" id="docs-compliance" hidden>
+        <h2>Compliance</h2>
+        <p class="hist-meta">A week view: did each posted item get a quality check?</p>
+        <figure class="docs-aid" id="docs-aid-compliance">
+          <svg viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Compliance week colors">
+            <text x="20" y="24" font-size="13" font-weight="700" fill="var(--text)">Hour strip (one line selected)</text>
+            <g font-size="10" fill="var(--muted)">
+              <text x="70" y="48">00</text><text x="160" y="48">06</text><text x="250" y="48">12</text><text x="340" y="48">18</text>
+            </g>
+            <rect x="60" y="56" width="420" height="18" rx="3" fill="var(--idle)"/>
+            <rect x="60" y="56" width="70" height="18" fill="#22c55e"/>
+            <rect x="160" y="56" width="36" height="18" fill="#9ca3af"/>
+            <rect x="250" y="56" width="36" height="18" fill="#ef4444"/>
+            <text x="20" y="70" font-size="12" fill="var(--text)">Mon</text>
+            <rect x="20" y="100" width="160" height="28" rx="8" fill="#dcfce7"/>
+            <text x="100" y="119" text-anchor="middle" font-size="12" fill="#166534">Checked</text>
+            <rect x="190" y="100" width="160" height="28" rx="8" fill="#e5e7eb"/>
+            <text x="270" y="119" text-anchor="middle" font-size="12" fill="#374151">NO CHECK</text>
+            <rect x="360" y="100" width="160" height="28" rx="8" fill="#fee2e2"/>
+            <text x="440" y="119" text-anchor="middle" font-size="12" fill="#991b1b">No checks</text>
+            <rect x="530" y="100" width="160" height="28" rx="8" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="610" y="119" text-anchor="middle" font-size="12" fill="var(--muted)">Not yet</text>
+            <text x="20" y="160" font-size="13" fill="var(--text)">Green = a real measurement is on file for that hour or item.</text>
+            <text x="20" y="182" font-size="13" fill="var(--text)">Gray = the sheet said NO CHECK. Red = SAP posted it, but no quality row exists.</text>
+            <text x="20" y="204" font-size="13" fill="var(--text)">Empty / Not yet = that hour has not happened, or nothing was posted.</text>
+          </svg>
+          <figcaption>Pick a line to see the hour strip. All lines hides the strip and lists unchecked items by machine. Click an item to jump to History for that day.</figcaption>
+        </figure>
+        <ul>
+          <li>Week arrows and the calendar stay where you left them when you press Back.</li>
+          <li>Download PDF can do the whole week, or one file per line.</li>
+        </ul>
+      </article>
 
-    <h2>MSPECs</h2>
-    <p>Master Sheet specs imported with Copy for Graph. Search by MSPEC or AF#. Use this to spot missing or dummy density values. Foam only.</p>
+      <article class="docs-panel" data-docs="trends" id="docs-trends" hidden>
+        <h2>Trends</h2>
+        <p class="hist-meta">The long-range picture: are we missing checks, and which fails keep showing up?</p>
+        <figure class="docs-aid" id="docs-aid-trends">
+          <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Trends charts explained">
+            <rect x="8" y="8" width="704" height="36" rx="8" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="18" y="31" font-size="12" fill="var(--muted)">From Jul 1   To today   Line All   Item # ▾ (most points first)   MSPEC ▾   Fail type ▾</text>
+            <rect x="8" y="54" width="348" height="160" rx="12" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="20" y="76" font-size="13" font-weight="700" fill="var(--text)">Missed checks over time</text>
+            <polyline points="36,180 80,150 130,158 180,120 230,128 280,96 330,110" fill="none" stroke="#2563eb" stroke-width="2.5"/>
+            <polyline points="36,188 80,170 130,166 180,154 230,148 280,140 330,136" fill="none" stroke="#16a34a" stroke-width="2.5"/>
+            <text x="36" y="202" font-size="10" fill="var(--muted)">Each colored line is one machine when All lines is selected</text>
+            <rect x="364" y="54" width="348" height="160" rx="12" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="376" y="76" font-size="13" font-weight="700" fill="var(--text)">Fails over time</text>
+            <rect x="392" y="140" width="28" height="50" fill="#2563eb"/>
+            <rect x="392" y="116" width="28" height="24" fill="#ef4444"/>
+            <rect x="436" y="128" width="28" height="62" fill="#2563eb"/>
+            <rect x="436" y="104" width="28" height="24" fill="#ef4444"/>
+            <rect x="480" y="150" width="28" height="40" fill="#2563eb"/>
+            <rect x="524" y="120" width="28" height="70" fill="#2563eb"/>
+            <rect x="524" y="96" width="28" height="24" fill="#f59e0b"/>
+            <rect x="568" y="134" width="28" height="56" fill="#2563eb"/>
+            <rect x="612" y="110" width="28" height="80" fill="#2563eb"/>
+            <rect x="612" y="88" width="28" height="22" fill="#ef4444"/>
+            <text x="376" y="202" font-size="10" fill="var(--muted)">Stacked bars = fail types stacked on the same day</text>
+            <rect x="8" y="224" width="704" height="104" rx="12" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="20" y="246" font-size="13" font-weight="700" fill="var(--text)">Top quality fails (Pareto)</text>
+            <rect x="160" y="258" width="420" height="12" rx="6" fill="#ef4444"/>
+            <text x="20" y="269" font-size="12" fill="var(--text)">thickness over</text>
+            <text x="600" y="269" font-size="12" font-weight="700" fill="var(--text)">18</text>
+            <rect x="160" y="280" width="260" height="12" rx="6" fill="#ef4444"/>
+            <text x="20" y="291" font-size="12" fill="var(--text)">density under</text>
+            <text x="440" y="291" font-size="12" font-weight="700" fill="var(--text)">11</text>
+            <rect x="160" y="302" width="140" height="12" rx="6" fill="#ef4444"/>
+            <text x="20" y="313" font-size="12" fill="var(--text)">range over</text>
+            <text x="320" y="313" font-size="12" font-weight="700" fill="var(--text)">6</text>
+          </svg>
+          <figcaption>Filters update both charts and the cards below immediately. Item # and MSPEC are dropdowns, sorted from the most records to the fewest so busy products sit at the top.</figcaption>
+        </figure>
+        <h3>What each chart is telling you</h3>
+        <div class="docs-term">
+          <h3>Missed checks over time</h3>
+          <p>A <b>missed check</b> is a posted item-day with no quality measurement. The line going up means more holes in coverage. When Line is “All lines”, you get one colored line per machine — hover a line in the legend to see which machine it is. A flat zero line is the goal.</p>
+        </div>
+        <div class="docs-term">
+          <h3>Fails over time</h3>
+          <p>Each bar is one day. Colors stack, so a tall bar that is half red and half blue means two different fail reasons that day. Typical reasons: thickness over, thickness under, density under, density over, range over, cell count. Use the Fail type dropdown to isolate one reason.</p>
+        </div>
+        <div class="docs-term">
+          <h3>Top quality fails</h3>
+          <p>A Pareto chart: the longest bar is the most common fail. Fix that first — it is where the most defects sit. The number on the right is how many times that fail appeared in the current filters.</p>
+        </div>
+        <h3>Summary cards</h3>
+        <ul>
+          <li><b>Avg missed / day</b> — typical daily holes. Compare weeks after you change the date range.</li>
+          <li><b>Highest fail day</b> — the worst calendar day in range. Open History on that date to see the lots.</li>
+          <li><b>Most common fail</b> — same as the top Pareto bar, in words.</li>
+          <li><b>Repeat fail items</b> — items that failed at least twice. Those are chronic, not one-offs.</li>
+          <li><b>Chronic lines</b> — machines with the highest share of missed checks.</li>
+        </ul>
+        <p class="docs-tip">From defaults to the first day of last month so you land on a useful window instead of the entire history.</p>
+      </article>
 
-    <h2>SPC charts</h2>
-    <p>Foam only. Pick Item # or MSPEC, a line, and a date range. Charts are Average, Range, and Density, or <b>Each T point over time</b> (T1, T2, …) with a scroll bar when there are many points.</p>
-    <ul>
-      <li>Green dots are in spec, red out of spec, orange outliers (hidden by default), blue the selected check.</li>
-      <li>The month labels under the chart show every month in the range, on two rows so they do not overlap.</li>
-      <li><b>CPK stats</b> stay on the right under Specs: n, mean, stdev, Cp, Cpk, Cpl, Cpu. Green Cpk ≥ 1.33 (capable), yellow 1.00–1.33 (marginal), red below 1.00 (not capable).</li>
-      <li>Centration graph in the tools bar opens the die graph for the selected point and keeps Home › SPC › Graph in the trail.</li>
-    </ul>
-    <p class="hist-meta">SPC is not used for Bubble, P1, or RTS.</p>
+      <article class="docs-panel" data-docs="mspecs" id="docs-mspecs" hidden>
+        <h2>MSPECs</h2>
+        <p class="hist-meta">The Master Sheet limits that came in with Copy for Graph. Foam only.</p>
+        <figure class="docs-aid" id="docs-aid-mspecs">
+          <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="MSPEC spec row">
+            <rect x="16" y="20" width="688" height="36" rx="6" fill="var(--bg)" stroke="var(--line)"/>
+            <text x="28" y="43" font-size="12" font-weight="700" fill="var(--muted)">MSPEC   AF#   Thick min   Target   Thick max   Range   Cell min   Dens min / target / max</text>
+            <rect x="16" y="64" width="688" height="28" rx="4" fill="var(--idle)"/>
+            <text x="28" y="83" font-size="12" fill="var(--text)">MS-88   AF-210   0.240        0.250    0.260         0.010   18         1.70 / 1.85 / 2.00</text>
+            <rect x="16" y="100" width="688" height="28" rx="4" fill="#fef3c7"/>
+            <text x="28" y="119" font-size="12" fill="#92400e">Dummy or blank density? Search that MSPEC here before you trust CPK or History colors.</text>
+          </svg>
+          <figcaption>Search by MSPEC or AF#. This table is the source of the min / target / max lines on the graph and on SPC.</figcaption>
+        </figure>
+        <p>If a spec looks wrong on the graph, check this page first. You can still type over specs on the graph for this session; the Master Sheet row is what came from Excel.</p>
+      </article>
 
-    <h2>Centration graph</h2>
-    <p>The die map of T1–T13 (or however many points the sheet uses). Green ring is in spec, yellow thin, red thick. Specs on the right come from the Master Sheet for that MSPEC; you can edit them for this view. Previous / Next walks History rows. Settings changes point count and bolts.</p>
+      <article class="docs-panel" data-docs="spc" id="docs-spc" hidden>
+        <h2>SPC charts</h2>
+        <p class="hist-meta">SPC means Statistical Process Control: the same measurement, plotted over time, so you can see drift before a lot fails. Foam only — not used for Bubble, P1, or RTS.</p>
+        <figure class="docs-aid" id="docs-aid-spc">
+          <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SPC chart anatomy">
+            <text x="16" y="22" font-size="14" font-weight="700" fill="var(--text)">Average  (in)</text>
+            <line x1="56" y1="48" x2="680" y2="48" stroke="#b91c1c" stroke-dasharray="6 4" stroke-width="2"/>
+            <text x="676" y="44" text-anchor="end" font-size="11" font-weight="700" fill="#b91c1c">Max 0.260</text>
+            <line x1="56" y1="110" x2="680" y2="110" stroke="#1d4ed8" stroke-dasharray="6 4" stroke-width="2"/>
+            <text x="676" y="106" text-anchor="end" font-size="11" font-weight="700" fill="#1d4ed8">Target 0.250</text>
+            <line x1="56" y1="172" x2="680" y2="172" stroke="#166534" stroke-dasharray="6 4" stroke-width="2"/>
+            <text x="676" y="186" text-anchor="end" font-size="11" font-weight="700" fill="#166534">Min 0.240</text>
+            <line x1="56" y1="40" x2="56" y2="200" stroke="var(--line)"/>
+            <line x1="56" y1="200" x2="680" y2="200" stroke="var(--line)"/>
+            <polyline points="70,118 130,102 190,124 250,98 310,108 370,90 430,140 490,116 550,100 610,88 670,96" fill="none" stroke="var(--text)" stroke-width="2"/>
+            <circle cx="70" cy="118" r="5" fill="#16a34a" stroke="#fff"/>
+            <circle cx="130" cy="102" r="5" fill="#16a34a" stroke="#fff"/>
+            <circle cx="190" cy="124" r="5" fill="#16a34a" stroke="#fff"/>
+            <circle cx="250" cy="98" r="5" fill="#16a34a" stroke="#fff"/>
+            <circle cx="310" cy="108" r="5" fill="#16a34a" stroke="#fff"/>
+            <circle cx="370" cy="90" r="5" fill="#16a34a" stroke="#fff"/>
+            <circle cx="430" cy="140" r="7" fill="#2563eb" stroke="#fff" stroke-width="2"/>
+            <circle cx="490" cy="116" r="5" fill="#16a34a" stroke="#fff"/>
+            <circle cx="550" cy="100" r="5" fill="#16a34a" stroke="#fff"/>
+            <circle cx="610" cy="88" r="5" fill="#16a34a" stroke="#fff"/>
+            <circle cx="670" cy="36" r="5" fill="#dc2626" stroke="#fff"/>
+            <line x1="200" y1="210" x2="200" y2="200" stroke="var(--muted)"/>
+            <text x="200" y="226" text-anchor="middle" font-size="11" fill="var(--muted)">Jul 25</text>
+            <text x="320" y="238" text-anchor="middle" font-size="11" fill="var(--muted)">Sep 25</text>
+            <text x="440" y="226" text-anchor="middle" font-size="11" fill="var(--muted)">Nov 25</text>
+            <text x="560" y="238" text-anchor="middle" font-size="11" fill="var(--muted)">Jan 26</text>
+            <rect x="400" y="148" width="150" height="44" rx="8" fill="#111827"/>
+            <text x="412" y="166" font-size="11" fill="#fff">Aug 12 · 0.247 in</text>
+            <text x="412" y="182" font-size="10" fill="#93c5fd">Hover a dot — same as this card</text>
+            <text x="16" y="270" font-size="12" fill="var(--text)"><tspan fill="#16a34a">●</tspan> In spec   <tspan fill="#dc2626">●</tspan> Out of spec   <tspan fill="#2563eb">●</tspan> Selected check   <tspan fill="#f59e0b">✕</tspan> Outlier (hidden unless you show them)</text>
+            <text x="16" y="292" font-size="12" fill="var(--muted)">Months sit on the calendar, not on “point number,” so Jun and Jul no longer pile on top of each other.</text>
+          </svg>
+          <figcaption>Read the chart like a timeline. Left is older, right is newer. The dashed lines are the spec window from the Master Sheet (or the boxes you typed on the right).</figcaption>
+        </figure>
+        <h3>The controls on the left</h3>
+        <ul>
+          <li><b>View by Item # or MSPEC</b> — Item # is one product. MSPEC groups every item that shares that spec.</li>
+          <li>The list is sorted <b>most points first</b>, so the product you run the most is at the top. Each row shows how many checks (pts) it has in the date range.</li>
+          <li><b>From / To</b> — From starts on the first day of last month. Change it if you need a longer look.</li>
+          <li><b>Average / range / density</b> — three summary charts. Average is mean thickness, Range is high-minus-low across the die (in thousandths), Density is pcf.</li>
+          <li><b>Each T point over time</b> — one chart per die location (T1, T2, …). Scroll if there are many. Use this when one side of the die is drifting.</li>
+          <li><b>Hide / Show outliers</b> — points way outside the spec window are hidden by default so one bad type-in does not squash the scale.</li>
+          <li>Click a dot, then use <b>Centration graph</b> in the tools bar to open that exact check. The trail becomes Home › SPC › Graph.</li>
+        </ul>
+        <p class="docs-tip">Hover any point on the live chart for date, value, and which check it is. CPK numbers on the right are explained in the CPK stats topic.</p>
+      </article>
 
-    <h2>Cookie trail and Back</h2>
-    <p>Every inner page starts with Home. Opening History then SPC then the graph shows Home › History › SPC › Graph. Back returns to the previous page with its filters still set. Home in the trail clears the stack and returns to the hub.</p>
+      <article class="docs-panel" data-docs="cpk" id="docs-cpk" hidden>
+        <h2>CPK stats</h2>
+        <p class="hist-meta">These numbers answer: “Is this process tight enough, and is it aimed at the middle of the spec?” They update for whichever Item / MSPEC and date range you have on the SPC page.</p>
+        <figure class="docs-aid" id="docs-aid-cpk">
+          <svg viewBox="0 0 720 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cp versus Cpk">
+            <text x="16" y="22" font-size="14" font-weight="700" fill="var(--text)">Same spec window, two processes</text>
+            <line x1="40" y1="200" x2="340" y2="200" stroke="var(--line)"/>
+            <line x1="80" y1="70" x2="80" y2="200" stroke="#166534" stroke-dasharray="4 3"/>
+            <line x1="300" y1="70" x2="300" y2="200" stroke="#b91c1c" stroke-dasharray="4 3"/>
+            <line x1="190" y1="70" x2="190" y2="200" stroke="#1d4ed8" stroke-dasharray="4 3"/>
+            <path d="M90,200 C90,120 140,56 190,56 C240,56 290,120 290,200" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2"/>
+            <text x="190" y="48" text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">Centered</text>
+            <text x="80" y="216" text-anchor="middle" font-size="11" fill="#166534">Min (LSL)</text>
+            <text x="190" y="216" text-anchor="middle" font-size="11" fill="#1d4ed8">Target</text>
+            <text x="300" y="216" text-anchor="middle" font-size="11" fill="#b91c1c">Max (USL)</text>
+            <text x="190" y="248" text-anchor="middle" font-size="12" fill="var(--text)">Cp and Cpk match — aimed at the middle</text>
+            <line x1="380" y1="200" x2="680" y2="200" stroke="var(--line)"/>
+            <line x1="420" y1="70" x2="420" y2="200" stroke="#166534" stroke-dasharray="4 3"/>
+            <line x1="640" y1="70" x2="640" y2="200" stroke="#b91c1c" stroke-dasharray="4 3"/>
+            <line x1="530" y1="70" x2="530" y2="200" stroke="#1d4ed8" stroke-dasharray="4 3"/>
+            <path d="M400,200 C400,150 430,80 470,70 C520,56 580,90 600,200" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+            <text x="530" y="48" text-anchor="middle" font-size="12" font-weight="700" fill="#dc2626">Shifted toward Max</text>
+            <text x="420" y="216" text-anchor="middle" font-size="11" fill="#166534">Min</text>
+            <text x="530" y="216" text-anchor="middle" font-size="11" fill="#1d4ed8">Target</text>
+            <text x="640" y="216" text-anchor="middle" font-size="11" fill="#b91c1c">Max</text>
+            <text x="530" y="248" text-anchor="middle" font-size="12" fill="var(--text)">Cp can still look fine — Cpk falls because of the shift</text>
+          </svg>
+          <figcaption>Think of the spec as a doorway and the process as a group of people walking through. Cp asks “is the group skinny enough to fit?” Cpk also asks “are they walking down the middle, or hugging one jamb?”</figcaption>
+        </figure>
+        <div class="docs-term">
+          <h3>n <span class="cpk-pill cpk-na">count</span></h3>
+          <p>How many measurements are in the current chart (after hidden outliers, if they are hidden). You need at least 2 to compute the rest. More points = a more trustworthy Cpk. A Cpk from 8 points is a sketch; a Cpk from 80 is a real signal.</p>
+        </div>
+        <div class="docs-term">
+          <h3>Mean <span class="cpk-pill cpk-na">average</span></h3>
+          <p>Add every value, divide by n. This is the center of the bell. Compare it to Target. If mean sits near Max, the process is running thick even if most points still pass.</p>
+        </div>
+        <div class="docs-term">
+          <h3>Stdev <span class="cpk-pill cpk-na">spread</span></h3>
+          <p>Sample standard deviation (the usual “n − 1” formula). It is how far a typical point sits from the mean. A small stdev means the die is repeatable. A large stdev means the same item is jumping around — bolts, mix, or measurement noise. Cpk uses 3 × stdev as “almost all of the process.”</p>
+        </div>
+        <div class="docs-term">
+          <h3>Cp <span class="cpk-pill cpk-na">potential</span></h3>
+          <p>Spec width ÷ (6 × stdev). This ignores where the mean sits. It only asks whether the process is <em>tight enough</em> to fit between Min and Max if it were perfectly aimed. You need both a min and a max. If Cp is low, no amount of aiming will save you — the process is too noisy. If Cp is high but Cpk is low, you only need to re-center (move the mean).</p>
+        </div>
+        <div class="docs-term">
+          <h3>Cpl <span class="cpk-pill cpk-na">vs Min</span></h3>
+          <p>(Mean − Min) ÷ (3 × stdev). Room toward the low side. A small Cpl means the process is hugging Min — thin risk. If there is no Min spec, Cpl is a dash.</p>
+        </div>
+        <div class="docs-term">
+          <h3>Cpu <span class="cpk-pill cpk-na">vs Max</span></h3>
+          <p>(Max − Mean) ÷ (3 × stdev). Room toward the high side. A small Cpu means the process is hugging Max — thick risk. If there is no Max spec, Cpu is a dash.</p>
+        </div>
+        <div class="docs-term">
+          <h3>Cpk <span class="cpk-pill cpk-good">the score</span></h3>
+          <p>The smaller of Cpl and Cpu. Quality Desk colors this pill:</p>
+          <ul>
+            <li><span class="cpk-pill cpk-good">Cpk ≥ 1.33</span> capable — the process sits inside the spec with margin. This is the usual “good” bar.</li>
+            <li><span class="cpk-pill cpk-ok">1.00–1.33</span> marginal — passing today, little room. A small shift will make fails.</li>
+            <li><span class="cpk-pill cpk-bad">below 1.00</span> not capable — part of the bell already hangs outside the spec. Expect regular fails.</li>
+            <li><span class="cpk-pill cpk-na">—</span> not enough points, or no spec on that side.</li>
+          </ul>
+          <p>Cpk = 1.00 means the nearest spec is exactly 3 standard deviations away. Cpk = 1.33 means 4 standard deviations — a common plant target. Cpk can never be higher than Cp.</p>
+        </div>
+        <div class="docs-grid">
+          <div class="docs-term">
+            <h3>What to do when Cpk is red</h3>
+            <p>Look at mean vs target. If mean is off, adjust the process (die, gap, speed) toward target. If mean is fine but stdev is huge, hunt variation — one T-point drifting, mix changes, or a bad gauge.</p>
+          </div>
+          <div class="docs-term">
+            <h3>What to do when Cp is fine and Cpk is not</h3>
+            <p>The doorway is wide enough; people are walking on one side. Re-center. The T-point SPC charts show which location is pulling the average off.</p>
+          </div>
+        </div>
+        <p class="docs-tip">These stats describe the points on the chart, not a crystal ball. A capable Cpk with n = 5 can flip after the next shift. Read Cpk with the picture, not instead of it.</p>
+      </article>
+
+      <article class="docs-panel" data-docs="radial" id="docs-radial" hidden>
+        <h2>Centration graph</h2>
+        <p class="hist-meta">A map of the die. Each T-point is a thickness around the circle. You are looking down the barrel of the die.</p>
+        <figure class="docs-aid" id="docs-aid-radial">
+          <svg viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Radial centration graph">
+            <circle cx="250" cy="170" r="130" fill="#fde68a" stroke="#ca8a04" stroke-width="2"/>
+            <circle cx="250" cy="170" r="88" fill="#86efac" stroke="#166534" stroke-width="2"/>
+            <circle cx="250" cy="170" r="18" fill="#e2b340" stroke="#92400e"/>
+            <g fill="#3c9d5a" stroke="#14532d" stroke-width="1.2">
+              <circle cx="250" cy="58" r="8"/>
+              <circle cx="332" cy="82" r="8"/>
+              <circle cx="368" cy="148" r="8"/>
+              <circle cx="348" cy="226" r="8"/>
+              <circle cx="250" cy="282" r="8"/>
+              <circle cx="152" cy="226" r="8"/>
+              <circle cx="132" cy="148" r="8"/>
+            </g>
+            <circle cx="168" cy="82" r="8" fill="#c24141" stroke="#7f1d1d"/>
+            <text x="250" y="46" text-anchor="middle" font-size="12" font-weight="700" fill="var(--text)">T1</text>
+            <text x="350" y="74" font-size="12" font-weight="700" fill="var(--text)">T2</text>
+            <text x="380" y="152" font-size="12" font-weight="700" fill="var(--text)">T3</text>
+            <text x="152" y="74" font-size="12" font-weight="700" fill="#991b1b">T13</text>
+            <path d="M250 170 L178 92" stroke="#1d4ed8" stroke-width="3"/>
+            <polygon points="172,86 186,88 176,100" fill="#1d4ed8"/>
+            <text x="430" y="70" font-size="13" fill="var(--text)">Green ring = in spec</text>
+            <text x="430" y="94" font-size="13" fill="var(--text)">Yellow ring = thin or thick warning band</text>
+            <text x="430" y="118" font-size="13" fill="var(--text)"><tspan fill="#3c9d5a">●</tspan> Point in spec</text>
+            <text x="430" y="142" font-size="13" fill="var(--text)"><tspan fill="#c24141">●</tspan> Point out of spec (here: thick)</text>
+            <text x="430" y="166" font-size="13" fill="var(--text)"><tspan fill="#e2b340">●</tspan> Center / target</text>
+            <text x="430" y="198" font-size="13" fill="var(--text)">Blue arrow (optional) points</text>
+            <text x="430" y="218" font-size="13" fill="var(--text)">toward the heavy / thick side</text>
+            <text x="430" y="250" font-size="13" fill="var(--muted)">T1 is usually at the top.</text>
+            <text x="430" y="270" font-size="13" fill="var(--muted)">Walk clockwise: T2, T3, …</text>
+            <text x="430" y="300" font-size="13" fill="var(--muted)">Bolts around the rim are die bolts.</text>
+          </svg>
+          <figcaption>If several reds cluster on one side, that sector is running off spec. Adjust that side of the die, then paste the next check and compare.</figcaption>
+        </figure>
+        <ul>
+          <li>Specs on the right come from the Master Sheet for that MSPEC. You can edit them for this view without changing Excel.</li>
+          <li>Previous / Next walks History rows for the current filters.</li>
+          <li>Settings changes how many T-points and bolts are drawn — match the sheet (often 13 points).</li>
+          <li>Show arrow draws the shift from the center of the readings toward the thick side.</li>
+        </ul>
+      </article>
+
+      <article class="docs-panel" data-docs="trail" id="docs-trail" hidden>
+        <h2>Cookie trail and Back</h2>
+        <p class="hist-meta">The trail under the title is your path. It is not decoration — every segment is a button.</p>
+        <figure class="docs-aid" id="docs-aid-trail">
+          <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cookie trail">
+            <rect x="16" y="28" width="688" height="44" rx="10" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="36" y="56" font-size="16" font-weight="700" fill="#1d4ed8">Home</text>
+            <text x="92" y="56" font-size="16" fill="var(--muted)">›</text>
+            <text x="112" y="56" font-size="16" font-weight="700" fill="#1d4ed8">History</text>
+            <text x="188" y="56" font-size="16" fill="var(--muted)">›</text>
+            <text x="208" y="56" font-size="16" font-weight="700" fill="#1d4ed8">SPC</text>
+            <text x="250" y="56" font-size="16" fill="var(--muted)">›</text>
+            <text x="270" y="56" font-size="16" font-weight="700" fill="var(--text)">Graph</text>
+            <text x="36" y="110" font-size="13" fill="var(--text)">Click Home to clear the stack. Click SPC to keep the chart filters. Back steps one page and keeps that page’s filters.</text>
+          </svg>
+          <figcaption>Example: you opened History, then SPC, then one check. The trail reads Home › History › SPC › Graph.</figcaption>
+        </figure>
+        <ul>
+          <li>Every inner page starts at Home.</li>
+          <li>Back is the same as clicking the previous crumb.</li>
+          <li>Page tools on the right (Dark mode, Download, Settings) do not add a crumb.</li>
+        </ul>
+      </article>
+    </div>
   </div>
 </section>
 
@@ -924,7 +1384,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.32';
+const APP_VERSION = '1.7.33';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -2097,18 +2557,36 @@ function spcIndexAtSerial(pts, serial) {
   }
   return n - 1;
 }
+function spcXAt(plot, pts, iOrTick) {
+  const n = (pts || []).length;
+  if (!plot || n <= 0) return 0;
+  if (n === 1) return plot.x + plot.w / 2;
+  const t0 = Number(pts[0].t) || 0;
+  const t1 = Number(pts[n - 1].t) || 0;
+  const span = Math.max(t1 - t0, 1 / 1440);
+  let t;
+  if (iOrTick && typeof iOrTick === 'object') t = Number(iOrTick.t);
+  else if (typeof iOrTick === 'number') t = Number(pts[iOrTick] && pts[iOrTick].t);
+  if (!isFinite(t)) t = t0;
+  const u = Math.min(1, Math.max(0, (t - t0) / span));
+  return plot.x + u * plot.w;
+}
 function spcAxisTicks(pts) {
   if (!pts.length) return [];
-  const first = excelDatePartsFromSerial(pts[0].t);
-  const last = excelDatePartsFromSerial(pts[pts.length - 1].t);
-  const span = (Number(pts[pts.length - 1].t) || 0) - (Number(pts[0].t) || 0);
+  const t0 = Number(pts[0].t) || 0;
+  const t1 = Number(pts[pts.length - 1].t) || 0;
+  const first = excelDatePartsFromSerial(t0);
+  const last = excelDatePartsFromSerial(t1);
+  const span = t1 - t0;
   if (first && last && span > 40) {
     const ticks = [];
     let y = first.y, m = first.m;
     while (y < last.y || (y === last.y && m <= last.m)) {
       const serial = isoToExcelSerial(isoFromParts(y, m, 1));
+      const t = Math.min(t1, Math.max(t0, isFinite(serial) ? serial : t0));
       ticks.push({
-        i: spcIndexAtSerial(pts, isFinite(serial) ? serial : Number(pts[0].t) || 0),
+        t,
+        i: spcIndexAtSerial(pts, t),
         label: MONTHS[m - 1].slice(0, 3) + ' ' + String(y).slice(2),
         row: ticks.length % 2
       });
@@ -2124,7 +2602,7 @@ function spcAxisTicks(pts) {
     const key = dp ? dp.y + '-' + dp.m + '-' + dp.d : 'i' + i;
     if (seen.has(key)) return;
     seen.add(key);
-    ticks.push({ i, label: excelDateShort(p.t), row: ticks.length % 2 });
+    ticks.push({ t: Number(p.t) || t0, i, label: excelDateShort(p.t), row: ticks.length % 2 });
   });
   if (ticks.length <= 12) return ticks;
   const out = [ticks[0]];
@@ -2617,6 +3095,12 @@ function isoToExcelSerial(iso, endOfDay) {
   const utc = Date.UTC(parts[0], parts[1] - 1, parts[2], endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, endOfDay ? 999 : 0);
   return utc / 86400000 + 25569;
 }
+function firstOfPriorMonthYmd(now) {
+  const d = now instanceof Date ? now : new Date();
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  return isoFromParts(m === 0 ? y - 1 : y, m === 0 ? 12 : m, 1);
+}
 function excelSerialToIso(s) {
   const d = excelSerialDate(s);
   if (isNaN(d.getTime())) return '';
@@ -2818,6 +3302,11 @@ function uniqueSorted(values, numeric) {
     ? (numVal(a) - numVal(b)) || String(a).localeCompare(String(b), undefined, { numeric: true })
     : String(a).localeCompare(String(b), undefined, { numeric: true }));
   return out;
+}
+function sortKeysByCount(counts) {
+  return Object.keys(counts || {}).sort((a, b) =>
+    (Number(counts[b]) || 0) - (Number(counts[a]) || 0)
+    || String(a).localeCompare(String(b), undefined, { numeric: true }));
 }
 function dateFilter() { return tableFilters['Date/Time'] || { year: '', month: '', day: '' }; }
 function rowMatchesTone(r, exceptKey) {
@@ -3311,7 +3800,7 @@ function countBySpcKey(rows, by) {
 function spcComboStats() {
   const by = document.getElementById('spcBy').value;
   const counts = countBySpcKey(spcRowsInDateRange(plantRows('foam')), by);
-  return { values: uniqueSorted(Object.keys(counts), true), counts };
+  return { values: sortKeysByCount(counts), counts };
 }
 function spcRowsInDateRange(rows) {
   let out = lineFilteredRows(rows || plantRows('foam'));
@@ -3403,11 +3892,15 @@ function spcSelectedRows() {
 }
 function syncSpcDates(force) {
   const serials = plantRows('foam').map(r => r.serial).filter(isFinite);
-  if (!serials.length) return;
   const fromEl = document.getElementById('spcFrom');
   const toEl = document.getElementById('spcTo');
-  if (force || !fromEl.value) fromEl.value = excelSerialToIso(Math.min(...serials));
-  if (force || !toEl.value) toEl.value = excelSerialToIso(Math.max(...serials));
+  if (!fromEl || !toEl) return;
+  if (force || !fromEl.value) fromEl.value = firstOfPriorMonthYmd();
+  if (force || !toEl.value) {
+    toEl.value = serials.length
+      ? excelSerialToIso(Math.max(...serials))
+      : isoFromParts(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
+  }
 }
 function historyNav() {
   const rows = getFilteredRows();
@@ -3499,6 +3992,14 @@ function openCompliance(from) {
 }
 function openDocs() {
   goTo('docs');
+  showDocsTopic('home');
+}
+function showDocsTopic(id) {
+  const topic = id || 'home';
+  document.querySelectorAll('.docs-panel').forEach(p => { p.hidden = p.dataset.docs !== topic; });
+  document.querySelectorAll('.docs-navbtn').forEach(b => b.classList.toggle('active', b.dataset.docs === topic));
+  const main = document.getElementById('docsMain');
+  if (main) main.scrollTop = 0;
 }
 function openTrends() {
   if (!indexedRows.length) { toast('Paste results first'); return; }
@@ -3573,8 +4074,8 @@ function filterComplianceData(rows, filters) {
     if (f.from && r.date < f.from) return false;
     if (f.to && r.date > f.to) return false;
     if (f.line && sapLineKey(r.line) !== sapLineKey(f.line)) return false;
-    if (f.item && !String(r.itemNumber).toUpperCase().includes(f.item.toUpperCase())) return false;
-    if (f.mspec && !String(r.mspec).toUpperCase().includes(f.mspec.toUpperCase())) return false;
+    if (f.item && sapItemKey(r.itemNumber) !== sapItemKey(f.item)) return false;
+    if (f.mspec && canonMspec(r.mspec) !== canonMspec(f.mspec)) return false;
     if (f.failType && !(r.failType || '').includes(f.failType)) return false;
     return true;
   });
@@ -3585,8 +4086,8 @@ function filterTrendFails(rows, filters) {
     if (f.from && r.date < f.from) return false;
     if (f.to && r.date > f.to) return false;
     if (f.line && sapLineKey(r.line) !== sapLineKey(f.line)) return false;
-    if (f.item && !String(r.itemNumber).toUpperCase().includes(f.item.toUpperCase())) return false;
-    if (f.mspec && !String(r.mspec).toUpperCase().includes(f.mspec.toUpperCase())) return false;
+    if (f.item && sapItemKey(r.itemNumber) !== sapItemKey(f.item)) return false;
+    if (f.mspec && canonMspec(r.mspec) !== canonMspec(f.mspec)) return false;
     if (f.failType && r.failType !== f.failType) return false;
     return true;
   });
@@ -3637,8 +4138,36 @@ function fillTrendFilters() {
   const dates = complianceData.map(r => r.date).filter(Boolean).sort();
   const fromEl = document.getElementById('trendFrom');
   const toEl = document.getElementById('trendTo');
-  if (fromEl && !fromEl.value && dates[0]) fromEl.value = dates[0];
-  if (toEl && !toEl.value && dates.length) toEl.value = dates[dates.length - 1];
+  if (fromEl && !fromEl.value) fromEl.value = firstOfPriorMonthYmd();
+  if (toEl && !toEl.value) {
+    toEl.value = dates.length
+      ? dates[dates.length - 1]
+      : isoFromParts(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
+  }
+  const from = fromEl && fromEl.value;
+  const to = toEl && toEl.value;
+  const inRange = complianceData.filter(r => (!from || r.date >= from) && (!to || r.date <= to));
+  const itemCounts = Object.create(null);
+  const mspecCounts = Object.create(null);
+  for (const r of inRange) {
+    const item = String(r.itemNumber || '').trim();
+    const ms = canonMspec(r.mspec);
+    if (item) itemCounts[item] = (itemCounts[item] || 0) + 1;
+    if (ms) mspecCounts[ms] = (mspecCounts[ms] || 0) + 1;
+  }
+  fillCountedSelect(document.getElementById('trendItem'), itemCounts, 'All items');
+  fillCountedSelect(document.getElementById('trendMspec'), mspecCounts, 'All MSPECs', (k, n) => `${mspecWithTarget(k)} · ${spcPtsLabel(n)}`);
+}
+function fillCountedSelect(sel, counts, allLabel, labelFn) {
+  if (!sel) return;
+  const keep = sel.value;
+  const keys = sortKeysByCount(counts);
+  sel.innerHTML = `<option value="">${esc(allLabel)}</option>` + keys.map(k => {
+    const n = counts[k] || 0;
+    const lab = labelFn ? labelFn(k, n) : `${k} · ${spcPtsLabel(n)}`;
+    return `<option value="${esc(k)}">${esc(lab)}</option>`;
+  }).join('');
+  sel.value = (keep && Object.prototype.hasOwnProperty.call(counts, keep)) ? keep : '';
 }
 function destroyTrendCharts() {
   if (trendCharts.missed && trendCharts.missed.destroy) trendCharts.missed.destroy();
@@ -4531,7 +5060,6 @@ function pdfDrawSpcChart(page, box, pts, flagged, ch) {
   const span = Math.max(ym.max - ym.min, 1e-9);
   const digits = span < 1 ? 3 : (span < 10 ? 2 : 1);
   const yAt = v => plot.y + plot.h - ((Number(v) - ym.min) / span) * plot.h;
-  const xAt = (i, n) => n <= 1 ? plot.x + plot.w / 2 : plot.x + (i / (n - 1)) * plot.w;
   const specPdf = (val, color, label, sit) => {
     if (!finiteNum(val)) return;
     const yy = Math.min(plot.y + plot.h - 1, Math.max(plot.y + 1, yAt(val)));
@@ -4545,17 +5073,16 @@ function pdfDrawSpcChart(page, box, pts, flagged, ch) {
   pdfLine(page, plot.x, plot.y + plot.h, plot.x + plot.w, plot.y + plot.h, '#94a3b8', 0.6);
   pdfText(page, plot.x - 6, plot.y + 3, ym.max.toFixed(digits), { size: 7, color: '#3e4a55', align: 'right' });
   pdfText(page, plot.x - 6, plot.y + plot.h + 3, ym.min.toFixed(digits), { size: 7, color: '#3e4a55', align: 'right' });
-  const n = pts.length;
   let last = null;
   pts.forEach((p, i) => {
     if (!finiteNum(p[ch.key]) || (spcHideOutliers && flagged[i])) return;
-    const xx = xAt(i, n), yy = yAt(p[ch.key]);
+    const xx = spcXAt(plot, pts, i), yy = yAt(p[ch.key]);
     if (last) pdfLine(page, last.x, last.y, xx, yy, '#12202b', 1);
     last = { x: xx, y: yy };
   });
   pts.forEach((p, i) => {
     if (!finiteNum(p[ch.key]) || (spcHideOutliers && flagged[i])) return;
-    const xx = xAt(i, n), yy = yAt(p[ch.key]);
+    const xx = spcXAt(plot, pts, i), yy = yAt(p[ch.key]);
     const fail = judgeBetween(p[ch.key], ch.min, ch.max) === 'Fail';
     if (flagged[i] && !spcHideOutliers) {
       pdfLine(page, xx - 3, yy - 3, xx + 3, yy + 3, '#d97706', 1);
@@ -4566,7 +5093,7 @@ function pdfDrawSpcChart(page, box, pts, flagged, ch) {
   });
   const ticks = spcAxisTicks(pts);
   ticks.forEach((tick, ti) => {
-    const xx = xAt(tick.i, n);
+    const xx = spcXAt(plot, pts, tick);
     const align = ti === 0 ? 'left' : (ti === ticks.length - 1 ? 'right' : 'center');
     pdfText(page, xx, plot.y + plot.h + 12 + (tick.row ? 9 : 0), tick.label, { size: 7, color: '#3e4a55', align });
   });
@@ -6343,7 +6870,6 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
   const ym = axisRange(plotVals, [specMin, specMax, specTarget]);
   const span = Math.max(ym.max - ym.min, 1e-9);
   const yAt = v => plot.y + plot.h - ((v - ym.min) / span) * plot.h;
-  const xAt = (i, n) => n <= 1 ? plot.x + plot.w / 2 : plot.x + (i / (n - 1)) * plot.w;
   const digits = span < 1 ? 3 : (span < 10 ? 2 : 1);
   const specLine = (val, color, label, sit) => {
     if (!finiteNum(val)) return;
@@ -6371,7 +6897,7 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
   let started = false;
   pts.forEach((p, i) => {
     if (!finiteNum(p[key]) || (spcHideOutliers && flagged[i])) return;
-    const xx = xAt(i, n), yy = yAt(p[key]);
+    const xx = spcXAt(plot, pts, i), yy = yAt(p[key]);
     if (!started) { ctx.moveTo(xx, yy); started = true; } else ctx.lineTo(xx, yy);
   });
   ctx.stroke(); ctx.globalAlpha = 1;
@@ -6384,7 +6910,7 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
       if (spcHideOutliers && flagged[i]) continue;
       const selected = p.idx === selectedIdx;
       if (stride > 1 && i % stride && !selected) continue;
-      const xx = xAt(i, n), yy = yAt(p[key]);
+      const xx = spcXAt(plot, pts, i), yy = yAt(p[key]);
       const outlier = flagged[i];
       const inSpec = judgeBetween(p[key], specMin, specMax);
       if (outlier && !spcHideOutliers) {
@@ -6401,7 +6927,7 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
   ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Atkinson Hyperlegible", Arial`;
   ctx.textBaseline = 'top';
   axisTicks.forEach((tick, ti) => {
-    const xx = xAt(tick.i, n);
+    const xx = spcXAt(plot, pts, tick);
     ctx.textAlign = ti === 0 ? 'left' : (ti === axisTicks.length - 1 ? 'right' : 'center');
     ctx.fillText(tick.label, xx, plot.y + plot.h + 8 + (tick.row ? labelSize + 2 : 0));
   });
@@ -6713,13 +7239,13 @@ document.addEventListener('click', (e) => {
   const crumb = e.target.closest('button[data-crumb]');
   if (crumb) jumpToCrumb(crumb.dataset.crumb);
 });
-['trendFrom','trendTo','trendLine','trendFailType'].forEach(id => {
+['trendFrom','trendTo','trendLine','trendFailType','trendItem','trendMspec'].forEach(id => {
   const el = document.getElementById(id);
-  if (el) el.onchange = renderTrends;
-});
-['trendItem','trendMspec'].forEach(id => {
-  const el = document.getElementById(id);
-  if (el) el.oninput = renderTrends;
+  if (!el) return;
+  el.onchange = () => {
+    if (id === 'trendFrom' || id === 'trendTo') fillTrendFilters();
+    renderTrends();
+  };
 });
 document.getElementById('prevResult').onclick = viewPrev;
 document.getElementById('nextResult').onclick = viewNext;
@@ -6798,6 +7324,10 @@ document.getElementById('spcSeries').onchange = () => {
   requestAnimationFrame(() => draw());
 };
 document.getElementById('docsBack').onclick = goBack;
+document.getElementById('docsNav').onclick = (e) => {
+  const btn = e.target.closest('button[data-docs]');
+  if (btn) showDocsTopic(btn.dataset.docs);
+};
 document.getElementById('spcOutliers').onclick = () => {
   spcHideOutliers = !spcHideOutliers;
   document.getElementById('spcOutliers').textContent = spcHideOutliers ? 'Show outliers' : 'Hide outliers';

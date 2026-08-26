@@ -472,6 +472,8 @@ try {
     border: 2px solid var(--line); border-radius: 10px; padding: 7px 8px;
     font: inherit; font-size: 16px; background: var(--idle); color: var(--text); min-width: 140px;
   }
+  .trends-filters .combo { min-width: 200px; }
+  .trends-filters .combo input { width: 100%; min-width: 200px; }
   .trends-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .trend-chart { min-height: 280px; padding: 10px; }
   .trend-chart h2 { margin: 0 0 8px; font-size: 16px; }
@@ -842,8 +844,18 @@ try {
       <label>From <input type="date" id="trendFrom"></label>
       <label>To <input type="date" id="trendTo"></label>
       <label>Line <select id="trendLine"><option value="">All lines</option></select></label>
-      <label>Item # <select id="trendItem"><option value="">All items</option></select></label>
-      <label>MSPEC <select id="trendMspec"><option value="">All MSPECs</option></select></label>
+      <label>Item #
+        <div class="combo" id="trendItemCombo">
+          <input type="search" id="trendItem" autocomplete="off" spellcheck="false" placeholder="Type or pick item">
+          <div class="combo-list" id="trendItemList"></div>
+        </div>
+      </label>
+      <label>MSPEC
+        <div class="combo" id="trendMspecCombo">
+          <input type="search" id="trendMspec" autocomplete="off" spellcheck="false" placeholder="Type or pick MSPEC">
+          <div class="combo-list" id="trendMspecList"></div>
+        </div>
+      </label>
       <label>Fail type <select id="trendFailType"><option value="">All fail types</option></select></label>
     </div>
     <div class="trends-charts">
@@ -1120,7 +1132,7 @@ try {
             <text x="20" y="313" font-size="12" fill="var(--text)">range over</text>
             <text x="320" y="313" font-size="12" font-weight="700" fill="var(--text)">6</text>
           </svg>
-          <figcaption>Filters update both charts and the cards below immediately. Item # and MSPEC are dropdowns, sorted from the most records to the fewest so busy products sit at the top.</figcaption>
+          <figcaption>Filters update both charts and the cards below immediately. Type an Item # or MSPEC, or pick from the list. The list is sorted from the most records to the fewest so busy products sit at the top.</figcaption>
         </figure>
         <h3>What each chart is telling you</h3>
         <div class="docs-term">
@@ -1464,7 +1476,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.34';
+const APP_VERSION = '1.7.35';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -1553,6 +1565,8 @@ let trendCharts = { missed: null, fails: null };
 let complianceData = [];
 let trendFailEvents = [];
 let spcComboHi = -1;
+let trendComboHi = { item: -1, mspec: -1 };
+let trendComboCounts = { item: {}, mspec: {} };
 let activeLine = '';
 let sapAudit = null;
 let qualityDayItemIndex = null;
@@ -4187,13 +4201,30 @@ function buildComplianceData() {
   complianceData = [...map.values()].sort((a, b) => a.date.localeCompare(b.date) || a.line.localeCompare(b.line));
   trendFailEvents = fails;
 }
+function trendNeedle(raw) {
+  return stripSpcPtsSuffix(raw).trim();
+}
+function trendMatchesItem(rowItem, q) {
+  if (!q) return true;
+  const a = String(rowItem || '');
+  if (sapItemKey(a) === sapItemKey(q)) return true;
+  return a.toUpperCase().includes(String(q).toUpperCase());
+}
+function trendMatchesMspec(rowMspec, q) {
+  if (!q) return true;
+  const a = canonMspec(rowMspec) || String(rowMspec || '');
+  const b = canonMspec(q) || String(q || '');
+  if (a && b && a === b) return true;
+  return String(rowMspec || '').toUpperCase().includes(String(q).toUpperCase())
+    || String(a).toUpperCase().includes(String(b).toUpperCase());
+}
 function trendFilterValues() {
   return {
     from: String((document.getElementById('trendFrom') || {}).value || ''),
     to: String((document.getElementById('trendTo') || {}).value || ''),
     line: String((document.getElementById('trendLine') || {}).value || ''),
-    item: String((document.getElementById('trendItem') || {}).value || '').trim(),
-    mspec: String((document.getElementById('trendMspec') || {}).value || '').trim(),
+    item: trendNeedle((document.getElementById('trendItem') || {}).value || ''),
+    mspec: trendNeedle((document.getElementById('trendMspec') || {}).value || ''),
     failType: String((document.getElementById('trendFailType') || {}).value || '')
   };
 }
@@ -4203,8 +4234,8 @@ function filterComplianceData(rows, filters) {
     if (f.from && r.date < f.from) return false;
     if (f.to && r.date > f.to) return false;
     if (f.line && sapLineKey(r.line) !== sapLineKey(f.line)) return false;
-    if (f.item && sapItemKey(r.itemNumber) !== sapItemKey(f.item)) return false;
-    if (f.mspec && canonMspec(r.mspec) !== canonMspec(f.mspec)) return false;
+    if (f.item && !trendMatchesItem(r.itemNumber, f.item)) return false;
+    if (f.mspec && !trendMatchesMspec(r.mspec, f.mspec)) return false;
     if (f.failType && !(r.failType || '').includes(f.failType)) return false;
     return true;
   });
@@ -4215,8 +4246,8 @@ function filterTrendFails(rows, filters) {
     if (f.from && r.date < f.from) return false;
     if (f.to && r.date > f.to) return false;
     if (f.line && sapLineKey(r.line) !== sapLineKey(f.line)) return false;
-    if (f.item && sapItemKey(r.itemNumber) !== sapItemKey(f.item)) return false;
-    if (f.mspec && canonMspec(r.mspec) !== canonMspec(f.mspec)) return false;
+    if (f.item && !trendMatchesItem(r.itemNumber, f.item)) return false;
+    if (f.mspec && !trendMatchesMspec(r.mspec, f.mspec)) return false;
     if (f.failType && r.failType !== f.failType) return false;
     return true;
   });
@@ -4284,19 +4315,105 @@ function fillTrendFilters() {
     if (item) itemCounts[item] = (itemCounts[item] || 0) + 1;
     if (ms) mspecCounts[ms] = (mspecCounts[ms] || 0) + 1;
   }
-  fillCountedSelect(document.getElementById('trendItem'), itemCounts, 'All items');
-  fillCountedSelect(document.getElementById('trendMspec'), mspecCounts, 'All MSPECs', (k, n) => `${mspecWithTarget(k)} · ${spcPtsLabel(n)}`);
+  trendComboCounts.item = itemCounts;
+  trendComboCounts.mspec = mspecCounts;
+  syncTrendComboDisplay('item');
+  syncTrendComboDisplay('mspec');
 }
-function fillCountedSelect(sel, counts, allLabel, labelFn) {
-  if (!sel) return;
-  const keep = sel.value;
-  const keys = sortKeysByCount(counts);
-  sel.innerHTML = `<option value="">${esc(allLabel)}</option>` + keys.map(k => {
-    const n = counts[k] || 0;
-    const lab = labelFn ? labelFn(k, n) : `${k} · ${spcPtsLabel(n)}`;
-    return `<option value="${esc(k)}">${esc(lab)}</option>`;
-  }).join('');
-  sel.value = (keep && Object.prototype.hasOwnProperty.call(counts, keep)) ? keep : '';
+function trendComboEls(kind) {
+  return kind === 'mspec'
+    ? { input: document.getElementById('trendMspec'), list: document.getElementById('trendMspecList'), wrap: document.getElementById('trendMspecCombo') }
+    : { input: document.getElementById('trendItem'), list: document.getElementById('trendItemList'), wrap: document.getElementById('trendItemCombo') };
+}
+function trendComboLabel(kind, key) {
+  return kind === 'mspec' ? mspecWithTarget(key) : String(key || '');
+}
+function trendComboDisplay(kind, key) {
+  if (!key) return '';
+  const n = (trendComboCounts[kind] || {})[key] || 0;
+  const lab = trendComboLabel(kind, key);
+  return n ? `${lab} · ${spcPtsLabel(n)}` : lab;
+}
+function syncTrendComboDisplay(kind) {
+  const { input } = trendComboEls(kind);
+  if (!input) return;
+  const q = trendNeedle(input.value);
+  const counts = trendComboCounts[kind] || {};
+  if (q && Object.prototype.hasOwnProperty.call(counts, q)) input.value = trendComboDisplay(kind, q);
+}
+function renderTrendComboList(kind, q) {
+  const { list } = trendComboEls(kind);
+  if (!list) return;
+  const needle = trendNeedle(q).toLowerCase();
+  const counts = trendComboCounts[kind] || {};
+  const keys = sortKeysByCount(counts).filter(k => {
+    if (!needle) return true;
+    return String(k).toLowerCase().includes(needle) || trendComboLabel(kind, k).toLowerCase().includes(needle);
+  }).slice(0, 80);
+  const selected = trendNeedle((trendComboEls(kind).input || {}).value || '');
+  trendComboHi[kind] = keys.findIndex(k => k === selected);
+  const allBtn = `<button type="button" data-val="" class="${selected ? '' : 'active'}"><span>${kind === 'mspec' ? 'All MSPECs' : 'All items'}</span></button>`;
+  list.innerHTML = allBtn + (keys.map((k, i) =>
+    `<button type="button" data-val="${esc(k)}" class="${i === trendComboHi[kind] ? 'active' : ''}"><span>${esc(trendComboLabel(kind, k))}</span><span class="spc-pts">${esc(spcPtsLabel(counts[k] || 0))}</span></button>`
+  ).join('') || `<div class="hist-meta">No matches</div>`);
+}
+function showTrendComboList(kind) {
+  const { list } = trendComboEls(kind);
+  if (list) list.classList.add('show');
+}
+function hideTrendComboList(kind) {
+  const { list } = trendComboEls(kind);
+  if (list) list.classList.remove('show');
+  trendComboHi[kind] = -1;
+}
+function pickTrendCombo(kind, v) {
+  const { input } = trendComboEls(kind);
+  if (input) input.value = v ? trendComboDisplay(kind, v) : '';
+  hideTrendComboList(kind);
+  renderTrends();
+}
+function bindTrendCombo(kind) {
+  const { input, list } = trendComboEls(kind);
+  if (!input || !list) return;
+  input.onfocus = () => {
+    input.value = trendNeedle(input.value);
+    renderTrendComboList(kind, input.value);
+    showTrendComboList(kind);
+  };
+  input.oninput = () => {
+    renderTrendComboList(kind, input.value);
+    showTrendComboList(kind);
+    renderTrends();
+  };
+  input.onkeydown = (e) => {
+    const btns = [...list.querySelectorAll('button[data-val]')];
+    if (e.key === 'Escape') { hideTrendComboList(kind); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (!btns.length) return;
+      if (e.key === 'ArrowDown') trendComboHi[kind] = Math.min(btns.length - 1, Math.max(0, trendComboHi[kind] + 1));
+      else trendComboHi[kind] = Math.max(0, (trendComboHi[kind] < 0 ? btns.length : trendComboHi[kind]) - 1);
+      btns.forEach((b, i) => b.classList.toggle('active', i === trendComboHi[kind]));
+      if (btns[trendComboHi[kind]]) btns[trendComboHi[kind]].scrollIntoView({ block: 'nearest' });
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (trendComboHi[kind] >= 0 && btns[trendComboHi[kind]]) {
+        pickTrendCombo(kind, btns[trendComboHi[kind]].dataset.val);
+        return;
+      }
+      const q = trendNeedle(input.value).toLowerCase();
+      const hit = sortKeysByCount(trendComboCounts[kind] || {}).find(k =>
+        String(k).toLowerCase() === q || trendComboLabel(kind, k).toLowerCase() === q);
+      if (hit) pickTrendCombo(kind, hit);
+      else { hideTrendComboList(kind); renderTrends(); }
+    }
+  };
+  list.onclick = (e) => {
+    const btn = e.target.closest('button[data-val]');
+    if (btn) pickTrendCombo(kind, btn.dataset.val);
+  };
 }
 function destroyTrendCharts() {
   if (trendCharts.missed && trendCharts.missed.destroy) trendCharts.missed.destroy();
@@ -7505,7 +7622,7 @@ document.addEventListener('click', (e) => {
   const crumb = e.target.closest('button[data-crumb]');
   if (crumb) jumpToCrumb(crumb.dataset.crumb);
 });
-['trendFrom','trendTo','trendLine','trendFailType','trendItem','trendMspec'].forEach(id => {
+['trendFrom','trendTo','trendLine','trendFailType'].forEach(id => {
   const el = document.getElementById(id);
   if (!el) return;
   el.onchange = () => {
@@ -7513,6 +7630,8 @@ document.addEventListener('click', (e) => {
     renderTrends();
   };
 });
+bindTrendCombo('item');
+bindTrendCombo('mspec');
 document.getElementById('prevResult').onclick = viewPrev;
 document.getElementById('nextResult').onclick = viewNext;
 document.getElementById('histResetFilters').onclick = resetFilters;
@@ -7662,6 +7781,8 @@ document.getElementById('histHead').addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
   if (!e.target.closest('#filterPop') && !e.target.closest('.th-menu')) closeFilterPop();
   if (!e.target.closest('#spcValueCombo')) hideSpcValueList();
+  if (!e.target.closest('#trendItemCombo')) hideTrendComboList('item');
+  if (!e.target.closest('#trendMspecCombo')) hideTrendComboList('mspec');
 });
 document.addEventListener('paste', (e) => {
   const tag = (e.target && e.target.tagName) || '';

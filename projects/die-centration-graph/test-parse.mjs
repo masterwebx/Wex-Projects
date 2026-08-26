@@ -272,7 +272,55 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.32'/);
+assert.match(html, /APP_VERSION = '1\.7\.33'/);
+assert.match(html, /function firstOfPriorMonthYmd/);
+assert.match(html, /function sortKeysByCount/);
+assert.match(html, /function spcXAt/);
+assert.match(html, /function showDocsTopic/);
+assert.match(html, /function fillCountedSelect/);
+assert.match(html, /id="docsNav"/);
+assert.match(html, /docs-aid-radial/);
+assert.match(html, /docs-aid-spc/);
+assert.match(html, /docs-aid-cpk/);
+assert.match(html, /docs-aid-trends/);
+assert.match(html, /<select id="trendItem"/);
+assert.match(html, /<select id="trendMspec"/);
+assert.doesNotMatch(html, /<input type="search" id="trendItem"/);
+assert.match(html, /sortKeysByCount\(counts\)/);
+assert.match(html, /spcXAt\(plot, pts/);
+
+function firstOfPriorMonthYmd(now) {
+  const d = now instanceof Date ? now : new Date();
+  const y = d.getFullYear();
+  const m = d.getMonth();
+  return `${m === 0 ? y - 1 : y}-${String(m === 0 ? 12 : m).padStart(2, '0')}-01`;
+}
+assert.equal(firstOfPriorMonthYmd(new Date(2026, 7, 26)), '2026-07-01');
+assert.equal(firstOfPriorMonthYmd(new Date(2026, 0, 5)), '2025-12-01');
+function sortKeysByCount(counts) {
+  return Object.keys(counts || {}).sort((a, b) =>
+    (Number(counts[b]) || 0) - (Number(counts[a]) || 0)
+    || String(a).localeCompare(String(b), undefined, { numeric: true }));
+}
+assert.deepEqual(sortKeysByCount({ a: 2, b: 9, c: 9 }), ['b', 'c', 'a']);
+function spcXAt(plot, pts, iOrTick) {
+  const n = (pts || []).length;
+  if (!plot || n <= 0) return 0;
+  if (n === 1) return plot.x + plot.w / 2;
+  const t0 = Number(pts[0].t) || 0;
+  const t1 = Number(pts[n - 1].t) || 0;
+  const span = Math.max(t1 - t0, 1 / 1440);
+  let t;
+  if (iOrTick && typeof iOrTick === 'object') t = Number(iOrTick.t);
+  else if (typeof iOrTick === 'number') t = Number(pts[iOrTick] && pts[iOrTick].t);
+  if (!isFinite(t)) t = t0;
+  const u = Math.min(1, Math.max(0, (t - t0) / span));
+  return plot.x + u * plot.w;
+}
+const plot = { x: 100, w: 200 };
+assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], 0), 100);
+assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], 1), 300);
+assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], { t: 15 }), 200);
 assert.match(html, /id="welcomeSap"/);
 assert.match(html, /plantRows\('foam'\)\.length/);
 assert.match(html, /data-spc-series="points"] canvas/);

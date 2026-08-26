@@ -199,7 +199,7 @@ assert.match(html, /Quality fails by item #/);
 assert.match(html, /Fails by MSPEC/);
 assert.match(html, /Missed checks by week/);
 assert.match(html, /Fails by week/);
-assert.match(html, /Only months that have checks are shown/);
+assert.match(html, /Each check is one step across/);
 assert.match(html, /No failing items/);
 assert.match(html, /trendFailPtsLabel/);
 assert.match(html, /id="spcSeries"/);
@@ -287,7 +287,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.37'/);
+assert.match(html, /APP_VERSION = '1\.7\.38'/);
 assert.match(html, /id="spcSeriesGraph"/);
 assert.match(html, /id="seriesLimit"/);
 assert.match(html, /id="seriesBtn"/);
@@ -324,7 +324,13 @@ assert.match(html, /function spcFilledTimes/);
 assert.match(html, /function showDocsTopic/);
 assert.match(html, /function bindTrendCombo/);
 assert.match(html, /function trendNeedle/);
+assert.match(html, /function trendSelectedKey/);
 assert.match(html, /function trendMatchesItem/);
+assert.match(html, /itemWithTargets\(key\)/);
+assert.match(html, /class="trend-plot"/);
+assert.match(html, /let trendPick/);
+assert.match(html, /fails\?\|pts\?/);
+assert.match(html, /Each check is one step across/);
 assert.match(html, /id="docsNav"/);
 assert.match(html, /docs-aid-radial/);
 assert.match(html, /docs-aid-spc/);
@@ -376,60 +382,23 @@ function spcXLayout(plot, pts) {
   const n = (pts || []).length;
   if (!plot || n <= 0) return [];
   if (n === 1) return [plot.x + plot.w / 2];
-  const times = spcFilledTimes(pts);
-  const t0 = isFinite(times[0]) ? times[0] : 0;
-  const t1 = isFinite(times[n - 1]) ? times[n - 1] : t0;
-  const span = Math.max(t1 - t0, 1 / 1440);
-  const xs = new Array(n);
-  let i = 0;
-  while (i < n) {
-    const t = times[i];
-    let j = i + 1;
-    while (j < n && times[j] === t) j++;
-    const k = j - i;
-    const x0 = spcCalX(plot, isFinite(t) ? t : t0, t0, span);
-    const x1 = j < n && isFinite(times[j]) && times[j] > (isFinite(t) ? t : t0)
-      ? spcCalX(plot, times[j], t0, span)
-      : plot.x + plot.w;
-    if (k === 1) xs[i] = x0;
-    else {
-      const width = Math.max(x1 - x0, 0);
-      const use = width > 1 ? width * 0.92 : Math.max(k * 2.5, 8);
-      let left = width > 1 ? x0 : x0 - use * 0.5;
-      if (left + use > plot.x + plot.w) left = plot.x + plot.w - use;
-      if (left < plot.x) left = plot.x;
-      for (let p = 0; p < k; p++) xs[i + p] = left + ((p + 0.5) / k) * use;
-    }
-    i = j;
-  }
-  xs[0] = Math.max(plot.x, xs[0]);
-  const eps = 0.35;
-  for (let p = 1; p < n; p++) xs[p] = Math.max(xs[p], xs[p - 1] + eps);
-  const right = plot.x + plot.w;
-  if (xs[n - 1] > right && xs[n - 1] > xs[0]) {
-    const left = xs[0], spanX = xs[n - 1] - left;
-    for (let p = 0; p < n; p++) xs[p] = left + (xs[p] - left) * (right - left) / spanX;
-  }
-  return xs;
+  return pts.map((_, i) => plot.x + (i / (n - 1)) * plot.w);
 }
 function spcXAt(plot, pts, iOrTick, xs) {
   const n = (pts || []).length;
   if (!plot || n <= 0) return 0;
   if (n === 1) return plot.x + plot.w / 2;
-  if (typeof iOrTick === 'number' && xs && isFinite(xs[iOrTick])) return xs[iOrTick];
-  const t0 = Number(pts[0].t) || 0;
-  const t1 = Number(pts[n - 1].t) || 0;
-  const span = Math.max(t1 - t0, 1 / 1440);
-  let t;
-  if (iOrTick && typeof iOrTick === 'object') t = Number(iOrTick.t);
-  else if (typeof iOrTick === 'number') t = Number(pts[iOrTick] && pts[iOrTick].t);
-  if (!isFinite(t)) t = t0;
-  return spcCalX(plot, t, t0, span);
+  let i = -1;
+  if (typeof iOrTick === 'number') i = iOrTick;
+  else if (iOrTick && typeof iOrTick === 'object' && isFinite(Number(iOrTick.i))) i = Number(iOrTick.i);
+  if (i >= 0 && xs && isFinite(xs[i])) return xs[i];
+  if (i >= 0) return plot.x + (Math.min(n - 1, Math.max(0, i)) / (n - 1)) * plot.w;
+  return plot.x;
 }
 const plot = { x: 100, w: 200 };
 assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], 0), 100);
 assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], 1), 300);
-assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], { t: 15 }), 200);
+assert.equal(spcXAt(plot, [{ t: 10 }, { t: 20 }], { i: 0 }), 100);
 const stacked = [{ t: 10, avg: 1 }, { t: 10, avg: 40 }, { t: 10, avg: 2 }, { t: 20, avg: 3 }];
 const stackedXs = spcXLayout(plot, stacked);
 assert.ok(stackedXs[1] > stackedXs[0] + 0.3);
@@ -2332,5 +2301,15 @@ assert.ok(!dataMonths.some(m => m.key === '2026-08'));
 assert.match(html, /let complianceData = \[\]/);
 assert.match(html, /MONTHS\[mo\.m - 1\]\.slice\(0, 3\) \+ ' ' \+ String\(mo\.y\)\.slice\(2\)/);
 assert.doesNotMatch(html, /const maxTicks = 10/);
+function stripSpcPtsSuffix(s) {
+  return String(s || '')
+    .replace(/\s·\s\d+\s(fails?|pts?)$/i, '')
+    .replace(/\s*\([^)]*\)\s*$/, '')
+    .trim();
+}
+assert.equal(stripSpcPtsSuffix('3030053 · 37 fails'), '3030053');
+assert.equal(stripSpcPtsSuffix('4780 (.515 1.60#) · 12 fails'), '4780');
+assert.equal(stripSpcPtsSuffix('4780 (.515 1.60#)'), '4780');
+assert.equal(stripSpcPtsSuffix('4001 · 3 pts'), '4001');
 
 console.log('parse-diegraph tests passed');

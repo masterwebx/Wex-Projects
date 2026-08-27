@@ -1538,7 +1538,7 @@ try {
 
 <script src="vendor/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.44';
+const APP_VERSION = '1.7.45';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -1823,7 +1823,7 @@ async function restorePack() {
     return data;
   } catch { return null; }
 }
-const HTA_DISK_FILES = ['lookup', 's4', 's1', 's3', 'coex', 'mono', 'p1', 'rts'];
+const HTA_DISK_FILES = ['lookup', 's4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
 function loadHtaScript(src, timeoutMs) {
   return new Promise((resolve) => {
     const s = document.createElement('script');
@@ -1845,7 +1845,7 @@ function loadHtaScript(src, timeoutMs) {
 }
 function plantForHtaFile(key) {
   if (key === 's4' || key === 's1' || key === 's3') return 'foam';
-  if (key === 'coex' || key === 'mono') return 'bubble';
+  if (key === 'coex' || key === 'mono' || key === 'gcoex' || key === 'gmono') return 'bubble';
   if (key === 'p1' || key === 'rts') return key;
   return 'foam';
 }
@@ -1864,7 +1864,7 @@ async function readDiskHandoff() {
   }
   const rows = [];
   const lines = (window.QD_DISK && window.QD_DISK.lines) || {};
-  for (const key of ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts']) {
+  for (const key of ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono']) {
     const pack = lines[key];
     if (!pack || !pack.rows) continue;
     for (const row of pack.rows) {

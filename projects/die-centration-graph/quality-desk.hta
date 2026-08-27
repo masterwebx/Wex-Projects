@@ -17,70 +17,102 @@
     />
 
     <style>
-        body { font-family: Segoe UI, Arial; margin: 0; background: #eef1f5; color: #12202b; font-size: 15px; }
-        header.app { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: #fff; border-bottom: 1px solid #d5dde4; }
-        h1 { margin: 0; font-size: 22px; }
-        .tag { color: #3e4a55; margin: 2px 0 0; font-size: 13px; }
-        .tools button, button { border: 0; border-radius: 10px; padding: 8px 14px; font-weight: 700; cursor: pointer; background: #1d4ed8; color: #fff; font-family: inherit; }
-        button.secondary { background: #fff; color: #12202b; border: 2px solid #d5dde4; }
-        button.ok { background: #166534; }
-        button:disabled { opacity: .45; cursor: default; }
-        .wrap { padding: 14px 18px 24px; }
-        .status { margin: 0 0 12px; padding: 10px 12px; background: #fff; border: 1px solid #d5dde4; border-radius: 8px; white-space: pre-wrap; font-size: 13px; }
-        .status.bad { background: #fee2e2; border-color: #fecaca; }
+        body { font-family: Segoe UI, Arial; margin: 0; background: #121212; color: #f3f4f6; font-size: 15px; }
+        header.app { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: #1a1a1a; border-bottom: 1px solid #2a2f36; }
+        h1 { margin: 0; font-size: 20px; }
+        .tag { color: #9ca3af; margin: 2px 0 0; font-size: 12px; }
+        .tools button, button { border: 0; border-radius: 10px; padding: 8px 14px; font-weight: 700; cursor: pointer; background: #2563eb; color: #fff; font-family: inherit; }
+        button.secondary { background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
+        button.ok { background: #15803d; }
+        button:disabled, button.ghost { opacity: .4; cursor: default; background: #3f3f46; color: #d4d4d8; }
+        .wrap { padding: 14px 18px 72px; }
+        .status { margin: 0 0 12px; padding: 10px 12px; background: #1f2937; border: 1px solid #334155; border-radius: 8px; white-space: pre-wrap; font-size: 13px; }
+        .status.bad { background: #3f1d1d; border-color: #7f1d1d; }
         .lines { margin: 0 0 12px; }
-        .lines button { margin: 0 6px 6px 0; min-width: 64px; background: #fff; color: #12202b; border: 2px solid #d5dde4; }
-        .lines button.on { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+        .lines button { margin: 0 6px 6px 0; min-width: 64px; background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
+        .lines button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
         .grid { display: table; width: 100%; border-collapse: separate; border-spacing: 12px 0; }
         .col { display: table-cell; vertical-align: top; width: 50%; }
-        .card { background: #fff; border: 1px solid #d5dde4; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+        .card { background: #1e1e1e; border: 1px solid #2a2f36; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
         .card h2 { margin: 0 0 10px; font-size: 16px; }
-        label.f { display: block; margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #3e4a55; }
-        label.f input, label.f select, label.f textarea { display: block; width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 2px solid #d5dde4; border-radius: 8px; font: inherit; }
+        label.f { display: block; margin: 0 0 8px; font-size: 12px; font-weight: 700; color: #9ca3af; }
+        label.f input, label.f select, label.f textarea { display: block; width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 2px solid #3f3f46; border-radius: 8px; font: inherit; background: #111; color: #f3f4f6; }
         textarea { min-height: 58px; }
+        label.f.need input, label.f.need select, label.f.need textarea { border-color: #eab308; box-shadow: 0 0 0 2px rgba(234,179,8,.25); }
         .pair { display: table; width: 100%; }
         .pair > div { display: table-cell; width: 50%; padding-right: 8px; }
         .spec { font-size: 13px; }
         .spec b { display: inline-block; min-width: 110px; color: #3e4a55; }
         .spec div { margin: 3px 0; }
-        .hits { border: 1px solid #d5dde4; border-radius: 8px; max-height: 160px; overflow: auto; margin-top: 4px; display: none; }
+        .hits { border: 1px solid #3f3f46; border-radius: 8px; max-height: 160px; overflow: auto; margin-top: 4px; display: none; background: #111; }
         .hits div { padding: 6px 8px; cursor: pointer; }
-        .hits div:hover { background: #dbeafe; }
+        .hits div:hover { background: #1d4ed8; }
         .pts input { width: 72px; margin: 0 6px 6px 0; }
         .pf { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 8px; font-size: 12px; }
-        .pass { background: #dcfce7; color: #166534; }
-        .fail { background: #fee2e2; color: #991b1b; }
-        .muted { color: #3e4a55; font-weight: 400; }
+        .pass { background: #14532d; color: #86efac; }
+        .fail { background: #7f1d1d; color: #fecaca; }
+        .muted { color: #9ca3af; font-weight: 400; }
+        .crumbs { margin: 0 0 14px; color: #9ca3af; font-size: 13px; }
+        .crumbs b { color: #f3f4f6; }
+        .crumbs a { color: #93c5fd; cursor: pointer; text-decoration: none; }
+        .home-grid { display: block; }
+        .home-line { display: inline-block; width: 220px; min-height: 110px; margin: 0 12px 12px 0; padding: 18px; vertical-align: top; background: #1e1e1e; border: 1px solid #2a2f36; border-radius: 14px; cursor: pointer; text-align: left; }
+        .home-line:hover { border-color: #2563eb; }
+        .home-line h3 { margin: 0 0 8px; font-size: 28px; }
+        .home-line p { margin: 0; color: #9ca3af; font-size: 13px; font-weight: 400; }
+        .reason-btns button { display: block; width: 320px; max-width: 100%; margin: 0 0 12px; padding: 16px; font-size: 18px; }
+        .chips { margin: 8px 0; }
+        .chip { display: inline-block; min-width: 54px; margin: 0 6px 8px 0; padding: 8px 8px 6px; border-radius: 999px; text-align: center; background: #262626; border: 2px solid #3f3f46; }
+        .chip input { width: 48px; border: 0; background: transparent; color: #fff; text-align: center; padding: 2px 0; font-weight: 700; }
+        .chip.under { background: #713f12; border-color: #eab308; }
+        .chip.in { background: #14532d; border-color: #22c55e; }
+        .chip.over { background: #7f1d1d; border-color: #ef4444; }
+        .chip.extreme { outline: 2px solid #fff; }
+        .chip span { display: block; font-size: 10px; color: #d4d4d8; }
+        .results { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .results th, .results td { padding: 6px 8px; border-bottom: 1px solid #2a2f36; text-align: right; }
+        .results th:first-child, .results td:first-child { text-align: left; color: #9ca3af; }
+        .results td.ok { color: #86efac; font-weight: 700; }
+        .results td.bad { color: #fca5a5; font-weight: 700; }
+        .submit-bar { display: none; position: fixed; right: 18px; bottom: 16px; z-index: 12; }
+        .submit-bar.on { display: block; }
+        .submit-bar button { min-width: 180px; padding: 12px 20px; font-size: 16px; }
+        .screen { display: none; }
+        .screen.on { display: block; }
+        .plant-toggle button { min-width: 96px; }
+        .plant-toggle button.on { background: #0f766e; border-color: #0f766e; }
+        canvas.radial { width: 320px; height: 320px; background: #111; border-radius: 12px; }
+        .doc-ack { padding: 12px; border: 1px solid #334155; border-radius: 10px; margin: 0 0 10px; }
         .form { display: none; }
         .form.on { display: block; }
         .tabs { margin: 0 0 12px; }
-        .tabs button { margin: 0 6px 6px 0; background: #fff; color: #12202b; border: 2px solid #d5dde4; }
-        .tabs button.on { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+        .tabs button { margin: 0 6px 6px 0; background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
+        .tabs button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
         .tabpanel { display: none; }
         .tabpanel.on { display: block; }
         table.list { width: 100%; border-collapse: collapse; font-size: 13px; }
-        table.list th, table.list td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #d5dde4; vertical-align: top; }
-        table.list th { color: #3e4a55; }
-        .list-wrap { max-height: 520px; overflow: auto; border: 1px solid #d5dde4; border-radius: 8px; }
-        .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(15,23,42,.35); z-index: 20; }
+        table.list th, table.list td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #2a2f36; vertical-align: top; }
+        table.list th { color: #9ca3af; }
+        .list-wrap { max-height: 520px; overflow: auto; border: 1px solid #2a2f36; border-radius: 8px; }
+        .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(15,23,42,.55); z-index: 20; }
         .overlay.on { display: block; }
         .overlay.login { background: #0f172a; z-index: 40; }
-        .modal { width: 520px; max-width: 92%; margin: 40px auto; background: #fff; border-radius: 12px; padding: 16px; border: 1px solid #d5dde4; }
+        .modal { width: 520px; max-width: 92%; margin: 40px auto; background: #1e1e1e; border-radius: 12px; padding: 16px; border: 1px solid #2a2f36; color: #f3f4f6; }
         .modal.wide { width: 780px; }
         .modal h3 { margin: 0 0 10px; }
-        .session { font-size: 13px; color: #3e4a55; margin-right: 10px; }
-        .subtabs button { margin: 0 6px 6px 0; background: #fff; color: #12202b; border: 2px solid #d5dde4; }
+        .session { font-size: 13px; color: #9ca3af; margin-right: 10px; }
+        .subtabs button { margin: 0 6px 6px 0; background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
         .subtabs button.on { background: #0f766e; color: #fff; border-color: #0f766e; }
         table.specs { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
-        table.specs th, table.specs td { text-align: left; padding: 5px 6px; border: 1px solid #d5dde4; vertical-align: top; }
-        table.specs thead th { background: #e8eef4; color: #3e4a55; font-weight: 700; }
-        table.specs th.group { text-align: center; background: #d7e3ee; }
+        table.specs th, table.specs td { text-align: left; padding: 5px 6px; border: 1px solid #2a2f36; vertical-align: top; }
+        table.specs thead th { background: #1f2937; color: #9ca3af; font-weight: 700; }
+        table.specs th.group { text-align: center; background: #111827; }
         table.specs th.mspec, table.specs td.mspec { width: 4.6em; max-width: 5em; white-space: nowrap; }
         table.specs td.num, table.specs th.num { width: 4.2em; text-align: right; }
         table.specs button { padding: 3px 8px; font-size: 12px; margin: 0 3px 0 0; }
         button.danger { background: #991b1b; }
         .locked { display: none; }
-        .who { font-weight: 700; color: #12202b; }
+        .who { font-weight: 700; color: #f3f4f6; }
         .type-fields { display: none; }
         .type-fields.on { display: block; }
     </style>
@@ -88,8 +120,15 @@
     <script type="text/javascript">
         var aio = { items: [], mspecs: [], users: [], bubble: [], bubbleDead: [], p1: [], rts: [], path: '', loaded: false };
         var currentLine = 'S4';
+        var currentSite = 'VISALIA';
+        var currentScreen = 'home';
+        var checkReason = '';
+        var noCheckReason = '';
+        var startupAnswers = {};
+        var docsStore = { docs: [], acks: [] };
+        var homeTimer = null;
         var specTab = 'foam';
-        var session = { user: '', admin: false, last: 0 };
+        var session = { user: '', admin: false, last: 0, rec: null };
         var authUsers = [];
         var specHistory = [];
         var idleTimer = null;
@@ -353,13 +392,7 @@
                     el.style.display = session.admin ? "" : "none";
                 }
             }
-            $("user").value = session.user;
-            if ($("user").options.length === 0 || $("user").value !== session.user) {
-                $("user").options.length = 0;
-                $("user").options.add(new Option(session.user, session.user));
-                $("user").value = session.user;
-            }
-            $("user").disabled = true;
+            if ($("user")) $("user").value = session.user;
             startIdleWatch();
             touchSession();
         }
@@ -367,6 +400,7 @@
         function hideApp(msg) {
             session.user = "";
             session.admin = false;
+            session.rec = null;
             $("appRoot").style.display = "none";
             $("loginOverlay").className = "overlay login on";
             if ($("loginPass")) $("loginPass").value = "";
@@ -388,6 +422,9 @@
             }
             session.user = rec.name;
             session.admin = !!rec.admin;
+            session.rec = rec;
+            currentSite = rec.plant === "GARLAND" ? "GARLAND" : "VISALIA";
+            if (rec.plant === "BOTH" || rec.admin) currentSite = "VISALIA";
             touchSession();
             $("loginStatus").innerText = "";
             $("loginOverlay").className = "overlay login";
@@ -401,6 +438,9 @@
                 $("pwTitle").innerText = "Set your password";
             }
             try { renderLists(); } catch (e2) {}
+            try { setSite(currentSite, true); startHomePoll(); } catch (e3) {}
+            if (pendingForUser().length) goDocs(true);
+            else goHome();
         }
 
         function logout(msg) {
@@ -835,6 +875,10 @@
         function fillUsers() {
             var sel = $("user");
             if (!sel) return;
+            if (sel.tagName !== "SELECT") {
+                sel.value = session.user || "";
+                return;
+            }
             sel.options.length = 0;
             if (session.user) {
                 sel.options.add(new Option(session.user, session.user));
@@ -850,6 +894,392 @@
             return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
         }
 
+        function sessionUser() {
+            return session.rec || QD.findUserRecord(authUsers, session.user);
+        }
+
+        function docsPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), "docs.js");
+        }
+
+        function loadDocs() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path = docsPath();
+            window.QD_DOCS = { docs: [], acks: [] };
+            if (fso.FileExists(path)) {
+                try { eval(readUtf8(path)); } catch (e) {}
+            }
+            docsStore = window.QD_DOCS || { docs: [], acks: [] };
+            if (!docsStore.docs) docsStore.docs = [];
+            if (!docsStore.acks) docsStore.acks = [];
+        }
+
+        function saveDocs() {
+            writeUtf8(docsPath(), "window.QD_DOCS=" + JSON.stringify(docsStore) + ";");
+        }
+
+        function assignedLineIds() {
+            var out = [], list = QD.linesForSite(currentSite), i;
+            for (i = 0; i < list.length; i++) {
+                if (QD.userCanSeeLine(sessionUser(), list[i].id, currentSite)) out.push(list[i].id);
+            }
+            return out;
+        }
+
+        function pendingForUser() {
+            loadDocs();
+            var labels = [], ids = assignedLineIds(), i;
+            for (i = 0; i < ids.length; i++) labels.push(QD.lineLabel(ids[i], currentSite));
+            return QD.pendingDocs(docsStore.docs, docsStore.acks, session.user, labels.concat(ids));
+        }
+
+        function lastRowFor(lineId) {
+            var info = QD.lineInfo(lineId, currentSite);
+            if (!info) return null;
+            var rows = readLineRows(info.file);
+            return rows.length ? rows[rows.length - 1] : null;
+        }
+
+        function setSite(site, force) {
+            var sit = String(site || 'VISALIA').toUpperCase();
+            if (!QD.userCanSeeSite(sessionUser(), sit) && !force) return;
+            currentSite = sit;
+            if ($("plantVis")) {
+                $("plantVis").className = sit === "VISALIA" ? "on" : "";
+                $("plantVis").style.display = QD.userCanSeeSite(sessionUser(), "VISALIA") ? "" : "none";
+            }
+            if ($("plantGar")) {
+                $("plantGar").className = sit === "GARLAND" ? "on" : "";
+                $("plantGar").style.display = QD.userCanSeeSite(sessionUser(), "GARLAND") ? "" : "none";
+            }
+            if (sit === "GARLAND") specTab = "bubble";
+            renderCrumbs();
+            renderHome();
+            renderLists();
+            renderDocTable();
+        }
+
+        function renderCrumbs() {
+            var el = $("crumbs");
+            if (!el) return;
+            var site = currentSite === "GARLAND" ? "Garland" : "Visalia";
+            var label = QD.lineLabel(currentLine, currentSite);
+            var html = "<a onclick=\"goHome()\">" + site + "</a> / <a onclick=\"goHome()\">Home</a>";
+            if (currentScreen !== "home" && currentScreen !== "docs") html += " / <a onclick=\"goReason()\">Quality check</a> / <b>" + esc(label) + "</b>";
+            el.innerHTML = html;
+        }
+
+        function showScreen(id) {
+            currentScreen = id;
+            var map = { home: "screenHome", docs: "screenDocs", reason: "screenReason", nocheck: "screenNoCheck", lineup: "screenLineUp", itempick: "screenItem", startup: "screenStartup", checkform: "screenCheck" };
+            var key, el;
+            for (key in map) {
+                if (!map.hasOwnProperty(key)) continue;
+                el = $(map[key]);
+                if (el) el.className = "screen" + (key === id ? " on" : "");
+            }
+            if ($("submitBar")) $("submitBar").className = "submit-bar" + (id === "nocheck" || id === "lineup" || id === "checkform" ? " on" : "");
+            renderCrumbs();
+            syncSubmitBtn();
+        }
+
+        function goHome() {
+            if (pendingForUser().length) { goDocs(true); return; }
+            showTab("checks");
+            showScreen("home");
+            renderHome();
+        }
+
+        function goDocs(blocking) {
+            showTab("docs");
+            showScreen("docs");
+            renderDocAck(blocking);
+        }
+
+        function goReason() {
+            if (pendingForUser().length) { goDocs(true); return; }
+            showTab("checks");
+            var last = lastRowFor(currentLine);
+            if (QD.needsLineUp(last)) {
+                checkReason = "LINE UP";
+                if ($("reason")) $("reason").value = "LINE UP";
+                showScreen("lineup");
+                return;
+            }
+            checkReason = "";
+            showScreen("reason");
+        }
+
+        function pickReason(reason) {
+            checkReason = reason;
+            if ($("reason")) $("reason").value = reason;
+            if (reason === "NO CHECK") {
+                noCheckReason = "";
+                if ($("noCheckReason")) $("noCheckReason").selectedIndex = 0;
+                showScreen("nocheck");
+                return;
+            }
+            showScreen("itempick");
+            if ($("item")) { $("item").value = ""; $("item").focus(); }
+            $("hits").style.display = "none";
+        }
+
+        function confirmItem() {
+            var it = selectedItem();
+            if (!it) { setStatus("Enter an item # for this line.", true); return; }
+            if (!QD.itemAllowedOnLine(it, currentLine, currentSite)) {
+                setStatus("That item is not for " + QD.lineLabel(currentLine, currentSite) + ".", true);
+                return;
+            }
+            var last = lastRowFor(currentLine);
+            if (QD.needsStartup(last, it.item, new Date())) {
+                startupAnswers = {};
+                renderStartup();
+                showScreen("startup");
+                return;
+            }
+            enterCheckForm();
+        }
+
+        function renderStartup() {
+            var html = "<h2>Startup checklist</h2><p class='muted'>Required because this is a new item or a new shift (7AM–3PM, 3PM–11PM, 11PM–7AM).</p>", i, row;
+            for (i = 0; i < QD.STARTUP_ITEMS.length; i++) {
+                row = QD.STARTUP_ITEMS[i];
+                html += "<label class='f'>" + esc(row.text);
+                html += " <select id='su_" + row.id + "' onchange='startupChanged()'><option value=''></option><option value='YES'>Yes</option><option value='NO'>No</option></select></label>";
+            }
+            html += "<button type='button' class='ok' id='startupNext' disabled onclick='finishStartup()'>Continue to check</button>";
+            $("startupBox").innerHTML = html;
+        }
+
+        function startupChanged() {
+            var i, row, el;
+            for (i = 0; i < QD.STARTUP_ITEMS.length; i++) {
+                row = QD.STARTUP_ITEMS[i];
+                el = $("su_" + row.id);
+                startupAnswers[row.id] = el ? el.value : "";
+            }
+            if ($("startupNext")) $("startupNext").disabled = !QD.startupComplete(startupAnswers);
+        }
+
+        function finishStartup() {
+            if (!QD.startupComplete(startupAnswers)) { setStatus("Answer Yes on every startup question.", true); return; }
+            enterCheckForm();
+        }
+
+        function enterCheckForm() {
+            setLine(currentLine);
+            if ($("mspecWrap")) $("mspecWrap").style.display = QD.hasMspec(currentLine, currentSite) ? "block" : "none";
+            onItemChange();
+            showScreen("checkform");
+        }
+
+        function renderHome() {
+            var box = $("homeLines");
+            if (!box) return;
+            var list = QD.linesForSite(currentSite);
+            var html = "", i, info, last;
+            for (i = 0; i < list.length; i++) {
+                info = list[i];
+                if (!QD.userCanSeeLine(sessionUser(), info.id, currentSite)) continue;
+                last = lastRowFor(info.id);
+                html += "<div class='home-line' onclick=\"openLine('" + info.id + "')\"><h3>" + esc(info.label) + "</h3><p>" + esc(QD.lastCheckLabel(last)) + "</p></div>";
+            }
+            if (!html) html = "<p class='muted'>No lines assigned to you at this plant.</p>";
+            box.innerHTML = html;
+            renderCrumbs();
+        }
+
+        function openLine(id) {
+            currentLine = id;
+            setLine(id);
+            goReason();
+        }
+
+        function startHomePoll() {
+            if (homeTimer) window.clearInterval(homeTimer);
+            homeTimer = window.setInterval(function () {
+                if (currentScreen === "home" && $("tabChecks") && $("tabChecks").className.indexOf("on") >= 0) renderHome();
+            }, 20000);
+        }
+
+        function openDocLink(url) {
+            if (!url) return;
+            try { (new ActiveXObject("WScript.Shell")).Run('"' + url + '"', 1, false); }
+            catch (e1) {
+                try { (new ActiveXObject("WScript.Shell")).Run('cmd /c start "" "' + url + '"', 0, false); } catch (e2) {}
+            }
+        }
+
+        function renderDocAck(blocking) {
+            var pending = pendingForUser();
+            var html = blocking ? "<h2>Documents to review</h2><p class='muted'>Open each document, then confirm you read it. Checks stay locked until this is done. Review again every 3 months, or when the version changes.</p>" : "<h2>My documents</h2>";
+            var i, d;
+            if (!pending.length && blocking) html += "<p>You are caught up.</p><button type='button' class='ok' onclick='goHome()'>Continue</button>";
+            for (i = 0; i < pending.length; i++) {
+                d = pending[i];
+                html += "<div class='doc-ack'><b>" + esc(d.name) + "</b> · " + esc(d.type) + " · " + esc(d.line) + " · v" + esc(d.version);
+                html += "<div><button type='button' class='secondary' onclick=\"openDocLink('" + String(d.url || '').replace(/'/g, "") + "')\">Open document</button> ";
+                html += "<button type='button' class='ok' onclick=\"ackDoc('" + String(d.id).replace(/'/g, "") + "')\">I have read this</button></div></div>";
+            }
+            if ($("docAckBox")) $("docAckBox").innerHTML = html;
+        }
+
+        function ackDoc(id) {
+            loadDocs();
+            var i, d = null;
+            for (i = 0; i < docsStore.docs.length; i++) if (docsStore.docs[i].id === id) d = docsStore.docs[i];
+            if (!d) return;
+            openDocLink(d.url);
+            docsStore.acks.push({ docId: d.id, version: d.version, user: session.user, at: (new Date()).toISOString() });
+            saveDocs();
+            if (pendingForUser().length) renderDocAck(true);
+            else goHome();
+        }
+
+        function renderDocTable() {
+            loadDocs();
+            var html = "<tr><th>Name</th><th>Line</th><th>Type</th><th>Link</th><th>Version</th>";
+            if (session.admin) html += "<th></th>";
+            html += "</tr>";
+            var i, d, n = 0;
+            for (i = 0; i < docsStore.docs.length; i++) {
+                d = docsStore.docs[i];
+                html += "<tr><td>" + esc(d.name) + "</td><td>" + esc(d.line) + "</td><td>" + esc(d.type) + "</td><td><a href='#' onclick=\"openDocLink('" + String(d.url || '').replace(/'/g, "") + "');return false;\">Open</a></td><td>" + esc(d.version) + "</td>";
+                if (session.admin) html += "<td><button type='button' class='secondary' onclick=\"bumpDoc('" + String(d.id).replace(/'/g, "") + "')\">Bump version</button><button type='button' class='danger' onclick=\"deleteDoc('" + String(d.id).replace(/'/g, "") + "')\">Delete</button></td>";
+                html += "</tr>";
+                n += 1;
+            }
+            if ($("docTable")) $("docTable").innerHTML = html;
+            if ($("docCount")) $("docCount").innerText = n + " document" + (n === 1 ? "" : "s");
+        }
+
+        function addDoc() {
+            if (!requireAdmin()) return;
+            var name = QD.trim($("docName").value);
+            var line = $("docLine").value;
+            var type = $("docType").value;
+            var url = QD.trim($("docUrl").value);
+            var ver = QD.trim($("docVer").value) || "1";
+            if (!name || !url) { setStatus("Document name and link are required.", true); return; }
+            loadDocs();
+            docsStore.docs.push({ id: "d" + (new Date()).getTime(), name: name, line: line, type: type, url: url, version: ver });
+            saveDocs();
+            $("docName").value = ""; $("docUrl").value = "";
+            renderDocTable();
+        }
+
+        function bumpDoc(id) {
+            if (!requireAdmin()) return;
+            loadDocs();
+            var i, d, n;
+            for (i = 0; i < docsStore.docs.length; i++) {
+                if (docsStore.docs[i].id === id) {
+                    d = docsStore.docs[i];
+                    n = parseFloat(d.version);
+                    d.version = isFinite(n) ? String(n + 1) : String(d.version) + ".1";
+                }
+            }
+            saveDocs();
+            renderDocTable();
+        }
+
+        function deleteDoc(id) {
+            if (!requireAdmin()) return;
+            if (!confirm("Delete this document?")) return;
+            loadDocs();
+            var i, next = [];
+            for (i = 0; i < docsStore.docs.length; i++) if (docsStore.docs[i].id !== id) next.push(docsStore.docs[i]);
+            docsStore.docs = next;
+            saveDocs();
+            renderDocTable();
+        }
+
+        function collectLiveInput() {
+            var calc = compute();
+            var input = collectCheckInput(calc);
+            input.user = session.user;
+            input.reason = checkReason || val("reason");
+            input.noCheckReason = noCheckReason || val("noCheckReason");
+            if (input.reason === "NO CHECK") input.notes = val("noNotes") || val("notes");
+            else if (input.reason === "LINE UP") input.notes = val("upNotes") || val("notes");
+            else input.notes = val("checkNotes") || val("notes");
+            return input;
+        }
+
+        function missingFieldIds() {
+            var reason = checkReason || val("reason");
+            var input = collectLiveInput();
+            var miss = QD.missingCheckFields(currentLine, reason, input);
+            var map = {
+                "Additional reason": "noCheckReason",
+                "Notes": (reason === "NO CHECK" ? "noNotes" : (reason === "LINE UP" ? "upNotes" : "notes")),
+                "Item #": "item",
+                "Bundle #": currentLine === "S4" ? "s4bundle" : "s1bundle",
+                "Slit/Width": "s4width",
+                "Width": currentLine === "S4" ? "s4width" : (QD.lineInfo(currentLine, currentSite) && QD.lineInfo(currentLine, currentSite).form === "p1" ? "pwidth" : (QD.lineInfo(currentLine, currentSite) && QD.lineInfo(currentLine, currentSite).form === "rts" ? "rwidth" : (QD.lineInfo(currentLine, currentSite) && QD.lineInfo(currentLine, currentSite).form === "bubble" ? "bwidth" : "s1width"))),
+                "Footage": currentLine === "S4" ? "s4foot" : "s1foot",
+                "Cell Count MD": currentLine === "S4" ? "s4md" : "s1md",
+                "Cell Count CD": currentLine === "S4" ? "s4cd" : "s1cd",
+                "Weight (g)": "s4weight",
+                "Weight": currentLine.indexOf("COEX") >= 0 || currentLine.indexOf("MONO") >= 0 ? "bweight" : "s1weight",
+                "Thickness points": currentLine === "S4" ? "s4t1" : "s1t1",
+                "Perf": "s1perf",
+                "Product Verification": "bprod",
+                "COH/ADH Verification": "bcoh",
+                "Post-Visual Inspection": "bpostv",
+                "# Slits": "bslits",
+                "Perf Width": "bperfw",
+                "Perf Tester Results": "btester",
+                "Dead Cell Pre": "bdeadPre",
+                "Dead Cell Post": "bdeadPost",
+                "Length": currentLine === "P1" ? "plength" : "rlength",
+                "Plank Weight": "pweight",
+                "P1": "phead", "P2": "pend1", "P3": "pend2", "P4": "ptail",
+                "Parent Material": "rparent",
+                "Parent MFG Date": "rdate",
+                "Parent Shift": "rshift",
+                "Color": "rcolor",
+                "Delamination": "rdelam",
+                "Blistering": "rdelam",
+                "Alligator Skin": "rallig",
+                "T Point 1": "rt1", "T Point 2": "rt2", "T Point 3": "rt3"
+            };
+            var ids = [], i, id;
+            for (i = 0; i < miss.length; i++) {
+                id = map[miss[i]];
+                if (id) ids.push(id);
+            }
+            return { miss: miss, ids: ids };
+        }
+
+        function hintMissing() {
+            var info = missingFieldIds(), i, el, lab;
+            clearHint();
+            for (i = 0; i < info.ids.length; i++) {
+                el = $(info.ids[i]);
+                if (!el) continue;
+                lab = el.parentNode;
+                if (lab && lab.tagName === "LABEL") lab.className = String(lab.className || "") + " need";
+                else el.style.borderColor = "#eab308";
+            }
+        }
+
+        function clearHint() {
+            var labs = document.getElementsByTagName("label"), i;
+            for (i = 0; i < labs.length; i++) labs[i].className = String(labs[i].className || "").replace(/\s*need/g, "");
+        }
+
+        function syncSubmitBtn() {
+            var btn = $("submitBtn");
+            if (!btn) return;
+            var info = missingFieldIds();
+            var ready = info.miss.length === 0;
+            btn.className = ready ? "ok" : "ghost";
+            btn.setAttribute("data-ready", ready ? "1" : "0");
+        }
+
         function showTab(id) {
             var i, tabs = $("mainTabs").getElementsByTagName("button");
             for (i = 0; i < tabs.length; i++) tabs[i].className = (tabs[i].getAttribute("data-tab") === id) ? "on" : "";
@@ -857,7 +1287,11 @@
             $("tabUsers").className = "tabpanel" + (id === "users" ? " on" : "");
             $("tabMspecs").className = "tabpanel" + (id === "mspecs" ? " on" : "");
             $("tabItems").className = "tabpanel" + (id === "items" ? " on" : "");
+            if ($("tabDocs")) $("tabDocs").className = "tabpanel" + (id === "docs" ? " on" : "");
+            if (id === "mspecs" && currentSite === "GARLAND") setSpecTab("bubble");
+            if (id === "docs") renderDocTable();
             if (id !== "checks") renderLists();
+            if ($("submitBar") && id !== "checks") $("submitBar").className = "submit-bar";
         }
 
         function renderLists() {
@@ -878,18 +1312,21 @@
         function renderUserTable() {
             loadAuthUsers();
             var q = ($("userFilter") && $("userFilter").value || "").toLowerCase();
-            var html = "<tr><th>User</th><th>Admin</th><th>Password</th>";
+            var html = "<tr><th>User</th><th>Admin</th><th>Plant</th><th>Lines</th><th>Password</th>";
             if (session.admin) html += "<th></th>";
             html += "</tr>";
             var i, u, n = 0;
             for (i = 0; i < authUsers.length; i++) {
                 u = authUsers[i];
+                if (currentSite === "GARLAND" && String(u.plant || "").toUpperCase() === "VISALIA" && !u.admin) continue;
+                if (currentSite === "VISALIA" && String(u.plant || "").toUpperCase() === "GARLAND" && !u.admin) continue;
                 if (q && String(u.name).toLowerCase().indexOf(q) < 0) continue;
-                html += "<tr><td>" + esc(u.name) + "</td><td>" + (u.admin ? "Yes" : "") + "</td><td>" + (u.hash ? "Set" : "Missing") + "</td>";
+                html += "<tr><td>" + esc(u.name) + "</td><td>" + (u.admin ? "Yes" : "") + "</td><td>" + esc(u.plant || "VISALIA") + "</td><td>" + esc(u.lines || "*") + "</td><td>" + (u.hash ? "Set" : "Missing") + "</td>";
                 if (session.admin) {
                     html += "<td>";
                     html += "<button type='button' class='secondary' onclick=\"toggleAdmin('" + String(u.name).replace(/'/g, "") + "')\">" + (u.admin ? "Remove admin" : "Make admin") + "</button>";
                     html += "<button type='button' class='secondary' onclick=\"resetUserPass('" + String(u.name).replace(/'/g, "") + "')\">Set password</button>";
+                    html += "<button type='button' class='secondary' onclick=\"assignUserLines('" + String(u.name).replace(/'/g, "") + "')\">Lines</button>";
                     if (String(u.name).toUpperCase() !== String(session.user).toUpperCase()) {
                         html += "<button type='button' class='danger' onclick=\"deleteUser('" + String(u.name).replace(/'/g, "") + "')\">Delete</button>";
                     }
@@ -910,6 +1347,14 @@
         }
 
         function renderMspecTable() {
+            if ($("specTabs")) {
+                var btns = $("specTabs").getElementsByTagName("button"), i;
+                for (i = 0; i < btns.length; i++) {
+                    if (currentSite === "GARLAND") btns[i].style.display = btns[i].getAttribute("data-spec") === "bubble" ? "" : "none";
+                    else btns[i].style.display = "";
+                }
+            }
+            if (currentSite === "GARLAND") specTab = "bubble";
             if (specTab === "bubble") return renderBubbleTable();
             if (specTab === "p1") return renderP1Table();
             if (specTab === "rts") return renderRtsTable();
@@ -1017,6 +1462,7 @@
                 it = aio.items[i];
                 if (it.deleted) continue;
                 typ = QD.itemType(it);
+                if (currentSite === "GARLAND" && typ !== "BUBBLE") continue;
                 if (q && String(it.item).toLowerCase().indexOf(q) < 0 && String(it.description || "").toLowerCase().indexOf(q) < 0 && typ.toLowerCase().indexOf(q) < 0) continue;
                 html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(typ) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.mspec) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td>";
                 if (session.admin) {
@@ -1039,7 +1485,9 @@
             if (!pass) { setStatus("Every user must have a password.", true); return; }
             loadAuthUsers();
             if (QD.findUserRecord(authUsers, name)) { setStatus("User already exists.", true); return; }
-            authUsers.push(QD.makeUserRecord(name, pass, admin, false));
+            var plant = $("newUserPlant") ? $("newUserPlant").value : currentSite;
+            var lines = $("newUserLines") ? QD.trim($("newUserLines").value) || "*" : "*";
+            authUsers.push(QD.makeUserRecord(name, pass, admin, false, plant, lines));
             saveAuthUsers();
             aio.users = QD.mergeUsers(aio.users, [name]);
             aio.localUsers = QD.mergeUsers(aio.localUsers || [], [name]);
@@ -1049,6 +1497,21 @@
             saveLocalUsers();
             renderUserTable();
             setStatus("Added user " + name + ". They can sign in now.");
+        }
+
+        function assignUserLines(name) {
+            if (!requireAdmin()) return;
+            loadAuthUsers();
+            var rec = QD.findUserRecord(authUsers, name);
+            if (!rec) return;
+            var plant = prompt("Plant: VISALIA, GARLAND, or BOTH", rec.plant || "VISALIA");
+            if (plant == null) return;
+            var lines = prompt("Lines this user can see. Use * for all, or S4,S1,S3,COEX,MONO,P1,RTS", rec.lines || "*");
+            if (lines == null) return;
+            rec.plant = String(plant || "VISALIA").toUpperCase();
+            rec.lines = QD.trim(lines) || "*";
+            saveAuthUsers();
+            renderUserTable();
         }
 
         function toggleAdmin(name) {
@@ -1228,7 +1691,7 @@
             setv("newPerfB", ""); setv("newPerfF", "");
             setv("newSlits", ""); setv("newBubble", ""); setv("newParent", "");
             setv("newThk", ""); setv("newDens", ""); setv("newShots", ""); setv("newSoft", "");
-            $("newType").value = editing ? "" : (QD.lineItemType(currentLine) || "");
+            $("newType").value = editing ? "" : (QD.lineItemType(QD.resolveLineId(currentSite, currentLine)) || "");
             $("itemModalTitle").innerText = editing ? "Edit item #" : "Add item #";
             if (editing && preset) {
                 var it = QD.findItem(aio.items, preset);
@@ -1313,9 +1776,14 @@
         }
 
         function fillReasons() {
-            var info = QD.lineInfo(currentLine);
-            var list = QD.REASONS[(info && info.reasons) || "foam"];
             var sel = $("reason");
+            if (!sel) return;
+            if (sel.tagName !== "SELECT") {
+                if (checkReason) sel.value = checkReason;
+                return;
+            }
+            var info = QD.lineInfo(currentLine, currentSite);
+            var list = QD.REASONS[(info && info.reasons) || "foam"];
             var i, cur = sel.value;
             sel.options.length = 0;
             for (i = 0; i < list.length; i++) sel.options.add(new Option(list[i], list[i]));
@@ -1323,17 +1791,22 @@
         }
 
         function setLine(id) {
-            currentLine = id;
-            var i, btns = document.getElementById("lineBtns").getElementsByTagName("button");
-            for (i = 0; i < btns.length; i++) btns[i].className = (btns[i].getAttribute("data-line") === id) ? "on" : "";
-            $("formS4").className = "form" + (id === "S4" ? " on" : "");
-            $("formS1").className = "form" + (id === "S1" || id === "S3" ? " on" : "");
-            $("formBubble").className = "form" + (id === "COEX" || id === "MONO" ? " on" : "");
-            $("formP1").className = "form" + (id === "P1" ? " on" : "");
-            $("formRts").className = "form" + (id === "RTS" ? " on" : "");
-            $("lineLabel").innerText = id;
+            currentLine = QD.resolveLineId(currentSite, id);
+            var info = QD.lineInfo(currentLine, currentSite);
+            var form = info ? info.form : "";
+            var i, btns = document.getElementById("lineBtns");
+            if (btns) {
+                btns = btns.getElementsByTagName("button");
+                for (i = 0; i < btns.length; i++) btns[i].className = (btns[i].getAttribute("data-line") === info.label) ? "on" : "";
+            }
+            if ($("formS4")) $("formS4").className = "form" + (form === "s4" ? " on" : "");
+            if ($("formS1")) $("formS1").className = "form" + (form === "s1s3" ? " on" : "");
+            if ($("formBubble")) $("formBubble").className = "form" + (form === "bubble" ? " on" : "");
+            if ($("formP1")) $("formP1").className = "form" + (form === "p1" ? " on" : "");
+            if ($("formRts")) $("formRts").className = "form" + (form === "rts" ? " on" : "");
+            if ($("lineLabel")) $("lineLabel").innerText = info ? info.label : id;
             fillReasons();
-            onItemChange();
+            if ($("item")) onItemChange();
         }
 
         function selectedItem() {
@@ -1350,7 +1823,7 @@
         function showHits() {
             var box = $("hits");
             var q = $("item").value;
-            var hits = QD.searchItems(aio.items, q, 20, QD.lineItemType(currentLine));
+            var hits = QD.searchItems(aio.items, q, 20, QD.lineItemType(QD.resolveLineId(currentSite, currentLine)));
             var html = "", i, it;
             for (i = 0; i < hits.length; i++) {
                 it = hits[i];
@@ -1374,7 +1847,7 @@
         function onItemChange() {
             var it = selectedItem();
             var spec = selectedSpec();
-            var info = QD.lineInfo(currentLine);
+            var info = QD.lineInfo(currentLine, currentSite);
             $("desc").innerText = it ? (it.description || "") : "";
             $("mspec").value = it && it.mspec ? it.mspec : $("mspec").value;
             spec = selectedSpec();
@@ -1427,8 +1900,49 @@
             el.className = "pf " + (String(pf).toLowerCase() === "fail" ? "fail" : (pf ? "pass" : ""));
         }
 
+        function paintThickness(pts, lo, hi, range, rmax, dens, spec, it, widthPf, pf) {
+            var prefix = currentLine === "S4" ? "s4t" : "s1t";
+            var ext = QD.pointExtremes(pts);
+            var i, el, wrap, band, filled = 0;
+            for (i = 0; i < 13; i++) {
+                el = $(prefix + (i + 1));
+                if (!el) continue;
+                wrap = el.parentNode;
+                band = QD.pointBand(pts[i], lo, hi);
+                if (QD.trim(pts[i]) !== "") filled += 1;
+                if (wrap && wrap.className && String(wrap.className).indexOf("chip") >= 0) {
+                    wrap.className = "chip" + (band ? " " + band : "") + (filled === 13 && (i === ext.minIndex || i === ext.maxIndex) ? " extreme" : "");
+                } else {
+                    el.style.background = band === "over" ? "#7f1d1d" : (band === "under" ? "#713f12" : (band === "in" ? "#14532d" : ""));
+                    el.style.color = "#fff";
+                }
+            }
+            if ($("thkMinMax")) {
+                $("thkMinMax").innerHTML = filled === 13 && ext.minIndex >= 0
+                    ? ("MIN <b>" + ext.min.toFixed(3) + " (T" + (ext.minIndex + 1) + ")</b> &nbsp; MAX <b>" + ext.max.toFixed(3) + " (T" + (ext.maxIndex + 1) + ")</b>")
+                    : "";
+            }
+            var html = "<table class='results'><tr><th></th><th>MIN</th><th>TARGET</th><th>MAX</th><th>RESULT</th></tr>";
+            function row(label, mn, tg, mx, res, ok) {
+                html += "<tr><td>" + label + "</td><td>" + (isFinite(mn) ? mn : "—") + "</td><td>" + (isFinite(tg) ? tg : "—") + "</td><td>" + (isFinite(mx) ? mx : "—") + "</td><td class='" + (ok === false ? "bad" : "ok") + "'>" + (res == null || res === "" ? "—" : res) + "</td></tr>";
+            }
+            var avg = QD.avg(pts);
+            row("Thk avg", lo, spec ? QD.num(spec.Target) : NaN, hi, isFinite(avg) ? avg.toFixed(3) : "", QD.inRange(avg, lo, hi) !== false);
+            row("Thk range", NaN, NaN, rmax, isFinite(range) ? range.toFixed(1) : "", !isFinite(range) || !isFinite(rmax) || range <= rmax);
+            var dlo = spec ? QD.num(spec["Density Min"]) : NaN, dt = spec ? QD.num(spec["Density Target"]) : NaN, dhi = spec ? QD.num(spec["Density Max"]) : NaN;
+            row("Density", dlo, dt, dhi, isFinite(dens) ? dens.toFixed(3) : "", QD.inRange(dens, dlo, dhi) !== false);
+            row("Width", it ? QD.num(it.width) - (currentLine === "S4" ? 1.5 : 0.5) : NaN, it ? QD.num(it.width) : NaN, NaN, val(currentLine === "S4" ? "s4width" : "s1width"), widthPf !== false);
+            html += "</table>";
+            if ($("resultsBox")) $("resultsBox").innerHTML = html;
+            var cv = $("radialCanvas");
+            if (cv && (currentLine === "S4" || currentLine === "S1" || currentLine === "S3")) {
+                cv.style.display = "block";
+                try { QD.drawCentration(cv, pts, lo, hi); } catch (e) {}
+            } else if (cv) cv.style.display = "none";
+        }
+
         function compute() {
-            var info = QD.lineInfo(currentLine);
+            var info = QD.lineInfo(currentLine, currentSite);
             var spec = selectedSpec();
             var it = selectedItem();
             var flags = [];
@@ -1471,9 +1985,11 @@
                     if (val("s1bundleFit") === "FAIL") flags.push("Fail");
                     if (val("s1diamPf") === "Fail") flags.push("Fail");
                 }
-                pf = QD.overallFromFlags(currentLine, val("reason"), flags);
+                pf = QD.overallFromFlags(currentLine, val("reason") || checkReason, flags);
                 $("pfOut").innerText = pf;
                 $("pfOut").className = "pf " + (String(pf).toLowerCase() === "fail" ? "fail" : "pass");
+                paintThickness(pts, lo, hi, range, rmax, dens, spec, it, widthPf, pf);
+                try { syncSubmitBtn(); } catch (e0) {}
                 return { avg: avg, range: range, density: dens, passFail: pf, points: pts, widthPf: QD.pf(widthPf) };
             }
             if (info.form === "bubble") {
@@ -1500,6 +2016,7 @@
                 mark("bperfMark", pPf);
                 mark("btestMark", tPf);
                 mark("bwtMark", wtPf);
+                try { syncSubmitBtn(); } catch (eB) {}
                 return { passFail: pf, widthPf: QD.pf(wPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfTesterPf: tPf, weightPf: wtPf, prePf: prePf, postPf: postPf, deadMax: deadMax };
             }
             if (info.form === "p1") {
@@ -1539,11 +2056,12 @@
                 mark("rthkMark", thkPf);
                 return { passFail: pf, t1: val("rt1"), t2: val("rt2"), t3: val("rt3"), thkPf: thkPf, widthPf: wPf3, lengthPf: lPf2 };
             }
+            try { syncSubmitBtn(); } catch (e9) {}
             return {};
         }
 
         function collectCheckInput(calc) {
-            var info = QD.lineInfo(currentLine);
+            var info = QD.lineInfo(currentLine, currentSite);
             var it = selectedItem();
             var spec = selectedSpec();
             var reason = val("reason");
@@ -1617,24 +2135,44 @@
 
         function submitCheck() {
             if (!session.user) { setStatus("Sign in first.", true); return; }
-            if (!aio.loaded) { setStatus("Load Quality AIO.xlsm first.", true); return; }
-            var info = QD.lineInfo(currentLine);
+            if (pendingForUser().length) { goDocs(true); return; }
+            var info = QD.lineInfo(currentLine, currentSite);
             var it = selectedItem();
             var calc = compute();
-            var reason = val("reason");
-            var input = collectCheckInput(calc);
+            var reason = checkReason || val("reason");
+            var input = collectLiveInput();
+            input.passFail = calc.passFail || (reason === "NO CHECK" ? (input.noCheckReason || "NO CHECK") : (reason === "LINE UP" ? "LINE UP" : calc.passFail));
+            if (reason === "NO CHECK") {
+                input.reason = "NO CHECK";
+                input.notes = val("noNotes");
+            }
+            if (reason === "LINE UP") {
+                input.reason = "LINE UP";
+                input.notes = val("upNotes");
+            }
             var missing = QD.missingCheckFields(currentLine, reason, input);
             if (missing.length) {
+                hintMissing();
                 setStatus("Fill required fields before submit: " + missing.join(", ") + ".", true);
                 return;
             }
             if (!QD.skipReason(currentLine, reason) && !it) { setStatus("Look up an item # from Quality AIO.", true); return; }
+            if (!QD.skipReason(currentLine, reason) && it && !QD.itemAllowedOnLine(it, currentLine, currentSite)) {
+                setStatus("That item is not for this line.", true);
+                return;
+            }
+            if (!aio.loaded && !QD.skipReason(currentLine, reason)) { setStatus("Load Quality AIO.xlsm first.", true); return; }
             var row = QD.buildRow(input);
+            if (row && input.noCheckReason) row["No Check Reason"] = input.noCheckReason;
+            if (row) row.__site = currentSite;
             var rows = QD.appendLineRows(readLineRows(info.file), row);
             writeLineRows(info.file, rows);
             writeLookupFile();
             clearCheckForm();
-            setStatus("Saved " + info.id + " check to results\\" + info.file + ".js (" + rows.length + " rows on this line). Form cleared. Use Reload from disk in Quality Desk when you want to review.");
+            checkReason = "";
+            noCheckReason = "";
+            setStatus("Saved " + QD.lineLabel(currentLine, currentSite) + " check.");
+            goHome();
         }
 
         function toFileUrl(winPath) {
@@ -1732,27 +2270,86 @@
     <header class="app">
         <div>
             <h1>Quality Desk Checks</h1>
-            <p class="tag">Look up items from Quality AIO.xlsm or aio-csv. Submit writes that line only. Review happens in Quality Desk.</p>
+            <p class="tag">Home → line → check. Review History in Quality Desk.</p>
         </div>
         <div class="tools">
             <span class="session">Signed in as <span class="who" id="sessionWho"></span></span>
             <button class="secondary" onclick="changeOwnPassword()">Password</button>
-            <button class="secondary" onclick="logout('Signed out.')">Sign out</button>
-            <button onclick="loadAio(true)">Reload AIO</button>
-            <button class="secondary" onclick="openDesk(false)">Open Quality Desk</button>
-            <button class="ok" onclick="submitCheck()">Submit check</button>
+            <button class="secondary" onclick="logout('Signed out.')">Log out</button>
+            <button class="secondary" onclick="loadAio(true)">Reload AIO</button>
+            <button class="secondary" onclick="openDesk(false)">History</button>
         </div>
     </header>
     <div class="wrap">
+        <div id="crumbs" class="crumbs">Visalia / Home</div>
         <div id="status" class="status">Starting…</div>
         <div class="tabs" id="mainTabs">
-            <button data-tab="checks" class="on" onclick="showTab('checks')">Checks</button>
+            <button data-tab="checks" class="on" onclick="goHome()">Home</button>
             <button data-tab="users" onclick="showTab('users')">Users</button>
             <button data-tab="mspecs" onclick="showTab('mspecs')">MSPECs</button>
             <button data-tab="items" onclick="showTab('items')">Item database</button>
+            <span class="plant-toggle">
+                <button id="plantVis" class="on" onclick="setSite('VISALIA')">Visalia</button>
+                <button id="plantGar" onclick="setSite('GARLAND')">Garland</button>
+            </span>
+            <button data-tab="docs" onclick="showTab('docs')">Documentation</button>
         </div>
         <div id="tabChecks" class="tabpanel on">
-        <div class="lines" id="lineBtns">
+        <div id="screenHome" class="screen on">
+            <div class="home-grid" id="homeLines"></div>
+        </div>
+        <div id="screenDocs" class="screen">
+            <div id="docAckBox"></div>
+        </div>
+        <div id="screenReason" class="screen">
+            <h2>Type of check</h2>
+            <div class="reason-btns">
+                <button type="button" onclick="pickReason('HOURLY')">HOURLY</button>
+                <button type="button" onclick="pickReason('RETEST')">RETEST</button>
+                <button type="button" onclick="pickReason('NO CHECK')">NO CHECK</button>
+            </div>
+        </div>
+        <div id="screenNoCheck" class="screen">
+            <div class="card">
+                <h2>No check</h2>
+                <label class="f">Additional reason
+                    <select id="noCheckReason" onchange="noCheckReason=this.value;syncSubmitBtn();">
+                        <option value=""></option>
+                        <option>EQUIPMENT FAILURE</option>
+                        <option>NO ORDERS</option>
+                        <option>LINE DOWN</option>
+                        <option>PREVENTATIVE MAINTENANCE</option>
+                    </select>
+                </label>
+                <label class="f">Notes <textarea id="noNotes" onkeyup="syncSubmitBtn()"></textarea></label>
+            </div>
+        </div>
+        <div id="screenLineUp" class="screen">
+            <div class="card">
+                <h2>LINE UP</h2>
+                <p class="muted">The last entry was a no-check. Enter what happened, then hourly checks resume.</p>
+                <label class="f">Notes <textarea id="upNotes" onkeyup="syncSubmitBtn()"></textarea></label>
+            </div>
+        </div>
+        <div id="screenItem" class="screen">
+            <div class="card">
+                <h2>Item #</h2>
+                <label class="f">Item #
+                    <input id="item" onkeyup="showHits();syncSubmitBtn();" onchange="onItemChange()">
+                </label>
+                <div class="hits" id="hits"></div>
+                <button type="button" class="ok" onclick="confirmItem()">Continue</button>
+                <button type="button" class="secondary" onclick="openItemModal()">Add new #</button>
+            </div>
+        </div>
+        <div id="screenStartup" class="screen">
+            <div class="card" id="startupBox"></div>
+        </div>
+        <div id="screenCheck" class="screen">
+        <input type="hidden" id="user">
+        <input type="hidden" id="reason">
+        <input type="hidden" id="notes">
+        <div class="lines" id="lineBtns" style="display:none">
             <button data-line="S4" class="on" onclick="setLine('S4')">S4</button>
             <button data-line="S1" onclick="setLine('S1')">S1</button>
             <button data-line="S3" onclick="setLine('S3')">S3</button>
@@ -1764,21 +2361,15 @@
         <div class="grid">
             <div class="col">
                 <div class="card">
-                    <h2>Lookup <span class="muted" id="lineLabel">S4</span></h2>
-                    <label class="f">Item #
-                        <input id="item" onkeyup="showHits();onItemChange();" onchange="onItemChange()">
-                    </label>
-                    <button type="button" class="secondary" onclick="openItemModal()">Add new #</button>
-                    <div class="hits" id="hits"></div>
-                    <label class="f">MSPEC <input id="mspec" onchange="onItemChange()"></label>
+                    <h2>Item / specs <span class="muted" id="lineLabel">S4</span></h2>
                     <p id="desc" class="muted"></p>
-                    <div class="pair">
-                        <div><label class="f">User <select id="user"></select></label></div>
-                        <div><label class="f">Reason for Check <select id="reason" onchange="compute()"></select></label></div>
-                    </div>
-                    <label class="f">Notes <textarea id="notes"></textarea></label>
+                    <div id="mspecWrap"><label class="f">MSPEC <input id="mspec" onchange="onItemChange()"></label></div>
+                    <div class="card spec" id="specBox"><div class="muted">Specs appear after you look up an item.</div></div>
+                    <div id="resultsBox"></div>
+                    <canvas id="radialCanvas" class="radial" width="320" height="320"></canvas>
+                    <p id="thkMinMax" class="muted"></p>
+                    <label class="f">Notes <textarea id="checkNotes" onkeyup="$('notes').value=this.value;syncSubmitBtn();"></textarea></label>
                 </div>
-                <div class="card spec" id="specBox"><div class="muted">Specs appear after you look up an item.</div></div>
             </div>
             <div class="col">
                 <div id="formS4" class="form on">
@@ -1797,11 +2388,21 @@
                             <div><label class="f">Cell Count CD <input id="s4cd"></label></div>
                         </div>
                         <label class="f">Weight (g) <input id="s4weight" onkeyup="compute()"></label>
-                        <label class="f">Thickness points</label>
-                        <div class="pts">
-                            <input id="s4t1" onkeyup="compute()"><input id="s4t2" onkeyup="compute()"><input id="s4t3" onkeyup="compute()"><input id="s4t4" onkeyup="compute()"><input id="s4t5" onkeyup="compute()">
-                            <input id="s4t6" onkeyup="compute()"><input id="s4t7" onkeyup="compute()"><input id="s4t8" onkeyup="compute()"><input id="s4t9" onkeyup="compute()"><input id="s4t10" onkeyup="compute()">
-                            <input id="s4t11" onkeyup="compute()"><input id="s4t12" onkeyup="compute()"><input id="s4t13" onkeyup="compute()">
+                        <label class="f">Thickness T1–T13</label>
+                        <div class="chips" id="s4chips">
+                            <label class="chip"><span>T1</span><input id="s4t1" onkeyup="compute()"></label>
+                            <label class="chip"><span>T2</span><input id="s4t2" onkeyup="compute()"></label>
+                            <label class="chip"><span>T3</span><input id="s4t3" onkeyup="compute()"></label>
+                            <label class="chip"><span>T4</span><input id="s4t4" onkeyup="compute()"></label>
+                            <label class="chip"><span>T5</span><input id="s4t5" onkeyup="compute()"></label>
+                            <label class="chip"><span>T6</span><input id="s4t6" onkeyup="compute()"></label>
+                            <label class="chip"><span>T7</span><input id="s4t7" onkeyup="compute()"></label>
+                            <label class="chip"><span>T8</span><input id="s4t8" onkeyup="compute()"></label>
+                            <label class="chip"><span>T9</span><input id="s4t9" onkeyup="compute()"></label>
+                            <label class="chip"><span>T10</span><input id="s4t10" onkeyup="compute()"></label>
+                            <label class="chip"><span>T11</span><input id="s4t11" onkeyup="compute()"></label>
+                            <label class="chip"><span>T12</span><input id="s4t12" onkeyup="compute()"></label>
+                            <label class="chip"><span>T13</span><input id="s4t13" onkeyup="compute()"></label>
                         </div>
                         <div>Average <b id="avgOut"></b> <span id="avgMark"></span> &nbsp; Range <b id="rangeOut"></b> <span id="rangeMark"></span> &nbsp; Density <b id="densOut"></b></div>
                         <div class="pair">
@@ -1831,11 +2432,21 @@
                             <div><label class="f">Cell Count CD <input id="s1cd"></label></div>
                         </div>
                         <label class="f">Weight <input id="s1weight" onkeyup="compute()"></label>
-                        <label class="f">Thickness points</label>
-                        <div class="pts">
-                            <input id="s1t1" onkeyup="compute()"><input id="s1t2" onkeyup="compute()"><input id="s1t3" onkeyup="compute()"><input id="s1t4" onkeyup="compute()"><input id="s1t5" onkeyup="compute()">
-                            <input id="s1t6" onkeyup="compute()"><input id="s1t7" onkeyup="compute()"><input id="s1t8" onkeyup="compute()"><input id="s1t9" onkeyup="compute()"><input id="s1t10" onkeyup="compute()">
-                            <input id="s1t11" onkeyup="compute()"><input id="s1t12" onkeyup="compute()"><input id="s1t13" onkeyup="compute()">
+                        <label class="f">Thickness T1–T13</label>
+                        <div class="chips">
+                            <label class="chip"><span>T1</span><input id="s1t1" onkeyup="compute()"></label>
+                            <label class="chip"><span>T2</span><input id="s1t2" onkeyup="compute()"></label>
+                            <label class="chip"><span>T3</span><input id="s1t3" onkeyup="compute()"></label>
+                            <label class="chip"><span>T4</span><input id="s1t4" onkeyup="compute()"></label>
+                            <label class="chip"><span>T5</span><input id="s1t5" onkeyup="compute()"></label>
+                            <label class="chip"><span>T6</span><input id="s1t6" onkeyup="compute()"></label>
+                            <label class="chip"><span>T7</span><input id="s1t7" onkeyup="compute()"></label>
+                            <label class="chip"><span>T8</span><input id="s1t8" onkeyup="compute()"></label>
+                            <label class="chip"><span>T9</span><input id="s1t9" onkeyup="compute()"></label>
+                            <label class="chip"><span>T10</span><input id="s1t10" onkeyup="compute()"></label>
+                            <label class="chip"><span>T11</span><input id="s1t11" onkeyup="compute()"></label>
+                            <label class="chip"><span>T12</span><input id="s1t12" onkeyup="compute()"></label>
+                            <label class="chip"><span>T13</span><input id="s1t13" onkeyup="compute()"></label>
                         </div>
                         <div class="pair">
                             <div><label class="f">Diameter (ULINE only) <input id="s1diam"></label></div>
@@ -1933,6 +2544,7 @@
             </div>
         </div>
         </div>
+        </div>
         <div id="tabUsers" class="tabpanel">
             <div class="card">
                 <h2>Users <span class="muted" id="userCount"></span></h2>
@@ -1942,6 +2554,14 @@
                         <label class="f">New user <input id="newUser"></label>
                         <label class="f">Password <input id="newUserPass" type="password"></label>
                         <label class="f"><input id="newUserAdmin" type="checkbox"> Admin</label>
+                        <label class="f">Plant
+                            <select id="newUserPlant">
+                                <option value="VISALIA">VISALIA</option>
+                                <option value="GARLAND">GARLAND</option>
+                                <option value="BOTH">BOTH</option>
+                            </select>
+                        </label>
+                        <label class="f">Lines (* or S4,S1,COEX…) <input id="newUserLines" value="*"></label>
                         <button type="button" onclick="addUser()">Add user</button>
                     </div>
                 </div>
@@ -1971,6 +2591,40 @@
                 <div class="list-wrap"><table class="list" id="itemTable"></table></div>
             </div>
         </div>
+        <div id="tabDocs" class="tabpanel">
+            <div class="card">
+                <h2>Documentation <span class="muted" id="docCount"></span></h2>
+                <p class="muted">Work Instructions and QANs. Assigned users must read a document when it is new, when the version changes, and again every 3 months.</p>
+                <div class="admin-only">
+                    <div class="pair">
+                        <div><label class="f">Name <input id="docName"></label></div>
+                        <div><label class="f">Line
+                            <select id="docLine">
+                                <option value="*">All lines</option>
+                                <option>S4</option><option>S1</option><option>S3</option>
+                                <option>COEX</option><option>MONO</option>
+                                <option>P1</option><option>RTS</option>
+                            </select>
+                        </label></div>
+                    </div>
+                    <div class="pair">
+                        <div><label class="f">Type
+                            <select id="docType">
+                                <option>Work Instruction</option>
+                                <option>QAN</option>
+                            </select>
+                        </label></div>
+                        <div><label class="f">Version <input id="docVer" value="1"></label></div>
+                    </div>
+                    <label class="f">Link <input id="docUrl"></label>
+                    <button type="button" onclick="addDoc()">Add document</button>
+                </div>
+                <div class="list-wrap"><table class="list" id="docTable"></table></div>
+            </div>
+        </div>
+    </div>
+    <div class="submit-bar" id="submitBar" onmouseover="hintMissing()" onmouseout="clearHint()">
+        <button type="button" id="submitBtn" class="ghost" onclick="if(this.getAttribute('data-ready')==='1')submitCheck(); else hintMissing();">Submit check</button>
     </div>
     </div>
     <div class="overlay" id="itemOverlay">

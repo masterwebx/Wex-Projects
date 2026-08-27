@@ -2,34 +2,46 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.44';
+  QD.VERSION = '1.7.45';
   QD.DISK_DIR = 'results';
-  QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts'];
+  QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
   QD.IDLE_MS = 60 * 60 * 1000;
   QD.USERS_FILE = 'users.dat';
   QD.SEED_USER = 'GWEXLER';
+  QD.SITES = ['VISALIA', 'GARLAND'];
+  QD.CHECK_TYPES = ['HOURLY', 'RETEST', 'NO CHECK'];
+  QD.NO_CHECK_REASONS = ['EQUIPMENT FAILURE', 'NO ORDERS', 'LINE DOWN', 'PREVENTATIVE MAINTENANCE'];
+  QD.DOC_TYPES = ['Work Instruction', 'QAN'];
+  QD.DOC_REVIEW_MS = 90 * 24 * 60 * 60 * 1000;
+  QD.STARTUP_ITEMS = [
+    { id: 'labelsOut', text: 'Were old labels thrown away?' },
+    { id: 'poVerify', text: 'Do you have the Production Order and verify everything is correct?' },
+    { id: 'labelsMatch', text: 'Verify new labels match Production Order' }
+  ];
 
   QD.LINES = [
-    { id: 'S4', file: 's4', plant: 'foam', form: 's4', reasons: 'foam' },
-    { id: 'S1', file: 's1', plant: 'foam', form: 's1s3', reasons: 'foam' },
-    { id: 'S3', file: 's3', plant: 'foam', form: 's1s3', reasons: 'foam' },
-    { id: 'COEX', file: 'coex', plant: 'bubble', form: 'bubble', reasons: 'bubble' },
-    { id: 'MONO', file: 'mono', plant: 'bubble', form: 'bubble', reasons: 'bubble' },
-    { id: 'P1', file: 'p1', plant: 'p1', form: 'p1', reasons: 'foam' },
-    { id: 'RTS', file: 'rts', plant: 'rts', form: 'rts', reasons: 'foam' }
+    { id: 'S4', file: 's4', site: 'VISALIA', plant: 'foam', form: 's4', reasons: 'foam', label: 'S4' },
+    { id: 'S1', file: 's1', site: 'VISALIA', plant: 'foam', form: 's1s3', reasons: 'foam', label: 'S1' },
+    { id: 'S3', file: 's3', site: 'VISALIA', plant: 'foam', form: 's1s3', reasons: 'foam', label: 'S3' },
+    { id: 'COEX', file: 'coex', site: 'VISALIA', plant: 'bubble', form: 'bubble', reasons: 'bubble', label: 'COEX' },
+    { id: 'MONO', file: 'mono', site: 'VISALIA', plant: 'bubble', form: 'bubble', reasons: 'bubble', label: 'MONO' },
+    { id: 'P1', file: 'p1', site: 'VISALIA', plant: 'p1', form: 'p1', reasons: 'foam', label: 'P1' },
+    { id: 'RTS', file: 'rts', site: 'VISALIA', plant: 'rts', form: 'rts', reasons: 'foam', label: 'RTS' },
+    { id: 'G-COEX', file: 'gcoex', site: 'GARLAND', plant: 'bubble', form: 'bubble', reasons: 'bubble', label: 'COEX' },
+    { id: 'G-MONO', file: 'gmono', site: 'GARLAND', plant: 'bubble', form: 'bubble', reasons: 'bubble', label: 'MONO' }
   ];
 
   QD.REASONS = {
-    foam: ['HOURLY', 'NEW ORDER', 'RETEST', 'DIE CHANGE', 'STARTUP', 'EQUIPMENT FAIL', 'NO ORDERS', 'NO CHECK'],
-    bubble: ['HOURLY', 'NEW ORDER', 'RETEST', 'CYLINDER CHANGE', 'STARTUP', 'EQUIPMENT FAIL', 'NO ORDERS', 'NO CHECK']
+    foam: ['HOURLY', 'RETEST', 'NO CHECK'],
+    bubble: ['HOURLY', 'RETEST', 'NO CHECK']
   };
 
   QD.SKIP_REASONS = {
-    foam: { STARTUP: 1, 'EQUIPMENT FAIL': 1, 'NO ORDERS': 1, 'NO CHECK': 1, 'DIE CHANGE': 1 },
-    bubble: { STARTUP: 1, 'EQUIPMENT FAIL': 1, 'NO ORDERS': 1, 'NO CHECK': 1, 'CYLINDER CHANGE': 1 },
-    s4: { STARTUP: 1, 'EQUIPMENT FAIL': 1, 'NO ORDERS': 1, 'NO CHECK': 1 },
-    p1: { STARTUP: 1, 'EQUIPMENT FAIL': 1, 'NO ORDERS': 1, 'NO CHECK': 1 }
+    foam: { STARTUP: 1, 'EQUIPMENT FAIL': 1, 'EQUIPMENT FAILURE': 1, 'NO ORDERS': 1, 'NO CHECK': 1, 'DIE CHANGE': 1, 'LINE DOWN': 1, 'PREVENTATIVE MAINTENANCE': 1, 'LINE UP': 1 },
+    bubble: { STARTUP: 1, 'EQUIPMENT FAIL': 1, 'EQUIPMENT FAILURE': 1, 'NO ORDERS': 1, 'NO CHECK': 1, 'CYLINDER CHANGE': 1, 'LINE DOWN': 1, 'PREVENTATIVE MAINTENANCE': 1, 'LINE UP': 1 },
+    s4: { STARTUP: 1, 'EQUIPMENT FAIL': 1, 'EQUIPMENT FAILURE': 1, 'NO ORDERS': 1, 'NO CHECK': 1, 'LINE DOWN': 1, 'PREVENTATIVE MAINTENANCE': 1, 'LINE UP': 1 },
+    p1: { STARTUP: 1, 'EQUIPMENT FAIL': 1, 'EQUIPMENT FAILURE': 1, 'NO ORDERS': 1, 'NO CHECK': 1, 'LINE DOWN': 1, 'PREVENTATIVE MAINTENANCE': 1, 'LINE UP': 1 }
   };
 
   QD.TAPE_COLORS = ['RED', 'YELLOW', 'GREEN', 'BLUE', 'BROWN', 'TAN', 'CLEAR', 'ULINE', 'BLACK'];
@@ -78,13 +90,42 @@
     return isFinite(n) ? n : NaN;
   };
 
-  QD.lineInfo = function (id) {
+  QD.lineInfo = function (id, site) {
     var key = String(id || '').toUpperCase().replace(/\s+/g, '');
+    var sit = String(site || '').toUpperCase();
+    if (sit === 'GARLAND') {
+      if (key === 'COEX') key = 'G-COEX';
+      if (key === 'MONO') key = 'G-MONO';
+    }
     var i;
     for (i = 0; i < QD.LINES.length; i++) {
       if (QD.LINES[i].id === key) return QD.LINES[i];
     }
     return null;
+  };
+
+  QD.resolveLineId = function (site, id) {
+    var info = QD.lineInfo(id, site);
+    return info ? info.id : String(id || '').toUpperCase();
+  };
+
+  QD.lineLabel = function (id, site) {
+    var info = QD.lineInfo(id, site);
+    return info ? info.label : String(id || '');
+  };
+
+  QD.linesForSite = function (site) {
+    var sit = String(site || 'VISALIA').toUpperCase();
+    var out = [], i;
+    for (i = 0; i < QD.LINES.length; i++) {
+      if (QD.LINES[i].site === sit) out.push(QD.LINES[i]);
+    }
+    return out;
+  };
+
+  QD.hasMspec = function (lineId, site) {
+    var info = QD.lineInfo(lineId, site);
+    return !!(info && (info.id === 'S4' || info.id === 'S1' || info.id === 'S3'));
   };
 
   QD.fileForLine = function (id) {
@@ -98,12 +139,14 @@
   };
 
   QD.skipReason = function (lineId, reason) {
+    var r = String(reason || '').toUpperCase();
+    if (r === 'NO CHECK' || r === 'LINE UP' || r === 'LINE DOWN' || r === 'EQUIPMENT FAILURE' || r === 'PREVENTATIVE MAINTENANCE') return true;
     var info = QD.lineInfo(lineId);
     var table = (info && QD.SKIP_REASONS[info.form]) || QD.SKIP_REASONS.foam;
     if (info && info.form === 's1s3') table = QD.SKIP_REASONS.foam;
     if (info && info.form === 'bubble') table = QD.SKIP_REASONS.bubble;
     if (info && info.id === 'S4') table = QD.SKIP_REASONS.s4;
-    return !!table[String(reason || '').toUpperCase()];
+    return !!table[r];
   };
 
   QD.canonItem = function (v) {
@@ -555,8 +598,17 @@
   QD.missingCheckFields = function (lineId, reason, input) {
     var miss = [];
     var src = input || {};
-    if (!trim(src.user)) miss.push('User');
+    var r = String(reason || '').toUpperCase();
     if (!trim(reason)) miss.push('Reason for Check');
+    if (r === 'NO CHECK') {
+      if (!trim(src.noCheckReason)) miss.push('Additional reason');
+      if (!trim(src.notes)) miss.push('Notes');
+      return miss;
+    }
+    if (r === 'LINE UP') {
+      if (!trim(src.notes)) miss.push('Notes');
+      return miss;
+    }
     if (QD.skipReason(lineId, reason)) {
       if (!trim(src.notes)) miss.push('Notes');
       return miss;
@@ -870,14 +922,16 @@
     return QD.sha256(String(salt || '') + '\n' + String(password || ''));
   };
 
-  QD.makeUserRecord = function (name, password, admin, mustChange) {
+  QD.makeUserRecord = function (name, password, admin, mustChange, plant, lines) {
     var salt = QD.randomSalt();
     return {
       name: trim(name),
       admin: !!admin,
       salt: salt,
       hash: QD.hashPassword(password, salt),
-      mustChange: !!mustChange
+      mustChange: !!mustChange,
+      plant: trim(plant || (admin ? 'BOTH' : 'VISALIA')).toUpperCase() || 'VISALIA',
+      lines: trim(lines || '*') || '*'
     };
   };
 
@@ -895,7 +949,9 @@
         admin: parts[1] === '1' || /^true$/i.test(parts[1] || ''),
         salt: parts[2] || '',
         hash: parts[3] || '',
-        mustChange: parts[4] === '1'
+        mustChange: parts[4] === '1',
+        plant: trim(parts[5] || (name.toUpperCase() === QD.SEED_USER ? 'BOTH' : 'VISALIA')).toUpperCase() || 'VISALIA',
+        lines: trim(parts[6] || '*') || '*'
       });
     }
     return out;
@@ -912,10 +968,200 @@
         u.admin ? '1' : '0',
         u.salt || '',
         u.hash || '',
-        u.mustChange ? '1' : '0'
+        u.mustChange ? '1' : '0',
+        trim(u.plant || 'VISALIA').toUpperCase(),
+        trim(u.lines || '*') || '*'
       ].join('|'));
     }
     return lines.join('\n') + '\n';
+  };
+
+  QD.userCanSeeSite = function (user, site) {
+    if (!user) return false;
+    var plant = String(user.plant || 'VISALIA').toUpperCase();
+    var sit = String(site || 'VISALIA').toUpperCase();
+    if (user.admin || plant === 'BOTH') return true;
+    return plant === sit;
+  };
+
+  QD.userCanSeeLine = function (user, lineId, site) {
+    if (!QD.userCanSeeSite(user, site)) return false;
+    var info = QD.lineInfo(lineId, site);
+    if (!info) return false;
+    if (user.admin || String(user.lines || '*') === '*') return true;
+    var label = String(info.label || info.id).toUpperCase();
+    var parts = String(user.lines || '').toUpperCase().split(/[,;]+/);
+    var i;
+    for (i = 0; i < parts.length; i++) {
+      if (trim(parts[i]) === label || trim(parts[i]) === info.id) return true;
+    }
+    return false;
+  };
+
+  QD.dateFromSerial = function (serial) {
+    if (serial instanceof Date) return serial;
+    var n = QD.num(serial);
+    if (isFinite(n) && n > 20000) return new Date(Math.round((n - 25569) * 86400000));
+    var d = new Date(serial);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
+  QD.formatClock = function (serial) {
+    var d = QD.dateFromSerial(serial);
+    var h = d.getHours(), m = d.getMinutes();
+    var ap = h >= 12 ? 'PM' : 'AM';
+    var h12 = h % 12;
+    if (!h12) h12 = 12;
+    return h12 + ':' + (m < 10 ? '0' : '') + m + ' ' + ap;
+  };
+
+  QD.shiftAt = function (when) {
+    var h = (when instanceof Date ? when : QD.dateFromSerial(when)).getHours();
+    if (h >= 7 && h < 15) return '1';
+    if (h >= 15 && h < 23) return '2';
+    return '3';
+  };
+
+  QD.rowItem = function (row) {
+    if (!row) return '';
+    return QD.canonItem(row['Item #'] || row.Item || row.item);
+  };
+
+  QD.needsStartup = function (lastRow, itemNo, when) {
+    if (!lastRow) return true;
+    if (QD.canonItem(itemNo) !== QD.rowItem(lastRow)) return true;
+    return QD.shiftAt(lastRow['Date/Time']) !== QD.shiftAt(when || new Date());
+  };
+
+  QD.needsLineUp = function (lastRow) {
+    if (!lastRow) return false;
+    return String(lastRow['Reason for Check'] || '').toUpperCase() === 'NO CHECK';
+  };
+
+  QD.lastCheckLabel = function (row) {
+    if (!row) return 'No checks yet';
+    var when = QD.formatClock(row['Date/Time']);
+    var reason = String(row['Reason for Check'] || '').toUpperCase();
+    var extra = trim(row['No Check Reason'] || '');
+    var pf = trim(row['Pass/Fail'] || '');
+    if (reason === 'NO CHECK') return 'last check ' + (extra || 'NO CHECK') + ' @ ' + when;
+    if (reason === 'LINE UP') return 'last check LINE UP @ ' + when;
+    return 'last check ' + (pf || reason || '—') + ' @ ' + when;
+  };
+
+  QD.docNeedsReview = function (doc, ack, now) {
+    if (!doc) return false;
+    if (!ack || String(ack.version) !== String(doc.version)) return true;
+    var at = new Date(ack.at).getTime();
+    var t = (now || new Date()).getTime();
+    return !isFinite(at) || (t - at) >= QD.DOC_REVIEW_MS;
+  };
+
+  QD.pendingDocs = function (docs, acks, userName, lineIds) {
+    var out = [];
+    var i, d, a, j, match;
+    var lines = lineIds || [];
+    for (i = 0; i < (docs || []).length; i++) {
+      d = docs[i];
+      if (!d) continue;
+      match = false;
+      if (!d.line || d.line === '*' || String(d.line).toUpperCase() === 'ALL') match = true;
+      for (j = 0; j < lines.length; j++) {
+        if (String(d.line || '').toUpperCase() === String(lines[j] || '').toUpperCase()) match = true;
+        if (String(d.line || '').toUpperCase() === QD.lineLabel(lines[j])) match = true;
+      }
+      if (!match) continue;
+      a = null;
+      for (j = 0; j < (acks || []).length; j++) {
+        if (acks[j] && acks[j].docId === d.id && String(acks[j].user || '').toUpperCase() === String(userName || '').toUpperCase()) {
+          if (!a || String(acks[j].at) > String(a.at)) a = acks[j];
+        }
+      }
+      if (QD.docNeedsReview(d, a)) out.push(d);
+    }
+    return out;
+  };
+
+  QD.startupComplete = function (answers) {
+    var i, id;
+    for (i = 0; i < QD.STARTUP_ITEMS.length; i++) {
+      id = QD.STARTUP_ITEMS[i].id;
+      if (!answers || String(answers[id] || '').toUpperCase() !== 'YES') return false;
+    }
+    return true;
+  };
+
+  QD.itemAllowedOnLine = function (item, lineId, site) {
+    if (!item) return false;
+    var want = QD.lineItemType(QD.resolveLineId(site, lineId));
+    var typ = QD.itemType(item);
+    return !want || typ === want;
+  };
+
+  QD.pointBand = function (val, lo, hi) {
+    var n = QD.num(val);
+    if (!isFinite(n) || !isFinite(lo) || !isFinite(hi)) return '';
+    if (n < lo) return 'under';
+    if (n > hi) return 'over';
+    return 'in';
+  };
+
+  QD.pointExtremes = function (vals) {
+    var i, v, mn = NaN, mx = NaN, imn = -1, imx = -1;
+    for (i = 0; i < (vals || []).length; i++) {
+      v = QD.num(vals[i]);
+      if (!isFinite(v)) continue;
+      if (!isFinite(mn) || v < mn) { mn = v; imn = i; }
+      if (!isFinite(mx) || v > mx) { mx = v; imx = i; }
+    }
+    return { min: mn, max: mx, minIndex: imn, maxIndex: imx };
+  };
+
+  QD.drawCentration = function (canvas, values, lo, hi) {
+    if (!canvas || !canvas.getContext) return;
+    var ctx = canvas.getContext('2d');
+    var w = canvas.width || 320, h = canvas.height || 320;
+    var S = Math.min(w, h);
+    var cx = w / 2, cy = h / 2;
+    var yellowR = S * 0.18, greenR = S * 0.36, maxR = S * 0.45, boltR = S / 2 - 28;
+    var i, n, ang, start, val, r, x, y, band, pts = values || [];
+    function toR(v) {
+      if (!isFinite(v) || !isFinite(lo) || !isFinite(hi) || hi === lo) return (yellowR + greenR) / 2;
+      if (v < lo) return Math.max(S * 0.06, yellowR - Math.min(1, (lo - v) / Math.max(hi - lo, 1e-6)) * (yellowR * 0.7));
+      if (v > hi) return Math.min(maxR, greenR + Math.min(1, (v - hi) / Math.max(hi - lo, 1e-6)) * (maxR - greenR));
+      return yellowR + ((v - lo) / (hi - lo)) * (greenR - yellowR);
+    }
+    ctx.clearRect(0, 0, w, h);
+    ctx.beginPath(); ctx.arc(cx, cy, greenR, 0, Math.PI * 2); ctx.fillStyle = 'rgba(34,197,94,0.12)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, yellowR, 0, Math.PI * 2); ctx.fillStyle = 'rgba(234,179,8,0.16)'; ctx.fill();
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, greenR, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, yellowR, 0, Math.PI * 2); ctx.stroke();
+    start = Math.PI / 2;
+    for (i = 0; i < 8; i++) {
+      ang = start + i * (Math.PI * 2 / 8);
+      x = cx + Math.cos(ang) * boltR;
+      y = cy + Math.sin(ang) * boltR;
+      ctx.fillStyle = '#0f4c5c';
+      ctx.fillRect(x - 11, y - 11, 22, 22);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 12px Segoe UI, Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(i + 1), x, y);
+    }
+    n = pts.length;
+    for (i = 0; i < n; i++) {
+      val = QD.num(pts[i]);
+      if (!isFinite(val)) continue;
+      ang = -Math.PI / 2 + (i + 0.5) * (Math.PI * 2 / Math.max(n, 1));
+      r = toR(val);
+      x = cx + Math.cos(ang) * r;
+      y = cy + Math.sin(ang) * r;
+      band = QD.pointBand(val, lo, hi);
+      ctx.fillStyle = band === 'over' ? '#ef4444' : (band === 'under' ? '#eab308' : '#22c55e');
+      ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
+    }
   };
 
   QD.findUserRecord = function (users, name) {

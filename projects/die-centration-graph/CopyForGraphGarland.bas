@@ -144,11 +144,7 @@ Private Function TsvEscape(ByVal v As Variant) As String
         Case vbByte, vbInteger, vbLong, 20  ' 20 = vbLongLong when available
             TsvEscape = CStr(v)
         Case vbSingle, vbDouble, vbCurrency, vbDecimal
-            If Abs(CDbl(v) - Round(CDbl(v), 0)) < 0.0000001 Then
-                TsvEscape = CStr(CLng(Round(CDbl(v), 0)))
-            Else
-                TsvEscape = LTrim$(Str$(CDbl(v)))
-            End If
+            TsvEscape = NumToTsv(v)
         Case Else
             s = CStr(v)
             s = Replace(s, vbCr, " ")
@@ -156,6 +152,25 @@ Private Function TsvEscape(ByVal v As Variant) As String
             s = Replace(s, vbTab, " ")
             TsvEscape = Trim$(s)
     End Select
+End Function
+
+' CLng overflows (error 6) on whole numbers outside Long, which
+' Garland Material / Order Number / Date Int cells can hit.
+Private Function NumToTsv(ByVal v As Variant) As String
+    Dim d As Double
+    On Error GoTo Fallback
+    d = CDbl(v)
+    If d >= -2147483647# And d <= 2147483647# Then
+        If Abs(d - Round(d, 0)) < 0.0000001 Then
+            NumToTsv = CStr(CLng(Round(d, 0)))
+            Exit Function
+        End If
+    End If
+    NumToTsv = LTrim$(Str$(d))
+    Exit Function
+Fallback:
+    On Error Resume Next
+    NumToTsv = Trim$(CStr(v))
 End Function
 
 Private Sub PutTextOnClipboard(ByVal s As String)
@@ -166,6 +181,8 @@ Private Sub PutTextOnClipboard(ByVal s As String)
     clip.PutInClipboard
 #Else
     On Error GoTo Fallback
+    ' 32-bit Long overflows when (Len + 1) * 2 exceeds 2,147,483,647.
+    If CDbl(Len(s)) > 1000000000# Then GoTo Fallback
     If Not PutUnicodeTextWin32(s) Then GoTo Fallback
     Exit Sub
 Fallback:

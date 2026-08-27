@@ -576,7 +576,7 @@ try {
     </div>
     <h1>Quality Desk</h1>
     <p class="welcome-tag">History, specs, compliance, trends, and posting checks.</p>
-    <p>Press Ctrl+V to paste Copy for Graph from the S4, S1 S3, Bubble, P1, and RTS quality check sheets.</p>
+    <p>Press Ctrl+V to paste Copy for Graph from the S4, S1 S3, Bubble, Garland Bubble, P1, and RTS quality check sheets.</p>
     <div class="actions">
       <button type="button" id="welcomePaste">Paste results</button>
       <button class="secondary" type="button" id="welcomeSap" title="Excel or CSV from SAP">SAP audit</button>
@@ -586,7 +586,7 @@ try {
       <button class="hub-tile" type="button" id="welcomeCompliance"><b>Compliance</b><span>Weekly checks vs SAP postings.</span></button>
       <button class="hub-tile" type="button" id="welcomeTrends"><b>Trends</b><span>Missed checks, fail Pareto, and line progress.</span></button>
       <button class="hub-tile" type="button" id="welcomeMspecs"><b>MSPECs</b><span>Audit Master Sheet specs.</span></button>
-      <button class="hub-tile" type="button" id="welcomeSpc"><b>SPC charts</b><span>Average, range, density, T points, and series overlay.</span></button>
+      <button class="hub-tile" type="button" id="welcomeSpc"><b>SPC charts</b><span>Foam thickness charts, plus Basis Weight for Bubble and Garland.</span></button>
       <button class="hub-tile" type="button" id="welcomeDocs"><b>Documentation</b><span>Click a page for pictures and what every number means.</span></button>
     </div>
     <button class="secondary" type="button" id="welcomeTheme">Dark mode</button>
@@ -605,6 +605,7 @@ try {
         <select id="histPlant" aria-label="Quality line group">
           <option value="foam">Extrusion Foam</option>
           <option value="bubble">Extrusion Bubble</option>
+          <option value="garland">Garland Bubble</option>
           <option value="p1">P1</option>
           <option value="rts">RTS</option>
           <option value="postings">Postings</option>
@@ -976,7 +977,7 @@ try {
             <rect x="16" y="30" width="180" height="120" rx="12" fill="var(--idle)" stroke="var(--line)"/>
             <text x="106" y="70" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">Quality sheet</text>
             <text x="106" y="92" text-anchor="middle" font-size="12" fill="var(--muted)">S4 · S1 S3 · Bubble</text>
-            <text x="106" y="112" text-anchor="middle" font-size="12" fill="var(--muted)">P1 · RTS</text>
+            <text x="106" y="112" text-anchor="middle" font-size="12" fill="var(--muted)">Garland · P1 · RTS</text>
             <text x="106" y="134" text-anchor="middle" font-size="12" font-weight="700" fill="#1d4ed8">Copy for Graph</text>
             <path d="M210 90h70" stroke="#1d4ed8" stroke-width="3"/>
             <polygon points="280,84 296,90 280,96" fill="#1d4ed8"/>
@@ -996,6 +997,7 @@ try {
           <li>The HTML file on the G: drive is still <code>centration.html</code> — that name did not change.</li>
           <li>Do not import FromQuality into the quality workbook. Copy for Graph stays in Personal.xlsb.</li>
           <li>Paste format is still <b>DIEGRAPH2</b> (current sheet, Master Sheet lookup, and history tables).</li>
+          <li>Garland Bubble uses <b>CopyForGraphGarland</b> in that workbook. It copies Data!Table1 to the clipboard and does not open the HTML file.</li>
         </ul>
       </article>
 
@@ -1030,7 +1032,8 @@ try {
           <figcaption>Click a column header for sort and filter menus, the same idea as Excel. The eye on a foam row opens that check on the centration graph.</figcaption>
         </figure>
         <ul>
-          <li><b>Line</b> (top right) switches Extrusion Foam, Bubble, P1, RTS, or Postings.</li>
+          <li><b>Line</b> (top right) switches Extrusion Foam, Extrusion Bubble, Garland Bubble, P1, RTS, or Postings.</li>
+          <li>Garland Bubble includes <b>Structure</b>. Click that header to sort or filter by SPC, SAB, and the other structures.</li>
           <li><b>Pass*</b> is still a pass, but the sheet had a note. Read Notes before you treat it as clean.</li>
           <li><b>NO CHECK</b> means the sheet was marked with no measurement for that slot.</li>
           <li>Reset filters / Reset sort clear the table menus only — they do not wipe other pages.</li>
@@ -1201,7 +1204,7 @@ try {
 
       <article class="docs-panel" data-docs="spc" id="docs-spc" hidden>
         <h2>SPC charts</h2>
-        <p class="hist-meta">SPC means Statistical Process Control: the same measurement, plotted over time, so you can see drift before a lot fails. Foam only — not used for Bubble, P1, or RTS.</p>
+        <p class="hist-meta">SPC means Statistical Process Control: the same measurement, plotted over time, so you can see drift before a lot fails. Foam uses thickness, range, and density. Extrusion Bubble and Garland Bubble plot Basis Weight. Not used for P1 or RTS.</p>
         <figure class="docs-aid" id="docs-aid-spc">
           <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="SPC chart anatomy">
             <text x="16" y="22" font-size="14" font-weight="700" fill="var(--text)">Average  (in)</text>
@@ -1240,10 +1243,11 @@ try {
         </figure>
         <h3>The controls on the left</h3>
         <ul>
-          <li><b>View by Item # or MSPEC</b> — Item # is one product. MSPEC groups every item that shares that spec.</li>
+          <li><b>View by Item # or MSPEC</b> — Item # is one product. MSPEC groups every item that shares that spec. Garland Bubble can also view by <b>Structure</b>.</li>
           <li>The list is sorted <b>most points first</b>, so the product you run the most is at the top. Each row shows how many checks (pts) it has in the date range.</li>
           <li><b>From / To</b> — From starts on the first day of last month. Change it if you need a longer look.</li>
-          <li><b>Average / range / density</b> — three summary charts. Average is mean thickness, Range is high-minus-low across the die (in thousandths), Density is pcf.</li>
+          <li><b>Average / range / density</b> — foam summary charts. Average is mean thickness, Range is high-minus-low across the die (in thousandths), Density is pcf.</li>
+          <li><b>Basis Weight</b> — Bubble and Garland chart. Garland draws the BW Target from the check sheet. Visalia Bubble plots the Weight column.</li>
           <li><b>Each T point over time</b> — one chart per die location (T1, T2, …). Scroll if there are many. Use this when one side of the die is drifting.</li>
           <li><b>Hide / Show outliers</b> — points way outside the spec window are hidden by default so one bad type-in does not squash the scale.</li>
           <li>Click a dot, then use <b>Centration graph</b> in the tools bar to open that exact check. The trail becomes Home › SPC › Graph.</li>
@@ -1419,7 +1423,7 @@ try {
           <li><b>Show checks</b> picks the newest 10, 20, 50, 100, or every check in the From / To range.</li>
           <li>The dashed average shape is the typical die for those checks. If the newest ring pulls away from it, the process just shifted.</li>
         </ul>
-        <p class="docs-tip">Foam only, same as SPC. Bubble, P1, and RTS do not use this view.</p>
+        <p class="docs-tip">Foam only. Bubble, Garland, P1, and RTS do not use this radial overlay — Bubble and Garland use the Basis Weight SPC chart instead.</p>
       </article>
 
       <article class="docs-panel" data-docs="trail" id="docs-trail" hidden>
@@ -1500,7 +1504,7 @@ try {
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.39';
+const APP_VERSION = '1.7.40';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -1511,15 +1515,21 @@ const FOAM_COLS = ['Date/Time','Item #','Item Desc','MSPEC','Bundle #','Line','U
 const BUBBLE_COLS = ['Date/Time','Item Description','Line','Item','Product Verification','COH/ADH Verification','Post-Visual Inspection','# Slits','Width','Footage','Perf Width','Perf Tester Results','Weight','Density','Pass/Fail','User','Reason for Check','Diameter (ULINE only)','Diameter Pass/Fail','Width Pass','Footage Pass','Perf Width Pass','Per Tester Pass','Weight Pass','Dead Cell Pre','# Dead Cells Pre','Dead Cell Post','# Dead Cells Post','# Air Transfers Post','# Cells 8 Inch Length','# Cells Full Web Width','Total','Maximum allowed','Pre Pass','Post Pass','Notes'];
 const P1_COLS = ['Date/Time','Item Description','Line','Item #','Average Single Shot','Average Double Shot','Cell Count MD','Cell Count CD','Plank Weight','Volume','Density','Pass/Fail','User','Reason for Check','Average Single Shot Pass/Fail','Average Double Shot Pass/Fail','Cell Count MD Pass/Fail','Cell Count CD Pass/Fail','Density Pass/Fail','P1','P2','P3','P4','P5','P6','P7','P8','P9','P10','P11','P12','Width','Length','Width Pass','Length Pass','P1d','P2d','P3d','P4d','P5d','P6d','P7d','P8d','P9d','P10d','P11d','P12d','Width d','Lengthd','Width Pass2','Length Pass3','Notes'];
 const RTS_COLS = ['Date/Time','Description','Line','Item #','Parent Material','Parent MFG Date','Parent Shift','Width','Length','Delamination','Blistering','Alligator Skin','Pass/Fail','User','Reason for Check','T Point 1','T Point 2','T Point 3','MFG Date Pass','Width Pass','Length Pass','Thickness Pass','Notes'];
+const GARLAND_COLS = ['Date/Time','Item #','Item Description','Line','Structure','User','Shift','Pass/Fail','Basis Weight','BW Target','Thickness','TotalWebWidth','Slit Widths','DeadCellCount','PerfStrengthLeft','PerfStrengthRight','Order Number','Roll#','LineSpeed','Notes'];
 const POSTING_COLS = ['Date/Time','Material','Description','Line','MSPEC','Qty','Posted (PT)','Period','Quality check','Fail notes'];
-const PLANT_COLS = { foam: FOAM_COLS, bubble: BUBBLE_COLS, p1: P1_COLS, rts: RTS_COLS, postings: POSTING_COLS };
+const PLANT_COLS = { foam: FOAM_COLS, bubble: BUBBLE_COLS, p1: P1_COLS, rts: RTS_COLS, garland: GARLAND_COLS, postings: POSTING_COLS };
 const TABLE_COLS = FOAM_COLS;
-const ALL_HIST_COLS = [...new Set([].concat(FOAM_COLS, BUBBLE_COLS, P1_COLS, RTS_COLS))];
+const ALL_HIST_COLS = [...new Set([].concat(FOAM_COLS, BUBBLE_COLS, P1_COLS, RTS_COLS, GARLAND_COLS))];
 const HIST_COL_W = [52, 280, 180, 240, 170, 110, 80, 120, 100, 110, 130, 130, 150, 150, 120, 220];
 const MSPEC_COL_W = [90, 80, 96, 108, 96, 74, 84, 88, 100, 88];
 const COL_ALIASES = {
-  'Item #': ['Item #', 'Item', 'Item Number'],
-  'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription', 'Description'],
+  'Item #': ['Item #', 'Item', 'Item Number', 'Material'],
+  'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription', 'Description', 'Material Description'],
+  'Date/Time': ['Date/Time', 'Time', 'Date Int'],
+  'Line': ['Line', 'MonoorCoex'],
+  'User': ['User', 'Operator'],
+  'Notes': ['Notes', 'Comments'],
+  'Basis Weight': ['Basis Weight', 'Weight', 'BW'],
   'MSPEC': ['MSPEC', 'MSPEC #', 'M-Spec Number', 'MSpec', 'MSpec Number'],
   'Slit/Width': ['Slit/Width', 'Width', 'Slit Width'],
   'Slit/Width Pass/Fail': ['Slit/Width Pass/Fail', 'Width Pass/Fail', 'Width Pass'],
@@ -1536,13 +1546,14 @@ const COL_ALIASES = {
   'Thickness Range Pass/Fail': ['Thickness Range Pass/Fail', 'Range Pass/Fail'],
   'Filename': ['Filename', 'File Name', 'File', 'File Name / Description']
 };
-const NUM_COLS = new Set(['Item #','Item','Material','MSPEC','Qty','Bundle #','Slit/Width','Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density','Footage','Weight','Volume','Length','# Slits','Perf Width','Plank Weight','Average Single Shot','Average Double Shot','Total','Maximum allowed','# Dead Cells Pre','# Dead Cells Post','# Air Transfers Post','# Cells 8 Inch Length','# Cells Full Web Width','T Point 1','T Point 2','T Point 3']);
+const NUM_COLS = new Set(['Item #','Item','Material','MSPEC','Qty','Bundle #','Slit/Width','Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density','Footage','Weight','Volume','Length','# Slits','Perf Width','Plank Weight','Average Single Shot','Average Double Shot','Total','Maximum allowed','# Dead Cells Pre','# Dead Cells Post','# Air Transfers Post','# Cells 8 Inch Length','# Cells Full Web Width','T Point 1','T Point 2','T Point 3','Basis Weight','BW Target','Thickness','LineSpeed','DeadCellCount','RollDiameter','RollLength','PerfDistance','PerfStrengthLeft','PerfStrengthRight']);
 const TONE_COLS = new Set(['Slit/Width','Cell Count MD','Cell Count CD','Thickness Average','Thickness Range','Density']);
-const PLANTS = { foam: 'Extrusion Foam', bubble: 'Extrusion Bubble', p1: 'P1', rts: 'RTS', postings: 'Postings' };
+const PLANTS = { foam: 'Extrusion Foam', bubble: 'Extrusion Bubble', garland: 'Garland Bubble', p1: 'P1', rts: 'RTS', postings: 'Postings' };
 const HISTORY_SECTIONS = [
   ['TABLES4', 'foam'],
   ['TABLES1S3', 'foam'],
   ['TABLESBUBBLE', 'bubble'],
+  ['TABLESGARLAND', 'garland'],
   ['TABLESP1', 'p1'],
   ['TABLESRTS', 'rts']
 ];
@@ -1788,7 +1799,7 @@ function syncWelcome() {
   const mspecBtn = document.getElementById('welcomeMspecs');
   if (mspecBtn) mspecBtn.disabled = !(historyPack && (historyPack.lookupRows || []).length);
   const spcBtn = document.getElementById('welcomeSpc');
-  if (spcBtn) spcBtn.disabled = !plantRows('foam').length;
+  if (spcBtn) spcBtn.disabled = !firstSpcPlant();
 }
 function screenLabel(name, mode) {
   if (name === 'welcome') return 'Home';
@@ -2260,6 +2271,8 @@ function isTsvHeaderLine(line) {
   if (!heads.length) return false;
   const compact = heads.map(h => String(h).replace(/\s+/g, '').toLowerCase());
   if (compact.some(h => h === 'mspec' || h === 'mspec#')) return true;
+  if (compact.some(h => h === 'monoorcoex' || h === 'basisweight' || h === 'bwtarget')) return true;
+  if (compact.includes('material') && compact.some(h => h === 'time' || h === 'dateint' || h === 'structure')) return true;
   const hasDate = heads.some(h => /^date\/?time$/i.test(h));
   const hasLine = heads.some(h => /^line$/i.test(h));
   const hasItem = compact.some(h => h === 'item' || h === 'item#' || h === 'itemnumber' || h === 'itemdesc' || h === 'itemdescription' || h === 'description');
@@ -2271,10 +2284,77 @@ function isHistoryHeaderRow(row) {
   const when = String(col(row, 'Date/Time') || '').trim();
   return /^line$/i.test(line) || /^date\/?time$/i.test(when);
 }
+function looksLikeGarlandRow(row) {
+  if (!row) return false;
+  const keys = Object.keys(row).map(k => String(k).replace(/\s+/g, '').toLowerCase());
+  if (keys.includes('monoorcoex')) return true;
+  if (keys.includes('bwtarget') && keys.includes('basisweight')) return true;
+  const line = String(col(row, 'Line', 'MonoorCoex') || '').trim();
+  if (/^garland\s*(coex|mono)$/i.test(line) || /^g-?(coex|mono)$/i.test(line)) return true;
+  return false;
+}
+function garlandLineName(raw) {
+  const s = String(raw || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
+  if (!s) return '';
+  if (/^(GARLAND)?MONO$/.test(s) || s === 'GMONO') return 'Garland MONO';
+  if (/^(GARLAND)?COEX$/.test(s) || s === 'GCOEX') return 'Garland COEX';
+  if (/MONO/.test(s)) return 'Garland MONO';
+  if (/COEX/.test(s)) return 'Garland COEX';
+  return '';
+}
+function garlandFlagFail(v) {
+  const s = String(v ?? '').trim().toUpperCase();
+  return /^(0|FAIL|FALSE|N|F|NO)$/.test(s);
+}
+function garlandFlagPass(v) {
+  const s = String(v ?? '').trim().toUpperCase();
+  return /^(1|PASS|TRUE|Y|P|YES)$/.test(s);
+}
+function garlandPassFail(row) {
+  if (garlandFlagFail(row['VTF']) || garlandFlagFail(row['Vacuum Test']) || garlandFlagFail(row['PT']) || garlandFlagFail(row['BWT']) || garlandFlagFail(row['Weight Pass'])) return 'Fail';
+  if (garlandFlagPass(row['VTP']) || garlandFlagPass(row['PT']) || garlandFlagPass(row['BWT']) || garlandFlagPass(row['Weight Pass']) || garlandFlagPass(row['Vacuum Test'])) return 'Pass';
+  const overall = normalizePf(row['Pass/Fail']);
+  if (overall) return overall;
+  return 'Pass';
+}
+function normalizeGarlandRow(row) {
+  if (!row) return row;
+  const out = Object.assign({}, row);
+  const when = row['Date/Time'] || row.Time || row['Date Int'] || '';
+  if (!String(out['Date/Time'] || '').trim()) out['Date/Time'] = when;
+  const item = String(row['Item #'] || row.Item || row.Material || '').trim();
+  if (item) {
+    out['Item #'] = item;
+    if (!String(out.Item || '').trim()) out.Item = item;
+  }
+  const desc = String(row['Item Description'] || row['Item Desc'] || row['Material Description'] || '').trim();
+  if (desc) {
+    out['Item Description'] = desc;
+    if (!String(out['Item Desc'] || '').trim()) out['Item Desc'] = desc;
+  }
+  const line = garlandLineName(row.Line || row.MonoorCoex);
+  if (line) out.Line = line;
+  const user = String(row.User || row.Operator || '').trim();
+  if (user) out.User = user;
+  const notes = String(row.Notes || row.Comments || '').trim();
+  if (notes) out.Notes = notes;
+  const bw = row['Basis Weight'] != null && String(row['Basis Weight']).trim() !== '' ? row['Basis Weight'] : row.Weight;
+  if (bw != null && String(bw).trim() !== '') {
+    out['Basis Weight'] = bw;
+    if (!String(out.Weight || '').trim()) out.Weight = bw;
+  }
+  const pf = garlandPassFail(row);
+  out['Pass/Fail'] = pf;
+  if (garlandFlagFail(row.BWT) || garlandFlagPass(row.BWT)) out['Weight Pass'] = garlandFlagFail(row.BWT) ? 'Fail' : 'Pass';
+  out.__plant = 'garland';
+  return out;
+}
 function inferPlant(row, tagged) {
   const t = String(tagged || (row && row.__plant) || '').toLowerCase();
   if (PLANTS[t]) return t;
+  if (looksLikeGarlandRow(row)) return 'garland';
   const line = String(col(row, 'Line') || '').trim().toUpperCase();
+  if (/^GARLAND\s*(COEX|MONO)$/.test(line) || /^G-?(COEX|MONO)$/.test(line)) return 'garland';
   if (line === 'COEX' || line === 'MONO') return 'bubble';
   if (line === 'P1') return 'p1';
   if (line === 'RTS') return 'rts';
@@ -2322,6 +2402,24 @@ function normalizeFoamRow(row) {
 }
 function isFoamPlant(plant) {
   return (plant || activePlant) === 'foam';
+}
+function isGarlandPlant(plant) {
+  return (plant || activePlant) === 'garland';
+}
+function isBwSpcPlant(plant) {
+  const p = plant || activePlant;
+  return p === 'bubble' || p === 'garland';
+}
+function isSpcPlant(plant) {
+  const p = plant || activePlant;
+  return p === 'foam' || isBwSpcPlant(p);
+}
+function firstSpcPlant() {
+  if (isSpcPlant() && plantRows().length) return activePlant;
+  for (const p of ['foam', 'bubble', 'garland']) {
+    if (plantRows(p).length) return p;
+  }
+  return '';
 }
 function isPostingsPlant(plant) {
   return (plant || activePlant) === 'postings';
@@ -2450,7 +2548,7 @@ function plantRows(plant) {
   const want = plant || activePlant || 'foam';
   if (want === 'postings') return postingRows();
   if (!plantRowCache) {
-    plantRowCache = { foam: [], bubble: [], p1: [], rts: [] };
+    plantRowCache = { foam: [], bubble: [], garland: [], p1: [], rts: [] };
     for (const r of indexedRows) {
       const p = r.plant || 'foam';
       if (plantRowCache[p]) plantRowCache[p].push(r);
@@ -2520,6 +2618,7 @@ function histColWidth(k) {
   if (k === 'Date/Time') return 280;
   if (k === 'Item #' || k === 'Item' || k === 'Material') return 180;
   if (k === 'Item Desc' || k === 'Item Description' || k === 'Description' || k === 'Notes' || k === 'Fail notes') return 220;
+  if (k === 'Structure') return 110;
   if (k === 'MSPEC' || k === 'Reason for Check' || k === 'Parent Material' || k === 'Period' || k === 'Quality check') return 170;
   if (k === 'Posted (PT)') return 160;
   if (k === 'Pass/Fail') return 100;
@@ -2533,21 +2632,31 @@ function histColWidths() {
 }
 function syncPlantChrome() {
   const foam = isFoamPlant();
+  const spcOk = isSpcPlant();
   const plantEl = document.getElementById('histPlant');
   if (plantEl && plantEl.value !== activePlant) plantEl.value = activePlant;
   document.documentElement.setAttribute('data-plant', activePlant);
   const histSpc = document.getElementById('histSpc');
   const histMspecs = document.getElementById('histMspecs');
   const complianceMspecs = document.getElementById('complianceMspecs');
-  if (histSpc) histSpc.hidden = !foam;
+  if (histSpc) histSpc.hidden = !spcOk;
   if (histMspecs) histMspecs.hidden = !foam;
   if (complianceMspecs) complianceMspecs.hidden = !foam;
   const histSap = document.getElementById('histSap');
   if (histSap) histSap.hidden = !isPostingsPlant();
-  if (!foam && (screenName === 'view' || screenName === 'mspecs' || viewMode === 'spc' || viewMode === 'series')) {
+  if (screenName === 'mspecs' && !foam) {
+    setViewMode('centration');
+    setScreen('history');
+  } else if (viewMode === 'series' && !foam) {
+    setViewMode('centration');
+    setScreen('history');
+  } else if (screenName === 'view' && viewMode === 'centration' && !foam) {
+    setScreen('history');
+  } else if (viewMode === 'spc' && !spcOk) {
     setViewMode('centration');
     setScreen('history');
   }
+  syncSpcPlantChrome();
   syncViewChrome();
 }
 async function setActivePlant(plant, opts) {
@@ -2579,10 +2688,10 @@ async function setActivePlant(plant, opts) {
 }
 function splitDieGraph2(text) {
   const lines = text.replace(/\r/g, '').split('\n');
-  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [], TABLESBUBBLE: [], TABLESP1: [], TABLESRTS: [] };
+  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [], TABLESBUBBLE: [], TABLESGARLAND: [], TABLESP1: [], TABLESRTS: [] };
   let cur = null;
   for (const line of lines.slice(1)) {
-    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|TABLESBUBBLE|TABLESP1|TABLESRTS|HISTORY)\]$/i);
+    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|TABLESBUBBLE|TABLESGARLAND|TABLESP1|TABLESRTS|HISTORY)\]$/i);
     if (m) {
       const name = m[1].toUpperCase();
       cur = (name === 'HISTORY') ? 'TABLES4' : name;
@@ -2954,6 +3063,7 @@ function failDetailsForRow(row, specs) {
   if (isNoCheckPf(overall)) return [];
   const s = specs || lookupSpecs(col(row, 'MSPEC', 'MSPEC #')) || {};
   const out = [];
+  const bw = numVal(col(row, 'Basis Weight', 'Weight'));
   const add = (stored, got, min, max, name, digits, reasonUnder, reasonOver, reasonFail, computedOnly) => {
     const computed = judgeBetween(got, min, max);
     if (computedOnly ? computed !== 'Fail' : !isMeasuredFail(stored, computed)) return;
@@ -2982,6 +3092,7 @@ function failDetailsForRow(row, specs) {
   add(col(row, 'Cell Count MD Pass/Fail'), cellMd, s.cellMin, NaN, 'cell count MD', 0, 'cell count MD under', 'cell count MD over', 'cell count MD fail', true);
   add(col(row, 'Cell Count CD Pass/Fail'), cellCd, s.cellMin, NaN, 'cell count CD', 0, 'cell count CD under', 'cell count CD over', 'cell count CD fail', true);
   add(col(row, 'Slit/Width Pass/Fail'), width, s.widthMin, NaN, 'width', 1, 'width under', 'width over', 'width fail');
+  add(col(row, 'Weight Pass', 'BWT', 'Basis Weight Pass/Fail'), bw, NaN, NaN, 'basis weight', 2, 'basis weight under', 'basis weight over', 'basis weight fail');
   if (normalizePf(overall) === 'Fail' && !out.length) out.push({ reason: 'failed check', detail: 'failed check' });
   return out;
 }
@@ -3317,12 +3428,29 @@ function currentSheetSourceLabel() {
   const src = String((currentSnapshot && currentSnapshot.source) || '').trim().toUpperCase();
   if (src === 'S1S3') return 'S1 S3';
   if (src === 'S4') return 'S4';
+  if (src === 'GARLAND') return 'Garland Bubble';
   const line = String((currentSnapshot && currentSnapshot.line) || '').trim().toUpperCase();
   if (/^S[134]$/.test(line)) return line;
   return 'sheet';
 }
+function parseWhenToSerial(v) {
+  const raw = String(v ?? '').trim();
+  if (!raw) return NaN;
+  const n = numVal(raw);
+  if (isFinite(n) && n >= 20000 && n < 90000) return n;
+  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([AP]M))?)?/i);
+  if (!m) return NaN;
+  let h = +(m[4] || 0);
+  const min = +(m[5] || 0);
+  const sec = +(m[6] || 0);
+  const ap = (m[7] || '').toUpperCase();
+  if (ap === 'PM' && h < 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  const utc = Date.UTC(+m[3], +m[1] - 1, +m[2], h, min, sec);
+  return utc / 86400000 + 25569;
+}
 function dateParts(serial) {
-  const n = numVal(serial);
+  const n = parseWhenToSerial(serial);
   if (!isFinite(n) || n < 20000) return { y: 0, m: 0, d: 0, serial: n };
   const dt = excelSerialDate(n);
   if (isNaN(dt.getTime())) return { y: 0, m: 0, d: 0, serial: n };
@@ -3414,7 +3542,7 @@ async function indexHistory(onProg) {
     indexedRows[idx] = {
       idx, row, serial: parts.serial, y: parts.y, m: parts.m, d: parts.d,
       display: null, num, text, tone,
-      item: String(row['Item #'] || row['Item'] || '').trim(),
+      item: String(row['Item #'] || row['Item'] || row['Material'] || '').trim(),
       mspec,
       desc: String(row['Item Desc'] || row['Item Description'] || row['Description'] || '').trim(),
       pf: pfLabel,
@@ -3517,6 +3645,7 @@ function rowsForLine(line) {
 function fillLineSelects() {
   const all = allLineChoices();
   const foam = uniqueSorted([...new Set(plantRows('foam').map(r => realLineName(r.line)).filter(Boolean))], false);
+  const spcLines = uniqueSorted([...new Set(spcSourceRows().map(r => realLineName(r.line)).filter(Boolean))], false);
   if (activeLine && all.length && !all.includes(activeLine)) activeLine = '';
   const compliance = document.getElementById('complianceLine');
   if (compliance) {
@@ -3525,8 +3654,9 @@ function fillLineSelects() {
   }
   const spc = document.getElementById('spcLine');
   if (spc) {
-    spc.innerHTML = foam.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('') || '<option value="">No line</option>';
-    spc.value = foam.includes(activeLine) ? activeLine : (foam[0] || '');
+    const lines = spcLines.length ? spcLines : foam;
+    spc.innerHTML = lines.map(l => `<option value="${esc(l)}">${esc(l)}</option>`).join('') || '<option value="">No line</option>';
+    spc.value = lines.includes(activeLine) ? activeLine : (lines[0] || '');
   }
 }
 function setActiveLine(line, from) {
@@ -3999,14 +4129,76 @@ function spcPreferredFromView() {
   const by = document.getElementById('spcBy').value;
   if (viewingIdx !== 'current' && historyPack && historyPack.rows[Number(viewingIdx)]) {
     const row = historyPack.rows[Number(viewingIdx)];
-    return by === 'mspec' ? canonMspec(col(row, 'MSPEC')) : String(col(row, 'Item #') || '').trim();
+    if (by === 'mspec') return canonMspec(col(row, 'MSPEC'));
+    if (by === 'structure') return String(col(row, 'Structure') || '').trim();
+    return String(col(row, 'Item #', 'Item', 'Material') || '').trim();
   }
-  return by === 'mspec' ? canonMspec(currentSnapshot.mspec) : String(currentSnapshot.item || '').trim();
+  if (by === 'mspec') return canonMspec(currentSnapshot.mspec);
+  if (by === 'structure') return '';
+  return String(currentSnapshot.item || '').trim();
+}
+function spcSourceRows() {
+  if (isSpcPlant() && plantRows().length) return plantRows();
+  const p = firstSpcPlant();
+  return p ? plantRows(p) : [];
+}
+function spcKeyOf(r, by) {
+  if (by === 'mspec') return r.mspec || '';
+  if (by === 'structure') return String((r.text && r.text.Structure) || col(r.row, 'Structure') || '').trim();
+  return r.item || '';
+}
+function syncSpcByOptions() {
+  const sel = document.getElementById('spcBy');
+  if (!sel) return;
+  const cur = sel.value;
+  if (isGarlandPlant()) {
+    sel.innerHTML = '<option value="item">Item #</option><option value="structure">Structure</option>';
+  } else if (isBwSpcPlant()) {
+    sel.innerHTML = '<option value="item">Item #</option>';
+  } else {
+    sel.innerHTML = '<option value="item">Item #</option><option value="mspec">MSPEC</option>';
+  }
+  if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+  else sel.value = 'item';
+}
+function syncSpcPlantChrome() {
+  const bw = isBwSpcPlant() && (viewMode === 'spc' || screenName === 'view');
+  document.documentElement.setAttribute('data-spc-kind', isBwSpcPlant() ? 'bw' : 'foam');
+  syncSpcByOptions();
+  const hideFoam = isBwSpcPlant();
+  ['spcSeriesGraph', 'spcSeries'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      const wrap = el.closest('label') || el;
+      wrap.hidden = hideFoam;
+    }
+  });
+  const hint = document.getElementById('spcHint');
+  if (hint) {
+    hint.textContent = hideFoam
+      ? 'Basis weight over time. The dashed target is BW Target from the check (Garland) or the Weight column (Visalia Bubble).'
+      : 'Average, range, and density over time with min/max spec lines. Open Series Centration Graph to overlay every die check in the range.';
+  }
+  const dateHint = document.getElementById('spcDateHint');
+  if (dateHint) {
+    dateHint.textContent = isGarlandPlant()
+      ? 'Date range limits the Item # / Structure list to what ran in that period.'
+      : 'Date range limits the Item/MSPEC list to what ran in that period.';
+  }
+  const specs = document.querySelector('#screenView .specs');
+  if (specs) specs.hidden = hideFoam && viewMode === 'spc';
+  const rptAvg = document.getElementById('rptAvg');
+  const rptRange = document.getElementById('rptRange');
+  const rptDens = document.getElementById('rptDens');
+  if (rptAvg) rptAvg.closest('label').hidden = hideFoam;
+  if (rptRange) rptRange.closest('label').hidden = hideFoam;
+  if (rptDens) rptDens.closest('label').hidden = hideFoam;
 }
 function fillSpcControls(fromView) {
+  syncSpcByOptions();
   const by = document.getElementById('spcBy').value;
   const sel = document.getElementById('spcValue');
-  document.getElementById('spcValueName').textContent = by === 'mspec' ? 'MSPEC' : 'Item #';
+  document.getElementById('spcValueName').textContent = by === 'mspec' ? 'MSPEC' : (by === 'structure' ? 'Structure' : 'Item #');
   if (fromView) syncSpcDates(true);
   const { values, counts } = spcComboStats();
   const fromRow = spcPreferredFromView();
@@ -4018,7 +4210,7 @@ function fillSpcControls(fromView) {
   else if (!values.includes(String(sel.value))) sel.value = values[0] || '';
   const search = document.getElementById('spcValueSearch');
   if (search) {
-    search.placeholder = by === 'mspec' ? 'Type to search MSPEC' : 'Type to search Item #';
+    search.placeholder = by === 'mspec' ? 'Type to search MSPEC' : (by === 'structure' ? 'Type to search Structure' : 'Type to search Item #');
     search.value = spcSearchDisplay(sel.value, by, sel.value ? (counts[sel.value] || 0) : 0);
   }
   renderSpcValueList(search && search === document.activeElement ? search.value : '');
@@ -4031,7 +4223,9 @@ function fillSpcControls(fromView) {
 }
 function spcOptionLabel(v, by) {
   if (!v) return '';
-  return by === 'mspec' ? mspecWithTarget(v) : itemWithTargets(v, mspecForItem(v));
+  if (by === 'mspec') return mspecWithTarget(v);
+  if (by === 'structure') return String(v);
+  return itemWithTargets(v, mspecForItem(v));
 }
 function spcPtsLabel(n) {
   const c = Number(n) || 0;
@@ -4040,7 +4234,7 @@ function spcPtsLabel(n) {
 function countBySpcKey(rows, by) {
   const counts = Object.create(null);
   for (const r of rows || []) {
-    const key = by === 'mspec' ? r.mspec : r.item;
+    const key = spcKeyOf(r, by);
     if (!key) continue;
     counts[key] = (counts[key] || 0) + 1;
   }
@@ -4048,11 +4242,11 @@ function countBySpcKey(rows, by) {
 }
 function spcComboStats() {
   const by = document.getElementById('spcBy').value;
-  const counts = countBySpcKey(spcRowsInDateRange(plantRows('foam')), by);
+  const counts = countBySpcKey(spcRowsInDateRange(spcSourceRows()), by);
   return { values: sortKeysByCount(counts), counts };
 }
 function spcRowsInDateRange(rows) {
-  let out = lineFilteredRows(rows || plantRows('foam'));
+  let out = lineFilteredRows(rows || spcSourceRows());
   const fromEl = document.getElementById('spcFrom');
   const toEl = document.getElementById('spcTo');
   const from = fromEl && fromEl.value;
@@ -4128,7 +4322,7 @@ function redrawSpc() {
 function spcSelectedRows() {
   const by = document.getElementById('spcBy').value;
   const val = String(document.getElementById('spcValue').value || '').trim();
-  let rows = lineFilteredRows().filter(r => (by === 'mspec' ? r.mspec : r.item) === val);
+  let rows = lineFilteredRows(spcSourceRows()).filter(r => spcKeyOf(r, by) === val);
   const from = document.getElementById('spcFrom').value;
   const to = document.getElementById('spcTo').value;
   if (from) {
@@ -4143,7 +4337,7 @@ function spcSelectedRows() {
   return rows;
 }
 function syncSpcDates(force) {
-  const serials = plantRows('foam').map(r => r.serial).filter(isFinite);
+  const serials = spcSourceRows().map(r => r.serial).filter(isFinite);
   const fromEl = document.getElementById('spcFrom');
   const toEl = document.getElementById('spcTo');
   if (!fromEl || !toEl) return;
@@ -4225,12 +4419,14 @@ function goHistoryRow(idx) {
   else viewResult(idx);
 }
 function openSpc() {
-  if (!plantRows('foam').length || enterMode) { toast('Paste TableS4 results first'); return; }
-  if (!isFoamPlant()) setActivePlant('foam', { keepFilters: true });
+  const plant = firstSpcPlant();
+  if (!plant || enterMode) { toast('Paste quality results first'); return; }
+  if (activePlant !== plant) setActivePlant(plant, { keepFilters: true });
   spcPointSelected = false;
-  const foam = uniqueSorted([...new Set(plantRows('foam').map(r => realLineName(r.line)).filter(Boolean))], false);
-  if (foam.length && !foam.includes(activeLine)) activeLine = foam[0];
+  const lines = uniqueSorted([...new Set(plantRows(plant).map(r => realLineName(r.line)).filter(Boolean))], false);
+  if (lines.length && !lines.includes(activeLine)) activeLine = lines[0];
   fillLineSelects();
+  syncSpcPlantChrome();
   syncSpcDates(true);
   goTo('view', { mode: 'spc', fromView: true });
   syncViewChrome();
@@ -5161,6 +5357,7 @@ function downloadMspecExcel() {
 }
 function plantFromLine(line) {
   const s = String(line || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (s === 'GARLANDCOEX' || s === 'GARLANDMONO' || s === 'G-COEX' || s === 'G-MONO' || s === 'GCOEX' || s === 'GMONO') return 'garland';
   if (s === 'COEX' || s === 'MONO') return 'bubble';
   if (s === 'P1') return 'p1';
   if (s === 'RTS') return 'rts';
@@ -6891,7 +7088,7 @@ function rptDateRows() {
   const saveTo = document.getElementById('spcTo').value;
   document.getElementById('spcFrom').value = document.getElementById('rptFrom').value;
   document.getElementById('spcTo').value = document.getElementById('rptTo').value;
-  const rows = spcRowsInDateRange(plantRows('foam'));
+  const rows = spcRowsInDateRange(spcSourceRows());
   document.getElementById('spcFrom').value = saveFrom;
   document.getElementById('spcTo').value = saveTo;
   return rows;
@@ -6909,12 +7106,14 @@ async function downloadSpcReportPdf() {
   const by = document.getElementById('spcBy').value;
   const selected = [...document.querySelectorAll('#rptItems input[data-rpt-val]:checked')].map(c => c.dataset.rptVal);
   if (!selected.length) { toast('Select at least one item'); return; }
-  const flags = {
-    avg: document.getElementById('rptAvg').checked,
-    range: document.getElementById('rptRange').checked,
-    density: document.getElementById('rptDens').checked
-  };
-  if (!flags.avg && !flags.range && !flags.density) { toast('Select at least one chart'); return; }
+  const flags = isBwSpcPlant()
+    ? { weight: true }
+    : {
+        avg: document.getElementById('rptAvg').checked,
+        range: document.getElementById('rptRange').checked,
+        density: document.getElementById('rptDens').checked
+      };
+  if (!isBwSpcPlant() && !flags.avg && !flags.range && !flags.density) { toast('Select at least one chart'); return; }
   const includeTable = document.getElementById('rptTable').checked;
   const prevOut = spcHideOutliers;
   const prevVal = document.getElementById('spcValue').value;
@@ -6933,7 +7132,7 @@ async function downloadSpcReportPdf() {
       document.getElementById('spcValue').value = val;
       const mspec = by === 'mspec' ? val : mspecForItem(val);
       fillSpecPanel(specsFor(mspec), mspec);
-      const label = (by === 'mspec' ? 'MSPEC ' : 'Item ') + spcOptionLabel(val, by);
+      const label = (by === 'mspec' ? 'MSPEC ' : (by === 'structure' ? 'Structure ' : 'Item ')) + spcOptionLabel(val, by);
       const rows = spcSelectedRows();
       const charts = spcChartDefs(mspec, flags);
       appendSpcPdfSection(doc, label, rangeText, rows, charts, includeTable);
@@ -7029,7 +7228,7 @@ async function parseHistorySections(sections, onProg) {
     for (const r of table.rows || []) {
       if (isHistoryHeaderRow(r)) continue;
       r.__plant = plant;
-      rows.push(plant === 'foam' ? normalizeFoamRow(r) : r);
+      rows.push(plant === 'foam' ? normalizeFoamRow(r) : (plant === 'garland' ? normalizeGarlandRow(r) : r));
     }
   }
   return dedupeHistoryRows(rows);
@@ -7377,6 +7576,22 @@ function spcSeriesMode() {
   const el = document.getElementById('spcSeries');
   return el && el.value === 'points' ? 'points' : 'summary';
 }
+function bwValueFromRow(r) {
+  const n = numVal(col(r && r.row, 'Basis Weight', 'Weight') || (r && r.num && (r.num['Basis Weight'] || r.num.Weight)));
+  return finiteNum(n) ? n : NaN;
+}
+function bwTargetFromRows(rows) {
+  const counts = Object.create(null);
+  for (const r of rows || []) {
+    const t = numVal(col(r.row, 'BW Target', 'Basis Weight Target', 'Weight Target'));
+    if (finiteNum(t)) counts[String(t)] = (counts[String(t)] || 0) + 1;
+  }
+  let best = NaN, n = 0;
+  for (const [k, c] of Object.entries(counts)) {
+    if (c > n) { n = c; best = Number(k); }
+  }
+  return best;
+}
 function spcPointRows() {
   return spcSelectedRows().map(r => {
     const pt = {
@@ -7384,6 +7599,7 @@ function spcPointRows() {
       avg: r.num['Thickness Average'],
       range: r.num['Thickness Range'],
       density: r.num['Density'],
+      weight: bwValueFromRow(r),
       pf: r.pf
     };
     const tvs = rowTValues(r.row);
@@ -7395,6 +7611,10 @@ function spcPointRows() {
   });
 }
 function spcChartDefs(mspec, flags, pts) {
+  if (isBwSpcPlant()) {
+    const target = bwTargetFromRows(pts ? pts.map(p => ({ row: p.row })) : spcSelectedRows());
+    return [{ key: 'weight', title: 'Basis Weight', unit: '', min: NaN, max: NaN, target }];
+  }
   const specs = specsFor(mspec);
   const panel = readPanelSpecs();
   const on = flags || spcChartFlags || { avg: true, range: true, density: true };

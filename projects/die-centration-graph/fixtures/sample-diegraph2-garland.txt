@@ -1,0 +1,9 @@
+DIEGRAPH2
+[CURRENT]
+source=GARLAND
+[TABLESGARLAND]
+Material	Material Description	Recipe	Structure	MonoorCoex	Operator	Shift	Order Number	Roll#	LineSpeed	Basis Weight	Thickness	TotalWebWidth	Slit Widths	DeadCellCount	PerfStrengthLeft	PerfStrengthRight	PerfDistance	RollDiameter	RollLength	Comments	Time	A Speed	A1 Speed	A2 Speed	B Speed	B1 Speed	B2 Speed	C Speed	C1 Speed	C2 Speed	Last 24?	Checks Today?	Date Int	BW Target	Vacuum Test	VTP	VTF	PT	BWT	Auditor	year	biweek
+4060844	RSRP-PLUS GRN 4/12X 300 P12		SPC	Mono	Chance Turner	1st		5	40	6.5	1.54	48	TRUE		33.25		12	25			44390.36										N	N	44390.36	3.8				1	1	Operator	2021	15
+44803	SPC 1/48X750 P12		SPC	Mono	Omar Castillo	1st	1956266	8	36.5	6.3							12				44391.47	58	105	52.5							N	N	44391.47	4.2					1	Operator	2021	15
+460738	SAB 4/12X750 P12		SAB	Mono	Omar Castillo	1st	1925706	0	44.8	5.4							12				44391.48	58	105	52.5							N	N	44391.47	3.7					1	Operator	2021	15
+3030999	COEX SAMPLE		SPC	Coex	Test User	2nd	100	1	50	4.1	1.2	48	TRUE						12				44392.5										N	N	44392.5	4	Fail			0	0	Operator	2021	15

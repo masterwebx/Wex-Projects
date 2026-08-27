@@ -4,3 +4,6 @@ Quality_AIO.xlsm
 Quality AIO.xlsx
 results/*.js
 !results/.gitkeep
+aio-csv/*.csv
+!aio-csv/.gitkeep
+edge-profile/

@@ -17,104 +17,131 @@
     />
 
     <style>
-        body { font-family: Segoe UI, Arial; margin: 0; background: #121212; color: #f3f4f6; font-size: 15px; }
-        header.app { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: #1a1a1a; border-bottom: 1px solid #2a2f36; }
+        body {
+            --bg: #121212; --header: #1a1a1a; --card: #1e1e1e; --text: #f3f4f6; --muted: #9ca3af;
+            --border: #2a2f36; --input: #111; --line: #3f3f46; --ghost: #262626; --status: #1f2937;
+            --status-line: #334155; --accent: #2563eb; --ok: #15803d; --danger: #991b1b;
+            --pass-bg: #14532d; --pass-fg: #86efac; --fail-bg: #7f1d1d; --fail-fg: #fecaca;
+            --chip: #262626; --head: #1f2937; --link: #93c5fd; --spec-label: #9ca3af;
+            --overlay: rgba(15,23,42,.55); --login: #0f172a; --group: #111827;
+            font-family: Segoe UI, Arial; margin: 0; background: var(--bg); color: var(--text); font-size: 15px;
+        }
+        body.light {
+            --bg: #f4f6f8; --header: #fff; --card: #fff; --text: #111827; --muted: #6b7280;
+            --border: #e5e7eb; --input: #fff; --line: #d1d5db; --ghost: #e5e7eb; --status: #eff6ff;
+            --status-line: #bfdbfe; --pass-bg: #dcfce7; --pass-fg: #166534; --fail-bg: #fee2e2; --fail-fg: #991b1b;
+            --chip: #f3f4f6; --head: #f3f4f6; --link: #1d4ed8; --spec-label: #6b7280;
+            --overlay: rgba(15,23,42,.35); --login: #e5e7eb; --group: #e5e7eb;
+        }
+        header.app { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: var(--header); border-bottom: 1px solid var(--border); }
         h1 { margin: 0; font-size: 20px; }
-        .tag { color: #9ca3af; margin: 2px 0 0; font-size: 12px; }
-        .tools button, button { border: 0; border-radius: 10px; padding: 8px 14px; font-weight: 700; cursor: pointer; background: #2563eb; color: #fff; font-family: inherit; }
-        button.secondary { background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
-        button.ok { background: #15803d; }
-        button:disabled, button.ghost { opacity: .4; cursor: default; background: #3f3f46; color: #d4d4d8; }
+        .tag { color: var(--muted); margin: 2px 0 0; font-size: 12px; }
+        .tools { display: flex; align-items: center; gap: 8px; }
+        .tools button, button { border: 0; border-radius: 10px; padding: 8px 14px; font-weight: 700; cursor: pointer; background: var(--accent); color: #fff; font-family: inherit; }
+        button.secondary { background: var(--ghost); color: var(--text); border: 2px solid var(--line); }
+        button.ok { background: var(--ok); }
+        button:disabled, button.ghost { opacity: .4; cursor: default; background: var(--line); color: var(--muted); }
         .wrap { padding: 14px 18px 72px; }
-        .status { margin: 0 0 12px; padding: 10px 12px; background: #1f2937; border: 1px solid #334155; border-radius: 8px; white-space: pre-wrap; font-size: 13px; }
-        .status.bad { background: #3f1d1d; border-color: #7f1d1d; }
+        .status { margin: 0 0 12px; padding: 10px 12px; background: var(--status); border: 1px solid var(--status-line); border-radius: 8px; white-space: pre-wrap; font-size: 13px; }
+        .status.bad { background: var(--fail-bg); border-color: var(--fail-fg); }
         .lines { margin: 0 0 12px; }
-        .lines button { margin: 0 6px 6px 0; min-width: 64px; background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
-        .lines button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
+        .lines button { margin: 0 6px 6px 0; min-width: 64px; background: var(--ghost); color: var(--text); border: 2px solid var(--line); }
+        .lines button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
         .grid { display: table; width: 100%; border-collapse: separate; border-spacing: 12px 0; }
         .col { display: table-cell; vertical-align: top; width: 50%; }
-        .card { background: #1e1e1e; border: 1px solid #2a2f36; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
         .card h2 { margin: 0 0 10px; font-size: 16px; }
-        label.f { display: block; margin: 0 0 8px; font-size: 12px; font-weight: 700; color: #9ca3af; }
-        label.f input, label.f select, label.f textarea { display: block; width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 2px solid #3f3f46; border-radius: 8px; font: inherit; background: #111; color: #f3f4f6; }
+        label.f { display: block; margin: 0 0 8px; font-size: 12px; font-weight: 700; color: var(--muted); }
+        label.f input, label.f select, label.f textarea { display: block; width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 2px solid var(--line); border-radius: 8px; font: inherit; background: var(--input); color: var(--text); }
         textarea { min-height: 58px; }
         label.f.need input, label.f.need select, label.f.need textarea { border-color: #eab308; box-shadow: 0 0 0 2px rgba(234,179,8,.25); }
         .pair { display: table; width: 100%; }
         .pair > div { display: table-cell; width: 50%; padding-right: 8px; }
         .spec { font-size: 13px; }
-        .spec b { display: inline-block; min-width: 110px; color: #3e4a55; }
+        .spec b { display: inline-block; min-width: 110px; color: var(--spec-label); }
         .spec div { margin: 3px 0; }
-        .hits { border: 1px solid #3f3f46; border-radius: 8px; max-height: 160px; overflow: auto; margin-top: 4px; display: none; background: #111; }
+        .hits { border: 1px solid var(--line); border-radius: 8px; max-height: 160px; overflow: auto; margin-top: 4px; display: none; background: var(--input); }
         .hits div { padding: 6px 8px; cursor: pointer; }
-        .hits div:hover { background: #1d4ed8; }
+        .hits div:hover { background: #1d4ed8; color: #fff; }
         .pts input { width: 72px; margin: 0 6px 6px 0; }
         .pf { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 8px; font-size: 12px; }
-        .pass { background: #14532d; color: #86efac; }
-        .fail { background: #7f1d1d; color: #fecaca; }
-        .muted { color: #9ca3af; font-weight: 400; }
-        .crumbs { margin: 0 0 14px; color: #9ca3af; font-size: 13px; }
-        .crumbs b { color: #f3f4f6; }
-        .crumbs a { color: #93c5fd; cursor: pointer; text-decoration: none; }
+        .pass { background: var(--pass-bg); color: var(--pass-fg); }
+        .fail { background: var(--fail-bg); color: var(--fail-fg); }
+        .muted { color: var(--muted); font-weight: 400; }
+        .crumbs { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+        .crumbs b { color: var(--text); }
+        .crumbs a { color: var(--link); cursor: pointer; text-decoration: none; }
         .home-grid { display: block; }
-        .home-line { display: inline-block; width: 220px; min-height: 110px; margin: 0 12px 12px 0; padding: 18px; vertical-align: top; background: #1e1e1e; border: 1px solid #2a2f36; border-radius: 14px; cursor: pointer; text-align: left; }
-        .home-line:hover { border-color: #2563eb; }
+        .home-line { display: inline-block; width: 220px; min-height: 110px; margin: 0 12px 12px 0; padding: 18px; vertical-align: top; background: var(--card); border: 1px solid var(--border); border-radius: 14px; cursor: pointer; text-align: left; }
+        .home-line:hover { border-color: var(--accent); }
         .home-line h3 { margin: 0 0 8px; font-size: 28px; }
-        .home-line p { margin: 0; color: #9ca3af; font-size: 13px; font-weight: 400; }
+        .home-line p { margin: 0; color: var(--muted); font-size: 13px; font-weight: 400; }
         .reason-btns button { display: block; width: 320px; max-width: 100%; margin: 0 0 12px; padding: 16px; font-size: 18px; }
         .chips { margin: 8px 0; }
-        .chip { display: inline-block; min-width: 54px; margin: 0 6px 8px 0; padding: 8px 8px 6px; border-radius: 999px; text-align: center; background: #262626; border: 2px solid #3f3f46; }
-        .chip input { width: 48px; border: 0; background: transparent; color: #fff; text-align: center; padding: 2px 0; font-weight: 700; }
+        .chip { display: inline-block; min-width: 54px; margin: 0 6px 8px 0; padding: 8px 8px 6px; border-radius: 999px; text-align: center; background: var(--chip); border: 2px solid var(--line); }
+        .chip input { width: 48px; border: 0; background: transparent; color: var(--text); text-align: center; padding: 2px 0; font-weight: 700; }
         .chip.under { background: #713f12; border-color: #eab308; }
         .chip.in { background: #14532d; border-color: #22c55e; }
         .chip.over { background: #7f1d1d; border-color: #ef4444; }
-        .chip.extreme { outline: 2px solid #fff; }
-        .chip span { display: block; font-size: 10px; color: #d4d4d8; }
+        body.light .chip.under { background: #fef3c7; }
+        body.light .chip.in { background: #dcfce7; }
+        body.light .chip.over { background: #fee2e2; }
+        .chip.extreme { outline: 2px solid var(--text); }
+        .chip span { display: block; font-size: 10px; color: var(--muted); }
         .results { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .results th, .results td { padding: 6px 8px; border-bottom: 1px solid #2a2f36; text-align: right; }
-        .results th:first-child, .results td:first-child { text-align: left; color: #9ca3af; }
-        .results td.ok { color: #86efac; font-weight: 700; }
-        .results td.bad { color: #fca5a5; font-weight: 700; }
+        .results th, .results td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; }
+        .results th:first-child, .results td:first-child { text-align: left; color: var(--muted); }
+        .results td.ok { color: var(--pass-fg); font-weight: 700; }
+        .results td.bad { color: var(--fail-fg); font-weight: 700; }
         .submit-bar { display: none; position: fixed; right: 18px; bottom: 16px; z-index: 12; }
         .submit-bar.on { display: block; }
         .submit-bar button { min-width: 180px; padding: 12px 20px; font-size: 16px; }
         .screen { display: none; }
         .screen.on { display: block; }
         .plant-toggle button { min-width: 96px; }
-        .plant-toggle button.on { background: #0f766e; border-color: #0f766e; }
-        canvas.radial { width: 320px; height: 320px; background: #111; border-radius: 12px; }
-        .doc-ack { padding: 12px; border: 1px solid #334155; border-radius: 10px; margin: 0 0 10px; }
+        .plant-toggle button.on { background: #0f766e; border-color: #0f766e; color: #fff; }
+        .graph-card { text-align: center; }
+        canvas.radial { width: 260px; height: 260px; max-width: 100%; background: var(--input); border-radius: 12px; }
+        .doc-ack { padding: 12px; border: 1px solid var(--status-line); border-radius: 10px; margin: 0 0 10px; }
         .form { display: none; }
         .form.on { display: block; }
         .tabs { margin: 0 0 12px; }
-        .tabs button { margin: 0 6px 6px 0; background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
-        .tabs button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
+        .tabs button { margin: 0 6px 6px 0; background: var(--ghost); color: var(--text); border: 2px solid var(--line); }
+        .tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
         .tabpanel { display: none; }
         .tabpanel.on { display: block; }
         table.list { width: 100%; border-collapse: collapse; font-size: 13px; }
-        table.list th, table.list td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #2a2f36; vertical-align: top; }
-        table.list th { color: #9ca3af; }
-        .list-wrap { max-height: 520px; overflow: auto; border: 1px solid #2a2f36; border-radius: 8px; }
-        .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(15,23,42,.55); z-index: 20; }
+        table.list th, table.list td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        table.list th { color: var(--muted); }
+        .list-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+        .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: var(--overlay); z-index: 20; }
         .overlay.on { display: block; }
-        .overlay.login { background: #0f172a; z-index: 40; }
-        .modal { width: 520px; max-width: 92%; margin: 40px auto; background: #1e1e1e; border-radius: 12px; padding: 16px; border: 1px solid #2a2f36; color: #f3f4f6; }
+        .overlay.login { background: var(--login); z-index: 40; }
+        .modal { width: 520px; max-width: 92%; margin: 40px auto; background: var(--card); border-radius: 12px; padding: 16px; border: 1px solid var(--border); color: var(--text); }
         .modal.wide { width: 780px; }
         .modal h3 { margin: 0 0 10px; }
-        .session { font-size: 13px; color: #9ca3af; margin-right: 10px; }
-        .subtabs button { margin: 0 6px 6px 0; background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
+        .session { font-size: 13px; color: var(--muted); margin-right: 6px; }
+        .subtabs button { margin: 0 6px 6px 0; background: var(--ghost); color: var(--text); border: 2px solid var(--line); }
         .subtabs button.on { background: #0f766e; color: #fff; border-color: #0f766e; }
         table.specs { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
-        table.specs th, table.specs td { text-align: left; padding: 5px 6px; border: 1px solid #2a2f36; vertical-align: top; }
-        table.specs thead th { background: #1f2937; color: #9ca3af; font-weight: 700; }
-        table.specs th.group { text-align: center; background: #111827; }
+        table.specs th, table.specs td { text-align: left; padding: 5px 6px; border: 1px solid var(--border); vertical-align: top; }
+        table.specs thead th { background: var(--head); color: var(--muted); font-weight: 700; }
+        table.specs th.group { text-align: center; background: var(--group); }
         table.specs th.mspec, table.specs td.mspec { width: 4.6em; max-width: 5em; white-space: nowrap; }
         table.specs td.num, table.specs th.num { width: 4.2em; text-align: right; }
         table.specs button { padding: 3px 8px; font-size: 12px; margin: 0 3px 0 0; }
-        button.danger { background: #991b1b; }
+        button.danger { background: var(--danger); }
         .locked { display: none; }
-        .who { font-weight: 700; color: #f3f4f6; }
+        .who { font-weight: 700; color: var(--text); }
         .type-fields { display: none; }
         .type-fields.on { display: block; }
+        .theme-toggle { display: inline-flex; align-items: center; gap: 8px; margin: 0 8px 0 4px; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; user-select: none; }
+        .theme-toggle input { display: none; }
+        .theme-toggle .track { position: relative; width: 42px; height: 22px; background: #3f3f46; border-radius: 999px; border: 1px solid var(--line); }
+        .theme-toggle .track:after { content: ""; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fbbf24; }
+        body.light .theme-toggle .track { background: #93c5fd; }
+        body.light .theme-toggle .track:after { left: 22px; background: #fff; }
+        .lookup-card { max-width: 720px; }
     </style>
     <script src="qd-check.js" type="text/javascript"></script>
     <script type="text/javascript">
@@ -132,6 +159,19 @@
         var authUsers = [];
         var specHistory = [];
         var idleTimer = null;
+        var currentTab = "checks";
+        var computing = false;
+        var lastCalc = {};
+        var computeTimer = null;
+        var hitsTimer = null;
+        var listTimer = null;
+        var itemByNo = {};
+        var lineCache = {};
+        var docsLoaded = false;
+        var lastHomeHtml = "";
+        var lastResultsHtml = "";
+        var lastRadialKey = "";
+        var themeMode = "dark";
 
         function $(id) { return document.getElementById(id); }
 
@@ -288,10 +328,56 @@
 
         function startIdleWatch() {
             if (idleTimer) window.clearInterval(idleTimer);
-            idleTimer = window.setInterval(checkIdle, 15000);
-            document.onmousemove = touchSession;
+            idleTimer = window.setInterval(checkIdle, 30000);
             document.onkeydown = touchSession;
             document.onclick = touchSession;
+        }
+
+        function themePath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), "theme.txt");
+        }
+
+        function loadTheme() {
+            var t = "dark";
+            try { if (fileExists(themePath())) t = QD.trim(readUtf8(themePath())).toLowerCase(); } catch (e) {}
+            setTheme(t === "light" ? "light" : "dark", true);
+        }
+
+        function setTheme(mode, skipWrite) {
+            themeMode = mode === "light" ? "light" : "dark";
+            document.body.className = themeMode === "light" ? "light" : "";
+            if ($("themeToggle")) $("themeToggle").checked = themeMode === "light";
+            if (!skipWrite) {
+                try { writeUtf8(themePath(), themeMode); } catch (e1) {}
+            }
+            lastRadialKey = "";
+            if (currentScreen === "checkform") {
+                try { compute(); } catch (e2) {}
+            }
+        }
+
+        function toggleTheme() {
+            setTheme(themeMode === "light" ? "dark" : "light");
+        }
+
+        function rebuildItemIndex() {
+            itemByNo = {};
+            var i, it, key;
+            for (i = 0; i < aio.items.length; i++) {
+                it = aio.items[i];
+                if (!it || it.deleted) continue;
+                key = QD.canonItem(it.item);
+                if (key) itemByNo[key] = it;
+            }
+        }
+
+        function fileMtime(path) {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) return 0;
+                return +new Date(fso.GetFile(path).DateLastModified);
+            } catch (e) { return 0; }
         }
 
         function loadAuthUsers() {
@@ -771,11 +857,12 @@
             applyLocalSpecs();
             loadSpecHistory();
             aio.loaded = aio.items.length > 0 || aio.mspecs.length > 0 || aio.bubble.length > 0 || aio.p1.length > 0 || aio.rts.length > 0;
+            rebuildItemIndex();
             fillUsers();
             writeLookupFile();
             ensureLineFiles();
             writeManifest();
-            renderLists();
+            renderCurrentTab();
             setStatus(source);
         }
 
@@ -854,21 +941,34 @@
             }
         }
 
-        function readLineRows(fileKey) {
+        function readLineRows(fileKey, force) {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var path = fso.BuildPath(resultsDir(), fileKey + ".js");
+            var mtime = fileMtime(path);
+            var cached = lineCache[fileKey];
+            if (!force && cached && cached.mtime === mtime) return cached.rows;
             window.QD_DISK = { lines: {}, lookupRows: [], users: [] };
-            if (!fso.FileExists(path)) return [];
-            try { eval(readUtf8(path)); } catch (e) { return []; }
-            return (window.QD_DISK.lines[fileKey] && window.QD_DISK.lines[fileKey].rows) || [];
+            if (!fso.FileExists(path)) {
+                lineCache[fileKey] = { mtime: 0, rows: [] };
+                return [];
+            }
+            try { eval(readUtf8(path)); } catch (e) {
+                lineCache[fileKey] = { mtime: mtime, rows: [] };
+                return [];
+            }
+            var rows = (window.QD_DISK.lines[fileKey] && window.QD_DISK.lines[fileKey].rows) || [];
+            lineCache[fileKey] = { mtime: mtime, rows: rows };
+            return rows;
         }
 
         function writeLineRows(fileKey, rows) {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
-            writeUtf8(fso.BuildPath(resultsDir(), fileKey + ".js"), QD.diskScript(fileKey, {
+            var path = fso.BuildPath(resultsDir(), fileKey + ".js");
+            writeUtf8(path, QD.diskScript(fileKey, {
                 file: fileKey,
                 rows: rows || []
             }));
+            lineCache[fileKey] = { mtime: fileMtime(path), rows: rows || [] };
             writeManifest();
         }
 
@@ -903,7 +1003,8 @@
             return fso.BuildPath(resultsDir(), "docs.js");
         }
 
-        function loadDocs() {
+        function loadDocs(force) {
+            if (docsLoaded && !force) return;
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var path = docsPath();
             window.QD_DOCS = { docs: [], acks: [] };
@@ -913,10 +1014,12 @@
             docsStore = window.QD_DOCS || { docs: [], acks: [] };
             if (!docsStore.docs) docsStore.docs = [];
             if (!docsStore.acks) docsStore.acks = [];
+            docsLoaded = true;
         }
 
         function saveDocs() {
             writeUtf8(docsPath(), "window.QD_DOCS=" + JSON.stringify(docsStore) + ";");
+            docsLoaded = true;
         }
 
         function assignedLineIds() {
@@ -955,9 +1058,9 @@
             }
             if (sit === "GARLAND") specTab = "bubble";
             renderCrumbs();
-            renderHome();
-            renderLists();
-            renderDocTable();
+            lastHomeHtml = "";
+            if (currentTab === "checks") renderHome();
+            else renderCurrentTab();
         }
 
         function renderCrumbs() {
@@ -1087,6 +1190,8 @@
                 html += "<div class='home-line' onclick=\"openLine('" + info.id + "')\"><h3>" + esc(info.label) + "</h3><p>" + esc(QD.lastCheckLabel(last)) + "</p></div>";
             }
             if (!html) html = "<p class='muted'>No lines assigned to you at this plant.</p>";
+            if (html === lastHomeHtml) return;
+            lastHomeHtml = html;
             box.innerHTML = html;
             renderCrumbs();
         }
@@ -1100,8 +1205,8 @@
         function startHomePoll() {
             if (homeTimer) window.clearInterval(homeTimer);
             homeTimer = window.setInterval(function () {
-                if (currentScreen === "home" && $("tabChecks") && $("tabChecks").className.indexOf("on") >= 0) renderHome();
-            }, 20000);
+                if (currentScreen === "home" && currentTab === "checks") renderHome();
+            }, 30000);
         }
 
         function openDocLink(url) {
@@ -1139,7 +1244,7 @@
         }
 
         function renderDocTable() {
-            loadDocs();
+            loadDocs(true);
             var html = "<tr><th>Name</th><th>Line</th><th>Type</th><th>Link</th><th>Version</th>";
             if (session.admin) html += "<th></th>";
             html += "</tr>";
@@ -1197,7 +1302,7 @@
         }
 
         function collectLiveInput() {
-            var calc = compute();
+            var calc = lastCalc || {};
             var input = collectCheckInput(calc);
             input.user = session.user;
             input.reason = checkReason || val("reason");
@@ -1280,24 +1385,69 @@
             btn.setAttribute("data-ready", ready ? "1" : "0");
         }
 
+        function scheduleCompute() {
+            if (computeTimer) window.clearTimeout(computeTimer);
+            computeTimer = window.setTimeout(function () {
+                computeTimer = null;
+                compute();
+            }, 50);
+        }
+
+        function scheduleSubmit() {
+            if (computeTimer) window.clearTimeout(computeTimer);
+            computeTimer = window.setTimeout(function () {
+                computeTimer = null;
+                syncSubmitBtn();
+            }, 50);
+        }
+
+        function scheduleHits() {
+            if (hitsTimer) window.clearTimeout(hitsTimer);
+            hitsTimer = window.setTimeout(function () {
+                hitsTimer = null;
+                showHits();
+            }, 80);
+        }
+
+        function scheduleList(fn) {
+            if (listTimer) window.clearTimeout(listTimer);
+            listTimer = window.setTimeout(function () {
+                listTimer = null;
+                fn();
+            }, 120);
+        }
+
         function showTab(id) {
-            var i, tabs = $("mainTabs").getElementsByTagName("button");
-            for (i = 0; i < tabs.length; i++) tabs[i].className = (tabs[i].getAttribute("data-tab") === id) ? "on" : "";
+            currentTab = id;
+            var i, tabs = $("mainTabs").getElementsByTagName("button"), tab;
+            for (i = 0; i < tabs.length; i++) {
+                tab = tabs[i].getAttribute("data-tab");
+                if (!tab) continue;
+                tabs[i].className = (tab === id) ? "on" : "";
+            }
             $("tabChecks").className = "tabpanel" + (id === "checks" ? " on" : "");
             $("tabUsers").className = "tabpanel" + (id === "users" ? " on" : "");
             $("tabMspecs").className = "tabpanel" + (id === "mspecs" ? " on" : "");
             $("tabItems").className = "tabpanel" + (id === "items" ? " on" : "");
             if ($("tabDocs")) $("tabDocs").className = "tabpanel" + (id === "docs" ? " on" : "");
-            if (id === "mspecs" && currentSite === "GARLAND") setSpecTab("bubble");
-            if (id === "docs") renderDocTable();
-            if (id !== "checks") renderLists();
+            if ($("tabLookup")) $("tabLookup").className = "tabpanel" + (id === "lookup" ? " on" : "");
+            if (id === "mspecs" && currentSite === "GARLAND") specTab = "bubble";
+            renderCurrentTab();
             if ($("submitBar") && id !== "checks") $("submitBar").className = "submit-bar";
+            if (id === "lookup" && $("lookupItem")) $("lookupItem").focus();
+        }
+
+        function renderCurrentTab() {
+            if (currentTab === "users") renderUserTable();
+            else if (currentTab === "mspecs") renderMspecTable();
+            else if (currentTab === "items") renderItemTable();
+            else if (currentTab === "docs") renderDocTable();
+            else if (currentTab === "lookup") renderLookup();
+            else if (currentTab === "checks" && currentScreen === "home") renderHome();
         }
 
         function renderLists() {
-            renderUserTable();
-            renderMspecTable();
-            renderItemTable();
+            renderCurrentTab();
         }
 
         function histBtn(kind, key) {
@@ -1457,23 +1607,32 @@
             var html = "<tr><th>Item #</th><th>Type</th><th>Description</th><th>MSPEC</th><th>Width</th><th>Length</th><th>Footage</th><th>Perf</th>";
             if (session.admin) html += "<th></th>";
             html += "</tr>";
-            var i, it, n = 0, typ;
+            var i, it, n = 0, shown = 0, typ, cap = 60;
+            if (q.length < 2) {
+                html += "<tr><td colspan='9' class='muted'>Type at least 2 characters to search the item database.</td></tr>";
+                if ($("itemTable")) $("itemTable").innerHTML = html;
+                if ($("itemCount")) $("itemCount").innerText = aio.items.length + " items — search to view";
+                return;
+            }
             for (i = 0; i < aio.items.length; i++) {
                 it = aio.items[i];
                 if (it.deleted) continue;
                 typ = QD.itemType(it);
                 if (currentSite === "GARLAND" && typ !== "BUBBLE") continue;
-                if (q && String(it.item).toLowerCase().indexOf(q) < 0 && String(it.description || "").toLowerCase().indexOf(q) < 0 && typ.toLowerCase().indexOf(q) < 0) continue;
+                if (String(it.item).toLowerCase().indexOf(q) < 0 && String(it.description || "").toLowerCase().indexOf(q) < 0 && typ.toLowerCase().indexOf(q) < 0) continue;
+                n += 1;
+                if (shown >= cap) continue;
+                shown += 1;
                 html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(typ) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.mspec) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td>";
                 if (session.admin) {
                     html += "<td><button type='button' onclick=\"openItemModal('" + String(it.item).replace(/'/g, "") + "',true)\">Edit</button>";
                     html += "<button type='button' class='danger' onclick=\"deleteItem('" + String(it.item).replace(/'/g, "") + "')\">Delete</button></td>";
                 }
                 html += "</tr>";
-                n += 1;
             }
+            if (!shown) html += "<tr><td colspan='9' class='muted'>No matching items.</td></tr>";
             if ($("itemTable")) $("itemTable").innerHTML = html;
-            if ($("itemCount")) $("itemCount").innerText = n + " item" + (n === 1 ? "" : "s");
+            if ($("itemCount")) $("itemCount").innerText = n + " match" + (n === 1 ? "" : "es") + (n > shown ? " (showing first " + shown + ")" : "");
         }
 
         function addUser() {
@@ -1750,6 +1909,7 @@
                 local: true
             };
             aio.items = QD.mergeItems(aio.items, [rec]);
+            rebuildItemIndex();
             saveLocalItems();
             closeItemModal();
             $("item").value = item;
@@ -1771,6 +1931,7 @@
             extra.push({ item: item, deleted: true, local: true });
             writeUtf8((new ActiveXObject("Scripting.FileSystemObject")).BuildPath(resultsDir(), "local-items.js"),
                 "window.QD_LOCAL=window.QD_LOCAL||{items:[],users:[]};QD_LOCAL.items=" + JSON.stringify(extra) + ";");
+            rebuildItemIndex();
             renderLists();
             setStatus("Deleted item " + item);
         }
@@ -1805,12 +1966,16 @@
             if ($("formP1")) $("formP1").className = "form" + (form === "p1" ? " on" : "");
             if ($("formRts")) $("formRts").className = "form" + (form === "rts" ? " on" : "");
             if ($("lineLabel")) $("lineLabel").innerText = info ? info.label : id;
+            if ($("radialCard")) $("radialCard").style.display = (info && (info.id === "S4" || info.id === "S1" || info.id === "S3")) ? "block" : "none";
             fillReasons();
             if ($("item")) onItemChange();
         }
 
         function selectedItem() {
-            return QD.findItem(aio.items, $("item").value);
+            var q = $("item") ? $("item").value : "";
+            var key = QD.canonItem(q);
+            if (key && itemByNo[key]) return itemByNo[key];
+            return QD.findItem(aio.items, q);
         }
 
         function selectedSpec() {
@@ -1841,31 +2006,24 @@
 
         function specLine(label, value) {
             if (value == null || value === "") return "";
-            return "<div><b>" + label + "</b> " + value + "</div>";
+            return "<div><b>" + label + "</b> " + esc(value) + "</div>";
         }
 
-        function onItemChange() {
-            var it = selectedItem();
-            var spec = selectedSpec();
-            var info = QD.lineInfo(currentLine, currentSite);
-            $("desc").innerText = it ? (it.description || "") : "";
-            $("mspec").value = it && it.mspec ? it.mspec : $("mspec").value;
-            spec = selectedSpec();
-            var html = "";
-            if (!it) html = "<div class='muted'>Type an item # from Quality AIO.</div>";
-            else {
-                html += specLine("Item", it.item);
-                html += specLine("Description", it.description);
-                html += specLine("MSPEC", it.mspec);
-                html += specLine("Width", it.width);
-                html += specLine("Length", it.length);
-                html += specLine("Footage", it.footage);
-                html += specLine("Perf", it.perf);
-                html += specLine("Bubble type", it.bubbleType);
-                html += specLine("Parent", it.parent);
-                html += specLine("# Shots", it.shots);
-                html += specLine("Soft", it.soft);
-            }
+        function itemSpecHtml(it, spec, lineId) {
+            var html = "", info = QD.lineInfo(lineId || currentLine, currentSite);
+            if (!it) return "<div class='muted'>Type an item # to see specs.</div>";
+            html += specLine("Item", it.item);
+            html += specLine("Description", it.description);
+            html += specLine("Type", QD.itemType(it));
+            html += specLine("MSPEC", it.mspec);
+            html += specLine("Width", it.width);
+            html += specLine("Length", it.length);
+            html += specLine("Footage", it.footage);
+            html += specLine("Perf", it.perf);
+            html += specLine("Bubble type", it.bubbleType);
+            html += specLine("Parent", it.parent);
+            html += specLine("# Shots", it.shots);
+            html += specLine("Soft", it.soft);
             if (spec) {
                 html += "<div style='margin-top:8px'><b>Master Sheet</b></div>";
                 html += specLine("Gauge", (spec["Lower Control"] || "") + " / " + (spec.Target || "") + " / " + (spec["Upper Control"] || ""));
@@ -1874,14 +2032,66 @@
                 html += specLine("Density", (spec["Density Min"] || "") + " / " + (spec["Density Target"] || "") + " / " + (spec["Density Max"] || ""));
             }
             if (info && info.form === "bubble" && it) {
-                var bs = QD.findBubbleSpec(aio.bubble, currentLine, it.bubbleType);
-                var bw = bs ? { min: bs.min, target: bs.target, max: bs.max } : QD.matchBubbleWeight(currentLine, it.bubbleType);
+                var bs = QD.findBubbleSpec(aio.bubble, lineId || currentLine, it.bubbleType);
+                var bw = bs ? { min: bs.min, target: bs.target, max: bs.max } : QD.matchBubbleWeight(lineId || currentLine, it.bubbleType);
                 var dead = QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType);
                 if (!isFinite(dead)) dead = QD.deadCellMax(it.bubbleType);
                 if (bw) html += specLine("Weight", bw.min + " / " + bw.target + " / " + bw.max);
                 if (isFinite(dead)) html += specLine("Max dead cells", dead);
             }
-            $("specBox").innerHTML = html;
+            return html;
+        }
+
+        function lookupTypeFilter() {
+            return currentSite === "GARLAND" ? "BUBBLE" : "";
+        }
+
+        function showLookupHits() {
+            var box = $("lookupHits");
+            if (!box || !$("lookupItem")) return;
+            var q = $("lookupItem").value;
+            var hits = QD.searchItems(aio.items, q, 20, lookupTypeFilter());
+            var html = "", i, it;
+            for (i = 0; i < hits.length; i++) {
+                it = hits[i];
+                html += "<div onclick=\"pickLookup('" + String(it.item).replace(/'/g, "") + "')\">" + esc(it.item) + " — " + esc(it.description || "") + "</div>";
+            }
+            box.innerHTML = html || "<div class='muted'>No matching items</div>";
+            box.style.display = q ? "block" : "none";
+        }
+
+        function pickLookup(item) {
+            if ($("lookupItem")) $("lookupItem").value = item;
+            if ($("lookupHits")) $("lookupHits").style.display = "none";
+            renderLookup();
+        }
+
+        function renderLookup() {
+            var box = $("lookupCard");
+            if (!box) return;
+            var q = $("lookupItem") ? $("lookupItem").value : "";
+            var it = itemByNo[QD.canonItem(q)] || QD.findItem(aio.items, q);
+            if (it && lookupTypeFilter() && QD.itemType(it) !== lookupTypeFilter()) it = null;
+            var spec = it ? QD.findMspec(aio.mspecs, it.mspec) : null;
+            box.innerHTML = itemSpecHtml(it, spec, it && QD.itemType(it) === "BUBBLE" ? "COEX" : currentLine);
+        }
+
+        function scheduleLookup() {
+            if (hitsTimer) window.clearTimeout(hitsTimer);
+            hitsTimer = window.setTimeout(function () {
+                hitsTimer = null;
+                showLookupHits();
+                renderLookup();
+            }, 80);
+        }
+
+        function onItemChange() {
+            var it = selectedItem();
+            var spec = selectedSpec();
+            if ($("desc")) $("desc").innerText = it ? (it.description || "") : "";
+            if ($("mspec") && it && it.mspec) $("mspec").value = it.mspec;
+            spec = selectedSpec();
+            if ($("specBox")) $("specBox").innerHTML = itemSpecHtml(it, spec, currentLine);
             compute();
         }
 
@@ -1933,15 +2143,36 @@
             row("Density", dlo, dt, dhi, isFinite(dens) ? dens.toFixed(3) : "", QD.inRange(dens, dlo, dhi) !== false);
             row("Width", it ? QD.num(it.width) - (currentLine === "S4" ? 1.5 : 0.5) : NaN, it ? QD.num(it.width) : NaN, NaN, val(currentLine === "S4" ? "s4width" : "s1width"), widthPf !== false);
             html += "</table>";
-            if ($("resultsBox")) $("resultsBox").innerHTML = html;
+            if ($("resultsBox") && html !== lastResultsHtml) {
+                lastResultsHtml = html;
+                $("resultsBox").innerHTML = html;
+            }
+            var showGraph = currentLine === "S4" || currentLine === "S1" || currentLine === "S3";
+            if ($("radialCard")) $("radialCard").style.display = showGraph ? "block" : "none";
             var cv = $("radialCanvas");
-            if (cv && (currentLine === "S4" || currentLine === "S1" || currentLine === "S3")) {
+            if (cv && showGraph) {
                 cv.style.display = "block";
-                try { QD.drawCentration(cv, pts, lo, hi); } catch (e) {}
+                var key = (pts || []).join(",") + "|" + lo + "|" + hi + "|" + themeMode;
+                if (key !== lastRadialKey) {
+                    lastRadialKey = key;
+                    try { QD.drawCentration(cv, pts, lo, hi, themeMode); } catch (e) {}
+                }
             } else if (cv) cv.style.display = "none";
         }
 
         function compute() {
+            if (computing) return lastCalc || {};
+            computing = true;
+            try {
+                lastCalc = computeNow();
+                try { syncSubmitBtn(); } catch (eSync) {}
+                return lastCalc;
+            } finally {
+                computing = false;
+            }
+        }
+
+        function computeNow() {
             var info = QD.lineInfo(currentLine, currentSite);
             var spec = selectedSpec();
             var it = selectedItem();
@@ -1989,7 +2220,6 @@
                 $("pfOut").innerText = pf;
                 $("pfOut").className = "pf " + (String(pf).toLowerCase() === "fail" ? "fail" : "pass");
                 paintThickness(pts, lo, hi, range, rmax, dens, spec, it, widthPf, pf);
-                try { syncSubmitBtn(); } catch (e0) {}
                 return { avg: avg, range: range, density: dens, passFail: pf, points: pts, widthPf: QD.pf(widthPf) };
             }
             if (info.form === "bubble") {
@@ -2016,7 +2246,6 @@
                 mark("bperfMark", pPf);
                 mark("btestMark", tPf);
                 mark("bwtMark", wtPf);
-                try { syncSubmitBtn(); } catch (eB) {}
                 return { passFail: pf, widthPf: QD.pf(wPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfTesterPf: tPf, weightPf: wtPf, prePf: prePf, postPf: postPf, deadMax: deadMax };
             }
             if (info.form === "p1") {
@@ -2056,7 +2285,6 @@
                 mark("rthkMark", thkPf);
                 return { passFail: pf, t1: val("rt1"), t2: val("rt2"), t3: val("rt3"), thkPf: thkPf, widthPf: wPf3, lengthPf: lPf2 };
             }
-            try { syncSubmitBtn(); } catch (e9) {}
             return {};
         }
 
@@ -2246,6 +2474,7 @@
 
         window.onload = function () {
             try { window.resizeTo(Math.min(1280, screen.availWidth), Math.min(860, screen.availHeight)); } catch (e) {}
+            try { loadTheme(); } catch (e0) {}
             try { loadAuthUsers(); } catch (e1) {}
             try { loadSpecHistory(); } catch (e2) {}
             setLine("S4");
@@ -2274,9 +2503,14 @@
         </div>
         <div class="tools">
             <span class="session">Signed in as <span class="who" id="sessionWho"></span></span>
+            <label class="theme-toggle" title="Dark / light">
+                <span>Dark</span>
+                <input id="themeToggle" type="checkbox" onchange="setTheme(this.checked?'light':'dark')">
+                <span class="track"></span>
+                <span>Light</span>
+            </label>
             <button class="secondary" onclick="changeOwnPassword()">Password</button>
             <button class="secondary" onclick="logout('Signed out.')">Log out</button>
-            <button class="secondary" onclick="loadAio(true)">Reload AIO</button>
             <button class="secondary" onclick="openDesk(false)">History</button>
         </div>
     </header>
@@ -2285,6 +2519,7 @@
         <div id="status" class="status">Starting…</div>
         <div class="tabs" id="mainTabs">
             <button data-tab="checks" class="on" onclick="goHome()">Home</button>
+            <button data-tab="lookup" onclick="showTab('lookup')">Item lookup</button>
             <button data-tab="users" onclick="showTab('users')">Users</button>
             <button data-tab="mspecs" onclick="showTab('mspecs')">MSPECs</button>
             <button data-tab="items" onclick="showTab('items')">Item database</button>
@@ -2321,21 +2556,21 @@
                         <option>PREVENTATIVE MAINTENANCE</option>
                     </select>
                 </label>
-                <label class="f">Notes <textarea id="noNotes" onkeyup="syncSubmitBtn()"></textarea></label>
+                <label class="f">Notes <textarea id="noNotes" onkeyup="scheduleSubmit()"></textarea></label>
             </div>
         </div>
         <div id="screenLineUp" class="screen">
             <div class="card">
                 <h2>LINE UP</h2>
                 <p class="muted">The last entry was a no-check. Enter what happened, then hourly checks resume.</p>
-                <label class="f">Notes <textarea id="upNotes" onkeyup="syncSubmitBtn()"></textarea></label>
+                <label class="f">Notes <textarea id="upNotes" onkeyup="scheduleSubmit()"></textarea></label>
             </div>
         </div>
         <div id="screenItem" class="screen">
             <div class="card">
                 <h2>Item #</h2>
                 <label class="f">Item #
-                    <input id="item" onkeyup="showHits();syncSubmitBtn();" onchange="onItemChange()">
+                    <input id="item" onkeyup="scheduleHits();scheduleSubmit();" onchange="onItemChange()">
                 </label>
                 <div class="hits" id="hits"></div>
                 <button type="button" class="ok" onclick="confirmItem()">Continue</button>
@@ -2366,18 +2601,23 @@
                     <div id="mspecWrap"><label class="f">MSPEC <input id="mspec" onchange="onItemChange()"></label></div>
                     <div class="card spec" id="specBox"><div class="muted">Specs appear after you look up an item.</div></div>
                     <div id="resultsBox"></div>
-                    <canvas id="radialCanvas" class="radial" width="320" height="320"></canvas>
                     <p id="thkMinMax" class="muted"></p>
-                    <label class="f">Notes <textarea id="checkNotes" onkeyup="$('notes').value=this.value;syncSubmitBtn();"></textarea></label>
+                    <label class="f">Notes <textarea id="checkNotes" onkeyup="$('notes').value=this.value;scheduleSubmit();"></textarea></label>
                 </div>
             </div>
             <div class="col">
+                <div class="card graph-card" id="radialCard">
+                    <h2>Centration</h2>
+                    <canvas id="radialCanvas" class="radial" width="260" height="260"></canvas>
+                </div>
+            </div>
+        </div>
                 <div id="formS4" class="form on">
                     <div class="card">
                         <h2>S4 entries</h2>
                         <div class="pair">
                             <div><label class="f">Bundle # <input id="s4bundle"></label></div>
-                            <div><label class="f">Slit/Width <input id="s4width" onkeyup="compute()"> <span id="widthMark"></span></label></div>
+                            <div><label class="f">Slit/Width <input id="s4width" onkeyup="scheduleCompute()"> <span id="widthMark"></span></label></div>
                         </div>
                         <div class="pair">
                             <div><label class="f">Footage <input id="s4foot"></label></div>
@@ -2387,27 +2627,27 @@
                             <div><label class="f">Cell Count MD <input id="s4md"></label></div>
                             <div><label class="f">Cell Count CD <input id="s4cd"></label></div>
                         </div>
-                        <label class="f">Weight (g) <input id="s4weight" onkeyup="compute()"></label>
+                        <label class="f">Weight (g) <input id="s4weight" onkeyup="scheduleCompute()"></label>
                         <label class="f">Thickness T1–T13</label>
                         <div class="chips" id="s4chips">
-                            <label class="chip"><span>T1</span><input id="s4t1" onkeyup="compute()"></label>
-                            <label class="chip"><span>T2</span><input id="s4t2" onkeyup="compute()"></label>
-                            <label class="chip"><span>T3</span><input id="s4t3" onkeyup="compute()"></label>
-                            <label class="chip"><span>T4</span><input id="s4t4" onkeyup="compute()"></label>
-                            <label class="chip"><span>T5</span><input id="s4t5" onkeyup="compute()"></label>
-                            <label class="chip"><span>T6</span><input id="s4t6" onkeyup="compute()"></label>
-                            <label class="chip"><span>T7</span><input id="s4t7" onkeyup="compute()"></label>
-                            <label class="chip"><span>T8</span><input id="s4t8" onkeyup="compute()"></label>
-                            <label class="chip"><span>T9</span><input id="s4t9" onkeyup="compute()"></label>
-                            <label class="chip"><span>T10</span><input id="s4t10" onkeyup="compute()"></label>
-                            <label class="chip"><span>T11</span><input id="s4t11" onkeyup="compute()"></label>
-                            <label class="chip"><span>T12</span><input id="s4t12" onkeyup="compute()"></label>
-                            <label class="chip"><span>T13</span><input id="s4t13" onkeyup="compute()"></label>
+                            <label class="chip"><span>T1</span><input id="s4t1" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T2</span><input id="s4t2" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T3</span><input id="s4t3" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T4</span><input id="s4t4" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T5</span><input id="s4t5" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T6</span><input id="s4t6" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T7</span><input id="s4t7" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T8</span><input id="s4t8" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T9</span><input id="s4t9" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T10</span><input id="s4t10" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T11</span><input id="s4t11" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T12</span><input id="s4t12" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T13</span><input id="s4t13" onkeyup="scheduleCompute()"></label>
                         </div>
                         <div>Average <b id="avgOut"></b> <span id="avgMark"></span> &nbsp; Range <b id="rangeOut"></b> <span id="rangeMark"></span> &nbsp; Density <b id="densOut"></b></div>
                         <div class="pair">
                             <div><label class="f">Talc Reading <input id="s4talc"></label></div>
-                            <div><label class="f">Sheet Length <input id="s4sheet" onkeyup="compute()"> <span id="sheetMark"></span></label></div>
+                            <div><label class="f">Sheet Length <input id="s4sheet" onkeyup="scheduleCompute()"> <span id="sheetMark"></span></label></div>
                         </div>
                         <p>Pass/Fail <span id="pfOut" class="pf"></span></p>
                     </div>
@@ -2417,11 +2657,11 @@
                         <h2>S1 / S3 entries</h2>
                         <div class="pair">
                             <div><label class="f">Bundle # <input id="s1bundle"></label></div>
-                            <div><label class="f">Width <input id="s1width" onkeyup="compute()"></label></div>
+                            <div><label class="f">Width <input id="s1width" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div class="pair">
                             <div><label class="f">Footage <input id="s1foot"></label></div>
-                            <div><label class="f">Perf <input id="s1perf" onkeyup="compute()"> <span id="perfMark"></span></label></div>
+                            <div><label class="f">Perf <input id="s1perf" onkeyup="scheduleCompute()"> <span id="perfMark"></span></label></div>
                         </div>
                         <div class="pair">
                             <div><label class="f">Bundle Tight/Loose <select id="s1bundleFit" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
@@ -2431,22 +2671,22 @@
                             <div><label class="f">Cell Count MD <input id="s1md"></label></div>
                             <div><label class="f">Cell Count CD <input id="s1cd"></label></div>
                         </div>
-                        <label class="f">Weight <input id="s1weight" onkeyup="compute()"></label>
+                        <label class="f">Weight <input id="s1weight" onkeyup="scheduleCompute()"></label>
                         <label class="f">Thickness T1–T13</label>
                         <div class="chips">
-                            <label class="chip"><span>T1</span><input id="s1t1" onkeyup="compute()"></label>
-                            <label class="chip"><span>T2</span><input id="s1t2" onkeyup="compute()"></label>
-                            <label class="chip"><span>T3</span><input id="s1t3" onkeyup="compute()"></label>
-                            <label class="chip"><span>T4</span><input id="s1t4" onkeyup="compute()"></label>
-                            <label class="chip"><span>T5</span><input id="s1t5" onkeyup="compute()"></label>
-                            <label class="chip"><span>T6</span><input id="s1t6" onkeyup="compute()"></label>
-                            <label class="chip"><span>T7</span><input id="s1t7" onkeyup="compute()"></label>
-                            <label class="chip"><span>T8</span><input id="s1t8" onkeyup="compute()"></label>
-                            <label class="chip"><span>T9</span><input id="s1t9" onkeyup="compute()"></label>
-                            <label class="chip"><span>T10</span><input id="s1t10" onkeyup="compute()"></label>
-                            <label class="chip"><span>T11</span><input id="s1t11" onkeyup="compute()"></label>
-                            <label class="chip"><span>T12</span><input id="s1t12" onkeyup="compute()"></label>
-                            <label class="chip"><span>T13</span><input id="s1t13" onkeyup="compute()"></label>
+                            <label class="chip"><span>T1</span><input id="s1t1" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T2</span><input id="s1t2" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T3</span><input id="s1t3" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T4</span><input id="s1t4" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T5</span><input id="s1t5" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T6</span><input id="s1t6" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T7</span><input id="s1t7" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T8</span><input id="s1t8" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T9</span><input id="s1t9" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T10</span><input id="s1t10" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T11</span><input id="s1t11" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T12</span><input id="s1t12" onkeyup="scheduleCompute()"></label>
+                            <label class="chip"><span>T13</span><input id="s1t13" onkeyup="scheduleCompute()"></label>
                         </div>
                         <div class="pair">
                             <div><label class="f">Diameter (ULINE only) <input id="s1diam"></label></div>
@@ -2464,23 +2704,23 @@
                         <label class="f">Post-Visual Inspection <select id="bpostv" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label>
                         <div class="pair">
                             <div><label class="f"># Slits <input id="bslits"></label></div>
-                            <div><label class="f">Width <input id="bwidth" onkeyup="compute()"> <span id="bwidthMark"></span></label></div>
+                            <div><label class="f">Width <input id="bwidth" onkeyup="scheduleCompute()"> <span id="bwidthMark"></span></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Footage <input id="bfootage" onkeyup="compute()"> <span id="bfootMark"></span></label></div>
-                            <div><label class="f">Perf Width <input id="bperfw" onkeyup="compute()"> <span id="bperfMark"></span></label></div>
+                            <div><label class="f">Footage <input id="bfootage" onkeyup="scheduleCompute()"> <span id="bfootMark"></span></label></div>
+                            <div><label class="f">Perf Width <input id="bperfw" onkeyup="scheduleCompute()"> <span id="bperfMark"></span></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Perf Tester Results <input id="btester" onkeyup="compute()"> <span id="btestMark"></span></label></div>
-                            <div><label class="f">Gram Weight <input id="bweight" onkeyup="compute()"> <span id="bwtMark"></span></label></div>
+                            <div><label class="f">Perf Tester Results <input id="btester" onkeyup="scheduleCompute()"> <span id="btestMark"></span></label></div>
+                            <div><label class="f">Gram Weight <input id="bweight" onkeyup="scheduleCompute()"> <span id="bwtMark"></span></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Dead Cells / Air Transfers Pre <input id="bdeadPre" onkeyup="compute()"></label></div>
-                            <div><label class="f"># Air Transfers Pre <input id="bairPre" onkeyup="compute()"></label></div>
+                            <div><label class="f">Dead Cells / Air Transfers Pre <input id="bdeadPre" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f"># Air Transfers Pre <input id="bairPre" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Dead Cells / Air Transfers Post <input id="bdeadPost" onkeyup="compute()"></label></div>
-                            <div><label class="f"># Air Transfers Post <input id="bairPost" onkeyup="compute()"></label></div>
+                            <div><label class="f">Dead Cells / Air Transfers Post <input id="bdeadPost" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f"># Air Transfers Post <input id="bairPost" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div class="pair">
                             <div><label class="f">Diameter (ULINE only) <input id="bdiam"></label></div>
@@ -2493,21 +2733,21 @@
                     <div class="card">
                         <h2>P1 entries</h2>
                         <div class="pair">
-                            <div><label class="f">Length <input id="plength" onkeyup="compute()"></label></div>
-                            <div><label class="f">Width <input id="pwidth" onkeyup="compute()"></label></div>
+                            <div><label class="f">Length <input id="plength" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Width <input id="pwidth" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div class="pair">
                             <div><label class="f">Cell Count MD <input id="pmd"></label></div>
                             <div><label class="f">Cell Count CD <input id="pcd"></label></div>
                         </div>
-                        <label class="f">Plank Weight <input id="pweight" onkeyup="compute()"></label>
+                        <label class="f">Plank Weight <input id="pweight" onkeyup="scheduleCompute()"></label>
                         <div class="pair">
-                            <div><label class="f">Head <input id="phead" onkeyup="compute()"></label></div>
-                            <div><label class="f">End 1 <input id="pend1" onkeyup="compute()"></label></div>
+                            <div><label class="f">Head <input id="phead" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">End 1 <input id="pend1" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">End 2 <input id="pend2" onkeyup="compute()"></label></div>
-                            <div><label class="f">Tail <input id="ptail" onkeyup="compute()"></label></div>
+                            <div><label class="f">End 2 <input id="pend2" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Tail <input id="ptail" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div>Average <b id="pavgOut"></b> &nbsp; Volume <b id="pvolOut"></b> &nbsp; Density <b id="pdensOut"></b></div>
                         <p>Pass/Fail <span id="ppfOut" class="pf"></span></p>
@@ -2525,8 +2765,8 @@
                             <div><label class="f">Color <select id="rcolor" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Width <input id="rwidth" onkeyup="compute()"></label></div>
-                            <div><label class="f">Length <input id="rlength" onkeyup="compute()"></label></div>
+                            <div><label class="f">Width <input id="rwidth" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Length <input id="rlength" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div class="pair">
                             <div><label class="f">Blister / Delam <select id="rdelam" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
@@ -2535,21 +2775,30 @@
                         <input type="hidden" id="rblister" value="">
                         <label class="f">Thickness points</label>
                         <div class="pts">
-                            <input id="rt1" onkeyup="compute()"><input id="rt2" onkeyup="compute()"><input id="rt3" onkeyup="compute()">
+                            <input id="rt1" onkeyup="scheduleCompute()"><input id="rt2" onkeyup="scheduleCompute()"><input id="rt3" onkeyup="scheduleCompute()">
                             <span id="rthkMark"></span>
                         </div>
                         <p>Pass/Fail <span id="rpfOut" class="pf"></span></p>
                     </div>
                 </div>
+        </div>
+        </div>
+        <div id="tabLookup" class="tabpanel">
+            <div class="card lookup-card">
+                <h2>Item lookup</h2>
+                <p class="muted">Look up an item # without starting a quality check.</p>
+                <label class="f">Item #
+                    <input id="lookupItem" onkeyup="scheduleLookup()" onchange="renderLookup()">
+                </label>
+                <div class="hits" id="lookupHits"></div>
+                <div class="card spec" id="lookupCard"><div class="muted">Type an item # to see description and specs.</div></div>
             </div>
-        </div>
-        </div>
         </div>
         <div id="tabUsers" class="tabpanel">
             <div class="card">
                 <h2>Users <span class="muted" id="userCount"></span></h2>
                 <div class="pair">
-                    <div><label class="f">Filter <input id="userFilter" onkeyup="renderUserTable()"></label></div>
+                    <div><label class="f">Filter <input id="userFilter" onkeyup="scheduleList(renderUserTable)"></label></div>
                     <div class="admin-only">
                         <label class="f">New user <input id="newUser"></label>
                         <label class="f">Password <input id="newUserPass" type="password"></label>
@@ -2577,7 +2826,7 @@
                     <button data-spec="p1" onclick="setSpecTab('p1')">P1</button>
                     <button data-spec="rts" onclick="setSpecTab('rts')">RTS</button>
                 </div>
-                <label class="f">Filter <input id="mspecFilter" onkeyup="renderMspecTable()"></label>
+                <label class="f">Filter <input id="mspecFilter" onkeyup="scheduleList(renderMspecTable)"></label>
                 <div class="list-wrap"><table class="specs" id="mspecTable"></table></div>
             </div>
         </div>
@@ -2585,7 +2834,7 @@
             <div class="card">
                 <h2>Item database <span class="muted" id="itemCount"></span></h2>
                 <div class="pair">
-                    <div><label class="f">Filter <input id="itemFilter" onkeyup="renderItemTable()"></label></div>
+                    <div><label class="f">Filter <input id="itemFilter" onkeyup="scheduleList(renderItemTable)"></label></div>
                     <div><button type="button" onclick="openItemModal()">Add item #</button></div>
                 </div>
                 <div class="list-wrap"><table class="list" id="itemTable"></table></div>

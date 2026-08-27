@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.45';
+  QD.VERSION = '1.7.46';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -1117,14 +1117,16 @@
     return { min: mn, max: mx, minIndex: imn, maxIndex: imx };
   };
 
-  QD.drawCentration = function (canvas, values, lo, hi) {
+  QD.drawCentration = function (canvas, values, lo, hi, theme) {
     if (!canvas || !canvas.getContext) return;
     var ctx = canvas.getContext('2d');
-    var w = canvas.width || 320, h = canvas.height || 320;
+    var w = canvas.width || 260, h = canvas.height || 260;
     var S = Math.min(w, h);
     var cx = w / 2, cy = h / 2;
-    var yellowR = S * 0.18, greenR = S * 0.36, maxR = S * 0.45, boltR = S / 2 - 28;
+    var yellowR = S * 0.18, greenR = S * 0.36, maxR = S * 0.45, boltR = S / 2 - 22;
     var i, n, ang, start, val, r, x, y, band, pts = values || [];
+    var light = String(theme || '') === 'light';
+    var bolt = 9;
     function toR(v) {
       if (!isFinite(v) || !isFinite(lo) || !isFinite(hi) || hi === lo) return (yellowR + greenR) / 2;
       if (v < lo) return Math.max(S * 0.06, yellowR - Math.min(1, (lo - v) / Math.max(hi - lo, 1e-6)) * (yellowR * 0.7));
@@ -1132,9 +1134,9 @@
       return yellowR + ((v - lo) / (hi - lo)) * (greenR - yellowR);
     }
     ctx.clearRect(0, 0, w, h);
-    ctx.beginPath(); ctx.arc(cx, cy, greenR, 0, Math.PI * 2); ctx.fillStyle = 'rgba(34,197,94,0.12)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(cx, cy, yellowR, 0, Math.PI * 2); ctx.fillStyle = 'rgba(234,179,8,0.16)'; ctx.fill();
-    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, greenR, 0, Math.PI * 2); ctx.fillStyle = light ? 'rgba(34,197,94,0.18)' : 'rgba(34,197,94,0.12)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, yellowR, 0, Math.PI * 2); ctx.fillStyle = light ? 'rgba(234,179,8,0.22)' : 'rgba(234,179,8,0.16)'; ctx.fill();
+    ctx.strokeStyle = light ? '#d1d5db' : '#334155'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(cx, cy, greenR, 0, Math.PI * 2); ctx.stroke();
     ctx.beginPath(); ctx.arc(cx, cy, yellowR, 0, Math.PI * 2); ctx.stroke();
     start = Math.PI / 2;
@@ -1143,9 +1145,9 @@
       x = cx + Math.cos(ang) * boltR;
       y = cy + Math.sin(ang) * boltR;
       ctx.fillStyle = '#0f4c5c';
-      ctx.fillRect(x - 11, y - 11, 22, 22);
+      ctx.fillRect(x - bolt, y - bolt, bolt * 2, bolt * 2);
       ctx.fillStyle = '#fff';
-      ctx.font = 'bold 12px Segoe UI, Arial';
+      ctx.font = 'bold 11px Segoe UI, Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(i + 1), x, y);

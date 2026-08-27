@@ -4,6 +4,7 @@ Quality_AIO.xlsm
 Quality AIO.xlsx
 results/*.js
 results/*.dat
+results/*.txt
 results/users.dat
 !results/.gitkeep
 aio-csv/*.csv

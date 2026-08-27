@@ -11,9 +11,6 @@ try {
   if (_dgBoot && _dgBoot.hasHistory) document.documentElement.setAttribute('data-has-history', '1');
 } catch (e) {}
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
 <style>
   :root {
     --bg: #eef1f5; --bg-elev: #ffffff; --text: #12202b; --muted: #3e4a55; --line: #d5dde4;
@@ -42,7 +39,7 @@ try {
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    font-family: "Atkinson Hyperlegible", "Segoe UI", Arial, sans-serif;
+    font-family: "Segoe UI", Arial, sans-serif;
     background: var(--bg); color: var(--text); font-size: 18px; overflow: hidden;
   }
   .screen { display: none; height: 100dvh; min-height: 0; }
@@ -924,6 +921,7 @@ try {
       <button type="button" class="docs-navbtn" data-docs="radial">Centration graph</button>
       <button type="button" class="docs-navbtn" data-docs="series">Series graph</button>
       <button type="button" class="docs-navbtn" data-docs="trail">Cookie trail</button>
+      <button type="button" class="docs-navbtn" data-docs="offline">Offline HTA</button>
     </nav>
     <div class="docs-main" id="docsMain">
 
@@ -994,7 +992,7 @@ try {
           <figcaption>On the quality workbook, run Copy for Graph. Come back here and paste. The first paste loads the table; Paste more data on History adds new rows.</figcaption>
         </figure>
         <ul>
-          <li>The HTML file on the G: drive is still <code>centration.html</code> — that name did not change.</li>
+          <li>The HTML file on the G: drive is still <code>centration.html</code> — that name did not change. Double-click <code>quality-desk.hta</code> next to it to open offline.</li>
           <li>Do not import FromQuality into the quality workbook. Copy for Graph stays in Personal.xlsb.</li>
           <li>Paste format is still <b>DIEGRAPH2</b> (current sheet, Master Sheet lookup, and history tables).</li>
           <li>Garland Bubble uses <b>CopyForGraphGarland</b> in that workbook. It copies Data!Table1 to the clipboard and does not open the HTML file.</li>
@@ -1449,6 +1447,36 @@ try {
           <li>Page tools on the right (Dark mode, Download, Settings) do not add a crumb.</li>
         </ul>
       </article>
+
+      <article class="docs-panel" data-docs="offline" id="docs-offline" hidden>
+        <h2>Offline HTA</h2>
+        <p class="hist-meta">Quality Desk can run with no internet. Double-click the HTA on the shop-floor folder — it does not open a website.</p>
+        <figure class="docs-aid" id="docs-aid-offline">
+          <svg viewBox="0 0 720 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Offline HTA launch">
+            <rect x="16" y="30" width="200" height="120" rx="12" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="116" y="78" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">quality-desk.hta</text>
+            <text x="116" y="102" text-anchor="middle" font-size="12" fill="var(--muted)">Double-click</text>
+            <text x="116" y="124" text-anchor="middle" font-size="12" fill="var(--muted)">No website</text>
+            <path d="M230 90h70" stroke="#1d4ed8" stroke-width="3"/>
+            <polygon points="300,84 316,90 300,96" fill="#1d4ed8"/>
+            <rect x="330" y="50" width="160" height="80" rx="12" fill="#1d4ed8"/>
+            <text x="410" y="86" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">Edge app window</text>
+            <text x="410" y="108" text-anchor="middle" font-size="12" fill="#dbeafe">local files only</text>
+            <path d="M504 90h70" stroke="#1d4ed8" stroke-width="3"/>
+            <polygon points="574,84 590,90 574,96" fill="#1d4ed8"/>
+            <rect x="604" y="30" width="100" height="120" rx="12" fill="var(--idle)" stroke="var(--line)"/>
+            <text x="654" y="80" text-anchor="middle" font-size="13" font-weight="700" fill="var(--text)">Desk</text>
+            <text x="654" y="104" text-anchor="middle" font-size="12" fill="var(--muted)">index or</text>
+            <text x="654" y="126" text-anchor="middle" font-size="12" fill="var(--muted)">centration</text>
+          </svg>
+          <figcaption>Keep the HTA, the HTML file, and the vendor folder together. The HTA finds index.html or centration.html in the same folder and opens it offline.</figcaption>
+        </figure>
+        <ul>
+          <li>Copy <code>quality-desk.hta</code>, <code>index.html</code> (or the G: name <code>centration.html</code>), and the <code>vendor</code> folder onto the same directory.</li>
+          <li>Chart.js lives in <code>vendor/chart.umd.min.js</code> so Trends does not need a CDN.</li>
+          <li>The HTA itself is a small Windows launcher. Quality Desk still runs in Edge — mshta cannot host this page.</li>
+        </ul>
+      </article>
     </div>
   </div>
 </section>
@@ -1502,9 +1530,9 @@ try {
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="vendor/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.40';
+const APP_VERSION = '1.7.41';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -4861,7 +4889,7 @@ function drawFallbackChart(canvas, labels, series, stacked) {
   });
   c.strokeStyle = trendGridColor(); c.beginPath();
   c.moveTo(pad.l, pad.t); c.lineTo(pad.l, pad.t + plotH); c.lineTo(pad.l + plotW, pad.t + plotH); c.stroke();
-  c.fillStyle = trendTextColor(); c.font = '12px Atkinson Hyperlegible, Arial';
+  c.fillStyle = trendTextColor(); c.font = '12px Segoe UI, Arial';
   c.textAlign = 'right'; c.textBaseline = 'middle';
   c.fillText(String(Math.round(max)), pad.l - 6, pad.t);
   c.fillText('0', pad.l - 6, pad.t + plotH);
@@ -4922,7 +4950,7 @@ function drawFallbackBars(canvas, labels, data, color) {
     c.fillRect(x, y, bw, Math.max(bh, v ? 2 : 0));
     canvas._trendHits.push({ x, y, w: bw, h: Math.max(bh, 8), key: lab });
   });
-  c.fillStyle = trendTextColor(); c.font = '11px Atkinson Hyperlegible, Arial';
+  c.fillStyle = trendTextColor(); c.font = '11px Segoe UI, Arial';
   c.textAlign = 'center'; c.textBaseline = 'top';
   if (labels.length) {
     c.fillText(String(labels[0]), pad.l + gap / 2, pad.t + plotH + 6);
@@ -7491,7 +7519,7 @@ function drawBolt(c, bolt) {
   const bx = center.x + Math.cos(bolt.angle) * r;
   const by = center.y + Math.sin(bolt.angle) * r;
   if (bolt.kind === 'compass') {
-    ctx.font = `700 ${Math.max(14, S * 0.024)}px "Atkinson Hyperlegible", Arial`;
+    ctx.font = `700 ${Math.max(14, S * 0.024)}px "Segoe UI", Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.lineWidth = 4; ctx.strokeStyle = c.halo; ctx.strokeText(bolt.label, bx, by);
     ctx.fillStyle = c.text; ctx.fillText(bolt.label, bx, by);
@@ -7501,7 +7529,7 @@ function drawBolt(c, bolt) {
   ctx.fillStyle = c.bolt; ctx.beginPath();
   if (ctx.roundRect) ctx.roundRect(bx - s, by - s, s * 2, s * 2, 8); else ctx.rect(bx - s, by - s, s * 2, s * 2);
   ctx.fill(); ctx.fillStyle = '#fff';
-  ctx.font = `700 ${Math.max(14, S * 0.024)}px "Atkinson Hyperlegible", Arial`;
+  ctx.font = `700 ${Math.max(14, S * 0.024)}px "Segoe UI", Arial`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(bolt.label, bx, by);
 }
 function updateSummary(avg, range, min, max, rangeSpec) {
@@ -7677,7 +7705,7 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
   ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); ctx.globalAlpha = 1;
   const titleSize = Math.max(14, Math.min(22, h * 0.055));
   const labelSize = Math.max(11, Math.min(15, h * 0.036));
-  ctx.fillStyle = c.text; ctx.font = `700 ${titleSize}px "Atkinson Hyperlegible", Arial`;
+  ctx.fillStyle = c.text; ctx.font = `700 ${titleSize}px "Segoe UI", Arial`;
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
   ctx.fillText(title + (unit ? '  (' + unit + ')' : ''), x + 12, y + 10);
   const axisTicks = spcAxisTicks(pts);
@@ -7695,7 +7723,7 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
     ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
     ctx.beginPath(); ctx.moveTo(plot.x, yy); ctx.lineTo(plot.x + plot.w, yy); ctx.stroke();
     ctx.setLineDash([]);
-    ctx.fillStyle = color; ctx.font = `700 ${labelSize}px "Atkinson Hyperlegible", Arial`;
+    ctx.fillStyle = color; ctx.font = `700 ${labelSize}px "Segoe UI", Arial`;
     ctx.textAlign = 'right';
     ctx.textBaseline = sit === 'below' ? 'top' : 'bottom';
     const ty = sit === 'below' ? yy + 3 : yy - 3;
@@ -7706,7 +7734,7 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
   specLine(specMin, '#166534', 'Min', 'below');
   ctx.strokeStyle = c.muted; ctx.globalAlpha = 0.35; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(plot.x, plot.y); ctx.lineTo(plot.x, plot.y + plot.h); ctx.lineTo(plot.x + plot.w, plot.y + plot.h); ctx.stroke();
-  ctx.globalAlpha = 1; ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Atkinson Hyperlegible", Arial`;
+  ctx.globalAlpha = 1; ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Segoe UI", Arial`;
   ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
   ctx.fillText(ym.max.toFixed(digits), plot.x - 8, plot.y);
   ctx.fillText(ym.min.toFixed(digits), plot.x - 8, plot.y + plot.h);
@@ -7749,7 +7777,7 @@ function drawSpcPanel(c, panel, pts, flagged, key, title, unit, specMin, specMax
       spcHits.push({ x: xx, y: yy, r: 10, idx: p.idx, key, title, value: p[key], t: p.t, unit });
     }
   }
-  ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Atkinson Hyperlegible", Arial`;
+  ctx.fillStyle = c.muted; ctx.font = `400 ${labelSize}px "Segoe UI", Arial`;
   ctx.textBaseline = 'top';
   axisTicks.forEach((tick, ti) => {
     const xx = spcXAt(plot, pts, tick);
@@ -7774,7 +7802,7 @@ function drawSpc(opts) {
   ctx.fillStyle = c.canvas; ctx.fillRect(0, 0, canvasW, canvasH);
   if (!rawPts.length) {
     renderSpcStats([], []);
-    ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
+    ctx.fillStyle = c.muted; ctx.font = `700 18px "Segoe UI", Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(indexedRows.length ? 'No rows for this series / time frame' : 'Paste TableS4 data to see SPC', canvasW / 2, canvasH / 2);
     return;
@@ -7786,7 +7814,7 @@ function drawSpc(opts) {
   const { pts, flagged } = applySharedOutliers(rawPts, charts);
   renderSpcStats(pts.length ? pts : rawPts, charts);
   if (!pts.length) {
-    ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
+    ctx.fillStyle = c.muted; ctx.font = `700 18px "Segoe UI", Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('All points are outliers for this series / time frame', canvasW / 2, canvasH / 2);
     return;
@@ -7818,7 +7846,7 @@ function drawCentration() {
     ctx.restore();
   }
   ctx.fillStyle = c.text; ctx.beginPath(); ctx.arc(center.x, center.y, 3, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = c.muted; ctx.font = `700 ${Math.max(14, S * 0.022)}px "Atkinson Hyperlegible", Arial`;
+  ctx.fillStyle = c.muted; ctx.font = `700 ${Math.max(14, S * 0.022)}px "Segoe UI", Arial`;
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('0', center.x + 10, center.y);
   bolts.forEach(b => drawBolt(c, b));
   const plot = [];
@@ -7851,7 +7879,7 @@ function drawCentration() {
     ctx.beginPath(); ctx.arc(p.x, p.y, POINT_R, 0, Math.PI * 2);
     ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 1.8; ctx.strokeStyle = c.pointStroke; ctx.stroke();
   }
-  ctx.font = `700 ${Math.max(15, S * 0.024)}px "Atkinson Hyperlegible", Arial`; ctx.textBaseline = 'middle';
+  ctx.font = `700 ${Math.max(15, S * 0.024)}px "Segoe UI", Arial`; ctx.textBaseline = 'middle';
   for (let i = 0; i < TOTAL; i++) {
     const ang = pointAngle(i), ca = Math.cos(ang), sa = Math.sin(ang), r = labelRadius(ang, bolts);
     const tx = center.x + ca * r, ty = center.y + sa * r;
@@ -7947,7 +7975,7 @@ function drawSeriesCentration() {
   const pts = takeLast(all, seriesLimitN());
   spcHits = [];
   if (!pts.length) {
-    ctx.fillStyle = c.muted; ctx.font = `700 18px "Atkinson Hyperlegible", Arial`;
+    ctx.fillStyle = c.muted; ctx.font = `700 18px "Segoe UI", Arial`;
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(all.length || indexedRows.length ? 'No T-point checks in this range' : 'Paste TableS4 data to see a series', canvasW / 2, canvasH / 2);
     updateSeriesSummary([], all.length, min, max);
@@ -7989,7 +8017,7 @@ function drawSeriesCentration() {
       });
     });
   });
-  ctx.font = `700 ${Math.max(13, S * 0.02)}px "Atkinson Hyperlegible", Arial`;
+  ctx.font = `700 ${Math.max(13, S * 0.02)}px "Segoe UI", Arial`;
   ctx.textBaseline = 'middle';
   for (let i = 0; i < TOTAL; i++) {
     const ang = pointAngle(i), ca = Math.cos(ang), sa = Math.sin(ang), r = labelRadius(ang, bolts);
@@ -7999,7 +8027,7 @@ function drawSeriesCentration() {
     ctx.lineWidth = 4; ctx.strokeStyle = c.halo; ctx.strokeText(text, tx, ty);
     ctx.fillStyle = c.muted; ctx.fillText(text, tx, ty);
   }
-  ctx.font = `700 ${Math.max(12, S * 0.018)}px "Atkinson Hyperlegible", Arial`;
+  ctx.font = `700 ${Math.max(12, S * 0.018)}px "Segoe UI", Arial`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
   ctx.fillStyle = c.muted;
   ctx.fillText('older → newer   ·   dashed = average of shown checks', center.x, canvasH - 8);

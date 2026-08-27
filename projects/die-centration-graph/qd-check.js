@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.47';
+  QD.VERSION = '1.7.48';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -289,10 +289,16 @@
     };
   };
 
+  QD.normalizeBubbleType = function (bubbleType) {
+    var raw = trim(bubbleType).toUpperCase();
+    return raw.replace(/^(G-)?(COEX|MONO)[\s\-_\/:]*/, '');
+  };
+
   QD.matchBubbleWeight = function (line, bubbleType) {
     var table = QD.BUBBLE_WEIGHT[String(line || '').toUpperCase()] || {};
-    var raw = trim(bubbleType).toUpperCase();
+    var raw = QD.normalizeBubbleType(bubbleType);
     var key, best = '';
+    if (!raw) return null;
     if (table[raw]) return { key: raw, min: table[raw][0], target: table[raw][1], max: table[raw][2] };
     for (key in table) {
       if (!table.hasOwnProperty(key)) continue;
@@ -300,6 +306,13 @@
     }
     if (best) return { key: best, min: table[best][0], target: table[best][1], max: table[best][2] };
     return null;
+  };
+
+  QD.bubbleWeightPair = function (specs, bubbleType) {
+    return {
+      coex: QD.findBubbleSpec(specs, 'COEX', bubbleType) || QD.matchBubbleWeight('COEX', bubbleType),
+      mono: QD.findBubbleSpec(specs, 'MONO', bubbleType) || QD.matchBubbleWeight('MONO', bubbleType)
+    };
   };
 
   QD.deadCellMax = function (bubbleType) {
@@ -792,7 +805,7 @@
 
   QD.findBubbleSpec = function (specs, family, bubbleType) {
     var fam = trim(family).toUpperCase();
-    var raw = trim(bubbleType).toUpperCase();
+    var raw = QD.normalizeBubbleType(bubbleType);
     var i, row, key, best = null;
     if (!raw || !specs) return null;
     for (i = 0; i < specs.length; i++) {
@@ -830,6 +843,100 @@
   QD.bubbleKey = function (r) { return trim(r && r.family).toUpperCase() + '|' + trim(r && r.abbreviation).toUpperCase(); };
   QD.p1Key = function (r) { return trim(r && r.thickness) + '|' + trim(r && r.density); };
   QD.rtsKey = function (r) { return trim(r && r.product); };
+
+  QD.bumpSpecVersion = function (v) {
+    var parts = String(v || '1.0.0').split('.');
+    while (parts.length < 3) parts.push('0');
+    parts[2] = String((parseInt(parts[2], 10) || 0) + 1);
+    return parts[0] + '.' + parts[1] + '.' + parts[2];
+  };
+
+  QD.ensureSpecVersion = function (row) {
+    if (!row) return row;
+    if (!trim(row.version)) row.version = '1.0.0';
+    return row;
+  };
+
+  QD.specChangedKeys = function (before, after) {
+    var seen = {}, keys = [], changed = [], i, k, a, b;
+    function collect(src) {
+      var key;
+      for (key in (src || {})) {
+        if (!src.hasOwnProperty(key) || seen[key]) continue;
+        seen[key] = 1;
+        keys.push(key);
+      }
+    }
+    collect(before);
+    collect(after);
+    for (i = 0; i < keys.length; i++) {
+      k = keys[i];
+      b = before && before[k] != null ? String(before[k]) : '';
+      a = after && after[k] != null ? String(after[k]) : '';
+      if (b !== a) changed.push(k);
+    }
+    return changed;
+  };
+
+  QD.thicknessFieldIds = function (lineId, site) {
+    var info = QD.lineInfo(lineId, site);
+    var i, out = [];
+    if (!info) return out;
+    if (info.form === 's4') {
+      for (i = 1; i <= 13; i++) out.push('s4t' + i);
+    } else if (info.form === 's1s3') {
+      for (i = 1; i <= 13; i++) out.push('s1t' + i);
+    } else if (info.form === 'rts') {
+      out.push('rt1', 'rt2', 'rt3');
+    }
+    return out;
+  };
+
+  QD.makeInboxRequest = function (type, name, extra) {
+    extra = extra || {};
+    return {
+      id: 'r' + (new Date()).getTime() + String(Math.floor(Math.random() * 1000)),
+      type: trim(type) || 'reset',
+      name: trim(name),
+      at: (new Date()).toISOString(),
+      status: 'pending',
+      salt: extra.salt || '',
+      hash: extra.hash || '',
+      plant: trim(extra.plant || 'VISALIA').toUpperCase() || 'VISALIA'
+    };
+  };
+
+  QD.pendingInbox = function (requests) {
+    var out = [], i;
+    for (i = 0; i < (requests || []).length; i++) {
+      if (requests[i] && requests[i].status === 'pending') out.push(requests[i]);
+    }
+    return out;
+  };
+
+  QD.findPendingNewUser = function (requests, name) {
+    var want = trim(name).toUpperCase();
+    var i, r;
+    if (!want) return null;
+    for (i = 0; i < (requests || []).length; i++) {
+      r = requests[i];
+      if (r && r.type === 'newUser' && r.status === 'pending' && trim(r.name).toUpperCase() === want) return r;
+    }
+    return null;
+  };
+
+  QD.tempPassword = function () {
+    return 'TMP' + String(100000 + Math.floor(Math.random() * 900000));
+  };
+
+  QD.auditEntry = function (action, user, detail) {
+    return {
+      at: (new Date()).toISOString(),
+      action: trim(action),
+      user: trim(user),
+      detail: trim(detail)
+    };
+  };
 
   QD.specHistoryEntry = function (kind, key, user, why, before, after) {
     return {

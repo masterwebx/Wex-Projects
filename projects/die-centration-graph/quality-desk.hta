@@ -35,7 +35,8 @@
         .lines button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
         .grid { display: table; width: 100%; border-collapse: separate; border-spacing: 12px 0; }
         .col { display: table-cell; vertical-align: top; }
-        .col.spec-col { width: 62%; }
+        .col.spec-col { width: 46%; }
+        .col.form-col { width: 54%; }
         .col.graph-col { width: 38%; }
         .card { background: #1e1e1e; border: 1px solid #2a2f36; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
         .card h2 { margin: 0 0 10px; font-size: 16px; }
@@ -72,6 +73,7 @@
         .chip.in { background: #14532d; border-color: #22c55e; }
         .chip.over { background: #7f1d1d; border-color: #ef4444; }
         .chip.extreme { outline: 2px solid #fff; }
+        .chip.need { border-color: #eab308; outline: 2px solid #eab308; }
         .chip span { display: block; font-size: 10px; color: #d4d4d8; }
         .results { width: 100%; border-collapse: collapse; font-size: 13px; }
         .results th, .results td { padding: 6px 8px; border-bottom: 1px solid #2a2f36; text-align: right; }
@@ -103,6 +105,7 @@
         .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,.55); z-index: 20; }
         .overlay.on { display: block; }
         .overlay.login { background: #0f172a; z-index: 40; }
+        .overlay.raise { z-index: 50; }
         .modal { width: 520px; max-width: 92%; margin: 40px auto; background: #1e1e1e; border-radius: 12px; padding: 16px; border: 1px solid #2a2f36; color: #f3f4f6; }
         .modal.wide { width: 780px; }
         .modal h3 { margin: 0 0 10px; }
@@ -135,6 +138,13 @@
         .op-banner { display: none; margin: 0 0 12px; padding: 8px 12px; background: #1e3a5f; border-radius: 8px; color: #93c5fd; font-size: 13px; }
         .op-banner.on { display: block; }
         #debugBox { width: 100%; height: 280px; box-sizing: border-box; font-family: Consolas, monospace; font-size: 12px; background: #0b1220; color: #d1fae5; border: 1px solid #334155; }
+        .login-extra { margin-top: 14px; }
+        .login-extra button { margin: 0 6px 0 0; }
+        .inbox-btn { position: relative; }
+        .badge { display: none; min-width: 16px; padding: 1px 6px; margin-left: 6px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11px; }
+        .badge.on { display: inline-block; }
+        .hist-changed { background: #713f12; color: #fde68a; font-weight: 700; }
+        .hist-grid td { padding: 4px 8px; }
 
         body.light { background: #e8edf3; color: #111827; }
         body.light header.app { background: #fff; border-bottom-color: #d1d5db; }
@@ -154,6 +164,8 @@
         body.light .chip.in { background: #dcfce7; }
         body.light .chip.over { background: #fee2e2; }
         body.light .chip.extreme { outline-color: #111827; }
+        body.light .chip.need { border-color: #d97706; outline-color: #d97706; }
+        body.light .hist-changed { background: #fef3c7; color: #92400e; }
         body.light .pass { background: #dcfce7; color: #166534; }
         body.light .fail { background: #fee2e2; color: #991b1b; }
         body.light .results th, body.light .results td, body.light table.list th, body.light table.list td, body.light table.specs th, body.light table.specs td, body.light .list-wrap { border-color: #e5e7eb; }
@@ -198,6 +210,9 @@
         var viewAsOperator = false;
         var debugLines = [];
         var sapCache = { path: "", mtime: 0 };
+        var openedDocs = {};
+        var inboxStore = { requests: [] };
+        var auditLog = [];
 
         function $(id) { return document.getElementById(id); }
 
@@ -547,7 +562,7 @@
             syncAdminChrome();
             lastHomeHtml = "";
             if (currentTab === "checks") renderHome();
-            else if (currentTab === "users" || currentTab === "mspecs" || currentTab === "items") goHome();
+            else if (currentTab === "users" || currentTab === "mspecs" || currentTab === "items" || currentTab === "audit") goHome();
             dbg(viewAsOperator ? "View as operator on" : "Back to admin");
         }
 
@@ -563,6 +578,7 @@
             }
             if ($("btnViewOp")) $("btnViewOp").style.display = realAdmin ? "" : "none";
             if ($("btnDebug")) $("btnDebug").style.display = realAdmin ? "" : "none";
+            updateNav();
         }
 
         function requireAdmin() {
@@ -596,8 +612,19 @@
             var pass = $("loginPass").value;
             try { loadAuthUsers(); } catch (e0) {}
             var rec = QD.findUserRecord(authUsers, name);
-            if (!rec || !QD.verifyPassword(rec, pass)) {
+            if (!rec) {
+                try { loadInbox(); } catch (eIn) {}
+                if (QD.findPendingNewUser(inboxStore.requests, name)) {
+                    $("loginStatus").innerText = "Your account is waiting for admin approval.";
+                    return;
+                }
                 $("loginStatus").innerText = "Unknown user or wrong password.";
+                auditAs(name, "login-fail", "unknown user");
+                return;
+            }
+            if (!QD.verifyPassword(rec, pass)) {
+                $("loginStatus").innerText = "Unknown user or wrong password.";
+                auditAs(name, "login-fail", "bad password");
                 return;
             }
             if (!rec.hash) {
@@ -623,11 +650,13 @@
             }
             try { renderLists(); } catch (e2) {}
             try { setSite(currentSite, true); startHomePoll(); } catch (e3) {}
+            audit("login", rec.name);
             if (pendingForUser().length) goDocs(true);
             else goHome();
         }
 
         function logout(msg) {
+            if (session.user) audit("logout", session.user);
             hideApp(msg || "Signed out.");
         }
 
@@ -950,9 +979,25 @@
             aio.rts = (data && data.rts) || aio.rts || [];
         }
 
+        function seedSpecVersions() {
+            var lists = [aio.mspecs, aio.bubble, aio.p1, aio.rts], i, j, changed = false;
+            for (i = 0; i < lists.length; i++) {
+                for (j = 0; j < (lists[i] || []).length; j++) {
+                    if (!QD.trim(lists[i][j].version)) {
+                        QD.ensureSpecVersion(lists[i][j]);
+                        changed = true;
+                    }
+                }
+            }
+            if (changed) {
+                try { saveLocalSpecs(); } catch (eSeed) {}
+            }
+        }
+
         function afterAioLoad(source) {
             loadLocalExtras();
             applyLocalSpecs();
+            seedSpecVersions();
             loadSpecHistory();
             aio.loaded = aio.items.length > 0 || aio.mspecs.length > 0 || aio.bubble.length > 0 || aio.p1.length > 0 || aio.rts.length > 0;
             rebuildItemIndex();
@@ -1103,6 +1148,58 @@
             return fso.BuildPath(resultsDir(), "docs.js");
         }
 
+        function inboxPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), "inbox.js");
+        }
+
+        function auditPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), "audit.js");
+        }
+
+        function loadInbox() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path = inboxPath();
+            window.QD_INBOX = { requests: [] };
+            if (fso.FileExists(path)) {
+                try { eval(readUtf8(path)); } catch (e) {}
+            }
+            inboxStore = window.QD_INBOX || { requests: [] };
+            if (!inboxStore.requests) inboxStore.requests = [];
+        }
+
+        function saveInbox() {
+            writeUtf8(inboxPath(), "window.QD_INBOX=" + JSON.stringify(inboxStore) + ";");
+        }
+
+        function loadAudit() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path = auditPath();
+            window.QD_AUDIT = [];
+            if (fso.FileExists(path)) {
+                try { eval(readUtf8(path)); } catch (e) {}
+            }
+            auditLog = window.QD_AUDIT || [];
+        }
+
+        function saveAudit() {
+            writeUtf8(auditPath(), "window.QD_AUDIT=" + JSON.stringify(auditLog) + ";");
+        }
+
+        function auditAs(user, action, detail) {
+            try {
+                loadAudit();
+                auditLog.push(QD.auditEntry(action, user, detail));
+                if (auditLog.length > 2500) auditLog = auditLog.slice(auditLog.length - 2500);
+                saveAudit();
+            } catch (eAud) {}
+        }
+
+        function audit(action, detail) {
+            auditAs(session.user || "", action, detail || "");
+        }
+
         function loadDocs(force) {
             if (docsLoaded && !force) return;
             var fso = new ActiveXObject("Scripting.FileSystemObject");
@@ -1135,6 +1232,24 @@
             var labels = [], ids = assignedLineIds(), i;
             for (i = 0; i < ids.length; i++) labels.push(QD.lineLabel(ids[i], currentSite));
             return QD.pendingDocs(docsStore.docs, docsStore.acks, session.user, labels.concat(ids));
+        }
+
+        function docsLocked() {
+            return !!(session.user && pendingForUser().length);
+        }
+
+        function updateNav() {
+            var lock = docsLocked();
+            var admin = isAdmin();
+            if ($("homeTabBtn")) $("homeTabBtn").style.display = lock ? "none" : "";
+            if ($("lookupTabBtn")) $("lookupTabBtn").style.display = lock ? "none" : "";
+            if ($("usersTabBtn")) $("usersTabBtn").style.display = (!lock && admin) ? "" : "none";
+            if ($("mspecsTabBtn")) $("mspecsTabBtn").style.display = lock ? "none" : "";
+            if ($("itemsTabBtn")) $("itemsTabBtn").style.display = lock ? "none" : "";
+            if ($("auditTabBtn")) $("auditTabBtn").style.display = (!lock && admin) ? "" : "none";
+            if ($("docsTabBtn")) $("docsTabBtn").style.display = "";
+            if ($("plantToggle")) $("plantToggle").style.display = lock ? "none" : "";
+            syncInboxBadge();
         }
 
         function lastRowFor(lineId) {
@@ -1195,9 +1310,13 @@
         }
 
         function goDocs(blocking) {
+            if (docsLocked() || blocking) {
+                showTab("docs");
+                renderDocsTab(true);
+                return;
+            }
             showTab("docs");
-            showScreen("docs");
-            renderDocAck(blocking);
+            renderDocsTab(false);
         }
 
         function goReason() {
@@ -1318,30 +1437,74 @@
             }
         }
 
+        function findDoc(id) {
+            var i;
+            loadDocs();
+            for (i = 0; i < docsStore.docs.length; i++) if (docsStore.docs[i].id === id) return docsStore.docs[i];
+            return null;
+        }
+
+        function renderDocsTab(blocking) {
+            var pending = pendingForUser();
+            var lock = blocking || pending.length;
+            if ($("docReviewWrap")) $("docReviewWrap").style.display = lock || !isAdmin() ? "block" : "none";
+            if ($("docAdminWrap")) $("docAdminWrap").style.display = !lock && isAdmin() ? "block" : "none";
+            if (lock || !isAdmin()) renderDocAck(!!lock);
+            if (!lock && isAdmin()) renderDocTable();
+            updateNav();
+        }
+
         function renderDocAck(blocking) {
             var pending = pendingForUser();
-            var html = blocking ? "<h2>Documents to review</h2><p class='muted'>Open each document, then confirm you read it. Checks stay locked until this is done. Review again every 3 months, or when the version changes.</p>" : "<h2>My documents</h2>";
-            var i, d;
+            var html = blocking ? "<h2>Documents to review</h2><p class='muted'>Open each document. After it opens, confirm that you read it. Quality checks stay locked until every assigned document is acknowledged. Review again every 3 months, or when the version changes.</p>" : "<h2>My documents</h2><p class='muted'>You are caught up. Open a document any time to review it again.</p>";
+            var i, d, opened;
             if (!pending.length && blocking) html += "<p>You are caught up.</p><button type='button' class='ok' onclick='goHome()'>Continue</button>";
             for (i = 0; i < pending.length; i++) {
                 d = pending[i];
+                opened = !!openedDocs[d.id];
                 html += "<div class='doc-ack'><b>" + esc(d.name) + "</b> · " + esc(d.type) + " · " + esc(d.line) + " · v" + esc(d.version);
-                html += "<div><button type='button' class='secondary' onclick=\"openDocLink('" + String(d.url || '').replace(/'/g, "") + "')\">Open document</button> ";
-                html += "<button type='button' class='ok' onclick=\"ackDoc('" + String(d.id).replace(/'/g, "") + "')\">I have read this</button></div></div>";
+                html += "<div><button type='button' class='secondary' onclick=\"openDocThenPrompt('" + String(d.id).replace(/'/g, "") + "')\">Open document</button> ";
+                html += "<button type='button' class='ok' " + (opened ? "" : "disabled ") + "onclick=\"ackDoc('" + String(d.id).replace(/'/g, "") + "')\">I have read this</button>";
+                html += opened ? " <span class='muted'>Opened — confirm you read it</span>" : " <span class='muted'>Open first</span>";
+                html += "</div></div>";
             }
             if ($("docAckBox")) $("docAckBox").innerHTML = html;
         }
 
-        function ackDoc(id) {
-            loadDocs();
-            var i, d = null;
-            for (i = 0; i < docsStore.docs.length; i++) if (docsStore.docs[i].id === id) d = docsStore.docs[i];
+        function openDocThenPrompt(id) {
+            var d = findDoc(id);
             if (!d) return;
             openDocLink(d.url);
+            openedDocs[id] = true;
+            renderDocAck(true);
+            if (confirm("Did you read \"" + d.name + "\"?\n\nClick OK to acknowledge that you read it.")) finishAck(id);
+        }
+
+        function ackDoc(id) {
+            var d = findDoc(id);
+            if (!d) return;
+            if (!openedDocs[id]) {
+                alert("Open the document first, then confirm that you read it.");
+                return;
+            }
+            if (!confirm("Did you read this document?")) return;
+            finishAck(id);
+        }
+
+        function finishAck(id) {
+            var d = findDoc(id);
+            if (!d) return;
             docsStore.acks.push({ docId: d.id, version: d.version, user: session.user, at: (new Date()).toISOString() });
             saveDocs();
-            if (pendingForUser().length) renderDocAck(true);
-            else goHome();
+            audit("doc-ack", d.name + " v" + d.version);
+            delete openedDocs[id];
+            if (pendingForUser().length) {
+                renderDocsTab(true);
+            } else {
+                openedDocs = {};
+                updateNav();
+                goHome();
+            }
         }
 
         function renderDocTable() {
@@ -1372,6 +1535,7 @@
             loadDocs();
             docsStore.docs.push({ id: "d" + (new Date()).getTime(), name: name, line: line, type: type, url: url, version: ver });
             saveDocs();
+            audit("doc-add", name + " v" + ver);
             $("docName").value = ""; $("docUrl").value = "";
             renderDocTable();
         }
@@ -1385,6 +1549,7 @@
                     d = docsStore.docs[i];
                     n = parseFloat(d.version);
                     d.version = isFinite(n) ? String(n + 1) : String(d.version) + ".1";
+                    audit("doc-version", d.name + " v" + d.version);
                 }
             }
             saveDocs();
@@ -1399,6 +1564,7 @@
             for (i = 0; i < docsStore.docs.length; i++) if (docsStore.docs[i].id !== id) next.push(docsStore.docs[i]);
             docsStore.docs = next;
             saveDocs();
+            audit("doc-delete", id);
             renderDocTable();
         }
 
@@ -1452,10 +1618,15 @@
                 "Alligator Skin": "rallig",
                 "T Point 1": "rt1", "T Point 2": "rt2", "T Point 3": "rt3"
             };
-            var ids = [], i, id;
+            var ids = [], i, id, extra, j;
             for (i = 0; i < miss.length; i++) {
-                id = map[miss[i]];
-                if (id) ids.push(id);
+                if (miss[i] === "Thickness points") {
+                    extra = QD.thicknessFieldIds(currentLine, currentSite);
+                    for (j = 0; j < extra.length; j++) ids.push(extra[j]);
+                } else {
+                    id = map[miss[i]];
+                    if (id) ids.push(id);
+                }
             }
             return { miss: miss, ids: ids };
         }
@@ -1518,7 +1689,19 @@
             }, 120);
         }
 
+        function bindFormWatch() {
+            var root = $("tabChecks");
+            if (!root || root.getAttribute("data-watch") === "1") return;
+            root.setAttribute("data-watch", "1");
+            root.onkeyup = function () { scheduleSubmit(); };
+            root.onchange = function () { scheduleSubmit(); };
+        }
+
         function showTab(id) {
+            if (docsLocked() && id !== "docs") {
+                goDocs(true);
+                return;
+            }
             currentTab = id;
             var i, tabs = $("mainTabs").getElementsByTagName("button"), tab;
             for (i = 0; i < tabs.length; i++) {
@@ -1532,6 +1715,7 @@
             $("tabItems").className = "tabpanel" + (id === "items" ? " on" : "");
             if ($("tabDocs")) $("tabDocs").className = "tabpanel" + (id === "docs" ? " on" : "");
             if ($("tabLookup")) $("tabLookup").className = "tabpanel" + (id === "lookup" ? " on" : "");
+            if ($("tabAudit")) $("tabAudit").className = "tabpanel" + (id === "audit" ? " on" : "");
             if (id === "mspecs" && currentSite === "GARLAND") specTab = "bubble";
             renderCurrentTab();
             if ($("submitBar") && id !== "checks") $("submitBar").className = "submit-bar";
@@ -1542,7 +1726,8 @@
             if (currentTab === "users") renderUserTable();
             else if (currentTab === "mspecs") renderMspecTable();
             else if (currentTab === "items") renderItemTable();
-            else if (currentTab === "docs") renderDocTable();
+            else if (currentTab === "docs") renderDocsTab(docsLocked());
+            else if (currentTab === "audit") renderAuditTable();
             else if (currentTab === "lookup") renderLookup();
             else if (currentTab === "checks" && currentScreen === "home") renderHome();
         }
@@ -1611,7 +1796,7 @@
             if (specTab === "rts") return renderRtsTable();
             var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
             var html = "<thead><tr>";
-            html += "<th class='mspec' rowspan='2'>MSPEC</th><th rowspan='2'>AF#</th>";
+            html += "<th class='mspec' rowspan='2'>MSPEC</th><th rowspan='2'>AF#</th><th rowspan='2'>Ver</th>";
             html += "<th class='group' colspan='3'>Gauge</th><th rowspan='2'>Range</th>";
             html += "<th class='group' colspan='2'>Cell</th><th class='group' colspan='3'>Density</th>";
             html += "<th rowspan='2'></th></tr><tr>";
@@ -1623,7 +1808,7 @@
                 r = aio.mspecs[i];
                 key = String(r["MSPEC #"] || "");
                 if (q && (key.toLowerCase().indexOf(q) < 0 && String(r["AF#"] || "").toLowerCase().indexOf(q) < 0)) continue;
-                html += "<tr><td class='mspec'>" + esc(key) + "</td><td>" + esc(r["AF#"]) + "</td>";
+                html += "<tr><td class='mspec'>" + esc(key) + "</td><td>" + esc(r["AF#"]) + "</td><td>" + esc(r.version || "1.0.0") + "</td>";
                 html += "<td class='num'>" + esc(r["Lower Control"]) + "</td><td class='num'>" + esc(r.Target) + "</td><td class='num'>" + esc(r["Upper Control"]) + "</td>";
                 html += "<td class='num'>" + esc(r["Thickness Range Max"]) + "</td>";
                 html += "<td class='num'>" + esc(r["Cell Count Min"]) + "</td><td class='num'>" + esc(r["Cell Count Max"]) + "</td>";
@@ -1638,16 +1823,16 @@
 
         function renderBubbleTable() {
             var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
-            var html = "<thead><tr><th>Line</th><th>Abbr</th><th>Product</th><th>Calc gauge</th>";
+            var html = "<thead><tr><th>Line</th><th>Abbr</th><th>Product</th><th>Ver</th><th>Calc gauge</th>";
             html += "<th class='group' colspan='3'>Weight</th><th></th></tr>";
-            html += "<tr><th></th><th></th><th></th><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
+            html += "<tr><th></th><th></th><th></th><th></th><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
             var i, r, key, n = 0, blob;
             for (i = 0; i < aio.bubble.length; i++) {
                 r = aio.bubble[i];
                 key = QD.bubbleKey(r);
                 blob = (r.family + " " + r.abbreviation + " " + r.product).toLowerCase();
                 if (q && blob.indexOf(q) < 0) continue;
-                html += "<tr><td>" + esc(r.family) + "</td><td>" + esc(r.abbreviation) + "</td><td>" + esc(r.product) + "</td><td class='num'>" + esc(r.calcGauge) + "</td>";
+                html += "<tr><td>" + esc(r.family) + "</td><td>" + esc(r.abbreviation) + "</td><td>" + esc(r.product) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + esc(r.calcGauge) + "</td>";
                 html += "<td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.target) + "</td><td class='num'>" + esc(r.max) + "</td>";
                 html += "<td>" + editBtn("bubble", key) + histBtn("bubble", key) + "</td></tr>";
                 n += 1;
@@ -1667,14 +1852,14 @@
 
         function renderP1Table() {
             var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
-            var html = "<thead><tr><th>Thickness</th><th class='group' colspan='3'>Density</th><th class='group' colspan='2'>Cell</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
-            html += "<tr><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th class='num'>Min</th><th class='num'>Max</th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
+            var html = "<thead><tr><th>Thickness</th><th>Ver</th><th class='group' colspan='3'>Density</th><th class='group' colspan='2'>Cell</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
+            html += "<tr><th></th><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th class='num'>Min</th><th class='num'>Max</th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
             var i, r, key, n = 0;
             for (i = 0; i < aio.p1.length; i++) {
                 r = aio.p1[i];
                 key = QD.p1Key(r);
                 if (q && (String(r.thickness) + " " + String(r.density)).toLowerCase().indexOf(q) < 0) continue;
-                html += "<tr><td>" + esc(r.thickness) + "</td><td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.density) + "</td><td class='num'>" + esc(r.max) + "</td>";
+                html += "<tr><td>" + esc(r.thickness) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.density) + "</td><td class='num'>" + esc(r.max) + "</td>";
                 html += "<td class='num'>" + esc(r.ccMin) + "</td><td class='num'>" + esc(r.ccMax) + "</td>";
                 html += "<td class='num'>" + esc(r.thickMin) + "</td><td class='num'>" + esc(r.thickTarget) + "</td><td class='num'>" + esc(r.thickMax) + "</td>";
                 html += "<td>" + editBtn("p1", key) + histBtn("p1", key) + "</td></tr>";
@@ -1687,14 +1872,14 @@
 
         function renderRtsTable() {
             var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
-            var html = "<thead><tr><th>Product</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
-            html += "<tr><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
+            var html = "<thead><tr><th>Product</th><th>Ver</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
+            html += "<tr><th></th><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
             var i, r, key, n = 0;
             for (i = 0; i < aio.rts.length; i++) {
                 r = aio.rts[i];
                 key = QD.rtsKey(r);
                 if (q && String(r.product).toLowerCase().indexOf(q) < 0) continue;
-                html += "<tr><td>" + esc(r.product) + "</td><td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.target) + "</td><td class='num'>" + esc(r.max) + "</td>";
+                html += "<tr><td>" + esc(r.product) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.target) + "</td><td class='num'>" + esc(r.max) + "</td>";
                 html += "<td>" + editBtn("rts", key) + histBtn("rts", key) + "</td></tr>";
                 n += 1;
             }
@@ -1755,6 +1940,7 @@
             if ($("newUserPass")) $("newUserPass").value = "";
             if ($("newUserAdmin")) $("newUserAdmin").checked = false;
             saveLocalUsers();
+            audit("user-add", name);
             renderUserTable();
             setStatus("Added user " + name + ". They can sign in now.");
         }
@@ -1824,6 +2010,7 @@
             rec.lines = collectLineChecks("editUserLineBox") || "*";
             saveAuthUsers();
             $("linesOverlay").className = "overlay";
+            audit("user-lines", name + " " + rec.plant + " " + rec.lines);
             renderUserTable();
             dbg("Lines for " + name + ": " + rec.plant + " " + rec.lines);
         }
@@ -1839,6 +2026,7 @@
             }
             rec.admin = !rec.admin;
             saveAuthUsers();
+            audit("user-admin", rec.name + (rec.admin ? " granted" : " removed"));
             renderUserTable();
         }
 
@@ -1855,6 +2043,7 @@
             rec.hash = next.hash;
             rec.mustChange = false;
             saveAuthUsers();
+            audit("user-password", name);
             renderUserTable();
             setStatus("Password set for " + name);
         }
@@ -1867,6 +2056,7 @@
             for (i = 0; i < authUsers.length; i++) if (String(authUsers[i].name).toUpperCase() !== String(name).toUpperCase()) next.push(authUsers[i]);
             authUsers = next;
             saveAuthUsers();
+            audit("user-delete", name);
             renderUserTable();
         }
 
@@ -1897,6 +2087,7 @@
             rec.mustChange = false;
             saveAuthUsers();
             $("pwOverlay").className = "overlay";
+            audit("password-change", rec.name);
             setStatus("Password saved.");
         }
 
@@ -1971,23 +2162,50 @@
                 if (el) row[f.key] = el.value;
                 after[f.key] = row[f.key];
             }
+            QD.ensureSpecVersion(row);
+            row.version = QD.bumpSpecVersion(row.version);
+            after.version = row.version;
             addHistory(specEdit.kind, specEdit.key, why, specEdit.before, after);
-            if (specHistory.length === 1 || !QD.historyForSpec(specHistory, specEdit.kind, specEdit.key).length) {}
             saveLocalSpecs();
+            audit("spec-edit", specEdit.kind + " " + specEdit.key + " v" + row.version);
             closeSpecEdit();
             renderMspecTable();
-            setStatus("Saved " + specEdit.kind + " spec " + specEdit.key + ".");
+            setStatus("Saved " + specEdit.kind + " spec " + specEdit.key + " as v" + row.version + ".");
+        }
+
+        function specSnapshotHtml(fields, data, changed) {
+            var html = "<table class='list hist-grid'>", i, f, mark = {}, cls;
+            if (changed) {
+                for (i = 0; i < changed.length; i++) mark[changed[i]] = 1;
+            }
+            for (i = 0; i < fields.length; i++) {
+                f = fields[i];
+                cls = mark[f.key] ? " class='hist-changed'" : "";
+                html += "<tr" + cls + "><td>" + esc(f.label) + "</td><td>" + esc(data ? data[f.key] : "") + "</td></tr>";
+            }
+            if (data && data.version) html += "<tr><td>Version</td><td>" + esc(data.version) + "</td></tr>";
+            html += "</table>";
+            return html;
         }
 
         function viewHistory(kind, key) {
+            var row = findSpecRow(kind, key);
             var rows = QD.historyForSpec(specHistory, kind, key);
-            var html = "<h3>" + esc(kind) + " " + esc(key) + "</h3>";
-            if (!rows.length) html += "<p class='muted'>No edits yet. Created from the imported spec file.</p>";
-            var i, r;
+            var fields = specFields(kind);
+            var html = "<h3>" + esc(kind) + " " + esc(key) + " · v" + esc((row && row.version) || "1.0.0") + "</h3>";
+            if (row) {
+                html += "<div class='card'><div><b>Current spec</b></div>" + specSnapshotHtml(fields, row, null) + "</div>";
+            }
+            if (!rows.length) html += "<p class='muted'>No edits yet. First uploaded as 1.0.0.</p>";
+            var i, r, changed;
             for (i = rows.length - 1; i >= 0; i--) {
                 r = rows[i];
-                html += "<div class='card'><div><b>" + esc(r.at) + "</b> — " + esc(r.user) + "</div>";
-                html += "<div>Why: " + esc(r.why) + "</div></div>";
+                changed = QD.specChangedKeys(r.before, r.after);
+                html += "<div class='card'><div><b>" + esc(r.at) + "</b> — " + esc(r.user);
+                html += (r.after && r.after.version) ? (" · v" + esc(r.after.version)) : "";
+                html += "</div><div>Why: " + esc(r.why) + "</div>";
+                html += specSnapshotHtml(fields, r.after || {}, changed);
+                html += "</div>";
             }
             $("histBody").innerHTML = html;
             $("histOverlay").className = "overlay on";
@@ -2045,6 +2263,7 @@
             var typ = $("newType").value;
             if (!typ) { alert("Pick a type first."); return; }
             if (!item) { alert("Item # is required."); return; }
+            var existed = !!QD.findItem(aio.items, item);
             var rec = {
                 item: item,
                 type: typ,
@@ -2070,6 +2289,7 @@
             $("item").value = item;
             renderLists();
             onItemChange();
+            audit(existed ? "item-edit" : "item-add", item + " " + typ);
             setStatus("Saved item " + item + " (" + typ + ")");
         }
 
@@ -2088,6 +2308,7 @@
                 "window.QD_LOCAL=window.QD_LOCAL||{items:[],users:[]};QD_LOCAL.items=" + JSON.stringify(extra) + ";");
             rebuildItemIndex();
             renderLists();
+            audit("item-delete", item);
             setStatus("Deleted item " + item);
         }
 
@@ -2202,9 +2423,10 @@
         }
 
         function bubbleWeightHtml(bubbleType) {
-            var html = "", coex = bubbleWeightBand("COEX", bubbleType), mono = bubbleWeightBand("MONO", bubbleType);
-            if (coex) html += specLine("COEX weight", coex.min + " / " + coex.target + " / " + coex.max);
-            if (mono) html += specLine("MONO weight", mono.min + " / " + mono.target + " / " + mono.max);
+            var pair = QD.bubbleWeightPair(aio.bubble, bubbleType);
+            var html = "";
+            html += specLine("COEX weight", pair.coex ? (pair.coex.min + " / " + pair.coex.target + " / " + pair.coex.max) : "— / — / —");
+            html += specLine("MONO weight", pair.mono ? (pair.mono.min + " / " + pair.mono.target + " / " + pair.mono.max) : "— / — / —");
             return html;
         }
 
@@ -2563,6 +2785,7 @@
             var rows = QD.appendLineRows(readLineRows(info.file), row);
             writeLineRows(info.file, rows);
             writeLookupFile();
+            audit("check-submit", QD.lineLabel(currentLine, currentSite) + " " + reason + (it ? (" " + it.item) : ""));
             clearCheckForm();
             checkReason = "";
             noCheckReason = "";
@@ -2639,13 +2862,193 @@
             }
         }
 
+        function findInboxReq(id) {
+            var i;
+            loadInbox();
+            for (i = 0; i < inboxStore.requests.length; i++) {
+                if (inboxStore.requests[i].id === id) return inboxStore.requests[i];
+            }
+            return null;
+        }
+
+        function syncInboxBadge() {
+            var n = 0, el = $("inboxBadge");
+            try {
+                loadInbox();
+                n = QD.pendingInbox(inboxStore.requests).length;
+            } catch (eB) {}
+            if ($("btnInbox")) $("btnInbox").style.display = isAdmin() ? "" : "none";
+            if (el) {
+                el.innerText = n ? String(n) : "";
+                el.className = "badge" + (n ? " on" : "");
+            }
+        }
+
+        function openInbox() {
+            if (!requireAdmin()) return;
+            renderInbox();
+            $("inboxOverlay").className = "overlay on";
+        }
+
+        function closeInbox() { $("inboxOverlay").className = "overlay"; }
+
+        function renderInbox() {
+            loadInbox();
+            var pending = QD.pendingInbox(inboxStore.requests);
+            var html = "", i, r;
+            if (!pending.length) html = "<p class='muted'>No pending requests.</p>";
+            for (i = 0; i < pending.length; i++) {
+                r = pending[i];
+                html += "<div class='card'><div><b>" + (r.type === "newUser" ? "New user" : "Forgot password") + "</b> — " + esc(r.name) + "</div>";
+                html += "<div class='muted'>" + esc(r.at) + "</div>";
+                if (r.type === "newUser") {
+                    html += "<button type='button' class='ok' onclick=\"approveInbox('" + String(r.id).replace(/'/g, "") + "')\">Approve</button> ";
+                    html += "<button type='button' class='danger' onclick=\"denyInbox('" + String(r.id).replace(/'/g, "") + "')\">Deny</button>";
+                } else {
+                    html += "<button type='button' class='ok' onclick=\"issueTempPass('" + String(r.id).replace(/'/g, "") + "')\">Issue temporary password</button> ";
+                    html += "<button type='button' class='danger' onclick=\"denyInbox('" + String(r.id).replace(/'/g, "") + "')\">Dismiss</button>";
+                }
+                html += "</div>";
+            }
+            if ($("inboxBody")) $("inboxBody").innerHTML = html;
+            syncInboxBadge();
+        }
+
+        function approveInbox(id) {
+            if (!requireAdmin()) return;
+            var req = findInboxReq(id);
+            if (!req || req.status !== "pending") return;
+            if (req.type === "newUser") {
+                loadAuthUsers();
+                if (QD.findUserRecord(authUsers, req.name)) {
+                    alert("User already exists.");
+                } else if (!req.hash || !req.salt) {
+                    alert("That request has no password on file. Ask the person to request again.");
+                    return;
+                } else {
+                    authUsers.push({
+                        name: req.name, admin: false, salt: req.salt, hash: req.hash, mustChange: false,
+                        plant: req.plant || "VISALIA", lines: "*"
+                    });
+                    saveAuthUsers();
+                    aio.users = QD.mergeUsers(aio.users, [req.name]);
+                    aio.localUsers = QD.mergeUsers(aio.localUsers || [], [req.name]);
+                    try { saveLocalUsers(); } catch (eU) {}
+                }
+                req.status = "approved";
+                saveInbox();
+                audit("user-approved", req.name);
+                setStatus("Approved new user " + req.name + ".");
+            }
+            renderInbox();
+            renderUserTable();
+        }
+
+        function issueTempPass(id) {
+            if (!requireAdmin()) return;
+            var req = findInboxReq(id);
+            if (!req || req.status !== "pending") return;
+            loadAuthUsers();
+            var rec = QD.findUserRecord(authUsers, req.name);
+            if (!rec) {
+                alert("No user named " + req.name + ".");
+                req.status = "denied";
+                saveInbox();
+                renderInbox();
+                return;
+            }
+            var tmp = QD.tempPassword();
+            var next = QD.makeUserRecord(rec.name, tmp, rec.admin, true, rec.plant, rec.lines);
+            rec.salt = next.salt;
+            rec.hash = next.hash;
+            rec.mustChange = true;
+            saveAuthUsers();
+            req.status = "done";
+            saveInbox();
+            audit("temp-password", rec.name);
+            renderInbox();
+            alert("Temporary password for " + rec.name + ":\n\n" + tmp + "\n\nGive this to the user. They must change it the next time they sign in.");
+        }
+
+        function denyInbox(id) {
+            if (!requireAdmin()) return;
+            var req = findInboxReq(id);
+            if (!req) return;
+            req.status = "denied";
+            saveInbox();
+            audit("inbox-denied", req.name + " " + req.type);
+            renderInbox();
+        }
+
+        function openNewUserForm() {
+            if ($("nuName")) $("nuName").value = "";
+            if ($("nuPass")) $("nuPass").value = "";
+            if ($("nuPass2")) $("nuPass2").value = "";
+            if ($("nuStatus")) $("nuStatus").innerText = "";
+            $("newUserOverlay").className = "overlay raise on";
+        }
+
+        function requestNewUser() {
+            var name = QD.trim($("nuName") ? $("nuName").value : "");
+            var pass = $("nuPass") ? $("nuPass").value : "";
+            var pass2 = $("nuPass2") ? $("nuPass2").value : "";
+            if (!name || !pass) { $("nuStatus").innerText = "Username and password are required."; return; }
+            if (pass !== pass2) { $("nuStatus").innerText = "Passwords do not match."; return; }
+            try { loadAuthUsers(); } catch (eA) {}
+            if (QD.findUserRecord(authUsers, name)) { $("nuStatus").innerText = "That username already exists."; return; }
+            try { loadInbox(); } catch (eI) {}
+            if (QD.findPendingNewUser(inboxStore.requests, name)) { $("nuStatus").innerText = "That username is already waiting for approval."; return; }
+            var rec = QD.makeUserRecord(name, pass, false, false);
+            inboxStore.requests.push(QD.makeInboxRequest("newUser", name, { salt: rec.salt, hash: rec.hash, plant: "VISALIA" }));
+            saveInbox();
+            auditAs(name, "new-user-request", name);
+            $("newUserOverlay").className = "overlay raise";
+            $("loginStatus").innerText = "Account request sent. An admin must approve it before you can sign in.";
+        }
+
+        function openForgotForm() {
+            if ($("fpName")) $("fpName").value = $("loginUser") ? $("loginUser").value : "";
+            if ($("fpStatus")) $("fpStatus").innerText = "";
+            $("forgotOverlay").className = "overlay raise on";
+        }
+
+        function requestReset() {
+            var name = QD.trim($("fpName") ? $("fpName").value : "");
+            if (!name) { $("fpStatus").innerText = "Enter your username."; return; }
+            try { loadInbox(); } catch (eI) {}
+            inboxStore.requests.push(QD.makeInboxRequest("reset", name, {}));
+            saveInbox();
+            auditAs(name, "password-reset-request", name);
+            $("forgotOverlay").className = "overlay raise";
+            $("loginStatus").innerText = "Password reset sent to admins. They will give you a temporary password.";
+        }
+
+        function renderAuditTable() {
+            loadAudit();
+            var html = "<tr><th>When</th><th>User</th><th>Action</th><th>Detail</th></tr>";
+            var i, r, n = 0;
+            for (i = auditLog.length - 1; i >= 0; i--) {
+                r = auditLog[i];
+                if (!r) continue;
+                html += "<tr><td>" + esc(r.at) + "</td><td>" + esc(r.user) + "</td><td>" + esc(r.action) + "</td><td>" + esc(r.detail) + "</td></tr>";
+                n += 1;
+                if (n >= 400) break;
+            }
+            if (!n) html += "<tr><td colspan='4' class='muted'>No audit entries yet.</td></tr>";
+            if ($("auditTable")) $("auditTable").innerHTML = html;
+            if ($("auditCount")) $("auditCount").innerText = n + " recent event" + (n === 1 ? "" : "s");
+        }
+
         window.onload = function () {
             try { window.resizeTo(Math.min(1280, screen.availWidth), Math.min(860, screen.availHeight)); } catch (e) {}
             try { loadTheme(); } catch (e0) {}
             try { loadAuthUsers(); } catch (e1) {}
             try { loadSpecHistory(); } catch (e2) {}
+            try { loadInbox(); } catch (eIn) {}
+            try { loadAudit(); } catch (eAu) {}
             try { fillLineChecks("newUserLineBox", "VISALIA", "*"); } catch (e3) {}
             try { publishSapCsv(); } catch (e4) {}
+            try { bindFormWatch(); } catch (e5) {}
             setLine("S4");
             hideApp("");
             $("loginStatus").innerText = "Sign in to use Quality Desk Checks. Session ends after 1 hour idle.";
@@ -2666,13 +3069,17 @@
             <label class="f">User <input id="loginUser"></label>
             <label class="f">Password <input id="loginPass" type="password" onkeydown="if(event.keyCode==13)doLogin()"></label>
             <button type="button" class="ok" onclick="doLogin()">Sign in</button>
-            <p class="muted">First run creates admin GWEXLER. Sessions end after 1 hour idle. Passwords are stored hashed and hidden on this PC.</p>
+            <div class="login-extra">
+                <button type="button" class="secondary" onclick="openNewUserForm()">New User</button>
+                <button type="button" class="secondary" onclick="openForgotForm()">Forgot Password</button>
+            </div>
+            <p class="muted">First run creates admin GWEXLER. Sessions end after 1 hour idle. Passwords are stored hashed and hidden on this PC. New users wait for admin approval. Forgot Password notifies admins, who issue a temporary password.</p>
         </div>
     </div>
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.47</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.48</span></h1>
         </div>
         <div class="tools">
             <span class="session">Signed in as <span class="who" id="sessionWho"></span></span>
@@ -2682,6 +3089,7 @@
                 <span class="track"><span></span></span>
                 Light
             </label>
+            <button class="secondary admin-only inbox-btn" id="btnInbox" onclick="openInbox()">Inbox <span class="badge" id="inboxBadge"></span></button>
             <button class="secondary real-admin" id="btnViewOp" onclick="toggleOperatorView()">View as operator</button>
             <button class="secondary real-admin" id="btnDebug" onclick="openDebug()">Debug log</button>
             <button class="secondary" onclick="changeOwnPassword()">Password</button>
@@ -2694,24 +3102,23 @@
         <div id="opBanner" class="op-banner">Viewing as operator — admin tools are hidden.</div>
         <div id="status" class="status">Starting…</div>
         <div class="tabs" id="mainTabs">
-            <button data-tab="checks" class="on" onclick="goHome()">Home</button>
-            <button data-tab="lookup" onclick="showTab('lookup')">Item lookup</button>
-            <button data-tab="users" onclick="showTab('users')">Users</button>
-            <button data-tab="mspecs" onclick="showTab('mspecs')">MSPECs</button>
-            <button data-tab="items" onclick="showTab('items')">Item database</button>
-            <span class="plant-toggle">
+            <button data-tab="checks" id="homeTabBtn" class="on" onclick="goHome()">Home</button>
+            <button data-tab="lookup" id="lookupTabBtn" onclick="showTab('lookup')">Item lookup</button>
+            <button data-tab="users" id="usersTabBtn" class="admin-only" onclick="showTab('users')">Users</button>
+            <button data-tab="mspecs" id="mspecsTabBtn" onclick="showTab('mspecs')">MSPECs</button>
+            <button data-tab="items" id="itemsTabBtn" onclick="showTab('items')">Item database</button>
+            <button data-tab="audit" id="auditTabBtn" class="admin-only" onclick="showTab('audit')">Audit log</button>
+            <span class="plant-toggle" id="plantToggle">
                 <button id="plantVis" class="on" onclick="setSite('VISALIA')">Visalia</button>
                 <button id="plantGar" onclick="setSite('GARLAND')">Garland</button>
             </span>
-            <button data-tab="docs" onclick="showTab('docs')">Documentation</button>
+            <button data-tab="docs" id="docsTabBtn" onclick="goDocs()">Documentation</button>
         </div>
         <div id="tabChecks" class="tabpanel on">
         <div id="screenHome" class="screen on">
             <div class="home-grid" id="homeLines"></div>
         </div>
-        <div id="screenDocs" class="screen">
-            <div id="docAckBox"></div>
-        </div>
+        <div id="screenDocs" class="screen"></div>
         <div id="screenReason" class="screen">
             <h2>Type of check</h2>
             <div class="reason-btns">
@@ -2780,14 +3187,12 @@
                     <p id="thkMinMax" class="muted"></p>
                     <label class="f">Notes <textarea id="checkNotes" onkeyup="$('notes').value=this.value;scheduleSubmit();"></textarea></label>
                 </div>
-            </div>
-            <div class="col graph-col">
-                <div class="card graph-card" id="radialCard">
+                <div class="card graph-card" id="radialCard" style="display:none">
                     <h2>Centration</h2>
                     <canvas id="radialCanvas" class="radial" width="260" height="260"></canvas>
                 </div>
             </div>
-        </div>
+            <div class="col form-col">
                 <div id="formS4" class="form on">
                     <div class="card">
                         <h2>S4 entries</h2>
@@ -2957,6 +3362,7 @@
                         <p>Pass/Fail <span id="rpfOut" class="pf"></span></p>
                     </div>
                 </div>
+            </div>
         </div>
         </div>
         <div id="tabLookup" class="tabpanel">
@@ -3017,7 +3423,10 @@
             </div>
         </div>
         <div id="tabDocs" class="tabpanel">
-            <div class="card">
+            <div id="docReviewWrap">
+                <div class="card" id="docAckBox"></div>
+            </div>
+            <div id="docAdminWrap" class="card">
                 <h2>Documentation <span class="muted" id="docCount"></span></h2>
                 <p class="muted">Work Instructions and QANs. Assigned users must read a document when it is new, when the version changes, and again every 3 months.</p>
                 <div class="admin-only">
@@ -3045,6 +3454,13 @@
                     <button type="button" onclick="addDoc()">Add document</button>
                 </div>
                 <div class="list-wrap"><table class="list" id="docTable"></table></div>
+            </div>
+        </div>
+        <div id="tabAudit" class="tabpanel">
+            <div class="card">
+                <h2>Audit log <span class="muted" id="auditCount"></span></h2>
+                <p class="muted">Sign-ins, new users, password resets, submitted checks, MSPEC edits, item changes, and documentation updates.</p>
+                <div class="list-wrap"><table class="list" id="auditTable"></table></div>
             </div>
         </div>
     </div>
@@ -3145,6 +3561,34 @@
             <button type="button" class="ok" onclick="copyDebug()">Copy</button>
             <button type="button" class="secondary" onclick="debugLines=[];$('debugBox').value='';">Clear</button>
             <button type="button" class="secondary" onclick="$('debugOverlay').className='overlay'">Close</button>
+        </div>
+    </div>
+    <div class="overlay" id="inboxOverlay">
+        <div class="modal wide">
+            <h3>Inbox</h3>
+            <p class="muted">New user requests and forgot-password notices.</p>
+            <div id="inboxBody"></div>
+            <button type="button" class="secondary" onclick="closeInbox()">Close</button>
+        </div>
+    </div>
+    <div class="overlay raise" id="newUserOverlay">
+        <div class="modal">
+            <h3>New User</h3>
+            <p class="muted" id="nuStatus">Create a username and password. An admin must approve you before you can sign in.</p>
+            <label class="f">Username <input id="nuName"></label>
+            <label class="f">Password <input id="nuPass" type="password"></label>
+            <label class="f">Confirm password <input id="nuPass2" type="password"></label>
+            <button type="button" class="ok" onclick="requestNewUser()">Request account</button>
+            <button type="button" class="secondary" onclick="$('newUserOverlay').className='overlay raise'">Cancel</button>
+        </div>
+    </div>
+    <div class="overlay raise" id="forgotOverlay">
+        <div class="modal">
+            <h3>Forgot Password</h3>
+            <p class="muted" id="fpStatus">Enter your username. Admins are notified and will give you a temporary password.</p>
+            <label class="f">Username <input id="fpName"></label>
+            <button type="button" class="ok" onclick="requestReset()">Notify admins</button>
+            <button type="button" class="secondary" onclick="$('forgotOverlay').className='overlay raise'">Cancel</button>
         </div>
     </div>
 </body>

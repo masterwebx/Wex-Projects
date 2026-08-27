@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.46';
+  QD.VERSION = '1.7.47';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -28,8 +28,7 @@
     { id: 'MONO', file: 'mono', site: 'VISALIA', plant: 'bubble', form: 'bubble', reasons: 'bubble', label: 'MONO' },
     { id: 'P1', file: 'p1', site: 'VISALIA', plant: 'p1', form: 'p1', reasons: 'foam', label: 'P1' },
     { id: 'RTS', file: 'rts', site: 'VISALIA', plant: 'rts', form: 'rts', reasons: 'foam', label: 'RTS' },
-    { id: 'G-COEX', file: 'gcoex', site: 'GARLAND', plant: 'bubble', form: 'bubble', reasons: 'bubble', label: 'COEX' },
-    { id: 'G-MONO', file: 'gmono', site: 'GARLAND', plant: 'bubble', form: 'bubble', reasons: 'bubble', label: 'MONO' }
+    { id: 'G-COEX', file: 'gcoex', site: 'GARLAND', plant: 'bubble', form: 'bubble', reasons: 'bubble', label: 'COEX' }
   ];
 
   QD.REASONS = {
@@ -94,8 +93,8 @@
     var key = String(id || '').toUpperCase().replace(/\s+/g, '');
     var sit = String(site || '').toUpperCase();
     if (sit === 'GARLAND') {
-      if (key === 'COEX') key = 'G-COEX';
-      if (key === 'MONO') key = 'G-MONO';
+      if (key === 'COEX' || key === 'G-COEX') key = 'G-COEX';
+      if (key === 'MONO' || key === 'G-MONO') return null;
     }
     var i;
     for (i = 0; i < QD.LINES.length; i++) {
@@ -1181,6 +1180,10 @@
     if (!record || !record.hash || !record.salt) return false;
     if (!trim(password)) return false;
     return record.hash === QD.hashPassword(password, record.salt);
+  };
+
+  QD.sapDiskScript = function (payload) {
+    return 'window.QD_DISK_SAP=' + stringify(payload || {}) + ';\n';
   };
 
   QD.diskManifestScript = function (files) {

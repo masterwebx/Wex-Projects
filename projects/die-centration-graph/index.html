@@ -573,11 +573,9 @@ try {
     </div>
     <h1>Quality Desk</h1>
     <p class="welcome-tag">History, specs, compliance, trends, and posting checks.</p>
-    <p>Press Ctrl+V to paste Copy for Graph from the S4, S1 S3, Bubble, Garland Bubble, P1, and RTS quality check sheets.</p>
+    <p>Reload from disk reads checks from the HTA <b>results</b> folder. Put <b>SAP.csv</b> next to quality-desk.hta and the HTA hands it off the same way.</p>
     <div class="actions">
-      <button type="button" id="welcomePaste">Paste results</button>
       <button class="secondary" type="button" id="welcomeReloadDisk" title="Read HTA results from the results folder">Reload from disk</button>
-      <button class="secondary" type="button" id="welcomeSap" title="Excel or CSV from SAP">SAP audit</button>
     </div>
     <div class="hub-grid welcome-extra">
       <button class="hub-tile" type="button" id="welcomeHistory"><b>Results history</b><span>Filter and open past quality checks.</span></button>
@@ -610,10 +608,8 @@ try {
           <option value="postings">Postings</option>
         </select>
       </label>
-      <button type="button" id="histPaste">Paste more data</button>
       <button class="secondary" type="button" id="histCompliance">Compliance</button>
       <button class="secondary" type="button" id="histTrends">Trends</button>
-      <button class="secondary" type="button" id="histSap" title="Excel or CSV from SAP" hidden>SAP audit</button>
       <button class="secondary" type="button" id="histMspecs">View MSPECs</button>
       <button class="secondary" type="button" id="histSpc">SPC mode</button>
       <button class="secondary" type="button" id="histDownload">Download Excel</button>
@@ -657,8 +653,6 @@ try {
       </div>
       <label class="line-filter">Line <select id="complianceLine"></select></label>
       <button type="button" id="complianceDownload">Download PDF</button>
-      <button class="secondary" type="button" id="complianceSap" title="Excel or CSV from SAP">SAP audit</button>
-      <input type="file" id="complianceSapFile" accept=".xlsx,.xlsm,.xls,.csv,.txt,.tsv" hidden>
       <button class="secondary" type="button" id="complianceMspecs">View MSPECs</button>
       <button class="secondary" type="button" id="complianceTheme">Dark mode</button>
       <button class="secondary" type="button" id="complianceBack">Back</button>
@@ -958,15 +952,15 @@ try {
             <text x="484" y="220" font-size="13" font-weight="700" fill="var(--text)">Documentation</text>
             <text x="484" y="238" font-size="11" fill="var(--muted)">You are here</text>
           </svg>
-          <figcaption>The Home tiles. Grayed-out tiles need data first — paste results (and SAP for Postings/Compliance) before those pages unlock.</figcaption>
+          <figcaption>The Home tiles. Grayed-out tiles need data first — Reload from disk after the HTA writes checks (and SAP.csv) into the results folder.</figcaption>
         </figure>
         <ul>
-          <li><b>Paste results</b> reads Copy for Graph from the clipboard. You can also press Ctrl+V anywhere on Home.</li>
-          <li><b>SAP audit</b> loads an SAP Excel or CSV of goods movements so Compliance and Postings know what ran.</li>
+          <li><b>Reload from disk</b> reads HTA check files from the results folder. Submit checks in quality-desk.hta first.</li>
+          <li><b>SAP.csv</b> next to the HTA is handed off the same way. Reload from disk then fills Compliance and Postings.</li>
           <li>History, Compliance, Trends, MSPECs, and SPC stay available after you have foam results, even if you last looked at Postings.</li>
           <li>Buttons on the <b>right</b> of later pages are tools for that screen (theme, download, Back). The trail at the top is how you move between pages.</li>
         </ul>
-        <p class="docs-tip">If a tile is dim, it is not broken — Quality Desk is waiting for a paste or an SAP file.</p>
+        <p class="docs-tip">If a tile is dim, it is not broken — Quality Desk is waiting for HTA results or SAP.csv on disk.</p>
       </article>
 
       <article class="docs-panel" data-docs="paste" id="docs-paste" hidden>
@@ -1538,7 +1532,7 @@ try {
 
 <script src="vendor/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.46';
+const APP_VERSION = '1.7.47';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -1876,6 +1870,31 @@ async function readDiskHandoff() {
   if (!loaded && !rows.length) return null;
   return { rows, lookupRows: (window.QD_DISK && window.QD_DISK.lookupRows) || [] };
 }
+async function applySapFromDisk(opts) {
+  const silent = !!(opts && opts.silent);
+  window.QD_DISK_SAP = null;
+  const t = Date.now();
+  if (!await loadHtaScript('results/sap.js?t=' + t, 1500)) return false;
+  const pack = window.QD_DISK_SAP;
+  if (!pack || !pack.csv) return false;
+  const grid = parseDelimitedGrid(pack.csv);
+  const rows = parseSapPairs(grid);
+  if (!rows.length) {
+    if (!silent) toast('Found SAP.csv on disk, but no production postings for COEX, S1, S3, S4, MONO, P1, or RTS.');
+    return false;
+  }
+  sapAudit = { name: pack.name || 'SAP.csv', rows, sapTz: sapPlantTimeZone() };
+  clearQualityDayIndex();
+  clearSapDayIndex();
+  clearPostingRows();
+  try { refreshSapHits(activeLine); renderCompliance(); } catch {}
+  if (screenName === 'history' && isPostingsPlant()) {
+    await ensurePostingRows();
+    renderHistoryTable();
+  }
+  return rows.length;
+}
+
 async function applyDiskHandoff(opts) {
   const silent = !!(opts && opts.silent);
   try {
@@ -1884,37 +1903,46 @@ async function applyDiskHandoff(opts) {
       await yieldUi();
     }
     const disk = await readDiskHandoff();
-    if (!disk || !disk.rows.length) {
-      if (!silent) toast('No HTA results on disk. Submit a check from quality-desk.hta first.');
+    let loadedHist = false;
+    if (disk && disk.rows.length) {
+      const kept = ((historyPack && historyPack.rows) || []).filter(r => r && r.__source !== 'hta');
+      const rows = dedupeHistoryRows(kept.concat(disk.rows));
+      const lookupRows = (disk.lookupRows && disk.lookupRows.length)
+        ? disk.lookupRows
+        : ((historyPack && historyPack.lookupRows) || []);
+      historyPack = {
+        item: (historyPack && historyPack.item) || '',
+        mspec: (historyPack && historyPack.mspec) || '',
+        rows,
+        lookupRows,
+        lookupByMspec: buildLookupMap(lookupRows),
+        specPatches: (historyPack && historyPack.specPatches) || {}
+      };
+      await indexHistory((i, n) => {
+        if (!silent) showProgress('Reload from disk', 20 + Math.round(70 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
+      });
+      if (!plantRows().length) {
+        const next = Object.keys(PLANTS).find(k => plantRows(k).length);
+        if (next) activePlant = next;
+      }
+      fillLineSelects();
+      syncPlantChrome();
+      markHasHistory(true);
+      loadedHist = true;
+    }
+    let sapCount = 0;
+    try { sapCount = await applySapFromDisk({ silent: true }) || 0; } catch {}
+    if (!loadedHist && !sapCount) {
+      if (!silent) toast('No HTA results on disk. Submit a check from quality-desk.hta first. For SAP, put SAP.csv next to the HTA.');
       return false;
     }
-    const kept = ((historyPack && historyPack.rows) || []).filter(r => r && r.__source !== 'hta');
-    const rows = dedupeHistoryRows(kept.concat(disk.rows));
-    const lookupRows = (disk.lookupRows && disk.lookupRows.length)
-      ? disk.lookupRows
-      : ((historyPack && historyPack.lookupRows) || []);
-    historyPack = {
-      item: (historyPack && historyPack.item) || '',
-      mspec: (historyPack && historyPack.mspec) || '',
-      rows,
-      lookupRows,
-      lookupByMspec: buildLookupMap(lookupRows),
-      specPatches: (historyPack && historyPack.specPatches) || {}
-    };
-    await indexHistory((i, n) => {
-      if (!silent) showProgress('Reload from disk', 20 + Math.round(70 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
-    });
-    if (!plantRows().length) {
-      const next = Object.keys(PLANTS).find(k => plantRows(k).length);
-      if (next) activePlant = next;
-    }
-    fillLineSelects();
-    syncPlantChrome();
-    markHasHistory(true);
     if (!silent) {
-      toast(`Loaded ${disk.rows.length} HTA check${disk.rows.length === 1 ? '' : 's'} from disk`);
+      const bits = [];
+      if (loadedHist) bits.push(`${disk.rows.length} HTA check${disk.rows.length === 1 ? '' : 's'}`);
+      if (sapCount) bits.push(`${sapCount} SAP row${sapCount === 1 ? '' : 's'}`);
+      toast('Loaded ' + bits.join(' · ') + ' from disk');
       if (screenName === 'history') renderHistoryTable();
-      else if (rows.length) goTo('history');
+      else if (loadedHist) goTo('history');
     } else {
       syncWelcome();
     }
@@ -2777,8 +2805,6 @@ function syncPlantChrome() {
   if (histSpc) histSpc.hidden = !spcOk;
   if (histMspecs) histMspecs.hidden = !foam;
   if (complianceMspecs) complianceMspecs.hidden = !foam;
-  const histSap = document.getElementById('histSap');
-  if (histSap) histSap.hidden = !isPostingsPlant();
   if (screenName === 'mspecs' && !foam) {
     setViewMode('centration');
     setScreen('history');
@@ -8250,9 +8276,7 @@ window.addEventListener('resize', () => {
     }
   }, 220);
 });
-document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true);
 document.getElementById('welcomeReloadDisk').onclick = () => applyDiskHandoff();
-document.getElementById('welcomeSap').onclick = () => document.getElementById('complianceSapFile').click();
 document.getElementById('histReloadDisk').onclick = () => applyDiskHandoff();
 document.getElementById('welcomeHistory').onclick = () => {
   if (!indexedRows.length) { toast('Paste results first'); return; }
@@ -8264,7 +8288,6 @@ document.getElementById('welcomeTrends').onclick = openTrends;
 document.getElementById('welcomeMspecs').onclick = openMspecs;
 document.getElementById('welcomeSpc').onclick = openSpc;
 document.getElementById('welcomeDocs').onclick = openDocs;
-document.getElementById('histPaste').onclick = () => applyFromClipboard(true);
 document.getElementById('histCompliance').onclick = () => openCompliance('history');
 document.getElementById('histTrends').onclick = openTrends;
 document.getElementById('histMspecs').onclick = openMspecs;
@@ -8272,17 +8295,6 @@ document.getElementById('complianceMspecs').onclick = openMspecs;
 document.getElementById('histSpc').onclick = openSpc;
 document.getElementById('histDownload').onclick = downloadHistoryExcel;
 document.getElementById('complianceDownload').onclick = openComplianceReport;
-document.getElementById('complianceSap').onclick = document.getElementById('histSap').onclick = () => document.getElementById('complianceSapFile').click();
-document.getElementById('complianceSapFile').onchange = async (e) => {
-  const file = e.target.files && e.target.files[0];
-  e.target.value = '';
-  try { await loadSapFile(file); }
-  catch (err) {
-    console.warn(err);
-    hideProgress();
-    toast('Could not read that file. Try a CSV export from SAP.');
-  }
-};
 document.getElementById('mspecBack').onclick = goBack;
 document.getElementById('mspecDownload').onclick = downloadMspecExcel;
 document.getElementById('mspecSearch').oninput = renderMspecTable;

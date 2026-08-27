@@ -17,131 +17,154 @@
     />
 
     <style>
-        body {
-            --bg: #121212; --header: #1a1a1a; --card: #1e1e1e; --text: #f3f4f6; --muted: #9ca3af;
-            --border: #2a2f36; --input: #111; --line: #3f3f46; --ghost: #262626; --status: #1f2937;
-            --status-line: #334155; --accent: #2563eb; --ok: #15803d; --danger: #991b1b;
-            --pass-bg: #14532d; --pass-fg: #86efac; --fail-bg: #7f1d1d; --fail-fg: #fecaca;
-            --chip: #262626; --head: #1f2937; --link: #93c5fd; --spec-label: #9ca3af;
-            --overlay: rgba(15,23,42,.55); --login: #0f172a; --group: #111827;
-            font-family: Segoe UI, Arial; margin: 0; background: var(--bg); color: var(--text); font-size: 15px;
-        }
-        body.light {
-            --bg: #f4f6f8; --header: #fff; --card: #fff; --text: #111827; --muted: #6b7280;
-            --border: #e5e7eb; --input: #fff; --line: #d1d5db; --ghost: #e5e7eb; --status: #eff6ff;
-            --status-line: #bfdbfe; --pass-bg: #dcfce7; --pass-fg: #166534; --fail-bg: #fee2e2; --fail-fg: #991b1b;
-            --chip: #f3f4f6; --head: #f3f4f6; --link: #1d4ed8; --spec-label: #6b7280;
-            --overlay: rgba(15,23,42,.35); --login: #e5e7eb; --group: #e5e7eb;
-        }
-        header.app { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: var(--header); border-bottom: 1px solid var(--border); }
+        body { font-family: Segoe UI, Arial; margin: 0; background: #121212; color: #f3f4f6; font-size: 15px; }
+        header.app { padding: 12px 18px; background: #1a1a1a; border-bottom: 1px solid #2a2f36; overflow: hidden; }
+        header.app .brand { float: left; }
+        header.app .tools { float: right; }
         h1 { margin: 0; font-size: 20px; }
-        .tag { color: var(--muted); margin: 2px 0 0; font-size: 12px; }
-        .tools { display: flex; align-items: center; gap: 8px; }
-        .tools button, button { border: 0; border-radius: 10px; padding: 8px 14px; font-weight: 700; cursor: pointer; background: var(--accent); color: #fff; font-family: inherit; }
-        button.secondary { background: var(--ghost); color: var(--text); border: 2px solid var(--line); }
-        button.ok { background: var(--ok); }
-        button:disabled, button.ghost { opacity: .4; cursor: default; background: var(--line); color: var(--muted); }
+        h1 .ver { margin-left: 8px; font-size: 13px; color: #9ca3af; font-weight: 700; }
+        .tools button, button { border: 0; border-radius: 10px; padding: 8px 14px; font-weight: 700; cursor: pointer; background: #2563eb; color: #fff; font-family: inherit; margin-left: 6px; }
+        button.secondary { background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
+        button.ok { background: #15803d; }
+        button:disabled, button.ghost { filter: alpha(opacity=40); opacity: .4; cursor: default; background: #3f3f46; color: #d4d4d8; }
         .wrap { padding: 14px 18px 72px; }
-        .status { margin: 0 0 12px; padding: 10px 12px; background: var(--status); border: 1px solid var(--status-line); border-radius: 8px; white-space: pre-wrap; font-size: 13px; }
-        .status.bad { background: var(--fail-bg); border-color: var(--fail-fg); }
+        .status { margin: 0 0 12px; padding: 10px 12px; background: #1f2937; border: 1px solid #334155; border-radius: 8px; white-space: pre-wrap; font-size: 13px; }
+        .status.bad { background: #3f1d1d; border-color: #7f1d1d; }
         .lines { margin: 0 0 12px; }
-        .lines button { margin: 0 6px 6px 0; min-width: 64px; background: var(--ghost); color: var(--text); border: 2px solid var(--line); }
-        .lines button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .lines button { margin: 0 6px 6px 0; min-width: 64px; background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
+        .lines button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
         .grid { display: table; width: 100%; border-collapse: separate; border-spacing: 12px 0; }
-        .col { display: table-cell; vertical-align: top; width: 50%; }
-        .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+        .col { display: table-cell; vertical-align: top; }
+        .col.spec-col { width: 62%; }
+        .col.graph-col { width: 38%; }
+        .card { background: #1e1e1e; border: 1px solid #2a2f36; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
         .card h2 { margin: 0 0 10px; font-size: 16px; }
-        label.f { display: block; margin: 0 0 8px; font-size: 12px; font-weight: 700; color: var(--muted); }
-        label.f input, label.f select, label.f textarea { display: block; width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 2px solid var(--line); border-radius: 8px; font: inherit; background: var(--input); color: var(--text); }
+        label.f { display: block; margin: 0 0 8px; font-size: 12px; font-weight: 700; color: #9ca3af; }
+        label.f input, label.f select, label.f textarea { display: block; width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 2px solid #3f3f46; border-radius: 8px; font: inherit; background: #111; color: #f3f4f6; }
         textarea { min-height: 58px; }
-        label.f.need input, label.f.need select, label.f.need textarea { border-color: #eab308; box-shadow: 0 0 0 2px rgba(234,179,8,.25); }
+        label.f.need input, label.f.need select, label.f.need textarea { border-color: #eab308; }
         .pair { display: table; width: 100%; }
         .pair > div { display: table-cell; width: 50%; padding-right: 8px; }
         .spec { font-size: 13px; }
-        .spec b { display: inline-block; min-width: 110px; color: var(--spec-label); }
+        .spec b { display: inline-block; min-width: 110px; color: #9ca3af; }
         .spec div { margin: 3px 0; }
-        .hits { border: 1px solid var(--line); border-radius: 8px; max-height: 160px; overflow: auto; margin-top: 4px; display: none; background: var(--input); }
+        .hits { border: 1px solid #3f3f46; border-radius: 8px; max-height: 160px; overflow: auto; margin-top: 4px; display: none; background: #111; }
         .hits div { padding: 6px 8px; cursor: pointer; }
         .hits div:hover { background: #1d4ed8; color: #fff; }
         .pts input { width: 72px; margin: 0 6px 6px 0; }
         .pf { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 8px; font-size: 12px; }
-        .pass { background: var(--pass-bg); color: var(--pass-fg); }
-        .fail { background: var(--fail-bg); color: var(--fail-fg); }
-        .muted { color: var(--muted); font-weight: 400; }
-        .crumbs { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
-        .crumbs b { color: var(--text); }
-        .crumbs a { color: var(--link); cursor: pointer; text-decoration: none; }
+        .pass { background: #14532d; color: #86efac; }
+        .fail { background: #7f1d1d; color: #fecaca; }
+        .muted { color: #9ca3af; font-weight: 400; }
+        .crumbs { margin: 0 0 14px; color: #9ca3af; font-size: 13px; }
+        .crumbs b { color: #f3f4f6; }
+        .crumbs a { color: #93c5fd; cursor: pointer; text-decoration: none; }
         .home-grid { display: block; }
-        .home-line { display: inline-block; width: 220px; min-height: 110px; margin: 0 12px 12px 0; padding: 18px; vertical-align: top; background: var(--card); border: 1px solid var(--border); border-radius: 14px; cursor: pointer; text-align: left; }
-        .home-line:hover { border-color: var(--accent); }
+        .home-line { display: inline-block; width: 220px; min-height: 110px; margin: 0 12px 12px 0; padding: 18px; vertical-align: top; background: #1e1e1e; border: 1px solid #2a2f36; border-radius: 14px; cursor: pointer; text-align: left; }
+        .home-line:hover { border-color: #2563eb; }
         .home-line h3 { margin: 0 0 8px; font-size: 28px; }
-        .home-line p { margin: 0; color: var(--muted); font-size: 13px; font-weight: 400; }
+        .home-line p { margin: 0; color: #9ca3af; font-size: 13px; font-weight: 400; }
         .reason-btns button { display: block; width: 320px; max-width: 100%; margin: 0 0 12px; padding: 16px; font-size: 18px; }
         .chips { margin: 8px 0; }
-        .chip { display: inline-block; min-width: 54px; margin: 0 6px 8px 0; padding: 8px 8px 6px; border-radius: 999px; text-align: center; background: var(--chip); border: 2px solid var(--line); }
-        .chip input { width: 48px; border: 0; background: transparent; color: var(--text); text-align: center; padding: 2px 0; font-weight: 700; }
+        .chip { display: inline-block; min-width: 54px; margin: 0 6px 8px 0; padding: 8px 8px 6px; border-radius: 999px; text-align: center; background: #262626; border: 2px solid #3f3f46; }
+        .chip input { width: 48px; border: 0; background: transparent; color: #f3f4f6; text-align: center; padding: 2px 0; font-weight: 700; }
         .chip.under { background: #713f12; border-color: #eab308; }
         .chip.in { background: #14532d; border-color: #22c55e; }
         .chip.over { background: #7f1d1d; border-color: #ef4444; }
-        body.light .chip.under { background: #fef3c7; }
-        body.light .chip.in { background: #dcfce7; }
-        body.light .chip.over { background: #fee2e2; }
-        .chip.extreme { outline: 2px solid var(--text); }
-        .chip span { display: block; font-size: 10px; color: var(--muted); }
+        .chip.extreme { outline: 2px solid #fff; }
+        .chip span { display: block; font-size: 10px; color: #d4d4d8; }
         .results { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .results th, .results td { padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right; }
-        .results th:first-child, .results td:first-child { text-align: left; color: var(--muted); }
-        .results td.ok { color: var(--pass-fg); font-weight: 700; }
-        .results td.bad { color: var(--fail-fg); font-weight: 700; }
+        .results th, .results td { padding: 6px 8px; border-bottom: 1px solid #2a2f36; text-align: right; }
+        .results th:first-child, .results td:first-child { text-align: left; color: #9ca3af; }
+        .results td.ok { color: #86efac; font-weight: 700; }
+        .results td.bad { color: #fca5a5; font-weight: 700; }
         .submit-bar { display: none; position: fixed; right: 18px; bottom: 16px; z-index: 12; }
         .submit-bar.on { display: block; }
         .submit-bar button { min-width: 180px; padding: 12px 20px; font-size: 16px; }
         .screen { display: none; }
         .screen.on { display: block; }
+        .plant-toggle { margin-left: 10px; }
         .plant-toggle button { min-width: 96px; }
         .plant-toggle button.on { background: #0f766e; border-color: #0f766e; color: #fff; }
         .graph-card { text-align: center; }
-        canvas.radial { width: 260px; height: 260px; max-width: 100%; background: var(--input); border-radius: 12px; }
-        .doc-ack { padding: 12px; border: 1px solid var(--status-line); border-radius: 10px; margin: 0 0 10px; }
+        canvas.radial { width: 260px; height: 260px; background: #111; border-radius: 12px; }
+        .doc-ack { padding: 12px; border: 1px solid #334155; border-radius: 10px; margin: 0 0 10px; }
         .form { display: none; }
         .form.on { display: block; }
         .tabs { margin: 0 0 12px; }
-        .tabs button { margin: 0 6px 6px 0; background: var(--ghost); color: var(--text); border: 2px solid var(--line); }
-        .tabs button.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .tabs button { margin: 0 6px 6px 0; background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
+        .tabs button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
         .tabpanel { display: none; }
         .tabpanel.on { display: block; }
         table.list { width: 100%; border-collapse: collapse; font-size: 13px; }
-        table.list th, table.list td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
-        table.list th { color: var(--muted); }
-        .list-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
-        .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: var(--overlay); z-index: 20; }
+        table.list th, table.list td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #2a2f36; vertical-align: top; }
+        table.list th { color: #9ca3af; }
+        .list-wrap { max-height: 520px; overflow: auto; border: 1px solid #2a2f36; border-radius: 8px; }
+        .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,.55); z-index: 20; }
         .overlay.on { display: block; }
-        .overlay.login { background: var(--login); z-index: 40; }
-        .modal { width: 520px; max-width: 92%; margin: 40px auto; background: var(--card); border-radius: 12px; padding: 16px; border: 1px solid var(--border); color: var(--text); }
+        .overlay.login { background: #0f172a; z-index: 40; }
+        .modal { width: 520px; max-width: 92%; margin: 40px auto; background: #1e1e1e; border-radius: 12px; padding: 16px; border: 1px solid #2a2f36; color: #f3f4f6; }
         .modal.wide { width: 780px; }
         .modal h3 { margin: 0 0 10px; }
-        .session { font-size: 13px; color: var(--muted); margin-right: 6px; }
-        .subtabs button { margin: 0 6px 6px 0; background: var(--ghost); color: var(--text); border: 2px solid var(--line); }
+        .session { font-size: 13px; color: #9ca3af; margin-right: 6px; }
+        .subtabs button { margin: 0 6px 6px 0; background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
         .subtabs button.on { background: #0f766e; color: #fff; border-color: #0f766e; }
-        table.specs { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
-        table.specs th, table.specs td { text-align: left; padding: 5px 6px; border: 1px solid var(--border); vertical-align: top; }
-        table.specs thead th { background: var(--head); color: var(--muted); font-weight: 700; }
-        table.specs th.group { text-align: center; background: var(--group); }
-        table.specs th.mspec, table.specs td.mspec { width: 4.6em; max-width: 5em; white-space: nowrap; }
+        table.specs { width: 100%; border-collapse: collapse; font-size: 12px; }
+        table.specs th, table.specs td { text-align: left; padding: 5px 6px; border: 1px solid #2a2f36; vertical-align: top; }
+        table.specs thead th { background: #1f2937; color: #9ca3af; font-weight: 700; }
+        table.specs th.group { text-align: center; background: #111827; }
+        table.specs th.mspec, table.specs td.mspec { width: 4.6em; white-space: nowrap; }
         table.specs td.num, table.specs th.num { width: 4.2em; text-align: right; }
         table.specs button { padding: 3px 8px; font-size: 12px; margin: 0 3px 0 0; }
-        button.danger { background: var(--danger); }
+        button.danger { background: #991b1b; }
         .locked { display: none; }
-        .who { font-weight: 700; color: var(--text); }
+        .who { font-weight: 700; color: #f3f4f6; }
         .type-fields { display: none; }
         .type-fields.on { display: block; }
-        .theme-toggle { display: inline-flex; align-items: center; gap: 8px; margin: 0 8px 0 4px; color: var(--muted); font-size: 12px; font-weight: 700; cursor: pointer; user-select: none; }
+        .theme-toggle { display: inline-block; margin: 0 8px; color: #9ca3af; font-size: 12px; font-weight: 700; cursor: pointer; vertical-align: middle; }
         .theme-toggle input { display: none; }
-        .theme-toggle .track { position: relative; width: 42px; height: 22px; background: #3f3f46; border-radius: 999px; border: 1px solid var(--line); }
-        .theme-toggle .track:after { content: ""; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fbbf24; }
+        .theme-toggle .track { display: inline-block; position: relative; width: 42px; height: 22px; background: #3f3f46; border-radius: 999px; border: 1px solid #3f3f46; vertical-align: middle; margin: 0 6px; }
+        .theme-toggle .track span { display: block; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fbbf24; }
         body.light .theme-toggle .track { background: #93c5fd; }
-        body.light .theme-toggle .track:after { left: 22px; background: #fff; }
-        .lookup-card { max-width: 720px; }
+        body.light .theme-toggle .track span { left: 22px; background: #fff; }
+        .lookup-card { width: 720px; max-width: 100%; }
+        .mspec-ro { margin: 0 0 10px; font-size: 12px; font-weight: 700; color: #9ca3af; }
+        .mspec-ro b { display: inline-block; margin-left: 8px; padding: 6px 10px; border-radius: 8px; background: #111; color: #f3f4f6; border: 2px solid #3f3f46; font-size: 15px; }
+        .line-checks label { display: inline-block; margin: 0 12px 8px 0; color: #f3f4f6; font-size: 13px; font-weight: 600; }
+        .line-checks input { margin-right: 4px; }
+        .op-banner { display: none; margin: 0 0 12px; padding: 8px 12px; background: #1e3a5f; border-radius: 8px; color: #93c5fd; font-size: 13px; }
+        .op-banner.on { display: block; }
+        #debugBox { width: 100%; height: 280px; box-sizing: border-box; font-family: Consolas, monospace; font-size: 12px; background: #0b1220; color: #d1fae5; border: 1px solid #334155; }
+
+        body.light { background: #e8edf3; color: #111827; }
+        body.light header.app { background: #fff; border-bottom-color: #d1d5db; }
+        body.light h1 .ver, body.light .muted, body.light .crumbs, body.light .session, body.light label.f, body.light .theme-toggle, body.light table.list th, body.light .results th:first-child, body.light .results td:first-child, body.light .mspec-ro, body.light .spec b { color: #4b5563; }
+        body.light .crumbs b, body.light .who { color: #111827; }
+        body.light .crumbs a { color: #1d4ed8; }
+        body.light button.secondary { background: #e5e7eb; color: #111827; border-color: #d1d5db; }
+        body.light .status { background: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
+        body.light .status.bad { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+        body.light .card, body.light .home-line, body.light .modal { background: #fff; border-color: #d1d5db; color: #111827; }
+        body.light label.f input, body.light label.f select, body.light label.f textarea, body.light .hits, body.light canvas.radial, body.light .mspec-ro b { background: #fff; color: #111827; border-color: #d1d5db; }
+        body.light .tabs button, body.light .subtabs button, body.light .lines button { background: #e5e7eb; color: #111827; border-color: #d1d5db; }
+        body.light .tabs button.on, body.light .lines button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
+        body.light .chip { background: #f3f4f6; border-color: #d1d5db; }
+        body.light .chip input { color: #111827; }
+        body.light .chip.under { background: #fef3c7; }
+        body.light .chip.in { background: #dcfce7; }
+        body.light .chip.over { background: #fee2e2; }
+        body.light .chip.extreme { outline-color: #111827; }
+        body.light .pass { background: #dcfce7; color: #166534; }
+        body.light .fail { background: #fee2e2; color: #991b1b; }
+        body.light .results th, body.light .results td, body.light table.list th, body.light table.list td, body.light table.specs th, body.light table.specs td, body.light .list-wrap { border-color: #e5e7eb; }
+        body.light .results td.ok { color: #166534; }
+        body.light .results td.bad { color: #b91c1c; }
+        body.light table.specs thead th { background: #f3f4f6; color: #4b5563; }
+        body.light table.specs th.group { background: #e5e7eb; }
+        body.light .overlay.login { background: #e5e7eb; }
+        body.light .line-checks label { color: #111827; }
+        body.light .op-banner { background: #dbeafe; color: #1e3a8a; }
+        body.light #debugBox { background: #111827; color: #d1fae5; }
     </style>
     <script src="qd-check.js" type="text/javascript"></script>
     <script type="text/javascript">
@@ -172,6 +195,9 @@
         var lastResultsHtml = "";
         var lastRadialKey = "";
         var themeMode = "dark";
+        var viewAsOperator = false;
+        var debugLines = [];
+        var sapCache = { path: "", mtime: 0 };
 
         function $(id) { return document.getElementById(id); }
 
@@ -446,7 +472,7 @@
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var dir = resultsDir();
             var files = [];
-            var names = ["manifest.js", "lookup.js"].concat((function () {
+            var names = ["manifest.js", "lookup.js", "sap.js"].concat((function () {
                 var out = [], i;
                 for (i = 0; i < QD.LINE_FILES.length; i++) out.push(QD.LINE_FILES[i] + ".js");
                 return out;
@@ -459,7 +485,85 @@
             writeUtf8(fso.BuildPath(dir, "manifest.js"), QD.diskManifestScript(files));
         }
 
-        function isAdmin() { return !!(session.user && session.admin); }
+        function findSapCsv() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var folder = getAppFolder();
+            var names = ["SAP.csv", "sap.csv", "Sap.csv"];
+            var i, p;
+            for (i = 0; i < names.length; i++) {
+                p = fso.BuildPath(folder, names[i]);
+                if (fso.FileExists(p)) return p;
+            }
+            return "";
+        }
+
+        function publishSapCsv() {
+            var path = findSapCsv();
+            if (!path) return false;
+            var mtime = fileMtime(path);
+            if (sapCache.path === path && sapCache.mtime === mtime) return false;
+            var csv = readUtf8(path);
+            if (!QD.trim(csv)) return false;
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            writeUtf8(fso.BuildPath(resultsDir(), "sap.js"), QD.sapDiskScript({
+                name: fso.GetFileName(path),
+                csv: csv,
+                writtenAt: (new Date()).toISOString(),
+                mtime: mtime
+            }));
+            sapCache = { path: path, mtime: mtime };
+            writeManifest();
+            dbg("Published " + fso.GetFileName(path) + " for Quality Desk");
+            return true;
+        }
+
+        function isAdmin() { return !!(session.user && session.admin && !viewAsOperator); }
+
+        function dbg(msg, bad) {
+            var line = (new Date()).toLocaleTimeString() + "  " + String(msg == null ? "" : msg);
+            debugLines.push(line);
+            if (debugLines.length > 400) debugLines = debugLines.slice(debugLines.length - 400);
+            if ($("debugBox")) $("debugBox").value = debugLines.join("\r\n");
+            try { if (window.Debug && window.Debug.write) window.Debug.write(line + "\n"); } catch (e0) {}
+            if (bad) setStatus(String(msg), true);
+        }
+
+        function openDebug() {
+            if (!session.admin) return;
+            if ($("debugBox")) $("debugBox").value = debugLines.join("\r\n");
+            $("debugOverlay").className = "overlay on";
+        }
+
+        function copyDebug() {
+            if ($("debugBox")) $("debugBox").select();
+            try { document.execCommand("copy"); setStatus("Debug log copied."); } catch (e) { setStatus("Select the log and copy it.", true); }
+        }
+
+        function toggleOperatorView() {
+            if (!session.admin) return;
+            viewAsOperator = !viewAsOperator;
+            if ($("opBanner")) $("opBanner").className = "op-banner" + (viewAsOperator ? " on" : "");
+            if ($("btnViewOp")) $("btnViewOp").innerText = viewAsOperator ? "Back to admin" : "View as operator";
+            syncAdminChrome();
+            lastHomeHtml = "";
+            if (currentTab === "checks") renderHome();
+            else if (currentTab === "users" || currentTab === "mspecs" || currentTab === "items") goHome();
+            dbg(viewAsOperator ? "View as operator on" : "Back to admin");
+        }
+
+        function syncAdminChrome() {
+            var admin = isAdmin();
+            var realAdmin = !!(session.user && session.admin);
+            var els = document.getElementsByTagName("*"), i, el, cls;
+            for (i = 0; i < els.length; i++) {
+                el = els[i];
+                cls = String(el.className || "");
+                if (cls.indexOf("admin-only") >= 0) el.style.display = admin ? "" : "none";
+                if (cls.indexOf("real-admin") >= 0) el.style.display = realAdmin ? "" : "none";
+            }
+            if ($("btnViewOp")) $("btnViewOp").style.display = realAdmin ? "" : "none";
+            if ($("btnDebug")) $("btnDebug").style.display = realAdmin ? "" : "none";
+        }
 
         function requireAdmin() {
             if (!isAdmin()) { alert("Only admins can do that."); return false; }
@@ -470,17 +574,11 @@
             $("loginOverlay").className = "overlay login";
             $("appRoot").style.display = "block";
             $("sessionWho").innerText = session.user + (session.admin ? " (admin)" : "");
-            var adminEls = document.getElementsByTagName("*");
-            var i, el;
-            for (i = 0; i < adminEls.length; i++) {
-                el = adminEls[i];
-                if (el.className && String(el.className).indexOf("admin-only") >= 0) {
-                    el.style.display = session.admin ? "" : "none";
-                }
-            }
+            syncAdminChrome();
             if ($("user")) $("user").value = session.user;
             startIdleWatch();
             touchSession();
+            dbg("Signed in " + session.user + (session.admin ? " admin" : ""));
         }
 
         function hideApp(msg) {
@@ -861,9 +959,11 @@
             fillUsers();
             writeLookupFile();
             ensureLineFiles();
+            try { publishSapCsv(); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
             writeManifest();
             renderCurrentTab();
             setStatus(source);
+            dbg(source);
         }
 
         function loadAio(force) {
@@ -1205,6 +1305,7 @@
         function startHomePoll() {
             if (homeTimer) window.clearInterval(homeTimer);
             homeTimer = window.setInterval(function () {
+                try { publishSapCsv(); } catch (e1) {}
                 if (currentScreen === "home" && currentTab === "checks") renderHome();
             }, 30000);
         }
@@ -1645,7 +1746,7 @@
             loadAuthUsers();
             if (QD.findUserRecord(authUsers, name)) { setStatus("User already exists.", true); return; }
             var plant = $("newUserPlant") ? $("newUserPlant").value : currentSite;
-            var lines = $("newUserLines") ? QD.trim($("newUserLines").value) || "*" : "*";
+            var lines = collectLineChecks("newUserLineBox") || "*";
             authUsers.push(QD.makeUserRecord(name, pass, admin, false, plant, lines));
             saveAuthUsers();
             aio.users = QD.mergeUsers(aio.users, [name]);
@@ -1658,19 +1759,73 @@
             setStatus("Added user " + name + ". They can sign in now.");
         }
 
+        function collectLineChecks(boxId) {
+            var box = $(boxId);
+            if (!box) return "*";
+            var inputs = box.getElementsByTagName("input"), i, el, out = [];
+            for (i = 0; i < inputs.length; i++) {
+                el = inputs[i];
+                if (!el.checked) continue;
+                if (el.getAttribute("data-line") === "*") return "*";
+                out.push(el.getAttribute("data-line"));
+            }
+            return out.length ? out.join(",") : "*";
+        }
+
+        function fillLineChecks(boxId, plant, selected) {
+            var box = $(boxId);
+            if (!box) return;
+            var sit = String(plant || "VISALIA").toUpperCase();
+            var want = String(selected || "*").toUpperCase();
+            var all = want === "*";
+            var parts = want.split(/[,;]+/);
+            var html = "<label><input type='checkbox' data-line='*' onclick='lineAllClicked(this)'" + (all ? " checked" : "") + "> All lines</label>";
+            var opts = sit === "GARLAND"
+                ? [{ id: "COEX", label: "COEX" }]
+                : [{ id: "S4", label: "S4" }, { id: "S1", label: "S1" }, { id: "S3", label: "S3" }, { id: "COEX", label: "COEX" }, { id: "MONO", label: "MONO" }, { id: "P1", label: "P1" }, { id: "RTS", label: "RTS" }];
+            if (sit === "BOTH") opts.push({ id: "G-COEX", label: "Garland COEX" });
+            var i, o, checked, j;
+            for (i = 0; i < opts.length; i++) {
+                o = opts[i];
+                checked = all;
+                if (!all) {
+                    for (j = 0; j < parts.length; j++) if (QD.trim(parts[j]) === o.id) checked = true;
+                }
+                html += "<label><input type='checkbox' data-line='" + o.id + "'" + (checked && !all ? " checked" : "") + "> " + o.label + "</label>";
+            }
+            box.innerHTML = html;
+        }
+
+        function lineAllClicked(el) {
+            if (!el || !el.checked) return;
+            var inputs = el.parentNode.parentNode.getElementsByTagName("input"), i;
+            for (i = 0; i < inputs.length; i++) {
+                if (inputs[i] !== el) inputs[i].checked = false;
+            }
+        }
+
         function assignUserLines(name) {
             if (!requireAdmin()) return;
             loadAuthUsers();
             var rec = QD.findUserRecord(authUsers, name);
             if (!rec) return;
-            var plant = prompt("Plant: VISALIA, GARLAND, or BOTH", rec.plant || "VISALIA");
-            if (plant == null) return;
-            var lines = prompt("Lines this user can see. Use * for all, or S4,S1,S3,COEX,MONO,P1,RTS", rec.lines || "*");
-            if (lines == null) return;
-            rec.plant = String(plant || "VISALIA").toUpperCase();
-            rec.lines = QD.trim(lines) || "*";
+            $("editUserName").value = rec.name;
+            $("editUserPlant").value = rec.plant || "VISALIA";
+            fillLineChecks("editUserLineBox", rec.plant || "VISALIA", rec.lines || "*");
+            $("linesOverlay").className = "overlay on";
+        }
+
+        function saveAssignedLines() {
+            var name = $("editUserName").value;
+            loadAuthUsers();
+            var rec = QD.findUserRecord(authUsers, name);
+            if (!rec) return;
+            rec.plant = $("editUserPlant").value || "VISALIA";
+            rec.lines = collectLineChecks("editUserLineBox") || "*";
             saveAuthUsers();
+            $("linesOverlay").className = "overlay";
             renderUserTable();
+            dbg("Lines for " + name + ": " + rec.plant + " " + rec.lines);
         }
 
         function toggleAdmin(name) {
@@ -2031,14 +2186,25 @@
                 html += specLine("Cell count", (spec["Cell Count Min"] || "") + " – " + (spec["Cell Count Max"] || ""));
                 html += specLine("Density", (spec["Density Min"] || "") + " / " + (spec["Density Target"] || "") + " / " + (spec["Density Max"] || ""));
             }
-            if (info && info.form === "bubble" && it) {
-                var bs = QD.findBubbleSpec(aio.bubble, lineId || currentLine, it.bubbleType);
-                var bw = bs ? { min: bs.min, target: bs.target, max: bs.max } : QD.matchBubbleWeight(lineId || currentLine, it.bubbleType);
+            if (it && (QD.itemType(it) === "BUBBLE" || (info && info.form === "bubble"))) {
+                html += bubbleWeightHtml(it.bubbleType);
                 var dead = QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType);
                 if (!isFinite(dead)) dead = QD.deadCellMax(it.bubbleType);
-                if (bw) html += specLine("Weight", bw.min + " / " + bw.target + " / " + bw.max);
                 if (isFinite(dead)) html += specLine("Max dead cells", dead);
             }
+            return html;
+        }
+
+        function bubbleWeightBand(family, bubbleType) {
+            var bs = QD.findBubbleSpec(aio.bubble, family, bubbleType);
+            if (bs) return { min: bs.min, target: bs.target, max: bs.max };
+            return QD.matchBubbleWeight(family, bubbleType);
+        }
+
+        function bubbleWeightHtml(bubbleType) {
+            var html = "", coex = bubbleWeightBand("COEX", bubbleType), mono = bubbleWeightBand("MONO", bubbleType);
+            if (coex) html += specLine("COEX weight", coex.min + " / " + coex.target + " / " + coex.max);
+            if (mono) html += specLine("MONO weight", mono.min + " / " + mono.target + " / " + mono.max);
             return html;
         }
 
@@ -2090,6 +2256,7 @@
             var spec = selectedSpec();
             if ($("desc")) $("desc").innerText = it ? (it.description || "") : "";
             if ($("mspec") && it && it.mspec) $("mspec").value = it.mspec;
+            if ($("mspecText")) $("mspecText").innerText = (it && it.mspec) ? it.mspec : ($("mspec") ? $("mspec").value : "");
             spec = selectedSpec();
             if ($("specBox")) $("specBox").innerHTML = itemSpecHtml(it, spec, currentLine);
             compute();
@@ -2477,10 +2644,17 @@
             try { loadTheme(); } catch (e0) {}
             try { loadAuthUsers(); } catch (e1) {}
             try { loadSpecHistory(); } catch (e2) {}
+            try { fillLineChecks("newUserLineBox", "VISALIA", "*"); } catch (e3) {}
+            try { publishSapCsv(); } catch (e4) {}
             setLine("S4");
             hideApp("");
             $("loginStatus").innerText = "Sign in to use Quality Desk Checks. Session ends after 1 hour idle.";
             if ($("loginUser")) $("loginUser").focus();
+            dbg("HTA v" + QD.VERSION + " ready");
+        };
+        window.onerror = function (msg, url, line) {
+            dbg("ERROR " + msg + " @" + line);
+            return false;
         };
     </script>
 </head>
@@ -2497,18 +2671,19 @@
     </div>
     <div id="appRoot" style="display:none">
     <header class="app">
-        <div>
-            <h1>Quality Desk Checks</h1>
-            <p class="tag">Home → line → check. Review History in Quality Desk.</p>
+        <div class="brand">
+            <h1>Quality Desk Checks <span class="ver">v1.7.47</span></h1>
         </div>
         <div class="tools">
             <span class="session">Signed in as <span class="who" id="sessionWho"></span></span>
             <label class="theme-toggle" title="Dark / light">
-                <span>Dark</span>
+                Dark
                 <input id="themeToggle" type="checkbox" onchange="setTheme(this.checked?'light':'dark')">
-                <span class="track"></span>
-                <span>Light</span>
+                <span class="track"><span></span></span>
+                Light
             </label>
+            <button class="secondary real-admin" id="btnViewOp" onclick="toggleOperatorView()">View as operator</button>
+            <button class="secondary real-admin" id="btnDebug" onclick="openDebug()">Debug log</button>
             <button class="secondary" onclick="changeOwnPassword()">Password</button>
             <button class="secondary" onclick="logout('Signed out.')">Log out</button>
             <button class="secondary" onclick="openDesk(false)">History</button>
@@ -2516,6 +2691,7 @@
     </header>
     <div class="wrap">
         <div id="crumbs" class="crumbs">Visalia / Home</div>
+        <div id="opBanner" class="op-banner">Viewing as operator — admin tools are hidden.</div>
         <div id="status" class="status">Starting…</div>
         <div class="tabs" id="mainTabs">
             <button data-tab="checks" class="on" onclick="goHome()">Home</button>
@@ -2594,18 +2770,18 @@
             <button data-line="RTS" onclick="setLine('RTS')">RTS</button>
         </div>
         <div class="grid">
-            <div class="col">
+            <div class="col spec-col">
                 <div class="card">
                     <h2>Item / specs <span class="muted" id="lineLabel">S4</span></h2>
                     <p id="desc" class="muted"></p>
-                    <div id="mspecWrap"><label class="f">MSPEC <input id="mspec" onchange="onItemChange()"></label></div>
+                    <div id="mspecWrap"><div class="mspec-ro">MSPEC <b id="mspecText"></b></div><input type="hidden" id="mspec"></div>
                     <div class="card spec" id="specBox"><div class="muted">Specs appear after you look up an item.</div></div>
                     <div id="resultsBox"></div>
                     <p id="thkMinMax" class="muted"></p>
                     <label class="f">Notes <textarea id="checkNotes" onkeyup="$('notes').value=this.value;scheduleSubmit();"></textarea></label>
                 </div>
             </div>
-            <div class="col">
+            <div class="col graph-col">
                 <div class="card graph-card" id="radialCard">
                     <h2>Centration</h2>
                     <canvas id="radialCanvas" class="radial" width="260" height="260"></canvas>
@@ -2804,13 +2980,13 @@
                         <label class="f">Password <input id="newUserPass" type="password"></label>
                         <label class="f"><input id="newUserAdmin" type="checkbox"> Admin</label>
                         <label class="f">Plant
-                            <select id="newUserPlant">
+                            <select id="newUserPlant" onchange="fillLineChecks('newUserLineBox', this.value, collectLineChecks('newUserLineBox'))">
                                 <option value="VISALIA">VISALIA</option>
                                 <option value="GARLAND">GARLAND</option>
                                 <option value="BOTH">BOTH</option>
                             </select>
                         </label>
-                        <label class="f">Lines (* or S4,S1,COEX…) <input id="newUserLines" value="*"></label>
+                        <div class="line-checks" id="newUserLineBox"></div>
                         <button type="button" onclick="addUser()">Add user</button>
                     </div>
                 </div>
@@ -2944,6 +3120,31 @@
             <label class="f">Confirm new password <input id="pwNew2" type="password"></label>
             <button type="button" class="ok" onclick="saveOwnPassword()">Save password</button>
             <button type="button" class="secondary" onclick="$('pwOverlay').className='overlay'">Cancel</button>
+        </div>
+    </div>
+    <div class="overlay" id="linesOverlay">
+        <div class="modal">
+            <h3>Assign lines</h3>
+            <input type="hidden" id="editUserName">
+            <label class="f">Plant
+                <select id="editUserPlant" onchange="fillLineChecks('editUserLineBox', this.value, collectLineChecks('editUserLineBox'))">
+                    <option value="VISALIA">VISALIA</option>
+                    <option value="GARLAND">GARLAND</option>
+                    <option value="BOTH">BOTH</option>
+                </select>
+            </label>
+            <div class="line-checks" id="editUserLineBox"></div>
+            <button type="button" class="ok" onclick="saveAssignedLines()">Save</button>
+            <button type="button" class="secondary" onclick="$('linesOverlay').className='overlay'">Cancel</button>
+        </div>
+    </div>
+    <div class="overlay" id="debugOverlay">
+        <div class="modal wide">
+            <h3>Debug log</h3>
+            <textarea id="debugBox" readonly></textarea>
+            <button type="button" class="ok" onclick="copyDebug()">Copy</button>
+            <button type="button" class="secondary" onclick="debugLines=[];$('debugBox').value='';">Clear</button>
+            <button type="button" class="secondary" onclick="$('debugOverlay').className='overlay'">Close</button>
         </div>
     </div>
 </body>

@@ -1,79 +1,72 @@
 <html>
 <head>
-    <title>Quality Desk</title>
+    <title>Quality Desk Checks</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=11">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 
     <HTA:APPLICATION
-        ID="QualityDeskApp"
-        APPLICATIONNAME="Quality Desk"
-        BORDER="thin"
+        ID="QualityDeskChecks"
+        APPLICATIONNAME="Quality Desk Checks"
+        BORDER="thick"
         CAPTION="yes"
         SHOWINTASKBAR="yes"
         SINGLEINSTANCE="yes"
         SYSMENU="yes"
-        WINDOWSTATE="normal"
-        SCROLL="no"
+        WINDOWSTATE="maximize"
+        SCROLL="yes"
     />
 
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-
     <style>
-        body {
-            font-family: Segoe UI, Arial;
-            margin: 0;
-            padding: 20px;
-            background: #eef1f5;
-            color: #12202b;
-        }
-
-        .box {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #d5dde4;
-            width: 420px;
-        }
-
-        h2 {
-            margin: 0 0 8px;
-            font-size: 22px;
-        }
-
-        p {
-            margin: 0 0 10px;
-            font-size: 14px;
-            color: #3e4a55;
-        }
-
-        button {
-            padding: 10px 20px;
-            font-size: 14px;
-            font-weight: 700;
-            margin-top: 10px;
-            margin-right: 8px;
-            border: 0;
-            border-radius: 8px;
-            cursor: pointer;
-            background: #1d4ed8;
-            color: #fff;
-        }
-
-        button.secondary {
-            background: #fff;
-            color: #12202b;
-            border: 2px solid #d5dde4;
-        }
-
-        #output {
-            margin-top: 15px;
-            padding: 10px;
-            background: #eee;
-            border-radius: 6px;
-            white-space: pre-wrap;
-            font-size: 13px;
-        }
+        body { font-family: Segoe UI, Arial; margin: 0; background: #eef1f5; color: #12202b; font-size: 15px; }
+        header.app { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: #fff; border-bottom: 1px solid #d5dde4; }
+        h1 { margin: 0; font-size: 22px; }
+        .tag { color: #3e4a55; margin: 2px 0 0; font-size: 13px; }
+        .tools button, button { border: 0; border-radius: 10px; padding: 8px 14px; font-weight: 700; cursor: pointer; background: #1d4ed8; color: #fff; font-family: inherit; }
+        button.secondary { background: #fff; color: #12202b; border: 2px solid #d5dde4; }
+        button.ok { background: #166534; }
+        button:disabled { opacity: .45; cursor: default; }
+        .wrap { padding: 14px 18px 24px; }
+        .status { margin: 0 0 12px; padding: 10px 12px; background: #fff; border: 1px solid #d5dde4; border-radius: 8px; white-space: pre-wrap; font-size: 13px; }
+        .status.bad { background: #fee2e2; border-color: #fecaca; }
+        .lines { margin: 0 0 12px; }
+        .lines button { margin: 0 6px 6px 0; min-width: 64px; background: #fff; color: #12202b; border: 2px solid #d5dde4; }
+        .lines button.on { background: #1d4ed8; color: #fff; border-color: #1d4ed8; }
+        .grid { display: table; width: 100%; border-collapse: separate; border-spacing: 12px 0; }
+        .col { display: table-cell; vertical-align: top; width: 50%; }
+        .card { background: #fff; border: 1px solid #d5dde4; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+        .card h2 { margin: 0 0 10px; font-size: 16px; }
+        label.f { display: block; margin: 0 0 8px; font-size: 13px; font-weight: 700; color: #3e4a55; }
+        label.f input, label.f select, label.f textarea { display: block; width: 100%; margin-top: 4px; box-sizing: border-box; padding: 8px; border: 2px solid #d5dde4; border-radius: 8px; font: inherit; }
+        textarea { min-height: 58px; }
+        .pair { display: table; width: 100%; }
+        .pair > div { display: table-cell; width: 50%; padding-right: 8px; }
+        .spec { font-size: 13px; }
+        .spec b { display: inline-block; min-width: 110px; color: #3e4a55; }
+        .spec div { margin: 3px 0; }
+        .hits { border: 1px solid #d5dde4; border-radius: 8px; max-height: 160px; overflow: auto; margin-top: 4px; display: none; }
+        .hits div { padding: 6px 8px; cursor: pointer; }
+        .hits div:hover { background: #dbeafe; }
+        .pts input { width: 72px; margin: 0 6px 6px 0; }
+        .pf { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 8px; font-size: 12px; }
+        .pass { background: #dcfce7; color: #166534; }
+        .fail { background: #fee2e2; color: #991b1b; }
+        .muted { color: #3e4a55; font-weight: 400; }
+        .form { display: none; }
+        .form.on { display: block; }
     </style>
-
+    <script src="qd-check.js" type="text/javascript"></script>
     <script type="text/javascript">
+        var aio = { items: [], mspecs: [], users: [], path: '', loaded: false };
+        var currentLine = 'S4';
+
+        function $(id) { return document.getElementById(id); }
+
+        function setStatus(msg, bad) {
+            var el = $('status');
+            el.className = bad ? 'status bad' : 'status';
+            el.innerText = msg;
+        }
+
         function getAppFolder() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             return fso.GetParentFolderName(htaFilePath());
@@ -83,136 +76,799 @@
             var href = String(location.href || "");
             var path = String(location.pathname || "");
             var raw = href;
-            if (href.toLowerCase().indexOf("file:") === 0) {
-                raw = href.replace(/^file:\/\//i, "");
-            } else if (path) {
-                raw = path;
-            }
+            if (href.toLowerCase().indexOf("file:") === 0) raw = href.replace(/^file:\/\//i, "");
+            else if (path) raw = path;
             raw = raw.replace(/^\/+/, "");
             try { raw = decodeURIComponent(raw); } catch (e) {}
             raw = raw.replace(/\//g, "\\");
-            if (raw.toLowerCase().indexOf("localhost\\") === 0) {
-                raw = raw.substring(10);
-            }
+            if (raw.toLowerCase().indexOf("localhost\\") === 0) raw = raw.substring(10);
             return raw;
+        }
+
+        function resultsDir() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var dir = fso.BuildPath(getAppFolder(), QD.DISK_DIR);
+            if (!fso.FolderExists(dir)) fso.CreateFolder(dir);
+            return dir;
+        }
+
+        function writeUtf8(path, text) {
+            var stream = new ActiveXObject("ADODB.Stream");
+            stream.Type = 2;
+            stream.Charset = "utf-8";
+            stream.Open();
+            stream.WriteText(text);
+            stream.SaveToFile(path, 2);
+            stream.Close();
+        }
+
+        function readUtf8(path) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            if (!fso.FileExists(path)) return "";
+            var stream = new ActiveXObject("ADODB.Stream");
+            stream.Type = 2;
+            stream.Charset = "utf-8";
+            stream.Open();
+            stream.LoadFromFile(path);
+            var text = stream.ReadText();
+            stream.Close();
+            return text;
+        }
+
+        function findAio() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var folder = getAppFolder();
+            var names = ["Quality AIO.xlsm", "Quality_AIO.xlsm", "Quality AIO.xlsx"];
+            var i, p;
+            for (i = 0; i < names.length; i++) {
+                p = fso.BuildPath(folder, names[i]);
+                if (fso.FileExists(p)) return p;
+            }
+            return "";
         }
 
         function findHtml() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var folder = getAppFolder();
-            var names = ["index.html", "centration.html"];
-            var i, filePath;
+            var names = ["index.html", "centration.html", "qualitydesk.html"];
+            var i, p;
             for (i = 0; i < names.length; i++) {
-                filePath = fso.BuildPath(folder, names[i]);
-                if (fso.FileExists(filePath)) return filePath;
+                p = fso.BuildPath(folder, names[i]);
+                if (fso.FileExists(p)) return p;
             }
             return "";
         }
 
-        function findChart() {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
-            return fso.BuildPath(fso.BuildPath(getAppFolder(), "vendor"), "chart.umd.min.js");
+        function sheetValues(ws) {
+            var used = ws.UsedRange;
+            var values = used.Value;
+            if (values === undefined || values === null) return [];
+            if (typeof values === "string" || typeof values === "number") return [[values]];
+            return values;
         }
 
-        function findEdge() {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
-            var candidates = [
-                "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
-                "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"
-            ];
-            var i;
-            for (i = 0; i < candidates.length; i++) {
-                if (fso.FileExists(candidates[i])) return candidates[i];
+        function rowsFromSheet(ws, headerMap) {
+            var raw = sheetValues(ws);
+            var rows = [];
+            var headers = [];
+            var r, c, obj, key;
+            if (!raw || !raw.length) return rows;
+            for (c = 0; c < raw[0].length; c++) headers.push(String(raw[0][c] == null ? "" : raw[0][c]));
+            for (r = 1; r < raw.length; r++) {
+                obj = {};
+                for (c = 0; c < headers.length; c++) {
+                    key = headerMap && headerMap[headers[c]] ? headerMap[headers[c]] : headers[c];
+                    if (key) obj[key] = raw[r][c] == null ? "" : raw[r][c];
+                }
+                rows.push(obj);
             }
-            return "msedge";
+            return rows;
+        }
+
+        function loadAioExcel(path) {
+            var xl = new ActiveXObject("Excel.Application");
+            var wb, items = [], mspecs = [], users = [];
+            xl.Visible = false;
+            xl.DisplayAlerts = false;
+            try { xl.AskToUpdateLinks = false; } catch (e0) {}
+            try {
+                wb = xl.Workbooks.Open(path, 0, true);
+                items = normalizeItems(rowsFromSheet(wb.Worksheets("Master Database")));
+                mspecs = normalizeMspecs(rowsFromSheet(wb.Worksheets("Master Sheet")));
+                users = normalizeUsers(sheetValues(wb.Worksheets("User List")));
+                wb.Close(false);
+            } finally {
+                try { xl.Quit(); } catch (e1) {}
+            }
+            return { items: items, mspecs: mspecs, users: users };
+        }
+
+        function normalizeItems(rows) {
+            var out = [], i, r, item;
+            for (i = 0; i < rows.length; i++) {
+                r = rows[i];
+                item = QD.canonItem(r["Item #"] || r["Item"] || r["Item_"] );
+                if (!item) continue;
+                out.push({
+                    item: item,
+                    description: QD.trim(r.Description || r["Item Description"]),
+                    length: r.Length,
+                    width: r.Width,
+                    slits: r["# Slits"] || r["Slits"],
+                    footage: r.Footage,
+                    perf: r.Perf,
+                    bubbleType: r["Bubble Type"] || r.BubbleType,
+                    parent: r["Parent Material"] || r.Parent,
+                    mspec: QD.canonMspec(r.MSPEC || r["MSPEC #"]),
+                    thickness: r.Thickness,
+                    density: r.Density,
+                    shots: r["# Shots"] || r.Shots,
+                    soft: r.Soft
+                });
+            }
+            return out;
+        }
+
+        function normalizeMspecs(rows) {
+            var out = [], i, r, key;
+            for (i = 0; i < rows.length; i++) {
+                r = rows[i];
+                key = QD.canonMspec(r["MSPEC #"] || r.MSPEC);
+                if (!key) continue;
+                r["MSPEC #"] = key;
+                out.push(QD.lookupToDeskRow(r));
+            }
+            return out;
+        }
+
+        function normalizeUsers(values) {
+            var out = [], r, v;
+            if (!values) return out;
+            for (r = 1; r < values.length; r++) {
+                v = QD.trim(values[r][0]);
+                if (v) out.push(v);
+            }
+            return out;
+        }
+
+        function cachePath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), "aio-cache.js");
+        }
+
+        function saveAioCache() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var mtime = aio.path && fso.FileExists(aio.path) ? String(fso.GetFile(aio.path).DateLastModified) : "";
+            writeUtf8(cachePath(), "window.QD_AIO=" + JSON.stringify({
+                path: aio.path, mtime: mtime, items: aio.items, mspecs: aio.mspecs, users: aio.users
+            }) + ";");
+        }
+
+        function loadAioCache() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path = cachePath();
+            if (!fso.FileExists(path)) return false;
+            window.QD_AIO = null;
+            eval(readUtf8(path));
+            if (!window.QD_AIO || !window.QD_AIO.items) return false;
+            if (aio.path && window.QD_AIO.mtime) {
+                if (fso.FileExists(aio.path) && String(fso.GetFile(aio.path).DateLastModified) !== window.QD_AIO.mtime) return false;
+            }
+            aio.items = window.QD_AIO.items;
+            aio.mspecs = window.QD_AIO.mspecs;
+            aio.users = window.QD_AIO.users;
+            aio.loaded = true;
+            return true;
+        }
+
+        function loadAio() {
+            aio.path = findAio();
+            if (!aio.path) {
+                setStatus("Quality AIO.xlsm was not found next to this HTA. Put it in:\n" + getAppFolder(), true);
+                return false;
+            }
+            if (loadAioCache()) {
+                fillUsers();
+                writeLookupFile();
+                setStatus("Loaded specs from cache (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + aio.path);
+                return true;
+            }
+            setStatus("Reading Quality AIO.xlsm…");
+            try {
+                var data = loadAioExcel(aio.path);
+                aio.items = data.items;
+                aio.mspecs = data.mspecs;
+                aio.users = data.users;
+                aio.loaded = true;
+                saveAioCache();
+                fillUsers();
+                writeLookupFile();
+                setStatus("Loaded Quality AIO (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + aio.path);
+                return true;
+            } catch (e) {
+                setStatus("Could not read Quality AIO.xlsm. Excel must be installed.\n" + e.message, true);
+                return false;
+            }
+        }
+
+        function writeLookupFile() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            writeUtf8(fso.BuildPath(resultsDir(), "lookup.js"), QD.diskScript("lookup", {
+                lookupRows: aio.mspecs,
+                users: aio.users
+            }));
+        }
+
+        function readLineRows(fileKey) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path = fso.BuildPath(resultsDir(), fileKey + ".js");
+            window.QD_DISK = { lines: {}, lookupRows: [], users: [] };
+            if (!fso.FileExists(path)) return [];
+            try { eval(readUtf8(path)); } catch (e) { return []; }
+            return (window.QD_DISK.lines[fileKey] && window.QD_DISK.lines[fileKey].rows) || [];
+        }
+
+        function writeLineRows(fileKey, rows) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            writeUtf8(fso.BuildPath(resultsDir(), fileKey + ".js"), QD.diskScript(fileKey, {
+                file: fileKey,
+                rows: rows || []
+            }));
+        }
+
+        function fillUsers() {
+            var sel = $("user");
+            var i, cur = sel.value;
+            sel.options.length = 0;
+            sel.options.add(new Option("", ""));
+            for (i = 0; i < aio.users.length; i++) sel.options.add(new Option(aio.users[i], aio.users[i]));
+            if (cur) sel.value = cur;
+        }
+
+        function fillReasons() {
+            var info = QD.lineInfo(currentLine);
+            var list = QD.REASONS[(info && info.reasons) || "foam"];
+            var sel = $("reason");
+            var i, cur = sel.value;
+            sel.options.length = 0;
+            for (i = 0; i < list.length; i++) sel.options.add(new Option(list[i], list[i]));
+            if (cur) sel.value = cur;
+        }
+
+        function setLine(id) {
+            currentLine = id;
+            var i, btns = document.getElementById("lineBtns").getElementsByTagName("button");
+            for (i = 0; i < btns.length; i++) btns[i].className = (btns[i].getAttribute("data-line") === id) ? "on" : "";
+            $("formS4").className = "form" + (id === "S4" ? " on" : "");
+            $("formS1").className = "form" + (id === "S1" || id === "S3" ? " on" : "");
+            $("formBubble").className = "form" + (id === "COEX" || id === "MONO" ? " on" : "");
+            $("formP1").className = "form" + (id === "P1" ? " on" : "");
+            $("formRts").className = "form" + (id === "RTS" ? " on" : "");
+            $("lineLabel").innerText = id;
+            fillReasons();
+            onItemChange();
+        }
+
+        function selectedItem() {
+            return QD.findItem(aio.items, $("item").value);
+        }
+
+        function selectedSpec() {
+            var it = selectedItem();
+            var mspec = it ? it.mspec : "";
+            if ($("mspec").value) mspec = $("mspec").value;
+            return QD.findMspec(aio.mspecs, mspec);
+        }
+
+        function showHits() {
+            var box = $("hits");
+            var q = $("item").value;
+            var hits = QD.searchItems(aio.items, q, 20);
+            var html = "", i, it;
+            for (i = 0; i < hits.length; i++) {
+                it = hits[i];
+                html += "<div onclick=\"pickItem('" + String(it.item).replace(/'/g, "") + "')\">" + it.item + " — " + (it.description || "") + "</div>";
+            }
+            box.innerHTML = html || "<div class='muted'>No matching items</div>";
+            box.style.display = q ? "block" : "none";
+        }
+
+        function pickItem(item) {
+            $("item").value = item;
+            $("hits").style.display = "none";
+            onItemChange();
+        }
+
+        function specLine(label, value) {
+            if (value == null || value === "") return "";
+            return "<div><b>" + label + "</b> " + value + "</div>";
+        }
+
+        function onItemChange() {
+            var it = selectedItem();
+            var spec = selectedSpec();
+            var info = QD.lineInfo(currentLine);
+            $("desc").innerText = it ? (it.description || "") : "";
+            $("mspec").value = it && it.mspec ? it.mspec : $("mspec").value;
+            spec = selectedSpec();
+            var html = "";
+            if (!it) html = "<div class='muted'>Type an item # from Quality AIO.</div>";
+            else {
+                html += specLine("Item", it.item);
+                html += specLine("Description", it.description);
+                html += specLine("MSPEC", it.mspec);
+                html += specLine("Width", it.width);
+                html += specLine("Length", it.length);
+                html += specLine("Footage", it.footage);
+                html += specLine("Perf", it.perf);
+                html += specLine("Bubble type", it.bubbleType);
+                html += specLine("Parent", it.parent);
+                html += specLine("# Shots", it.shots);
+                html += specLine("Soft", it.soft);
+            }
+            if (spec) {
+                html += "<div style='margin-top:8px'><b>Master Sheet</b></div>";
+                html += specLine("Gauge", (spec["Lower Control"] || "") + " / " + (spec.Target || "") + " / " + (spec["Upper Control"] || ""));
+                html += specLine("Range max", spec["Thickness Range Max"]);
+                html += specLine("Cell count", (spec["Cell Count Min"] || "") + " – " + (spec["Cell Count Max"] || ""));
+                html += specLine("Density", (spec["Density Min"] || "") + " / " + (spec["Density Target"] || "") + " / " + (spec["Density Max"] || ""));
+            }
+            if (info && info.form === "bubble" && it) {
+                var bw = QD.matchBubbleWeight(currentLine, it.bubbleType);
+                var dead = QD.deadCellMax(it.bubbleType);
+                if (bw) html += specLine("Weight", bw.min + " / " + bw.target + " / " + bw.max);
+                if (isFinite(dead)) html += specLine("Max dead cells", dead);
+            }
+            $("specBox").innerHTML = html;
+            compute();
+        }
+
+        function val(id) { return $(id) ? $(id).value : ""; }
+
+        function collectPoints(prefix, n) {
+            var out = [], i;
+            for (i = 1; i <= n; i++) out.push(val(prefix + i));
+            return out;
+        }
+
+        function mark(id, pf) {
+            var el = $(id);
+            if (!el) return;
+            el.innerText = pf || "";
+            el.className = "pf " + (String(pf).toLowerCase() === "fail" ? "fail" : (pf ? "pass" : ""));
+        }
+
+        function compute() {
+            var info = QD.lineInfo(currentLine);
+            var spec = selectedSpec();
+            var it = selectedItem();
+            var flags = [];
+            var avg, range, dens, pf;
+            if (!info) return {};
+            if (info.form === "s4" || info.form === "s1s3") {
+                var pts = collectPoints(info.form === "s4" ? "s4t" : "s1t", 13);
+                avg = QD.avg(pts);
+                range = QD.rangeMil(pts);
+                dens = info.form === "s4" ? QD.densityS4(val("s4weight"), avg) : QD.densityS1(val("s1weight"), avg);
+                $("avgOut").innerText = isFinite(avg) ? avg.toFixed(4) : "";
+                $("rangeOut").innerText = isFinite(range) ? range.toFixed(1) : "";
+                $("densOut").innerText = isFinite(dens) ? dens.toFixed(3) : "";
+                var lo = spec ? QD.num(spec["Lower Control"]) : NaN;
+                var hi = spec ? QD.num(spec["Upper Control"]) : NaN;
+                var rmax = spec ? QD.num(spec["Thickness Range Max"]) : NaN;
+                var widthTarget = it ? QD.num(it.width) : NaN;
+                var widthMin = isFinite(widthTarget) ? widthTarget - (info.form === "s4" ? 1.5 : 0.5) : NaN;
+                var widthPf = QD.inRange(val(info.form === "s4" ? "s4width" : "s1width"), widthMin, Infinity);
+                flags.push(QD.pf(widthPf));
+                mark("widthMark", QD.pf(widthPf));
+                var avgPf = QD.inRange(avg, lo, hi);
+                flags.push(QD.pf(avgPf));
+                mark("avgMark", QD.pf(avgPf));
+                var rangePf = !isFinite(range) || !isFinite(rmax) ? null : range <= rmax;
+                flags.push(QD.pf(rangePf));
+                mark("rangeMark", QD.pf(rangePf));
+                if (info.form === "s4") {
+                    var lenMin = it ? QD.num(it.length) : NaN;
+                    var lenPf = val("s4sheet") === "" ? null : QD.inRange(val("s4sheet"), lenMin, Infinity);
+                    flags.push(QD.pf(lenPf));
+                    mark("sheetMark", QD.pf(lenPf));
+                }
+                if (info.form === "s1s3") {
+                    var perfT = it ? QD.num(it.perf) : NaN;
+                    var pad = isFinite(perfT) && perfT > 20 ? 0.5 : 0.25;
+                    var perfPf = val("s1perf") === "" || !isFinite(perfT) || perfT === 0 ? null : QD.inRange(val("s1perf"), perfT - pad, perfT + pad);
+                    flags.push(QD.pf(perfPf));
+                    mark("perfMark", QD.pf(perfPf));
+                    if (val("s1bundleFit") === "FAIL") flags.push("Fail");
+                    if (val("s1diamPf") === "Fail") flags.push("Fail");
+                }
+                pf = QD.overallFromFlags(currentLine, val("reason"), flags);
+                $("pfOut").innerText = pf;
+                $("pfOut").className = "pf " + (String(pf).toLowerCase() === "fail" ? "fail" : "pass");
+                return { avg: avg, range: range, density: dens, passFail: pf, points: pts, widthPf: QD.pf(widthPf) };
+            }
+            if (info.form === "bubble") {
+                var bw = it ? QD.matchBubbleWeight(currentLine, it.bubbleType) : null;
+                var deadMax = it ? QD.deadCellMax(it.bubbleType) : NaN;
+                var wPf = it && it.width ? QD.inRange(val("bwidth"), QD.num(it.width) - 0.25, QD.num(it.width) + 0.25) : null;
+                var fPf = it && it.footage ? QD.inRange(val("bfootage"), QD.num(it.footage), Infinity) : null;
+                var pTarget = it ? QD.num(it.perf) : NaN;
+                var pPf = !isFinite(pTarget) ? "N/A" : QD.pf(QD.inRange(val("bperfw"), pTarget - 0.25, pTarget + 0.25));
+                var tester = QD.num(val("btester"));
+                var tPf = val("btester") === "" ? "" : QD.pf(!(tester < 11 || tester > 15));
+                var wtPf = bw ? QD.pf(QD.inRange(val("bweight"), bw.min, Infinity)) : "";
+                var pre = (QD.num(val("bdeadPre")) || 0) + (QD.num(val("bairPre")) || 0);
+                var post = (QD.num(val("bdeadPost")) || 0) + (QD.num(val("bairPost")) || 0);
+                var prePf = isFinite(deadMax) ? QD.pf(pre <= deadMax) : "";
+                var postPf = isFinite(deadMax) ? QD.pf(post <= deadMax) : "";
+                flags = [QD.pf(wPf), QD.pf(fPf), pPf, tPf, wtPf, prePf, postPf, val("bprod"), val("bcoh"), val("bpostv"), val("bdiamPf")];
+                pf = QD.overallFromFlags(currentLine, val("reason"), flags);
+                $("bpfOut").innerText = pf;
+                mark("bwidthMark", QD.pf(wPf));
+                mark("bfootMark", QD.pf(fPf));
+                mark("bperfMark", pPf);
+                mark("btestMark", tPf);
+                mark("bwtMark", wtPf);
+                return { passFail: pf, widthPf: QD.pf(wPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfTesterPf: tPf, weightPf: wtPf, prePf: prePf, postPf: postPf, deadMax: deadMax };
+            }
+            if (info.form === "p1") {
+                var head = QD.num(val("phead")), e1 = QD.num(val("pend1")), e2 = QD.num(val("pend2")), tail = QD.num(val("ptail"));
+                var avgS = QD.avg([head, e1, e2, tail]);
+                var length = QD.num(val("plength")), width = QD.num(val("pwidth")), wt = QD.num(val("pweight"));
+                var vol = (isFinite(avgS) && isFinite(length) && isFinite(width)) ? (avgS * width * length) / 6912 : NaN;
+                dens = (isFinite(wt) && isFinite(vol) && vol) ? wt / vol : NaN;
+                var lenT = it ? QD.num(it.length) : NaN;
+                var widT = it ? QD.num(it.width) : NaN;
+                var densT = spec ? QD.num(spec["Density Min"] || spec["Density Target"] || it && it.density) : QD.num(it && it.density);
+                var lPf = QD.pf(QD.inRange(length, lenT, isFinite(lenT) ? lenT + 5 : NaN));
+                var wPf2 = QD.pf(QD.inRange(width, widT, isFinite(widT) ? widT + 5 : NaN));
+                var dPf = QD.pf(!isFinite(dens) || !isFinite(densT) ? null : dens >= densT);
+                flags = [lPf, wPf2, dPf];
+                pf = QD.overallFromFlags(currentLine, val("reason"), flags);
+                $("pavgOut").innerText = isFinite(avgS) ? avgS.toFixed(3) : "";
+                $("pvolOut").innerText = isFinite(vol) ? vol.toFixed(3) : "";
+                $("pdensOut").innerText = isFinite(dens) ? dens.toFixed(3) : "";
+                $("ppfOut").innerText = pf;
+                return { passFail: pf, avgSingle: avgS, volume: vol, density: dens, lengthPf: lPf, widthPf: wPf2, densityPf: dPf, head: val("phead"), end1: val("pend1"), end2: val("pend2"), tail: val("ptail") };
+            }
+            if (info.form === "rts") {
+                var t1 = QD.num(val("rt1")), t2 = QD.num(val("rt2")), t3 = QD.num(val("rt3"));
+                var thkLo = spec ? QD.num(spec["Lower Control"] || spec.Target) : NaN;
+                var thkHi = spec ? QD.num(spec["Upper Control"] || spec.Target) : NaN;
+                if (!isFinite(thkLo) && it) thkLo = QD.num(it.thickness);
+                if (!isFinite(thkHi) && it) thkHi = QD.num(it.thickness);
+                var thkPf = QD.pf(QD.inRange(t1, thkLo, thkHi) !== false && QD.inRange(t2, thkLo, thkHi) !== false && QD.inRange(t3, thkLo, thkHi) !== false);
+                var widT2 = it ? QD.num(it.width) : NaN;
+                var lenT2 = it ? QD.num(it.length) : NaN;
+                var wPf3 = QD.pf(QD.inRange(val("rwidth"), widT2, Infinity));
+                var lPf2 = QD.pf(QD.inRange(val("rlength"), lenT2, Infinity));
+                flags = [thkPf, wPf3, lPf2, val("rdelam"), val("rblister"), val("rallig")];
+                pf = QD.overallFromFlags(currentLine, val("reason"), flags);
+                $("rpfOut").innerText = pf;
+                mark("rthkMark", thkPf);
+                return { passFail: pf, t1: val("rt1"), t2: val("rt2"), t3: val("rt3"), thkPf: thkPf, widthPf: wPf3, lengthPf: lPf2 };
+            }
+            return {};
+        }
+
+        function submitCheck() {
+            if (!aio.loaded) { setStatus("Load Quality AIO.xlsm first.", true); return; }
+            var info = QD.lineInfo(currentLine);
+            var it = selectedItem();
+            var spec = selectedSpec();
+            var calc = compute();
+            var reason = val("reason");
+            if (!val("user")) { setStatus("Select a user.", true); return; }
+            if (!reason) { setStatus("Select a reason for check.", true); return; }
+            if (!QD.skipReason(currentLine, reason) && !it) { setStatus("Look up an item # from Quality AIO.", true); return; }
+            var input = {
+                line: currentLine,
+                item: val("item"),
+                description: it ? it.description : $("desc").innerText,
+                mspec: spec ? spec["MSPEC #"] : val("mspec"),
+                user: val("user"),
+                reason: reason,
+                notes: val("notes"),
+                passFail: calc.passFail
+            };
+            if (info.form === "s4") {
+                input.bundle = val("s4bundle"); input.width = val("s4width"); input.footage = val("s4foot");
+                input.perfOn = val("s4perfOn"); input.cellMd = val("s4md"); input.cellCd = val("s4cd");
+                input.avg = calc.avg; input.range = calc.range; input.density = calc.density;
+                input.points = calc.points; input.talc = val("s4talc"); input.sheetLength = val("s4sheet");
+            } else if (info.form === "s1s3") {
+                input.bundle = val("s1bundle"); input.width = val("s1width"); input.footage = val("s1foot");
+                input.perf = val("s1perf"); input.bundleFit = val("s1bundleFit"); input.tape = val("s1tape");
+                input.cellMd = val("s1md"); input.cellCd = val("s1cd");
+                input.avg = calc.avg; input.range = calc.range; input.density = calc.density;
+                input.points = calc.points; input.diameter = val("s1diam"); input.diameterPf = val("s1diamPf");
+            } else if (info.form === "bubble") {
+                input.productVf = val("bprod"); input.cohAdh = val("bcoh"); input.postVisual = val("bpostv");
+                input.slits = val("bslits"); input.width = val("bwidth"); input.footage = val("bfootage");
+                input.perfWidth = val("bperfw"); input.perfTester = val("btester"); input.weight = val("bweight");
+                input.diameter = val("bdiam"); input.diameterPf = val("bdiamPf");
+                input.deadPre = val("bdeadPre"); input.airPre = val("bairPre"); input.deadPost = val("bdeadPost"); input.airPost = val("bairPost");
+                input.widthPf = calc.widthPf; input.footagePf = calc.footagePf; input.perfWidthPf = calc.perfWidthPf;
+                input.perfTesterPf = calc.perfTesterPf; input.weightPf = calc.weightPf; input.prePf = calc.prePf; input.postPf = calc.postPf;
+                input.deadMax = calc.deadMax;
+            } else if (info.form === "p1") {
+                input.length = val("plength"); input.width = val("pwidth"); input.cellMd = val("pmd"); input.cellCd = val("pcd");
+                input.weight = val("pweight"); input.volume = calc.volume; input.density = calc.density;
+                input.avgSingle = calc.avgSingle; input.head = calc.head; input.end1 = calc.end1; input.end2 = calc.end2; input.tail = calc.tail;
+                input.lengthPf = calc.lengthPf; input.widthPf = calc.widthPf; input.densityPf = calc.densityPf;
+            } else if (info.form === "rts") {
+                input.parent = val("rparent"); input.parentDate = val("rdate"); input.shift = val("rshift");
+                input.width = val("rwidth"); input.length = val("rlength"); input.color = val("rcolor");
+                input.delam = val("rdelam"); input.blister = val("rdelam"); input.alligator = val("rallig");
+                input.t1 = calc.t1; input.t2 = calc.t2; input.t3 = calc.t3;
+                input.thkPf = calc.thkPf; input.widthPf = calc.widthPf; input.lengthPf = calc.lengthPf;
+            }
+            var row = QD.buildRow(input);
+            var rows = QD.appendLineRows(readLineRows(info.file), row);
+            writeLineRows(info.file, rows);
+            writeLookupFile();
+            setStatus("Saved " + info.id + " check to results\\" + info.file + ".js (" + rows.length + " rows on this line).\nOther lines were not changed. Open Quality Desk and use Reload from disk.");
+            openDesk(true);
         }
 
         function toFileUrl(winPath) {
             var parts = String(winPath).replace(/\\/g, "/").split("/");
-            var out = [];
-            var i;
+            var out = [], i;
             for (i = 0; i < parts.length; i++) {
-                if (i === 0 && /^[A-Za-z]:$/.test(parts[i])) {
-                    out.push(parts[i]);
-                } else {
-                    out.push(encodeURIComponent(parts[i]));
-                }
+                if (i === 0 && /^[A-Za-z]:$/.test(parts[i])) out.push(parts[i]);
+                else out.push(encodeURIComponent(parts[i]));
             }
             return "file:///" + out.join("/");
         }
 
-        function showStatus() {
+        function findEdge() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
-            var folder = getAppFolder();
-            var htmlPath = findHtml();
-            var chartPath = findChart();
-            var lines = [];
-            lines.push("Folder:");
-            lines.push(folder);
-            lines.push("");
-            if (htmlPath) {
-                lines.push("Found: " + fso.GetFileName(htmlPath));
-            } else {
-                lines.push("Missing index.html or centration.html");
-            }
-            if (fso.FileExists(chartPath)) {
-                lines.push("Found: vendor\\chart.umd.min.js");
-            } else {
-                lines.push("Missing vendor\\chart.umd.min.js (Trends charts need this file)");
-            }
-            document.getElementById("output").innerText = lines.join("\n");
+            var cands = [
+                "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+                "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"
+            ];
+            var i;
+            for (i = 0; i < cands.length; i++) if (fso.FileExists(cands[i])) return cands[i];
+            return "msedge";
         }
 
-        function openQualityDesk() {
+        function deskIsOpen(htmlPath) {
+            try {
+                var loc = GetObject("winmgmts:\\\\.\\root\\cimv2");
+                var q = loc.ExecQuery("SELECT CommandLine FROM Win32_Process WHERE Name='msedge.exe'");
+                var en = new Enumerator(q);
+                var folder = getAppFolder().toLowerCase();
+                var html = String(htmlPath || "").toLowerCase();
+                var htmlUrl = html.replace(/\\/g, "/");
+                var folderUrl = folder.replace(/\\/g, "/");
+                for (; !en.atEnd(); en.moveNext()) {
+                    var cmd = String(en.item().CommandLine || "").toLowerCase();
+                    if (!cmd) continue;
+                    if (html && (cmd.indexOf(html) >= 0 || cmd.indexOf(htmlUrl) >= 0)) return true;
+                    if ((cmd.indexOf(folder) >= 0 || cmd.indexOf(folderUrl) >= 0) && cmd.indexOf(".html") >= 0) return true;
+                }
+            } catch (e) {}
+            return false;
+        }
+
+        function openDesk(quietIfOpen) {
             var htmlPath = findHtml();
-            if (!htmlPath) {
-                document.getElementById("output").innerText =
-                    "index.html or centration.html not found in:\n" + getAppFolder();
+            if (!htmlPath) { setStatus("index.html or centration.html not found next to this HTA.", true); return; }
+            if (deskIsOpen(htmlPath)) {
+                if (!quietIfOpen) setStatus("Quality Desk is already open. Use Reload from disk on that window.");
+                try { (new ActiveXObject("WScript.Shell")).AppActivate("Quality Desk"); } catch (e) {}
                 return;
             }
             var url = toFileUrl(htmlPath);
             var edge = findEdge();
             var shell = new ActiveXObject("WScript.Shell");
-            try {
-                shell.Run('"' + edge + '" --app="' + url + '"', 1, false);
-            } catch (e1) {
-                try {
-                    shell.Run('cmd /c start "" "' + htmlPath + '"', 0, false);
-                } catch (e2) {
-                    alert("Could not open Quality Desk.\n" + htmlPath);
-                    return;
-                }
+            try { shell.Run('"' + edge + '" --app="' + url + '"', 1, false); }
+            catch (e1) {
+                try { shell.Run('cmd /c start "" "' + htmlPath + '"', 0, false); }
+                catch (e2) { setStatus("Could not open Quality Desk.\n" + htmlPath, true); }
             }
-            window.setTimeout(function () { window.close(); }, 400);
-        }
-
-        function sizeWindow() {
-            var w = 480;
-            var h = 360;
-            window.resizeTo(w, h);
-            window.moveTo(
-                Math.max(0, (screen.availWidth - w) / 2),
-                Math.max(0, (screen.availHeight - h) / 2)
-            );
         }
 
         window.onload = function () {
-            sizeWindow();
-            showStatus();
-            if (findHtml()) openQualityDesk();
+            try { window.resizeTo(Math.min(1280, screen.availWidth), Math.min(860, screen.availHeight)); } catch (e) {}
+            setLine("S4");
+            loadAio();
         };
     </script>
 </head>
-
 <body>
-    <div class="box">
-        <h2>Quality Desk</h2>
-        <p>This app runs completely offline — no websites, no frames. It opens the local Quality Desk HTML from this folder.</p>
-
-        <button onclick="openQualityDesk()">Open Quality Desk</button>
-        <button class="secondary" onclick="window.close()">Quit</button>
-
-        <div id="output"></div>
+    <header class="app">
+        <div>
+            <h1>Quality Desk Checks</h1>
+            <p class="tag">Look up items from Quality AIO.xlsm. Submit writes that line only. Review happens in Quality Desk.</p>
+        </div>
+        <div class="tools">
+            <button onclick="loadAio()">Reload AIO</button>
+            <button class="secondary" onclick="openDesk(false)">Open Quality Desk</button>
+            <button class="ok" onclick="submitCheck()">Submit check</button>
+        </div>
+    </header>
+    <div class="wrap">
+        <div id="status" class="status">Starting…</div>
+        <div class="lines" id="lineBtns">
+            <button data-line="S4" class="on" onclick="setLine('S4')">S4</button>
+            <button data-line="S1" onclick="setLine('S1')">S1</button>
+            <button data-line="S3" onclick="setLine('S3')">S3</button>
+            <button data-line="COEX" onclick="setLine('COEX')">COEX</button>
+            <button data-line="MONO" onclick="setLine('MONO')">MONO</button>
+            <button data-line="P1" onclick="setLine('P1')">P1</button>
+            <button data-line="RTS" onclick="setLine('RTS')">RTS</button>
+        </div>
+        <div class="grid">
+            <div class="col">
+                <div class="card">
+                    <h2>Lookup <span class="muted" id="lineLabel">S4</span></h2>
+                    <label class="f">Item #
+                        <input id="item" onkeyup="showHits();onItemChange();" onchange="onItemChange()">
+                    </label>
+                    <div class="hits" id="hits"></div>
+                    <label class="f">MSPEC <input id="mspec" onchange="onItemChange()"></label>
+                    <p id="desc" class="muted"></p>
+                    <div class="pair">
+                        <div><label class="f">User <select id="user"></select></label></div>
+                        <div><label class="f">Reason for Check <select id="reason" onchange="compute()"></select></label></div>
+                    </div>
+                    <label class="f">Notes <textarea id="notes"></textarea></label>
+                </div>
+                <div class="card spec" id="specBox"><div class="muted">Specs appear after you look up an item.</div></div>
+            </div>
+            <div class="col">
+                <div id="formS4" class="form on">
+                    <div class="card">
+                        <h2>S4 entries</h2>
+                        <div class="pair">
+                            <div><label class="f">Bundle # <input id="s4bundle"></label></div>
+                            <div><label class="f">Slit/Width <input id="s4width" onkeyup="compute()"> <span id="widthMark"></span></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Footage <input id="s4foot"></label></div>
+                            <div><label class="f">Perf Roller On <select id="s4perfOn"><option></option><option>Yes</option><option>No</option></select></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Cell Count MD <input id="s4md"></label></div>
+                            <div><label class="f">Cell Count CD <input id="s4cd"></label></div>
+                        </div>
+                        <label class="f">Weight (g) <input id="s4weight" onkeyup="compute()"></label>
+                        <label class="f">Thickness points</label>
+                        <div class="pts">
+                            <input id="s4t1" onkeyup="compute()"><input id="s4t2" onkeyup="compute()"><input id="s4t3" onkeyup="compute()"><input id="s4t4" onkeyup="compute()"><input id="s4t5" onkeyup="compute()">
+                            <input id="s4t6" onkeyup="compute()"><input id="s4t7" onkeyup="compute()"><input id="s4t8" onkeyup="compute()"><input id="s4t9" onkeyup="compute()"><input id="s4t10" onkeyup="compute()">
+                            <input id="s4t11" onkeyup="compute()"><input id="s4t12" onkeyup="compute()"><input id="s4t13" onkeyup="compute()">
+                        </div>
+                        <div>Average <b id="avgOut"></b> <span id="avgMark"></span> &nbsp; Range <b id="rangeOut"></b> <span id="rangeMark"></span> &nbsp; Density <b id="densOut"></b></div>
+                        <div class="pair">
+                            <div><label class="f">Talc Reading <input id="s4talc"></label></div>
+                            <div><label class="f">Sheet Length <input id="s4sheet" onkeyup="compute()"> <span id="sheetMark"></span></label></div>
+                        </div>
+                        <p>Pass/Fail <span id="pfOut" class="pf"></span></p>
+                    </div>
+                </div>
+                <div id="formS1" class="form">
+                    <div class="card">
+                        <h2>S1 / S3 entries</h2>
+                        <div class="pair">
+                            <div><label class="f">Bundle # <input id="s1bundle"></label></div>
+                            <div><label class="f">Width <input id="s1width" onkeyup="compute()"></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Footage <input id="s1foot"></label></div>
+                            <div><label class="f">Perf <input id="s1perf" onkeyup="compute()"> <span id="perfMark"></span></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Bundle Tight/Loose <select id="s1bundleFit" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
+                            <div><label class="f">Tape Color <select id="s1tape"><option></option><option>RED</option><option>YELLOW</option><option>GREEN</option><option>BLUE</option><option>BROWN</option><option>TAN</option><option>CLEAR</option><option>ULINE</option><option>BLACK</option></select></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Cell Count MD <input id="s1md"></label></div>
+                            <div><label class="f">Cell Count CD <input id="s1cd"></label></div>
+                        </div>
+                        <label class="f">Weight <input id="s1weight" onkeyup="compute()"></label>
+                        <label class="f">Thickness points</label>
+                        <div class="pts">
+                            <input id="s1t1" onkeyup="compute()"><input id="s1t2" onkeyup="compute()"><input id="s1t3" onkeyup="compute()"><input id="s1t4" onkeyup="compute()"><input id="s1t5" onkeyup="compute()">
+                            <input id="s1t6" onkeyup="compute()"><input id="s1t7" onkeyup="compute()"><input id="s1t8" onkeyup="compute()"><input id="s1t9" onkeyup="compute()"><input id="s1t10" onkeyup="compute()">
+                            <input id="s1t11" onkeyup="compute()"><input id="s1t12" onkeyup="compute()"><input id="s1t13" onkeyup="compute()">
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Diameter (ULINE only) <input id="s1diam"></label></div>
+                            <div><label class="f">Diameter Pass/Fail <select id="s1diamPf" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
+                        </div>
+                    </div>
+                </div>
+                <div id="formBubble" class="form">
+                    <div class="card">
+                        <h2>Bubble entries</h2>
+                        <div class="pair">
+                            <div><label class="f">Product Verification <select id="bprod" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
+                            <div><label class="f">COH/ADH Verification <select id="bcoh" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
+                        </div>
+                        <label class="f">Post-Visual Inspection <select id="bpostv" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label>
+                        <div class="pair">
+                            <div><label class="f"># Slits <input id="bslits"></label></div>
+                            <div><label class="f">Width <input id="bwidth" onkeyup="compute()"> <span id="bwidthMark"></span></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Footage <input id="bfootage" onkeyup="compute()"> <span id="bfootMark"></span></label></div>
+                            <div><label class="f">Perf Width <input id="bperfw" onkeyup="compute()"> <span id="bperfMark"></span></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Perf Tester Results <input id="btester" onkeyup="compute()"> <span id="btestMark"></span></label></div>
+                            <div><label class="f">Gram Weight <input id="bweight" onkeyup="compute()"> <span id="bwtMark"></span></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Dead Cells / Air Transfers Pre <input id="bdeadPre" onkeyup="compute()"></label></div>
+                            <div><label class="f"># Air Transfers Pre <input id="bairPre" onkeyup="compute()"></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Dead Cells / Air Transfers Post <input id="bdeadPost" onkeyup="compute()"></label></div>
+                            <div><label class="f"># Air Transfers Post <input id="bairPost" onkeyup="compute()"></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Diameter (ULINE only) <input id="bdiam"></label></div>
+                            <div><label class="f">Diameter P/F <select id="bdiamPf" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
+                        </div>
+                        <p>Pass/Fail <span id="bpfOut" class="pf"></span></p>
+                    </div>
+                </div>
+                <div id="formP1" class="form">
+                    <div class="card">
+                        <h2>P1 entries</h2>
+                        <div class="pair">
+                            <div><label class="f">Length <input id="plength" onkeyup="compute()"></label></div>
+                            <div><label class="f">Width <input id="pwidth" onkeyup="compute()"></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Cell Count MD <input id="pmd"></label></div>
+                            <div><label class="f">Cell Count CD <input id="pcd"></label></div>
+                        </div>
+                        <label class="f">Plank Weight <input id="pweight" onkeyup="compute()"></label>
+                        <div class="pair">
+                            <div><label class="f">Head <input id="phead" onkeyup="compute()"></label></div>
+                            <div><label class="f">End 1 <input id="pend1" onkeyup="compute()"></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">End 2 <input id="pend2" onkeyup="compute()"></label></div>
+                            <div><label class="f">Tail <input id="ptail" onkeyup="compute()"></label></div>
+                        </div>
+                        <div>Average <b id="pavgOut"></b> &nbsp; Volume <b id="pvolOut"></b> &nbsp; Density <b id="pdensOut"></b></div>
+                        <p>Pass/Fail <span id="ppfOut" class="pf"></span></p>
+                    </div>
+                </div>
+                <div id="formRts" class="form">
+                    <div class="card">
+                        <h2>RTS entries</h2>
+                        <div class="pair">
+                            <div><label class="f">Parent Material <input id="rparent"></label></div>
+                            <div><label class="f">Parent MFG Date <input id="rdate"></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Parent Shift <select id="rshift"><option></option><option>A</option><option>B</option><option>C</option><option>D</option></select></label></div>
+                            <div><label class="f">Color <select id="rcolor" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Width <input id="rwidth" onkeyup="compute()"></label></div>
+                            <div><label class="f">Length <input id="rlength" onkeyup="compute()"></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Blister / Delam <select id="rdelam" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
+                            <div><label class="f">Alligator Skin <select id="rallig" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
+                        </div>
+                        <input type="hidden" id="rblister" value="">
+                        <label class="f">Thickness points</label>
+                        <div class="pts">
+                            <input id="rt1" onkeyup="compute()"><input id="rt2" onkeyup="compute()"><input id="rt3" onkeyup="compute()">
+                            <span id="rthkMark"></span>
+                        </div>
+                        <p>Pass/Fail <span id="rpfOut" class="pf"></span></p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </body>
 </html>

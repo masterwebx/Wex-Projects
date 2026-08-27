@@ -576,6 +576,7 @@ try {
     <p>Press Ctrl+V to paste Copy for Graph from the S4, S1 S3, Bubble, Garland Bubble, P1, and RTS quality check sheets.</p>
     <div class="actions">
       <button type="button" id="welcomePaste">Paste results</button>
+      <button class="secondary" type="button" id="welcomeReloadDisk" title="Read HTA results from the results folder">Reload from disk</button>
       <button class="secondary" type="button" id="welcomeSap" title="Excel or CSV from SAP">SAP audit</button>
     </div>
     <div class="hub-grid welcome-extra">
@@ -598,6 +599,7 @@ try {
       <p class="hist-meta" id="histMeta"></p>
     </div>
     <div class="toolbar page-tools">
+      <button class="secondary" type="button" id="histReloadDisk">Reload from disk</button>
       <label class="line-filter plant-filter">Line
         <select id="histPlant" aria-label="Quality line group">
           <option value="foam">Extrusion Foam</option>
@@ -1472,9 +1474,10 @@ try {
           <figcaption>Keep the HTA, the HTML file, and the vendor folder together. The HTA finds index.html or centration.html in the same folder and opens it offline.</figcaption>
         </figure>
         <ul>
-          <li>Copy <code>quality-desk.hta</code>, <code>index.html</code> (or the G: name <code>centration.html</code>), and the <code>vendor</code> folder onto the same directory.</li>
+          <li>Keep <code>quality-desk.hta</code>, <code>qd-check.js</code>, <code>index.html</code> (or <code>centration.html</code>), and <code>Quality AIO.xlsm</code> in the same folder. Do not put the AIO workbook on GitHub.</li>
+          <li>The HTA is the check sheet: look up an item, view specs, submit. Each line writes its own file under <code>results/</code> so S4 does not overwrite S1.</li>
+          <li>Quality Desk reviews those files. Use <b>Reload from disk</b> after a submit. The HTA will not open a second Edge window if the desk is already open.</li>
           <li>Chart.js lives in <code>vendor/chart.umd.min.js</code> so Trends does not need a CDN.</li>
-          <li>The HTA itself is a small Windows launcher. Quality Desk still runs in Edge — mshta cannot host this page.</li>
         </ul>
       </article>
     </div>
@@ -1532,7 +1535,7 @@ try {
 
 <script src="vendor/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.41';
+const APP_VERSION = '1.7.42';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -1816,6 +1819,89 @@ async function restorePack() {
     db.close();
     return data;
   } catch { return null; }
+}
+const HTA_DISK_FILES = ['lookup', 's4', 's1', 's3', 'coex', 'mono', 'p1', 'rts'];
+function loadHtaScript(src) {
+  return new Promise((resolve) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = () => resolve(true);
+    s.onerror = () => resolve(false);
+    document.head.appendChild(s);
+  });
+}
+function plantForHtaFile(key) {
+  if (key === 's4' || key === 's1' || key === 's3') return 'foam';
+  if (key === 'coex' || key === 'mono') return 'bubble';
+  if (key === 'p1' || key === 'rts') return key;
+  return 'foam';
+}
+async function readDiskHandoff() {
+  window.QD_DISK = { lines: {}, lookupRows: [], users: [] };
+  const t = Date.now();
+  let loaded = 0;
+  for (const name of HTA_DISK_FILES) {
+    if (await loadHtaScript('results/' + name + '.js?t=' + t)) loaded += 1;
+  }
+  const rows = [];
+  const lines = (window.QD_DISK && window.QD_DISK.lines) || {};
+  for (const key of ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts']) {
+    const pack = lines[key];
+    if (!pack || !pack.rows) continue;
+    for (const row of pack.rows) {
+      const copy = Object.assign({}, row, { __source: 'hta', __lineFile: key });
+      if (!copy.__plant) copy.__plant = plantForHtaFile(key);
+      rows.push(copy);
+    }
+  }
+  if (!loaded && !rows.length) return null;
+  return { rows, lookupRows: (window.QD_DISK && window.QD_DISK.lookupRows) || [] };
+}
+async function applyDiskHandoff(opts) {
+  const silent = !!(opts && opts.silent);
+  if (!silent) {
+    showProgress('Reload from disk', 12, 'Reading HTA results');
+    await yieldUi();
+  }
+  let disk = null;
+  try { disk = await readDiskHandoff(); }
+  finally { if (!silent) hideProgress(); }
+  if (!disk || !disk.rows.length) {
+    if (!silent) toast('No HTA results on disk. Submit a check from quality-desk.hta first.');
+    return false;
+  }
+  const kept = ((historyPack && historyPack.rows) || []).filter(r => r && r.__source !== 'hta');
+  const rows = dedupeHistoryRows(kept.concat(disk.rows));
+  const lookupRows = (disk.lookupRows && disk.lookupRows.length)
+    ? disk.lookupRows
+    : ((historyPack && historyPack.lookupRows) || []);
+  historyPack = {
+    item: (historyPack && historyPack.item) || '',
+    mspec: (historyPack && historyPack.mspec) || '',
+    rows,
+    lookupRows,
+    lookupByMspec: buildLookupMap(lookupRows),
+    specPatches: (historyPack && historyPack.specPatches) || {}
+  };
+  await indexHistory((i, n) => {
+    if (!silent) showProgress('Reload from disk', 20 + Math.round(70 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
+  });
+  if (!plantRows().length) {
+    const next = Object.keys(PLANTS).find(k => plantRows(k).length);
+    if (next) activePlant = next;
+  }
+  fillLineSelects();
+  syncPlantChrome();
+  markHasHistory(true);
+  persistPack();
+  if (!silent) {
+    toast(`Loaded ${disk.rows.length} HTA check${disk.rows.length === 1 ? '' : 's'} from disk`);
+    if (screenName === 'history') renderHistoryTable();
+    else if (rows.length) goTo('history');
+  } else {
+    syncWelcome();
+  }
+  return true;
 }
 function syncWelcome() {
   const has = indexedRows.length > 0;
@@ -8144,7 +8230,9 @@ window.addEventListener('resize', () => {
   }, 220);
 });
 document.getElementById('welcomePaste').onclick = () => applyFromClipboard(true);
+document.getElementById('welcomeReloadDisk').onclick = () => applyDiskHandoff();
 document.getElementById('welcomeSap').onclick = () => document.getElementById('complianceSapFile').click();
+document.getElementById('histReloadDisk').onclick = () => applyDiskHandoff();
 document.getElementById('welcomeHistory').onclick = () => {
   if (!indexedRows.length) { toast('Paste results first'); return; }
   goTo('history');
@@ -8452,6 +8540,7 @@ restorePack().then(async data => {
   if (!data || !Array.isArray(data.rows) || !data.rows.length) {
     markHasHistory(false);
     if (screenName !== 'welcome') setScreen('welcome');
+    if (location.protocol === 'file:') await applyDiskHandoff({ silent: true });
     return;
   }
   showProgress('Loading saved results', 12, '');
@@ -8481,6 +8570,7 @@ restorePack().then(async data => {
     syncWelcome();
     markHasHistory(true);
     setScreen('welcome');
+    if (location.protocol === 'file:') await applyDiskHandoff({ silent: true });
   } finally {
     hideProgress();
   }

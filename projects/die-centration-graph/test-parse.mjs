@@ -292,7 +292,12 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.41'/);
+assert.match(html, /APP_VERSION = '1\.7\.42'/);
+assert.match(html, /id="welcomeReloadDisk"/);
+assert.match(html, /id="histReloadDisk"/);
+assert.match(html, /function applyDiskHandoff/);
+assert.match(html, /function readDiskHandoff/);
+assert.match(html, /__source !== 'hta'/);
 assert.match(html, /data-docs="offline"/);
 assert.match(html, /docs-aid-offline/);
 assert.match(html, /quality-desk\.hta/);
@@ -2426,19 +2431,64 @@ assert.ok(isTsvHeaderLine(garlandSecs.TABLESGARLAND[0]));
 
 const hta = fs.readFileSync(path.join(dir, 'quality-desk.hta'), 'utf8');
 assert.match(hta, /<HTA:APPLICATION/i);
-assert.match(hta, /APPLICATIONNAME="Quality Desk"/);
+assert.match(hta, /APPLICATIONNAME="Quality Desk Checks"/);
 assert.match(hta, /function getAppFolder/);
 assert.match(hta, /Scripting\.FileSystemObject/);
+assert.match(hta, /Quality AIO\.xlsm/);
+assert.match(hta, /function submitCheck/);
+assert.match(hta, /function deskIsOpen/);
+assert.match(hta, /Win32_Process/);
+assert.match(hta, /writeLineRows/);
+assert.match(hta, /results\\/);
+assert.match(hta, /src="qd-check\.js"/);
 assert.match(hta, /index\.html/);
 assert.match(hta, /centration\.html/);
 assert.match(hta, /msedge/);
 assert.match(hta, /--app=/);
-assert.match(hta, /chart\.umd\.min\.js/);
-assert.match(hta, /["']vendor["']/);
 assert.doesNotMatch(hta, /https:\/\//);
 assert.doesNotMatch(hta, /<iframe/i);
 assert.doesNotMatch(hta, /<frame/i);
 assert.doesNotMatch(hta, /src=['"]https?:/);
+
+const gitignore = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8');
+assert.match(gitignore, /Quality AIO\.xlsm/);
+assert.match(gitignore, /results\/\*\.js/);
+assert.ok(!fs.existsSync(path.join(dir, 'Quality AIO.xlsm')));
+assert.ok(!fs.existsSync(path.join(dir, 'Quality_AIO.xlsm')));
+
+const QD = (await import('./qd-check.js')).default;
+assert.equal(QD.fileForLine('S4'), 's4');
+assert.equal(QD.fileForLine('S1'), 's1');
+assert.equal(QD.fileForLine('S3'), 's3');
+assert.equal(QD.fileForLine('COEX'), 'coex');
+assert.equal(QD.plantForLine('MONO'), 'bubble');
+assert.ok(QD.skipReason('S4', 'STARTUP'));
+assert.ok(!QD.skipReason('S4', 'HOURLY'));
+assert.ok(Math.abs(QD.densityS4(16, 0.5) - ((16 / 453.592) / ((16 * 0.5) / 1728))) < 1e-9);
+assert.ok(Math.abs(QD.densityS1(20, 0.2) - ((20 * 12) / (0.2 * 1000))) < 1e-9);
+const s4row = QD.buildRow({
+  line: 'S4', item: '3030053', description: 'AF500', mspec: '4780',
+  user: 'GWEXLER', reason: 'HOURLY', notes: 'hta',
+  width: 53, cellMd: 20, cellCd: 20, avg: 0.52, range: 12, density: 1.6,
+  passFail: 'Pass', points: [0.52, 0.53]
+});
+assert.equal(s4row.__source, 'hta');
+assert.equal(s4row.__lineFile, 's4');
+assert.equal(s4row.__plant, 'foam');
+assert.equal(s4row.Line, 'S4');
+const s1row = QD.buildRow({ line: 'S1', item: '35613', user: 'GWEXLER', reason: 'HOURLY', passFail: 'Pass' });
+assert.equal(s1row.__lineFile, 's1');
+assert.notEqual(s1row.__lineFile, s4row.__lineFile);
+const merged = QD.mergeDisk({
+  lookupRows: [{ 'MSPEC #': '4780', Target: 0.54 }],
+  lines: { s4: { rows: [s4row] }, s1: { rows: [s1row] } }
+});
+assert.equal(merged.rows.length, 2);
+assert.equal(merged.lookupRows[0]['MSPEC #'], '4780');
+const diskJs = QD.diskScript('s4', { file: 's4', rows: [s4row] });
+assert.match(diskJs, /QD_DISK\.lines/);
+assert.match(diskJs, /"s4"/);
+assert.doesNotMatch(fs.readFileSync(path.join(dir, 'qd-check.js'), 'utf8'), /Quality AIO\.xlsm/);
 
 const chartJs = fs.readFileSync(path.join(dir, 'vendor/chart.umd.min.js'), 'utf8');
 assert.match(chartJs, /Chart\.js v4\.4\.1/);

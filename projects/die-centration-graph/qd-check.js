@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.42';
+  QD.VERSION = '1.7.43';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -424,6 +424,100 @@
       body += 'QD_DISK.lines[' + stringify(kind) + ']=' + stringify(payload) + ';\n';
     }
     return body;
+  };
+
+  QD.CSV_FILES = {
+    items: ['MasterDatabase.csv', 'Master Database.csv'],
+    mspecs: ['MasterSheet.csv', 'Master Sheet.csv'],
+    users: ['UserList.csv', 'User List.csv']
+  };
+
+  QD.ITEM_FIELDS = [
+    { key: 'item', label: 'Item #', required: true },
+    { key: 'description', label: 'Description' },
+    { key: 'length', label: 'Length' },
+    { key: 'width', label: 'Width' },
+    { key: 'slits', label: '# Slits' },
+    { key: 'footage', label: 'Footage' },
+    { key: 'perf', label: 'Perf' },
+    { key: 'bubbleType', label: 'Bubble Type' },
+    { key: 'parent', label: 'Parent Material' },
+    { key: 'mspec', label: 'MSPEC' },
+    { key: 'thickness', label: 'Thickness' },
+    { key: 'density', label: 'Density' },
+    { key: 'shots', label: '# Shots' },
+    { key: 'soft', label: 'Soft' }
+  ];
+
+  QD.parseCsv = function (text) {
+    var s = String(text || '').replace(/^\ufeff/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    var rows = [];
+    var i = 0, field = '', row = [], q = false, c;
+    function pushField() { row.push(field); field = ''; }
+    function pushRow() {
+      if (row.length === 1 && row[0] === '' && rows.length) return;
+      rows.push(row);
+      row = [];
+    }
+    if (!s) return { headers: [], rows: [] };
+    while (i < s.length) {
+      c = s.charAt(i);
+      if (q) {
+        if (c === '"') {
+          if (s.charAt(i + 1) === '"') { field += '"'; i += 2; continue; }
+          q = false; i += 1; continue;
+        }
+        field += c; i += 1; continue;
+      }
+      if (c === '"') { q = true; i += 1; continue; }
+      if (c === ',') { pushField(); i += 1; continue; }
+      if (c === '\n') { pushField(); pushRow(); i += 1; continue; }
+      field += c; i += 1;
+    }
+    pushField();
+    if (row.length) pushRow();
+    if (!rows.length) return { headers: [], rows: [] };
+    var headers = rows[0];
+    var objects = [];
+    var r, col, obj;
+    for (r = 1; r < rows.length; r++) {
+      obj = {};
+      for (col = 0; col < headers.length; col++) {
+        if (headers[col]) obj[headers[col]] = rows[r][col] == null ? '' : rows[r][col];
+      }
+      objects.push(obj);
+    }
+    return { headers: headers, rows: objects };
+  };
+
+  QD.mergeUsers = function (base, extra) {
+    var seen = {};
+    var out = [];
+    function add(name) {
+      var u = trim(name);
+      if (!u) return;
+      var key = u.toUpperCase();
+      if (seen[key]) return;
+      seen[key] = 1;
+      out.push(u);
+    }
+    var i;
+    for (i = 0; i < (base || []).length; i++) add(base[i]);
+    for (i = 0; i < (extra || []).length; i++) add(extra[i]);
+    return out;
+  };
+
+  QD.mergeItems = function (base, extra) {
+    var out = (base || []).slice();
+    var i, it, existing, k;
+    for (i = 0; i < (extra || []).length; i++) {
+      it = extra[i];
+      existing = QD.findItem(out, it.item);
+      if (existing) {
+        for (k in it) if (Object.prototype.hasOwnProperty.call(it, k) && it[k] != null && it[k] !== '') existing[k] = it[k];
+      } else out.push(it);
+    }
+    return out;
   };
 
   function stringify(v) {

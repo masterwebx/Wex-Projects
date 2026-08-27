@@ -1475,6 +1475,7 @@ try {
         </figure>
         <ul>
           <li>Keep <code>quality-desk.hta</code>, <code>qd-check.js</code>, <code>index.html</code> (or <code>centration.html</code>), and <code>Quality AIO.xlsm</code> in the same folder. Do not put the AIO workbook on GitHub.</li>
+          <li>If item/user lists stay empty, delete <code>results/aio-cache.js</code> and click Reload AIO. Better: import <code>ExportAioCsv.bas</code> into Quality AIO and run it so <code>aio-csv</code> sits next to the HTA.</li>
           <li>The HTA is the check sheet: look up an item, view specs, submit. Each line writes its own file under <code>results/</code> so S4 does not overwrite S1.</li>
           <li>Quality Desk reviews those files. Use <b>Reload from disk</b> after a submit. The HTA will not open a second Edge window if the desk is already open.</li>
           <li>Chart.js lives in <code>vendor/chart.umd.min.js</code> so Trends does not need a CDN.</li>
@@ -1535,7 +1536,7 @@ try {
 
 <script src="vendor/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.42';
+const APP_VERSION = '1.7.43';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';

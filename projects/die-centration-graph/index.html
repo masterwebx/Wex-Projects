@@ -1859,49 +1859,51 @@ async function readDiskHandoff() {
 }
 async function applyDiskHandoff(opts) {
   const silent = !!(opts && opts.silent);
-  if (!silent) {
-    showProgress('Reload from disk', 12, 'Reading HTA results');
-    await yieldUi();
+  try {
+    if (!silent) {
+      showProgress('Reload from disk', 12, 'Reading HTA results');
+      await yieldUi();
+    }
+    const disk = await readDiskHandoff();
+    if (!disk || !disk.rows.length) {
+      if (!silent) toast('No HTA results on disk. Submit a check from quality-desk.hta first.');
+      return false;
+    }
+    const kept = ((historyPack && historyPack.rows) || []).filter(r => r && r.__source !== 'hta');
+    const rows = dedupeHistoryRows(kept.concat(disk.rows));
+    const lookupRows = (disk.lookupRows && disk.lookupRows.length)
+      ? disk.lookupRows
+      : ((historyPack && historyPack.lookupRows) || []);
+    historyPack = {
+      item: (historyPack && historyPack.item) || '',
+      mspec: (historyPack && historyPack.mspec) || '',
+      rows,
+      lookupRows,
+      lookupByMspec: buildLookupMap(lookupRows),
+      specPatches: (historyPack && historyPack.specPatches) || {}
+    };
+    await indexHistory((i, n) => {
+      if (!silent) showProgress('Reload from disk', 20 + Math.round(70 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
+    });
+    if (!plantRows().length) {
+      const next = Object.keys(PLANTS).find(k => plantRows(k).length);
+      if (next) activePlant = next;
+    }
+    fillLineSelects();
+    syncPlantChrome();
+    markHasHistory(true);
+    persistPack();
+    if (!silent) {
+      toast(`Loaded ${disk.rows.length} HTA check${disk.rows.length === 1 ? '' : 's'} from disk`);
+      if (screenName === 'history') renderHistoryTable();
+      else if (rows.length) goTo('history');
+    } else {
+      syncWelcome();
+    }
+    return true;
+  } finally {
+    if (!silent) hideProgress();
   }
-  let disk = null;
-  try { disk = await readDiskHandoff(); }
-  finally { if (!silent) hideProgress(); }
-  if (!disk || !disk.rows.length) {
-    if (!silent) toast('No HTA results on disk. Submit a check from quality-desk.hta first.');
-    return false;
-  }
-  const kept = ((historyPack && historyPack.rows) || []).filter(r => r && r.__source !== 'hta');
-  const rows = dedupeHistoryRows(kept.concat(disk.rows));
-  const lookupRows = (disk.lookupRows && disk.lookupRows.length)
-    ? disk.lookupRows
-    : ((historyPack && historyPack.lookupRows) || []);
-  historyPack = {
-    item: (historyPack && historyPack.item) || '',
-    mspec: (historyPack && historyPack.mspec) || '',
-    rows,
-    lookupRows,
-    lookupByMspec: buildLookupMap(lookupRows),
-    specPatches: (historyPack && historyPack.specPatches) || {}
-  };
-  await indexHistory((i, n) => {
-    if (!silent) showProgress('Reload from disk', 20 + Math.round(70 * i / Math.max(n, 1)), `${i.toLocaleString()} / ${n.toLocaleString()}`);
-  });
-  if (!plantRows().length) {
-    const next = Object.keys(PLANTS).find(k => plantRows(k).length);
-    if (next) activePlant = next;
-  }
-  fillLineSelects();
-  syncPlantChrome();
-  markHasHistory(true);
-  persistPack();
-  if (!silent) {
-    toast(`Loaded ${disk.rows.length} HTA check${disk.rows.length === 1 ? '' : 's'} from disk`);
-    if (screenName === 'history') renderHistoryTable();
-    else if (rows.length) goTo('history');
-  } else {
-    syncWelcome();
-  }
-  return true;
 }
 function syncWelcome() {
   const has = indexedRows.length > 0;

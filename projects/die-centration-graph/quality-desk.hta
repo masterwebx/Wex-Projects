@@ -270,6 +270,7 @@
             if (loadAioCache()) {
                 fillUsers();
                 writeLookupFile();
+                ensureLineFiles();
                 setStatus("Loaded specs from cache (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + aio.path);
                 return true;
             }
@@ -283,6 +284,7 @@
                 saveAioCache();
                 fillUsers();
                 writeLookupFile();
+                ensureLineFiles();
                 setStatus("Loaded Quality AIO (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + aio.path);
                 return true;
             } catch (e) {
@@ -297,6 +299,16 @@
                 lookupRows: aio.mspecs,
                 users: aio.users
             }));
+        }
+
+        function ensureLineFiles() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var i, key, path;
+            for (i = 0; i < QD.LINE_FILES.length; i++) {
+                key = QD.LINE_FILES[i];
+                path = fso.BuildPath(resultsDir(), key + ".js");
+                if (!fso.FileExists(path)) writeLineRows(key, []);
+            }
         }
 
         function readLineRows(fileKey) {

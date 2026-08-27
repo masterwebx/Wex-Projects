@@ -62,15 +62,37 @@
         table.list th, table.list td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #d5dde4; vertical-align: top; }
         table.list th { color: #3e4a55; }
         .list-wrap { max-height: 520px; overflow: auto; border: 1px solid #d5dde4; border-radius: 8px; }
-        .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(15,23,42,.35); }
+        .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(15,23,42,.35); z-index: 20; }
         .overlay.on { display: block; }
+        .overlay.login { background: #0f172a; z-index: 40; }
         .modal { width: 520px; max-width: 92%; margin: 40px auto; background: #fff; border-radius: 12px; padding: 16px; border: 1px solid #d5dde4; }
+        .modal.wide { width: 780px; }
         .modal h3 { margin: 0 0 10px; }
+        .session { font-size: 13px; color: #3e4a55; margin-right: 10px; }
+        .subtabs button { margin: 0 6px 6px 0; background: #fff; color: #12202b; border: 2px solid #d5dde4; }
+        .subtabs button.on { background: #0f766e; color: #fff; border-color: #0f766e; }
+        table.specs { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: auto; }
+        table.specs th, table.specs td { text-align: left; padding: 5px 6px; border: 1px solid #d5dde4; vertical-align: top; }
+        table.specs thead th { background: #e8eef4; color: #3e4a55; font-weight: 700; }
+        table.specs th.group { text-align: center; background: #d7e3ee; }
+        table.specs th.mspec, table.specs td.mspec { width: 4.6em; max-width: 5em; white-space: nowrap; }
+        table.specs td.num, table.specs th.num { width: 4.2em; text-align: right; }
+        table.specs button { padding: 3px 8px; font-size: 12px; margin: 0 3px 0 0; }
+        button.danger { background: #991b1b; }
+        .locked { display: none; }
+        .who { font-weight: 700; color: #12202b; }
+        .type-fields { display: none; }
+        .type-fields.on { display: block; }
     </style>
     <script src="qd-check.js" type="text/javascript"></script>
     <script type="text/javascript">
-        var aio = { items: [], mspecs: [], users: [], path: '', loaded: false };
+        var aio = { items: [], mspecs: [], users: [], bubble: [], bubbleDead: [], p1: [], rts: [], path: '', loaded: false };
         var currentLine = 'S4';
+        var specTab = 'foam';
+        var session = { user: '', admin: false, last: 0 };
+        var authUsers = [];
+        var specHistory = [];
+        var idleTimer = null;
 
         function $(id) { return document.getElementById(id); }
 
@@ -128,6 +150,202 @@
             return text;
         }
 
+        function protectPath(path) {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (fso.FileExists(path)) fso.GetFile(path).Attributes = 2;
+            } catch (e1) {}
+            try {
+                var sh = new ActiveXObject("WScript.Shell");
+                var user = sh.ExpandEnvironmentStrings("%USERNAME%");
+                sh.Run('cmd /c icacls "' + path + '" /inheritance:r /grant:r "' + user + ':(R,W)" >nul 2>&1', 0, true);
+            } catch (e2) {}
+        }
+
+        function usersDatPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), QD.USERS_FILE);
+        }
+
+        function historyPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), "spec-history.js");
+        }
+
+        function localSpecsPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), "local-specs.js");
+        }
+
+        function touchSession() {
+            if (!session.user) return;
+            session.last = new Date().getTime();
+        }
+
+        function checkIdle() {
+            if (!session.user) return;
+            if ((new Date().getTime() - session.last) >= QD.IDLE_MS) logout("Signed out after 1 hour of inactivity.");
+        }
+
+        function startIdleWatch() {
+            if (idleTimer) window.clearInterval(idleTimer);
+            idleTimer = window.setInterval(checkIdle, 15000);
+            document.onmousemove = touchSession;
+            document.onkeydown = touchSession;
+            document.onclick = touchSession;
+        }
+
+        function loadAuthUsers() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path = usersDatPath();
+            if (!fso.FileExists(path)) {
+                authUsers = [QD.makeUserRecord(QD.SEED_USER, "QCLAB", true, false)];
+                saveAuthUsers();
+                return authUsers;
+            }
+            authUsers = QD.parseUsersDat(readUtf8(path));
+            if (!authUsers.length) {
+                authUsers = [QD.makeUserRecord(QD.SEED_USER, "QCLAB", true, false)];
+                saveAuthUsers();
+            }
+            return authUsers;
+        }
+
+        function saveAuthUsers() {
+            var path = usersDatPath();
+            writeUtf8(path, QD.formatUsersDat(authUsers));
+            protectPath(path);
+        }
+
+        function loadSpecHistory() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path = historyPath();
+            window.QD_SPEC_HISTORY = [];
+            if (fso.FileExists(path)) {
+                try { eval(readUtf8(path)); } catch (e) {}
+            }
+            specHistory = window.QD_SPEC_HISTORY || [];
+        }
+
+        function saveSpecHistory() {
+            var path = historyPath();
+            writeUtf8(path, "window.QD_SPEC_HISTORY=" + JSON.stringify(specHistory) + ";");
+            protectPath(path);
+        }
+
+        function addHistory(kind, key, why, before, after) {
+            specHistory.push(QD.specHistoryEntry(kind, key, session.user, why, before, after));
+            saveSpecHistory();
+        }
+
+        function saveLocalSpecs() {
+            writeUtf8(localSpecsPath(), "window.QD_LOCAL_SPECS=" + JSON.stringify({
+                mspecs: aio.mspecs, bubble: aio.bubble, bubbleDead: aio.bubbleDead, p1: aio.p1, rts: aio.rts
+            }) + ";");
+        }
+
+        function applyLocalSpecs() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path = localSpecsPath();
+            window.QD_LOCAL_SPECS = null;
+            if (!fso.FileExists(path)) return;
+            try { eval(readUtf8(path)); } catch (e) { return; }
+            var loc = window.QD_LOCAL_SPECS || {};
+            if (loc.mspecs && loc.mspecs.length) aio.mspecs = loc.mspecs;
+            if (loc.bubble && loc.bubble.length) aio.bubble = loc.bubble;
+            if (loc.bubbleDead && loc.bubbleDead.length) aio.bubbleDead = loc.bubbleDead;
+            if (loc.p1 && loc.p1.length) aio.p1 = loc.p1;
+            if (loc.rts && loc.rts.length) aio.rts = loc.rts;
+        }
+
+        function writeManifest() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var dir = resultsDir();
+            var files = [];
+            var names = ["manifest.js", "lookup.js"].concat((function () {
+                var out = [], i;
+                for (i = 0; i < QD.LINE_FILES.length; i++) out.push(QD.LINE_FILES[i] + ".js");
+                return out;
+            })());
+            var i, p;
+            for (i = 1; i < names.length; i++) {
+                p = fso.BuildPath(dir, names[i]);
+                if (fso.FileExists(p)) files.push(names[i]);
+            }
+            writeUtf8(fso.BuildPath(dir, "manifest.js"), QD.diskManifestScript(files));
+        }
+
+        function isAdmin() { return !!(session.user && session.admin); }
+
+        function requireAdmin() {
+            if (!isAdmin()) { alert("Only admins can do that."); return false; }
+            return true;
+        }
+
+        function showApp() {
+            $("loginOverlay").className = "overlay login";
+            $("appRoot").style.display = "block";
+            $("sessionWho").innerText = session.user + (session.admin ? " (admin)" : "");
+            var adminEls = document.getElementsByTagName("*");
+            var i, el;
+            for (i = 0; i < adminEls.length; i++) {
+                el = adminEls[i];
+                if (el.className && String(el.className).indexOf("admin-only") >= 0) {
+                    el.style.display = session.admin ? "" : "none";
+                }
+            }
+            $("user").value = session.user;
+            if ($("user").options.length === 0 || $("user").value !== session.user) {
+                $("user").options.length = 0;
+                $("user").options.add(new Option(session.user, session.user));
+                $("user").value = session.user;
+            }
+            $("user").disabled = true;
+            startIdleWatch();
+            touchSession();
+        }
+
+        function hideApp(msg) {
+            session.user = "";
+            session.admin = false;
+            $("appRoot").style.display = "none";
+            $("loginOverlay").className = "overlay login on";
+            if ($("loginPass")) $("loginPass").value = "";
+            if (msg) $("loginStatus").innerText = msg;
+        }
+
+        function doLogin() {
+            var name = QD.trim($("loginUser").value);
+            var pass = $("loginPass").value;
+            loadAuthUsers();
+            var rec = QD.findUserRecord(authUsers, name);
+            if (!rec || !QD.verifyPassword(rec, pass)) {
+                $("loginStatus").innerText = "Unknown user or wrong password.";
+                return;
+            }
+            if (!rec.hash) {
+                $("loginStatus").innerText = "This user has no password. An admin must set one.";
+                return;
+            }
+            session.user = rec.name;
+            session.admin = !!rec.admin;
+            touchSession();
+            $("loginStatus").innerText = "";
+            $("loginOverlay").className = "overlay login";
+            showApp();
+            if (!aio.loaded) loadAio(false);
+            if (rec.mustChange) {
+                $("pwOverlay").className = "overlay on";
+                $("pwTitle").innerText = "Set your password";
+            }
+            setStatus("Signed in as " + rec.name + (rec.admin ? " (admin)" : "") + ".");
+            renderLists();
+        }
+
+        function logout(msg) {
+            hideApp(msg || "Signed out.");
+        }
+
         function findAio() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var folder = getAppFolder();
@@ -152,9 +370,8 @@
             return "";
         }
 
-        function sheetValues(ws) {
-            var used = ws.UsedRange;
-            var values = used.Value;
+        function rangeValues(rng) {
+            var values = rng.Value;
             var vb, r, c, r0, r1, c0, c1, row, out;
             if (values === undefined || values === null) return [];
             if (typeof values === "string" || typeof values === "number") return [[values]];
@@ -175,8 +392,20 @@
             }
         }
 
-        function rowsFromSheet(ws, headerMap) {
-            var raw = sheetValues(ws);
+        function sheetValues(ws) {
+            return rangeValues(ws.UsedRange);
+        }
+
+        function listObjectRows(ws, tableName) {
+            try {
+                var lo = ws.ListObjects(tableName);
+                return rowsFromValues(rangeValues(lo.Range));
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function rowsFromValues(raw, headerMap) {
             var rows = [];
             var headers = [];
             var r, c, obj, key;
@@ -193,22 +422,30 @@
             return rows;
         }
 
+        function rowsFromSheet(ws, headerMap) {
+            return rowsFromValues(sheetValues(ws), headerMap);
+        }
+
         function loadAioExcel(path) {
             var xl = new ActiveXObject("Excel.Application");
-            var wb, items = [], mspecs = [], users = [];
+            var wb, items = [], mspecs = [], users = [], rts = [], p1 = [];
             xl.Visible = false;
             xl.DisplayAlerts = false;
             try { xl.AskToUpdateLinks = false; } catch (e0) {}
             try {
                 wb = xl.Workbooks.Open(path, 0, true);
-                items = normalizeItems(rowsFromSheet(wb.Worksheets("Master Database")));
-                mspecs = normalizeMspecs(rowsFromSheet(wb.Worksheets("Master Sheet")));
+                items = normalizeItems(listObjectRows(wb.Worksheets("Master Database"), "Table114"));
+                if (!items.length) items = normalizeItems(rowsFromSheet(wb.Worksheets("Master Database")));
+                mspecs = normalizeMspecs(listObjectRows(wb.Worksheets("Master Sheet"), "Table7"));
+                if (!mspecs.length) mspecs = normalizeMspecs(rowsFromSheet(wb.Worksheets("Master Sheet")));
+                rts = normalizeRts(listObjectRows(wb.Worksheets("Master Sheet"), "Table86"));
+                p1 = normalizeP1(listObjectRows(wb.Worksheets("Master Sheet"), "Table97"));
                 users = normalizeUsers(sheetValues(wb.Worksheets("User List")));
                 wb.Close(false);
             } finally {
                 try { xl.Quit(); } catch (e1) {}
             }
-            return { items: items, mspecs: mspecs, users: users };
+            return { items: items, mspecs: mspecs, users: users, rts: rts, p1: p1 };
         }
 
         function normalizeItems(rows) {
@@ -219,6 +456,18 @@
                 if (!item) continue;
                 out.push({
                     item: item,
+                    type: QD.itemType({
+                        type: r.Type || r.type,
+                        bubbleType: r["Bubble Type"] || r.BubbleType,
+                        slits: r["# Slits"] || r["Slits"],
+                        shots: r["# Shots"] || r.Shots,
+                        soft: r.Soft,
+                        parent: r["Parent Material"] || r.Parent,
+                        thickness: r.Thickness,
+                        length: r.Length,
+                        footage: r.Footage,
+                        mspec: r.MSPEC
+                    }),
                     description: QD.trim(r.Description || r["Item Description"]),
                     length: r.Length,
                     width: r.Width,
@@ -249,6 +498,38 @@
             return out;
         }
 
+        function normalizeRts(rows) {
+            var out = [], i, r, product;
+            for (i = 0; i < (rows || []).length; i++) {
+                r = rows[i];
+                product = QD.trim(r.Product || r.product || r["Product label"]);
+                if (!product || /^product$/i.test(product)) continue;
+                out.push({ product: product, min: r.Min, target: r.Target, max: r.Max });
+            }
+            return out;
+        }
+
+        function normalizeP1(rows) {
+            var out = [], i, r, thk;
+            for (i = 0; i < (rows || []).length; i++) {
+                r = rows[i];
+                thk = QD.trim(r.Thickness || r.thickness);
+                if (!thk || /^thickness$/i.test(thk)) continue;
+                out.push({
+                    thickness: thk,
+                    density: r.Density,
+                    min: r.Min,
+                    max: r.Max,
+                    ccMin: r["CC Min"],
+                    ccMax: r["CC Max"],
+                    thickMin: r["Thick Min"],
+                    thickMax: r["Thick Max"],
+                    thickTarget: r["Thick Target"]
+                });
+            }
+            return out;
+        }
+
         function normalizeUsers(values) {
             var out = [], r, v;
             if (!values) return out;
@@ -268,7 +549,8 @@
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var mtime = aio.path && fso.FileExists(aio.path) ? String(fso.GetFile(aio.path).DateLastModified) : "";
             writeUtf8(cachePath(), "window.QD_AIO=" + JSON.stringify({
-                path: aio.path, mtime: mtime, items: aio.items, mspecs: aio.mspecs, users: aio.users
+                path: aio.path, mtime: mtime, items: aio.items, mspecs: aio.mspecs, users: aio.users,
+                bubble: aio.bubble, bubbleDead: aio.bubbleDead, p1: aio.p1, rts: aio.rts
             }) + ";");
         }
 
@@ -286,6 +568,10 @@
             aio.items = window.QD_AIO.items;
             aio.mspecs = window.QD_AIO.mspecs;
             aio.users = window.QD_AIO.users || [];
+            aio.bubble = window.QD_AIO.bubble || [];
+            aio.bubbleDead = window.QD_AIO.bubbleDead || [];
+            aio.p1 = window.QD_AIO.p1 || [];
+            aio.rts = window.QD_AIO.rts || [];
             aio.loaded = true;
             return true;
         }
@@ -305,13 +591,26 @@
             return "";
         }
 
+        function loadBubbleFile() {
+            var path = findCsvFile(QD.CSV_FILES.bubble);
+            if (!path) return { specs: [], deadCells: [], source: "" };
+            var parsed = QD.parseBubbleSpecs(readUtf8(path));
+            parsed.source = path;
+            return parsed;
+        }
+
         function loadAioCsv() {
             var itemPath = findCsvFile(QD.CSV_FILES.items);
             var specPath = findCsvFile(QD.CSV_FILES.mspecs);
             var userPath = findCsvFile(QD.CSV_FILES.users);
-            if (!itemPath && !specPath && !userPath) return null;
+            var rtsPath = findCsvFile(QD.CSV_FILES.rts);
+            var p1Path = findCsvFile(QD.CSV_FILES.p1);
+            var bubble = loadBubbleFile();
+            if (!itemPath && !specPath && !userPath && !rtsPath && !p1Path && !bubble.source) return null;
             var items = itemPath ? normalizeItems(QD.parseCsv(readUtf8(itemPath)).rows) : [];
             var mspecs = specPath ? normalizeMspecs(QD.parseCsv(readUtf8(specPath)).rows) : [];
+            var rts = rtsPath ? QD.parseRtsSpecs(readUtf8(rtsPath)) : [];
+            var p1 = p1Path ? QD.parseP1Specs(readUtf8(p1Path)) : [];
             var users = [];
             if (userPath) {
                 var parsed = QD.parseCsv(readUtf8(userPath));
@@ -322,7 +621,11 @@
                     if (name && !/^enter your name/i.test(name)) users.push(name);
                 }
             }
-            return { items: items, mspecs: mspecs, users: users, source: itemPath || specPath || userPath };
+            return {
+                items: items, mspecs: mspecs, users: users, rts: rts, p1: p1,
+                bubble: bubble.specs || [], bubbleDead: bubble.deadCells || [],
+                source: itemPath || specPath || rtsPath || p1Path || bubble.source || userPath
+            };
         }
 
         function loadLocalExtras() {
@@ -355,19 +658,29 @@
             return out;
         }
 
+        function applySpecBundle(data) {
+            aio.bubble = (data && data.bubble) || aio.bubble || [];
+            aio.bubbleDead = (data && data.bubbleDead) || aio.bubbleDead || [];
+            aio.p1 = (data && data.p1) || aio.p1 || [];
+            aio.rts = (data && data.rts) || aio.rts || [];
+        }
+
         function afterAioLoad(source) {
             loadLocalExtras();
-            aio.loaded = aio.items.length > 0 || aio.mspecs.length > 0 || aio.users.length > 0;
+            applyLocalSpecs();
+            loadSpecHistory();
+            aio.loaded = aio.items.length > 0 || aio.mspecs.length > 0 || aio.bubble.length > 0 || aio.p1.length > 0 || aio.rts.length > 0;
             fillUsers();
             writeLookupFile();
             ensureLineFiles();
+            writeManifest();
             renderLists();
             setStatus(source);
         }
 
         function loadAio(force) {
             aio.path = findAio();
-            aio.items = []; aio.mspecs = []; aio.users = []; aio.loaded = false;
+            aio.items = []; aio.mspecs = []; aio.users = []; aio.bubble = []; aio.bubbleDead = []; aio.p1 = []; aio.rts = []; aio.loaded = false;
             if (force) {
                 try {
                     var fso = new ActiveXObject("Scripting.FileSystemObject");
@@ -375,11 +688,12 @@
                 } catch (e0) {}
             }
             var csv = loadAioCsv();
-            if (csv && (csv.items.length || csv.mspecs.length || csv.users.length)) {
+            if (csv && (csv.items.length || csv.mspecs.length || csv.users.length || csv.bubble.length || csv.p1.length || csv.rts.length)) {
                 aio.items = csv.items;
                 aio.mspecs = csv.mspecs;
                 aio.users = csv.users;
-                afterAioLoad("Loaded lookup CSVs (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs, " + aio.users.length + " users).\n" + csv.source);
+                applySpecBundle(csv);
+                afterAioLoad("Loaded lookup CSVs (" + aio.items.length + " items, " + aio.mspecs.length + " foam, " + aio.bubble.length + " bubble, " + aio.p1.length + " P1, " + aio.rts.length + " RTS).\n" + csv.source);
                 return true;
             }
             if (!force && loadAioCache()) {
@@ -387,6 +701,13 @@
                 return true;
             }
             if (!aio.path) {
+                var bubbleOnly = loadBubbleFile();
+                if (bubbleOnly.source) {
+                    aio.bubble = bubbleOnly.specs;
+                    aio.bubbleDead = bubbleOnly.deadCells;
+                    afterAioLoad("Loaded BubbleSpecs.csv only. Export AIO tables for foam/P1/RTS items.\n" + bubbleOnly.source);
+                    return true;
+                }
                 setStatus("No lookup data. Put Quality AIO.xlsm next to this HTA, or run ExportAioCsv to create aio-csv\\MasterDatabase.csv.\n" + getAppFolder(), true);
                 renderLists();
                 return false;
@@ -397,8 +718,14 @@
                 aio.items = data.items;
                 aio.mspecs = data.mspecs;
                 aio.users = data.users;
+                applySpecBundle(data);
+                var extra = loadBubbleFile();
+                if (extra.source) {
+                    aio.bubble = extra.specs;
+                    aio.bubbleDead = extra.deadCells;
+                }
                 if (aio.items.length) saveAioCache();
-                afterAioLoad("Loaded Quality AIO (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs, " + aio.users.length + " users).\n" + aio.path);
+                afterAioLoad("Loaded Quality AIO (" + aio.items.length + " items, " + aio.mspecs.length + " foam MSPECs).\n" + aio.path);
                 if (!aio.items.length) setStatus("Opened Quality AIO.xlsm but read 0 items. Run ExportAioCsv in the workbook and keep aio-csv next to the HTA.", true);
                 return aio.items.length > 0;
             } catch (e) {
@@ -413,6 +740,7 @@
                 lookupRows: aio.mspecs,
                 users: aio.users
             }));
+            writeManifest();
         }
 
         function ensureLineFiles() {
@@ -440,16 +768,21 @@
                 file: fileKey,
                 rows: rows || []
             }));
+            writeManifest();
         }
 
         function fillUsers() {
             var sel = $("user");
-            var i, cur = sel ? sel.value : "";
             if (!sel) return;
             sel.options.length = 0;
-            sel.options.add(new Option("", ""));
-            for (i = 0; i < aio.users.length; i++) sel.options.add(new Option(aio.users[i], aio.users[i]));
-            if (cur) sel.value = cur;
+            if (session.user) {
+                sel.options.add(new Option(session.user, session.user));
+                sel.value = session.user;
+                sel.disabled = true;
+            } else {
+                sel.options.add(new Option("", ""));
+                sel.disabled = false;
+            }
         }
 
         function esc(s) {
@@ -472,42 +805,164 @@
             renderItemTable();
         }
 
+        function histBtn(kind, key) {
+            return "<button type='button' class='secondary' onclick=\"viewHistory('" + esc(kind) + "','" + String(key).replace(/'/g, "") + "')\">View history</button>";
+        }
+
+        function editBtn(kind, key) {
+            if (!session.admin) return "";
+            return "<button type='button' onclick=\"openSpecEdit('" + esc(kind) + "','" + String(key).replace(/'/g, "") + "')\">Edit</button>";
+        }
+
         function renderUserTable() {
+            loadAuthUsers();
             var q = ($("userFilter") && $("userFilter").value || "").toLowerCase();
-            var html = "<tr><th>User</th></tr>", i, u, n = 0;
-            for (i = 0; i < aio.users.length; i++) {
-                u = aio.users[i];
-                if (q && String(u).toLowerCase().indexOf(q) < 0) continue;
-                html += "<tr><td>" + esc(u) + "</td></tr>";
+            var html = "<tr><th>User</th><th>Admin</th><th>Password</th>";
+            if (session.admin) html += "<th></th>";
+            html += "</tr>";
+            var i, u, n = 0;
+            for (i = 0; i < authUsers.length; i++) {
+                u = authUsers[i];
+                if (q && String(u.name).toLowerCase().indexOf(q) < 0) continue;
+                html += "<tr><td>" + esc(u.name) + "</td><td>" + (u.admin ? "Yes" : "") + "</td><td>" + (u.hash ? "Set" : "Missing") + "</td>";
+                if (session.admin) {
+                    html += "<td>";
+                    html += "<button type='button' class='secondary' onclick=\"toggleAdmin('" + String(u.name).replace(/'/g, "") + "')\">" + (u.admin ? "Remove admin" : "Make admin") + "</button>";
+                    html += "<button type='button' class='secondary' onclick=\"resetUserPass('" + String(u.name).replace(/'/g, "") + "')\">Set password</button>";
+                    if (String(u.name).toUpperCase() !== String(session.user).toUpperCase()) {
+                        html += "<button type='button' class='danger' onclick=\"deleteUser('" + String(u.name).replace(/'/g, "") + "')\">Delete</button>";
+                    }
+                    html += "</td>";
+                }
+                html += "</tr>";
                 n += 1;
             }
             if ($("userTable")) $("userTable").innerHTML = html;
             if ($("userCount")) $("userCount").innerText = n + " user" + (n === 1 ? "" : "s");
         }
 
+        function setSpecTab(id) {
+            specTab = id;
+            var i, tabs = $("specTabs").getElementsByTagName("button");
+            for (i = 0; i < tabs.length; i++) tabs[i].className = (tabs[i].getAttribute("data-spec") === id) ? "on" : "";
+            renderMspecTable();
+        }
+
         function renderMspecTable() {
+            if (specTab === "bubble") return renderBubbleTable();
+            if (specTab === "p1") return renderP1Table();
+            if (specTab === "rts") return renderRtsTable();
             var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
-            var html = "<tr><th>MSPEC</th><th>AF#</th><th>LCL</th><th>Target</th><th>UCL</th><th>Range</th><th>Cell</th><th>Density</th></tr>";
+            var html = "<thead><tr>";
+            html += "<th class='mspec' rowspan='2'>MSPEC</th><th rowspan='2'>AF#</th>";
+            html += "<th class='group' colspan='3'>Gauge</th><th rowspan='2'>Range</th>";
+            html += "<th class='group' colspan='2'>Cell</th><th class='group' colspan='3'>Density</th>";
+            html += "<th rowspan='2'></th></tr><tr>";
+            html += "<th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th>";
+            html += "<th class='num'>Min</th><th class='num'>Max</th>";
+            html += "<th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th></tr></thead><tbody>";
             var i, r, key, n = 0;
             for (i = 0; i < aio.mspecs.length; i++) {
                 r = aio.mspecs[i];
                 key = String(r["MSPEC #"] || "");
                 if (q && (key.toLowerCase().indexOf(q) < 0 && String(r["AF#"] || "").toLowerCase().indexOf(q) < 0)) continue;
-                html += "<tr><td>" + esc(key) + "</td><td>" + esc(r["AF#"]) + "</td><td>" + esc(r["Lower Control"]) + "</td><td>" + esc(r.Target) + "</td><td>" + esc(r["Upper Control"]) + "</td><td>" + esc(r["Thickness Range Max"]) + "</td><td>" + esc(r["Cell Count Min"]) + "–" + esc(r["Cell Count Max"]) + "</td><td>" + esc(r["Density Min"]) + "/" + esc(r["Density Target"]) + "/" + esc(r["Density Max"]) + "</td></tr>";
+                html += "<tr><td class='mspec'>" + esc(key) + "</td><td>" + esc(r["AF#"]) + "</td>";
+                html += "<td class='num'>" + esc(r["Lower Control"]) + "</td><td class='num'>" + esc(r.Target) + "</td><td class='num'>" + esc(r["Upper Control"]) + "</td>";
+                html += "<td class='num'>" + esc(r["Thickness Range Max"]) + "</td>";
+                html += "<td class='num'>" + esc(r["Cell Count Min"]) + "</td><td class='num'>" + esc(r["Cell Count Max"]) + "</td>";
+                html += "<td class='num'>" + esc(r["Density Min"]) + "</td><td class='num'>" + esc(r["Density Target"]) + "</td><td class='num'>" + esc(r["Density Max"]) + "</td>";
+                html += "<td>" + editBtn("foam", key) + histBtn("foam", key) + "</td></tr>";
                 n += 1;
             }
-            if ($("mspecTable")) $("mspecTable").innerHTML = html;
-            if ($("mspecCount")) $("mspecCount").innerText = n + " MSPEC" + (n === 1 ? "" : "s");
+            html += "</tbody>";
+            if ($("mspecTable")) { $("mspecTable").className = "specs"; $("mspecTable").innerHTML = html; }
+            if ($("mspecCount")) $("mspecCount").innerText = n + " foam MSPEC" + (n === 1 ? "" : "s");
+        }
+
+        function renderBubbleTable() {
+            var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
+            var html = "<thead><tr><th>Line</th><th>Abbr</th><th>Product</th><th>Calc gauge</th>";
+            html += "<th class='group' colspan='3'>Weight</th><th></th></tr>";
+            html += "<tr><th></th><th></th><th></th><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
+            var i, r, key, n = 0, blob;
+            for (i = 0; i < aio.bubble.length; i++) {
+                r = aio.bubble[i];
+                key = QD.bubbleKey(r);
+                blob = (r.family + " " + r.abbreviation + " " + r.product).toLowerCase();
+                if (q && blob.indexOf(q) < 0) continue;
+                html += "<tr><td>" + esc(r.family) + "</td><td>" + esc(r.abbreviation) + "</td><td>" + esc(r.product) + "</td><td class='num'>" + esc(r.calcGauge) + "</td>";
+                html += "<td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.target) + "</td><td class='num'>" + esc(r.max) + "</td>";
+                html += "<td>" + editBtn("bubble", key) + histBtn("bubble", key) + "</td></tr>";
+                n += 1;
+            }
+            html += "</tbody>";
+            if (aio.bubbleDead.length) {
+                html += "<thead><tr><th colspan='8'>Max dead cells</th></tr><tr><th colspan='2'>Type</th><th colspan='3'>Abbreviations</th><th class='num'>Max</th><th colspan='2'></th></tr></thead><tbody>";
+                for (i = 0; i < aio.bubbleDead.length; i++) {
+                    r = aio.bubbleDead[i];
+                    html += "<tr><td colspan='2'>" + esc(r.bubbleType) + "</td><td colspan='3'>" + esc(r.abbreviations) + "</td><td class='num'>" + esc(r.maxDead) + "</td><td colspan='2'></td></tr>";
+                }
+                html += "</tbody>";
+            }
+            if ($("mspecTable")) { $("mspecTable").className = "specs"; $("mspecTable").innerHTML = html; }
+            if ($("mspecCount")) $("mspecCount").innerText = n + " bubble spec" + (n === 1 ? "" : "s");
+        }
+
+        function renderP1Table() {
+            var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
+            var html = "<thead><tr><th>Thickness</th><th class='group' colspan='3'>Density</th><th class='group' colspan='2'>Cell</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
+            html += "<tr><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th class='num'>Min</th><th class='num'>Max</th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
+            var i, r, key, n = 0;
+            for (i = 0; i < aio.p1.length; i++) {
+                r = aio.p1[i];
+                key = QD.p1Key(r);
+                if (q && (String(r.thickness) + " " + String(r.density)).toLowerCase().indexOf(q) < 0) continue;
+                html += "<tr><td>" + esc(r.thickness) + "</td><td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.density) + "</td><td class='num'>" + esc(r.max) + "</td>";
+                html += "<td class='num'>" + esc(r.ccMin) + "</td><td class='num'>" + esc(r.ccMax) + "</td>";
+                html += "<td class='num'>" + esc(r.thickMin) + "</td><td class='num'>" + esc(r.thickTarget) + "</td><td class='num'>" + esc(r.thickMax) + "</td>";
+                html += "<td>" + editBtn("p1", key) + histBtn("p1", key) + "</td></tr>";
+                n += 1;
+            }
+            html += "</tbody>";
+            if ($("mspecTable")) { $("mspecTable").className = "specs"; $("mspecTable").innerHTML = html; }
+            if ($("mspecCount")) $("mspecCount").innerText = n + " P1 spec" + (n === 1 ? "" : "s");
+        }
+
+        function renderRtsTable() {
+            var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
+            var html = "<thead><tr><th>Product</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
+            html += "<tr><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
+            var i, r, key, n = 0;
+            for (i = 0; i < aio.rts.length; i++) {
+                r = aio.rts[i];
+                key = QD.rtsKey(r);
+                if (q && String(r.product).toLowerCase().indexOf(q) < 0) continue;
+                html += "<tr><td>" + esc(r.product) + "</td><td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.target) + "</td><td class='num'>" + esc(r.max) + "</td>";
+                html += "<td>" + editBtn("rts", key) + histBtn("rts", key) + "</td></tr>";
+                n += 1;
+            }
+            html += "</tbody>";
+            if ($("mspecTable")) { $("mspecTable").className = "specs"; $("mspecTable").innerHTML = html; }
+            if ($("mspecCount")) $("mspecCount").innerText = n + " RTS spec" + (n === 1 ? "" : "s");
         }
 
         function renderItemTable() {
             var q = ($("itemFilter") && $("itemFilter").value || "").toLowerCase();
-            var html = "<tr><th>Item #</th><th>Description</th><th>MSPEC</th><th>Width</th><th>Length</th><th>Footage</th><th>Perf</th><th>Bubble</th></tr>";
-            var i, it, n = 0;
+            var html = "<tr><th>Item #</th><th>Type</th><th>Description</th><th>MSPEC</th><th>Width</th><th>Length</th><th>Footage</th><th>Perf</th>";
+            if (session.admin) html += "<th></th>";
+            html += "</tr>";
+            var i, it, n = 0, typ;
             for (i = 0; i < aio.items.length; i++) {
                 it = aio.items[i];
-                if (q && String(it.item).toLowerCase().indexOf(q) < 0 && String(it.description || "").toLowerCase().indexOf(q) < 0) continue;
-                html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.mspec) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td><td>" + esc(it.bubbleType) + "</td></tr>";
+                if (it.deleted) continue;
+                typ = QD.itemType(it);
+                if (q && String(it.item).toLowerCase().indexOf(q) < 0 && String(it.description || "").toLowerCase().indexOf(q) < 0 && typ.toLowerCase().indexOf(q) < 0) continue;
+                html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(typ) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.mspec) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td>";
+                if (session.admin) {
+                    html += "<td><button type='button' onclick=\"openItemModal('" + String(it.item).replace(/'/g, "") + "',true)\">Edit</button>";
+                    html += "<button type='button' class='danger' onclick=\"deleteItem('" + String(it.item).replace(/'/g, "") + "')\">Delete</button></td>";
+                }
+                html += "</tr>";
                 n += 1;
             }
             if ($("itemTable")) $("itemTable").innerHTML = html;
@@ -515,67 +970,285 @@
         }
 
         function addUser() {
+            if (!requireAdmin()) return;
             var name = QD.trim($("newUser").value);
+            var pass = $("newUserPass") ? $("newUserPass").value : "";
+            var admin = $("newUserAdmin") && $("newUserAdmin").checked;
             if (!name) { setStatus("Type a user name.", true); return; }
+            if (!pass) { setStatus("Every user must have a password.", true); return; }
+            loadAuthUsers();
+            if (QD.findUserRecord(authUsers, name)) { setStatus("User already exists.", true); return; }
+            authUsers.push(QD.makeUserRecord(name, pass, admin, false));
+            saveAuthUsers();
             aio.users = QD.mergeUsers(aio.users, [name]);
             aio.localUsers = QD.mergeUsers(aio.localUsers || [], [name]);
             $("newUser").value = "";
+            if ($("newUserPass")) $("newUserPass").value = "";
+            if ($("newUserAdmin")) $("newUserAdmin").checked = false;
             saveLocalUsers();
-            fillUsers();
             renderUserTable();
-            $("user").value = name;
-            setStatus("Added user " + name);
+            setStatus("Added user " + name + ". They can sign in now.");
         }
 
-        function openItemModal(preset) {
+        function toggleAdmin(name) {
+            if (!requireAdmin()) return;
+            loadAuthUsers();
+            var rec = QD.findUserRecord(authUsers, name);
+            if (!rec) return;
+            if (String(rec.name).toUpperCase() === String(session.user).toUpperCase() && rec.admin) {
+                alert("You cannot remove your own admin access.");
+                return;
+            }
+            rec.admin = !rec.admin;
+            saveAuthUsers();
+            renderUserTable();
+        }
+
+        function resetUserPass(name) {
+            if (!requireAdmin()) return;
+            var pass = prompt("New password for " + name + ":");
+            if (pass == null) return;
+            if (!QD.trim(pass)) { alert("Password is required."); return; }
+            loadAuthUsers();
+            var rec = QD.findUserRecord(authUsers, name);
+            if (!rec) return;
+            var next = QD.makeUserRecord(name, pass, rec.admin, false);
+            rec.salt = next.salt;
+            rec.hash = next.hash;
+            rec.mustChange = false;
+            saveAuthUsers();
+            renderUserTable();
+            setStatus("Password set for " + name);
+        }
+
+        function deleteUser(name) {
+            if (!requireAdmin()) return;
+            if (!confirm("Delete user " + name + "?")) return;
+            loadAuthUsers();
+            var i, next = [];
+            for (i = 0; i < authUsers.length; i++) if (String(authUsers[i].name).toUpperCase() !== String(name).toUpperCase()) next.push(authUsers[i]);
+            authUsers = next;
+            saveAuthUsers();
+            renderUserTable();
+        }
+
+        function changeOwnPassword() {
+            $("pwOverlay").className = "overlay on";
+            $("pwTitle").innerText = "Change password";
+            $("pwOld").value = "";
+            $("pwNew").value = "";
+            $("pwNew2").value = "";
+        }
+
+        function saveOwnPassword() {
+            var oldp = $("pwOld").value;
+            var a = $("pwNew").value;
+            var b = $("pwNew2").value;
+            loadAuthUsers();
+            var rec = QD.findUserRecord(authUsers, session.user);
+            if (!rec) return;
+            if (rec.hash && !rec.mustChange && !QD.verifyPassword(rec, oldp)) {
+                alert("Current password is wrong.");
+                return;
+            }
+            if (!QD.trim(a)) { alert("New password is required."); return; }
+            if (a !== b) { alert("New passwords do not match."); return; }
+            var next = QD.makeUserRecord(rec.name, a, rec.admin, false);
+            rec.salt = next.salt;
+            rec.hash = next.hash;
+            rec.mustChange = false;
+            saveAuthUsers();
+            $("pwOverlay").className = "overlay";
+            setStatus("Password saved.");
+        }
+
+        function findSpecRow(kind, key) {
+            var i;
+            if (kind === "foam") {
+                for (i = 0; i < aio.mspecs.length; i++) if (QD.foamKey(aio.mspecs[i]) === key) return aio.mspecs[i];
+            } else if (kind === "bubble") {
+                for (i = 0; i < aio.bubble.length; i++) if (QD.bubbleKey(aio.bubble[i]) === key) return aio.bubble[i];
+            } else if (kind === "p1") {
+                for (i = 0; i < aio.p1.length; i++) if (QD.p1Key(aio.p1[i]) === key) return aio.p1[i];
+            } else if (kind === "rts") {
+                for (i = 0; i < aio.rts.length; i++) if (QD.rtsKey(aio.rts[i]) === key) return aio.rts[i];
+            }
+            return null;
+        }
+
+        function specFields(kind) {
+            if (kind === "foam") return [
+                { key: "AF#", label: "AF#" }, { key: "Lower Control", label: "Gauge min" }, { key: "Target", label: "Gauge target" },
+                { key: "Upper Control", label: "Gauge max" }, { key: "Thickness Range Max", label: "Range max" },
+                { key: "Cell Count Min", label: "Cell min" }, { key: "Cell Count Max", label: "Cell max" },
+                { key: "Density Min", label: "Density min" }, { key: "Density Target", label: "Density target" }, { key: "Density Max", label: "Density max" }
+            ];
+            if (kind === "bubble") return [
+                { key: "product", label: "Product" }, { key: "calcGauge", label: "Calc gauge" },
+                { key: "min", label: "Min" }, { key: "target", label: "Target" }, { key: "max", label: "Max" }
+            ];
+            if (kind === "p1") return [
+                { key: "density", label: "Density target" }, { key: "min", label: "Density min" }, { key: "max", label: "Density max" },
+                { key: "ccMin", label: "Cell min" }, { key: "ccMax", label: "Cell max" },
+                { key: "thickMin", label: "Thick min" }, { key: "thickTarget", label: "Thick target" }, { key: "thickMax", label: "Thick max" }
+            ];
+            return [
+                { key: "min", label: "Min" }, { key: "target", label: "Target" }, { key: "max", label: "Max" }
+            ];
+        }
+
+        var specEdit = { kind: "", key: "", before: null };
+
+        function openSpecEdit(kind, key) {
+            if (!requireAdmin()) return;
+            var row = findSpecRow(kind, key);
+            if (!row) return;
+            specEdit.kind = kind;
+            specEdit.key = key;
+            specEdit.before = JSON.parse(JSON.stringify(row));
+            var fields = specFields(kind);
+            var html = "<p class='muted'>Editing " + esc(kind) + " " + esc(key) + "</p>", i, f;
+            for (i = 0; i < fields.length; i++) {
+                f = fields[i];
+                html += "<label class='f'>" + esc(f.label) + " <input id='se_" + f.key.replace(/\s+/g, "_") + "' value='" + esc(row[f.key]) + "'></label>";
+            }
+            html += "<label class='f'>Why are you changing this? <textarea id='se_why'></textarea></label>";
+            $("specEditFields").innerHTML = html;
+            $("specEditOverlay").className = "overlay on";
+        }
+
+        function closeSpecEdit() { $("specEditOverlay").className = "overlay"; }
+
+        function saveSpecEdit() {
+            if (!requireAdmin()) return;
+            var why = QD.trim($("se_why") ? $("se_why").value : "");
+            if (!why) { alert("Explain why this spec is changing."); return; }
+            var row = findSpecRow(specEdit.kind, specEdit.key);
+            if (!row) return;
+            var fields = specFields(specEdit.kind);
+            var i, f, el, after = {};
+            for (i = 0; i < fields.length; i++) {
+                f = fields[i];
+                el = $("se_" + f.key.replace(/\s+/g, "_"));
+                if (el) row[f.key] = el.value;
+                after[f.key] = row[f.key];
+            }
+            addHistory(specEdit.kind, specEdit.key, why, specEdit.before, after);
+            if (specHistory.length === 1 || !QD.historyForSpec(specHistory, specEdit.kind, specEdit.key).length) {}
+            saveLocalSpecs();
+            closeSpecEdit();
+            renderMspecTable();
+            setStatus("Saved " + specEdit.kind + " spec " + specEdit.key + ".");
+        }
+
+        function viewHistory(kind, key) {
+            var rows = QD.historyForSpec(specHistory, kind, key);
+            var html = "<h3>" + esc(kind) + " " + esc(key) + "</h3>";
+            if (!rows.length) html += "<p class='muted'>No edits yet. Created from the imported spec file.</p>";
+            var i, r;
+            for (i = rows.length - 1; i >= 0; i--) {
+                r = rows[i];
+                html += "<div class='card'><div><b>" + esc(r.at) + "</b> — " + esc(r.user) + "</div>";
+                html += "<div>Why: " + esc(r.why) + "</div></div>";
+            }
+            $("histBody").innerHTML = html;
+            $("histOverlay").className = "overlay on";
+        }
+
+        function closeHistory() { $("histOverlay").className = "overlay"; }
+
+        function openItemModal(preset, editing) {
             $("newItem").value = preset || $("item").value || "";
             $("newDesc").value = "";
-            $("newMspec").value = "";
-            $("newWidth").value = "";
-            $("newLength").value = "";
-            $("newFootage").value = "";
-            $("newPerf").value = "";
-            $("newSlits").value = "";
-            $("newBubble").value = "";
-            $("newParent").value = "";
-            $("newThk").value = "";
-            $("newDens").value = "";
-            $("newShots").value = "";
-            $("newSoft").value = "";
+            setv("newMspecF", ""); setv("newMspecL", "");
+            setv("newWidthB", ""); setv("newWidthF", ""); setv("newWidthL", ""); setv("newWidthP", "");
+            setv("newLengthL", ""); setv("newLengthP", "");
+            setv("newFootageB", ""); setv("newFootageF", "");
+            setv("newPerfB", ""); setv("newPerfF", "");
+            setv("newSlits", ""); setv("newBubble", ""); setv("newParent", "");
+            setv("newThk", ""); setv("newDens", ""); setv("newShots", ""); setv("newSoft", "");
+            $("newType").value = editing ? "" : (QD.lineItemType(currentLine) || "");
+            $("itemModalTitle").innerText = editing ? "Edit item #" : "Add item #";
+            if (editing && preset) {
+                var it = QD.findItem(aio.items, preset);
+                if (it) {
+                    $("newType").value = QD.itemType(it);
+                    $("newDesc").value = it.description || "";
+                    setv("newMspecF", it.mspec); setv("newMspecL", it.mspec);
+                    setv("newWidthB", it.width); setv("newWidthF", it.width); setv("newWidthL", it.width); setv("newWidthP", it.width);
+                    setv("newLengthL", it.length); setv("newLengthP", it.length);
+                    setv("newFootageB", it.footage); setv("newFootageF", it.footage);
+                    setv("newPerfB", it.perf); setv("newPerfF", it.perf);
+                    setv("newSlits", it.slits); setv("newBubble", it.bubbleType); setv("newParent", it.parent);
+                    setv("newThk", it.thickness); setv("newDens", it.density); setv("newShots", it.shots); setv("newSoft", it.soft);
+                }
+            }
+            syncItemTypeFields();
             $("itemOverlay").className = "overlay on";
-            $("newItem").focus();
+            $("newType").focus();
         }
+
+        function syncItemTypeFields() {
+            var t = $("newType").value;
+            $("fieldsBubble").className = "type-fields" + (t === "BUBBLE" ? " on" : "");
+            $("fieldsFoam").className = "type-fields" + (t === "FOAM" ? " on" : "");
+            $("fieldsLam").className = "type-fields" + (t === "LAM" ? " on" : "");
+            $("fieldsPlank").className = "type-fields" + (t === "PLANK" ? " on" : "");
+            $("itemTypeHint").innerText = t && QD.ITEM_TYPES[t] ? ("Used on " + QD.ITEM_TYPES[t].lines) : "Pick a type first.";
+        }
+
+        function setv(id, v) { var el = $(id); if (el) el.value = v == null ? "" : v; }
+        function getv(id) { var el = $(id); return el ? el.value : ""; }
 
         function closeItemModal() { $("itemOverlay").className = "overlay"; }
 
         function saveNewItem() {
             var item = QD.canonItem($("newItem").value);
+            var typ = $("newType").value;
+            if (!typ) { alert("Pick a type first."); return; }
             if (!item) { alert("Item # is required."); return; }
             var rec = {
                 item: item,
+                type: typ,
                 description: QD.trim($("newDesc").value),
-                mspec: QD.canonMspec($("newMspec").value),
-                width: $("newWidth").value,
-                length: $("newLength").value,
-                footage: $("newFootage").value,
-                perf: $("newPerf").value,
-                slits: $("newSlits").value,
-                bubbleType: $("newBubble").value,
-                parent: $("newParent").value,
-                thickness: $("newThk").value,
-                density: $("newDens").value,
-                shots: $("newShots").value,
-                soft: $("newSoft").value,
+                mspec: typ === "FOAM" ? QD.canonMspec(getv("newMspecF")) : (typ === "LAM" ? QD.canonMspec(getv("newMspecL")) : ""),
+                width: typ === "BUBBLE" ? getv("newWidthB") : typ === "FOAM" ? getv("newWidthF") : typ === "LAM" ? getv("newWidthL") : getv("newWidthP"),
+                length: typ === "LAM" ? getv("newLengthL") : typ === "PLANK" ? getv("newLengthP") : "",
+                footage: typ === "BUBBLE" ? getv("newFootageB") : typ === "FOAM" ? getv("newFootageF") : "",
+                perf: typ === "BUBBLE" ? getv("newPerfB") : typ === "FOAM" ? getv("newPerfF") : "",
+                slits: typ === "BUBBLE" ? getv("newSlits") : "",
+                bubbleType: typ === "BUBBLE" ? getv("newBubble") : "",
+                parent: typ === "LAM" ? getv("newParent") : "",
+                thickness: typ === "LAM" ? getv("newThk") : "",
+                density: typ === "PLANK" ? getv("newDens") : "",
+                shots: typ === "PLANK" ? getv("newShots") : "",
+                soft: typ === "PLANK" ? getv("newSoft") : "",
                 local: true
             };
             aio.items = QD.mergeItems(aio.items, [rec]);
             saveLocalItems();
             closeItemModal();
             $("item").value = item;
-            fillUsers();
             renderLists();
             onItemChange();
-            setStatus("Added item " + item);
+            setStatus("Saved item " + item + " (" + typ + ")");
+        }
+
+        function deleteItem(item) {
+            if (!requireAdmin()) return;
+            if (!confirm("Delete item " + item + "?")) return;
+            var i, it;
+            for (i = 0; i < aio.items.length; i++) {
+                it = aio.items[i];
+                if (QD.canonItem(it.item) === QD.canonItem(item)) it.deleted = true;
+            }
+            aio.items = QD.mergeItems(aio.items, []);
+            var extra = localItemsOnly();
+            extra.push({ item: item, deleted: true, local: true });
+            writeUtf8((new ActiveXObject("Scripting.FileSystemObject")).BuildPath(resultsDir(), "local-items.js"),
+                "window.QD_LOCAL=window.QD_LOCAL||{items:[],users:[]};QD_LOCAL.items=" + JSON.stringify(extra) + ";");
+            renderLists();
+            setStatus("Deleted item " + item);
         }
 
         function fillReasons() {
@@ -616,7 +1289,7 @@
         function showHits() {
             var box = $("hits");
             var q = $("item").value;
-            var hits = QD.searchItems(aio.items, q, 20);
+            var hits = QD.searchItems(aio.items, q, 20, QD.lineItemType(currentLine));
             var html = "", i, it;
             for (i = 0; i < hits.length; i++) {
                 it = hits[i];
@@ -667,8 +1340,10 @@
                 html += specLine("Density", (spec["Density Min"] || "") + " / " + (spec["Density Target"] || "") + " / " + (spec["Density Max"] || ""));
             }
             if (info && info.form === "bubble" && it) {
-                var bw = QD.matchBubbleWeight(currentLine, it.bubbleType);
-                var dead = QD.deadCellMax(it.bubbleType);
+                var bs = QD.findBubbleSpec(aio.bubble, currentLine, it.bubbleType);
+                var bw = bs ? { min: bs.min, target: bs.target, max: bs.max } : QD.matchBubbleWeight(currentLine, it.bubbleType);
+                var dead = QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType);
+                if (!isFinite(dead)) dead = QD.deadCellMax(it.bubbleType);
                 if (bw) html += specLine("Weight", bw.min + " / " + bw.target + " / " + bw.max);
                 if (isFinite(dead)) html += specLine("Max dead cells", dead);
             }
@@ -741,8 +1416,10 @@
                 return { avg: avg, range: range, density: dens, passFail: pf, points: pts, widthPf: QD.pf(widthPf) };
             }
             if (info.form === "bubble") {
-                var bw = it ? QD.matchBubbleWeight(currentLine, it.bubbleType) : null;
-                var deadMax = it ? QD.deadCellMax(it.bubbleType) : NaN;
+                var bs = it ? QD.findBubbleSpec(aio.bubble, currentLine, it.bubbleType) : null;
+                var bw = bs ? { min: QD.num(bs.min), target: QD.num(bs.target), max: QD.num(bs.max) } : (it ? QD.matchBubbleWeight(currentLine, it.bubbleType) : null);
+                var deadMax = it ? QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType) : NaN;
+                if (!isFinite(deadMax) && it) deadMax = QD.deadCellMax(it.bubbleType);
                 var wPf = it && it.width ? QD.inRange(val("bwidth"), QD.num(it.width) - 0.25, QD.num(it.width) + 0.25) : null;
                 var fPf = it && it.footage ? QD.inRange(val("bfootage"), QD.num(it.footage), Infinity) : null;
                 var pTarget = it ? QD.num(it.perf) : NaN;
@@ -804,33 +1481,30 @@
             return {};
         }
 
-        function submitCheck() {
-            if (!aio.loaded) { setStatus("Load Quality AIO.xlsm first.", true); return; }
+        function collectCheckInput(calc) {
             var info = QD.lineInfo(currentLine);
             var it = selectedItem();
             var spec = selectedSpec();
-            var calc = compute();
             var reason = val("reason");
-            if (!val("user")) { setStatus("Select a user.", true); return; }
-            if (!reason) { setStatus("Select a reason for check.", true); return; }
-            if (!QD.skipReason(currentLine, reason) && !it) { setStatus("Look up an item # from Quality AIO.", true); return; }
             var input = {
                 line: currentLine,
                 item: val("item"),
                 description: it ? it.description : $("desc").innerText,
                 mspec: spec ? spec["MSPEC #"] : val("mspec"),
-                user: val("user"),
+                user: session.user || val("user"),
                 reason: reason,
                 notes: val("notes"),
                 passFail: calc.passFail
             };
             if (info.form === "s4") {
                 input.bundle = val("s4bundle"); input.width = val("s4width"); input.footage = val("s4foot");
+                input.weight = val("s4weight");
                 input.perfOn = val("s4perfOn"); input.cellMd = val("s4md"); input.cellCd = val("s4cd");
                 input.avg = calc.avg; input.range = calc.range; input.density = calc.density;
                 input.points = calc.points; input.talc = val("s4talc"); input.sheetLength = val("s4sheet");
             } else if (info.form === "s1s3") {
                 input.bundle = val("s1bundle"); input.width = val("s1width"); input.footage = val("s1foot");
+                input.weight = val("s1weight");
                 input.perf = val("s1perf"); input.bundleFit = val("s1bundleFit"); input.tape = val("s1tape");
                 input.cellMd = val("s1md"); input.cellCd = val("s1cd");
                 input.avg = calc.avg; input.range = calc.range; input.density = calc.density;
@@ -852,16 +1526,54 @@
             } else if (info.form === "rts") {
                 input.parent = val("rparent"); input.parentDate = val("rdate"); input.shift = val("rshift");
                 input.width = val("rwidth"); input.length = val("rlength"); input.color = val("rcolor");
-                input.delam = val("rdelam"); input.blister = val("rdelam"); input.alligator = val("rallig");
+                input.delam = val("rdelam"); input.blister = val("rblister") || val("rdelam"); input.alligator = val("rallig");
                 input.t1 = calc.t1; input.t2 = calc.t2; input.t3 = calc.t3;
                 input.thkPf = calc.thkPf; input.widthPf = calc.widthPf; input.lengthPf = calc.lengthPf;
             }
+            return input;
+        }
+
+        function clearCheckForm() {
+            var ids = ["item", "mspec", "notes", "s4bundle", "s4width", "s4foot", "s4md", "s4cd", "s4weight", "s4talc", "s4sheet",
+                "s1bundle", "s1width", "s1foot", "s1perf", "s1md", "s1cd", "s1weight", "s1diam",
+                "bslits", "bwidth", "bfootage", "bperfw", "btester", "bweight", "bdiam", "bdeadPre", "bairPre", "bdeadPost", "bairPost",
+                "plength", "pwidth", "pmd", "pcd", "pweight", "phead", "pend1", "pend2", "ptail",
+                "rparent", "rdate", "rwidth", "rlength", "rcolor", "rt1", "rt2", "rt3"];
+            var i, el, p;
+            for (i = 0; i < ids.length; i++) { el = $(ids[i]); if (el) el.value = ""; }
+            for (i = 1; i <= 13; i++) {
+                el = $("s4t" + i); if (el) el.value = "";
+                el = $("s1t" + i); if (el) el.value = "";
+            }
+            var sels = ["s4perfOn", "s1bundleFit", "s1tape", "s1diamPf", "bprod", "bcoh", "bpostv", "bdiamPf", "rshift", "rdelam", "rallig"];
+            for (i = 0; i < sels.length; i++) { el = $(sels[i]); if (el) el.selectedIndex = 0; }
+            $("desc").innerText = "";
+            $("specBox").innerHTML = "<div class='muted'>Specs appear after you look up an item.</div>";
+            $("hits").style.display = "none";
+            fillUsers();
+            compute();
+        }
+
+        function submitCheck() {
+            if (!session.user) { setStatus("Sign in first.", true); return; }
+            if (!aio.loaded) { setStatus("Load Quality AIO.xlsm first.", true); return; }
+            var info = QD.lineInfo(currentLine);
+            var it = selectedItem();
+            var calc = compute();
+            var reason = val("reason");
+            var input = collectCheckInput(calc);
+            var missing = QD.missingCheckFields(currentLine, reason, input);
+            if (missing.length) {
+                setStatus("Fill required fields before submit: " + missing.join(", ") + ".", true);
+                return;
+            }
+            if (!QD.skipReason(currentLine, reason) && !it) { setStatus("Look up an item # from Quality AIO.", true); return; }
             var row = QD.buildRow(input);
             var rows = QD.appendLineRows(readLineRows(info.file), row);
             writeLineRows(info.file, rows);
             writeLookupFile();
-            setStatus("Saved " + info.id + " check to results\\" + info.file + ".js (" + rows.length + " rows on this line).\nOther lines were not changed. Open Quality Desk and use Reload from disk.");
-            openDesk(true);
+            clearCheckForm();
+            setStatus("Saved " + info.id + " check to results\\" + info.file + ".js (" + rows.length + " rows on this line). Form cleared. Use Reload from disk in Quality Desk when you want to review.");
         }
 
         function toFileUrl(winPath) {
@@ -935,18 +1647,36 @@
 
         window.onload = function () {
             try { window.resizeTo(Math.min(1280, screen.availWidth), Math.min(860, screen.availHeight)); } catch (e) {}
+            loadAuthUsers();
+            loadSpecHistory();
             setLine("S4");
-            loadAio(false);
+            hideApp("");
+            $("loginStatus").innerText = "Sign in to use Quality Desk Checks. Session ends after 1 hour idle.";
+            if ($("loginUser")) $("loginUser").focus();
         };
     </script>
 </head>
 <body>
+    <div id="loginOverlay" class="overlay login on">
+        <div class="modal">
+            <h3>Sign in</h3>
+            <p class="muted" id="loginStatus">Sign in to use Quality Desk Checks.</p>
+            <label class="f">User <input id="loginUser"></label>
+            <label class="f">Password <input id="loginPass" type="password" onkeydown="if(event.keyCode==13)doLogin()"></label>
+            <button type="button" class="ok" onclick="doLogin()">Sign in</button>
+            <p class="muted">First run creates admin GWEXLER. Sessions end after 1 hour idle. Passwords are stored hashed and hidden on this PC.</p>
+        </div>
+    </div>
+    <div id="appRoot" style="display:none">
     <header class="app">
         <div>
             <h1>Quality Desk Checks</h1>
             <p class="tag">Look up items from Quality AIO.xlsm or aio-csv. Submit writes that line only. Review happens in Quality Desk.</p>
         </div>
         <div class="tools">
+            <span class="session">Signed in as <span class="who" id="sessionWho"></span></span>
+            <button class="secondary" onclick="changeOwnPassword()">Password</button>
+            <button class="secondary" onclick="logout('Signed out.')">Sign out</button>
             <button onclick="loadAio(true)">Reload AIO</button>
             <button class="secondary" onclick="openDesk(false)">Open Quality Desk</button>
             <button class="ok" onclick="submitCheck()">Submit check</button>
@@ -1147,7 +1877,12 @@
                 <h2>Users <span class="muted" id="userCount"></span></h2>
                 <div class="pair">
                     <div><label class="f">Filter <input id="userFilter" onkeyup="renderUserTable()"></label></div>
-                    <div><label class="f">Add user <input id="newUser"></label><button type="button" onclick="addUser()">Add user</button></div>
+                    <div class="admin-only">
+                        <label class="f">New user <input id="newUser"></label>
+                        <label class="f">Password <input id="newUserPass" type="password"></label>
+                        <label class="f"><input id="newUserAdmin" type="checkbox"> Admin</label>
+                        <button type="button" onclick="addUser()">Add user</button>
+                    </div>
                 </div>
                 <div class="list-wrap"><table class="list" id="userTable"></table></div>
             </div>
@@ -1155,8 +1890,14 @@
         <div id="tabMspecs" class="tabpanel">
             <div class="card">
                 <h2>MSPECs <span class="muted" id="mspecCount"></span></h2>
+                <div class="subtabs" id="specTabs">
+                    <button data-spec="foam" class="on" onclick="setSpecTab('foam')">Foam</button>
+                    <button data-spec="bubble" onclick="setSpecTab('bubble')">Bubble</button>
+                    <button data-spec="p1" onclick="setSpecTab('p1')">P1</button>
+                    <button data-spec="rts" onclick="setSpecTab('rts')">RTS</button>
+                </div>
                 <label class="f">Filter <input id="mspecFilter" onkeyup="renderMspecTable()"></label>
-                <div class="list-wrap"><table class="list" id="mspecTable"></table></div>
+                <div class="list-wrap"><table class="specs" id="mspecTable"></table></div>
             </div>
         </div>
         <div id="tabItems" class="tabpanel">
@@ -1170,37 +1911,75 @@
             </div>
         </div>
     </div>
+    </div>
     <div class="overlay" id="itemOverlay">
         <div class="modal">
-            <h3>Add item #</h3>
-            <div class="pair">
-                <div><label class="f">Item # <input id="newItem"></label></div>
-                <div><label class="f">MSPEC <input id="newMspec"></label></div>
-            </div>
+            <h3 id="itemModalTitle">Add item #</h3>
+            <label class="f">Type
+                <select id="newType" onchange="syncItemTypeFields()">
+                    <option value="">Select type…</option>
+                    <option value="BUBBLE">BUBBLE — COEX / MONO</option>
+                    <option value="FOAM">FOAM — S1 / S3 / S4</option>
+                    <option value="LAM">LAM — RTS</option>
+                    <option value="PLANK">PLANK — P1</option>
+                </select>
+            </label>
+            <p class="muted" id="itemTypeHint">Pick a type first.</p>
+            <label class="f">Item # <input id="newItem"></label>
             <label class="f">Description <input id="newDesc"></label>
-            <div class="pair">
-                <div><label class="f">Width <input id="newWidth"></label></div>
-                <div><label class="f">Length <input id="newLength"></label></div>
+            <div id="fieldsBubble" class="type-fields">
+                <label class="f">Width <input id="newWidthB"></label>
+                <label class="f"># Slits <input id="newSlits"></label>
+                <label class="f">Footage <input id="newFootageB"></label>
+                <label class="f">Perf <input id="newPerfB"></label>
+                <label class="f">Bubble Type <input id="newBubble"></label>
             </div>
-            <div class="pair">
-                <div><label class="f">Footage <input id="newFootage"></label></div>
-                <div><label class="f">Perf <input id="newPerf"></label></div>
+            <div id="fieldsFoam" class="type-fields">
+                <label class="f">Width <input id="newWidthF"></label>
+                <label class="f">Footage <input id="newFootageF"></label>
+                <label class="f">Perf <input id="newPerfF"></label>
+                <label class="f">MSPEC <input id="newMspecF"></label>
             </div>
-            <div class="pair">
-                <div><label class="f"># Slits <input id="newSlits"></label></div>
-                <div><label class="f">Bubble Type <input id="newBubble"></label></div>
+            <div id="fieldsLam" class="type-fields">
+                <label class="f">Length <input id="newLengthL"></label>
+                <label class="f">Width <input id="newWidthL"></label>
+                <label class="f">Parent Material <input id="newParent"></label>
+                <label class="f">MSPEC <input id="newMspecL"></label>
+                <label class="f">Thickness <input id="newThk"></label>
             </div>
-            <div class="pair">
-                <div><label class="f">Parent Material <input id="newParent"></label></div>
-                <div><label class="f"># Shots <input id="newShots"></label></div>
+            <div id="fieldsPlank" class="type-fields">
+                <label class="f">Length <input id="newLengthP"></label>
+                <label class="f">Width <input id="newWidthP"></label>
+                <label class="f">Density <input id="newDens"></label>
+                <label class="f"># Shots <input id="newShots"></label>
+                <label class="f">Soft <input id="newSoft"></label>
             </div>
-            <div class="pair">
-                <div><label class="f">Thickness <input id="newThk"></label></div>
-                <div><label class="f">Density <input id="newDens"></label></div>
-            </div>
-            <label class="f">Soft <input id="newSoft"></label>
             <button type="button" class="ok" onclick="saveNewItem()">Save item</button>
             <button type="button" class="secondary" onclick="closeItemModal()">Cancel</button>
+        </div>
+    </div>
+    <div class="overlay" id="specEditOverlay">
+        <div class="modal">
+            <h3>Edit spec</h3>
+            <div id="specEditFields"></div>
+            <button type="button" class="ok" onclick="saveSpecEdit()">Save change</button>
+            <button type="button" class="secondary" onclick="closeSpecEdit()">Cancel</button>
+        </div>
+    </div>
+    <div class="overlay" id="histOverlay">
+        <div class="modal wide">
+            <div id="histBody"></div>
+            <button type="button" class="secondary" onclick="closeHistory()">Close</button>
+        </div>
+    </div>
+    <div class="overlay" id="pwOverlay">
+        <div class="modal">
+            <h3 id="pwTitle">Change password</h3>
+            <label class="f">Current password <input id="pwOld" type="password"></label>
+            <label class="f">New password <input id="pwNew" type="password"></label>
+            <label class="f">Confirm new password <input id="pwNew2" type="password"></label>
+            <button type="button" class="ok" onclick="saveOwnPassword()">Save password</button>
+            <button type="button" class="secondary" onclick="$('pwOverlay').className='overlay'">Cancel</button>
         </div>
     </div>
 </body>

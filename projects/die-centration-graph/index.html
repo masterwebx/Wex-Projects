@@ -1475,9 +1475,11 @@ try {
         </figure>
         <ul>
           <li>Keep <code>quality-desk.hta</code>, <code>qd-check.js</code>, <code>index.html</code> (or <code>centration.html</code>), and <code>Quality AIO.xlsm</code> in the same folder. Do not put the AIO workbook on GitHub.</li>
-          <li>If item/user lists stay empty, delete <code>results/aio-cache.js</code> and click Reload AIO. Better: import <code>ExportAioCsv.bas</code> into Quality AIO and run it so <code>aio-csv</code> sits next to the HTA.</li>
-          <li>The HTA is the check sheet: look up an item, view specs, submit. Each line writes its own file under <code>results/</code> so S4 does not overwrite S1.</li>
-          <li>Quality Desk reviews those files. Use <b>Reload from disk</b> after a submit. The HTA will not open a second Edge window if the desk is already open.</li>
+          <li>The HTA requires a sign-in. Passwords are hashed in a hidden <code>results/users.dat</code> on this PC. Idle sessions end after one hour.</li>
+          <li>If item/user lists stay empty, delete <code>results/aio-cache.js</code> and click Reload AIO. Better: import <code>ExportAioCsv.bas</code> into Quality AIO and run it so Table114 / Table7 / Table86 / Table97 / Table18 land in <code>aio-csv</code>.</li>
+          <li>Put <code>BubbleSpecs.csv</code> next to the HTA or in <code>aio-csv</code> for COEX/MONO. Do not publish that file.</li>
+          <li>The HTA is the check sheet: look up an item, view specs, submit. Submit stays on the form and clears the check. Each line writes its own file under <code>results/</code> so S4 does not overwrite S1.</li>
+          <li>Quality Desk reviews those files. Use <b>Reload from disk</b> after a submit. Open Quality Desk only when you want the review window.</li>
           <li>Chart.js lives in <code>vendor/chart.umd.min.js</code> so Trends does not need a CDN.</li>
         </ul>
       </article>
@@ -1536,7 +1538,7 @@ try {
 
 <script src="vendor/chart.umd.min.js"></script>
 <script>
-const APP_VERSION = '1.7.43';
+const APP_VERSION = '1.7.44';
 const APP_NAME = 'Quality Desk';
 const FILE_PREFIX = 'quality-desk';
 const STORE = 'dieGraphState.v5';
@@ -1822,12 +1824,22 @@ async function restorePack() {
   } catch { return null; }
 }
 const HTA_DISK_FILES = ['lookup', 's4', 's1', 's3', 'coex', 'mono', 'p1', 'rts'];
-function loadHtaScript(src) {
+function loadHtaScript(src, timeoutMs) {
   return new Promise((resolve) => {
     const s = document.createElement('script');
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      s.onload = null;
+      s.onerror = null;
+      try { if (s.parentNode) s.parentNode.removeChild(s); } catch {}
+      resolve(!!ok);
+    };
+    s.onload = () => finish(true);
+    s.onerror = () => finish(false);
+    window.setTimeout(() => finish(false), timeoutMs || 1500);
     s.src = src;
-    s.onload = () => resolve(true);
-    s.onerror = () => resolve(false);
     document.head.appendChild(s);
   });
 }
@@ -1839,10 +1851,16 @@ function plantForHtaFile(key) {
 }
 async function readDiskHandoff() {
   window.QD_DISK = { lines: {}, lookupRows: [], users: [] };
+  window.QD_DISK_MANIFEST = null;
   const t = Date.now();
   let loaded = 0;
-  for (const name of HTA_DISK_FILES) {
-    if (await loadHtaScript('results/' + name + '.js?t=' + t)) loaded += 1;
+  await loadHtaScript('results/manifest.js?t=' + t, 800);
+  const listed = (window.QD_DISK_MANIFEST && window.QD_DISK_MANIFEST.files) || [];
+  const names = listed.length
+    ? listed.map(f => String(f).replace(/\.js$/i, '')).filter(n => n && n !== 'manifest')
+    : HTA_DISK_FILES.slice();
+  for (const name of names) {
+    if (await loadHtaScript('results/' + name + '.js?t=' + t, 1500)) loaded += 1;
   }
   const rows = [];
   const lines = (window.QD_DISK && window.QD_DISK.lines) || {};
@@ -1893,7 +1911,6 @@ async function applyDiskHandoff(opts) {
     fillLineSelects();
     syncPlantChrome();
     markHasHistory(true);
-    persistPack();
     if (!silent) {
       toast(`Loaded ${disk.rows.length} HTA check${disk.rows.length === 1 ? '' : 's'} from disk`);
       if (screenName === 'history') renderHistoryTable();
@@ -1903,7 +1920,8 @@ async function applyDiskHandoff(opts) {
     }
     return true;
   } finally {
-    if (!silent) hideProgress();
+    hideProgress();
+    try { persistPack(); } catch {}
   }
 }
 function syncWelcome() {

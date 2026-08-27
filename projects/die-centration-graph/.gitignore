@@ -3,7 +3,12 @@ Quality AIO.xlsm
 Quality_AIO.xlsm
 Quality AIO.xlsx
 results/*.js
+results/*.dat
+results/users.dat
 !results/.gitkeep
 aio-csv/*.csv
 !aio-csv/.gitkeep
+BubbleSpecs.csv
+Bubble Specs.csv
+aio-csv/BubbleSpecs.csv
 edge-profile/

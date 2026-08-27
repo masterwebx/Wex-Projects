@@ -130,12 +130,17 @@ Private Function RangeToTsv(ByVal rng As Range) As String
             parts(c) = TsvEscape(data(r, c))
         Next c
         lines(r) = Join(parts, vbTab)
+        If r Mod 2000 = 0 Then Application.StatusBar = "Copying Table1... " & CStr(r) & " / " & CStr(nR)
     Next r
     RangeToTsv = Join(lines, vbCrLf)
 End Function
 
+' Never use CLng or VBA.Round. CLng overflows above ~2.1 billion.
+' Round uses Currency internally and overflows on huge values such as
+' a RollLength of 1.5E+14 or a 13-digit barcode pasted into Comments.
 Private Function TsvEscape(ByVal v As Variant) As String
     Dim s As String
+    On Error GoTo Fallback
     If IsError(v) Then Exit Function
     If IsNull(v) Or IsEmpty(v) Then Exit Function
     Select Case VarType(v)
@@ -144,33 +149,18 @@ Private Function TsvEscape(ByVal v As Variant) As String
         Case vbByte, vbInteger, vbLong, 20  ' 20 = vbLongLong when available
             TsvEscape = CStr(v)
         Case vbSingle, vbDouble, vbCurrency, vbDecimal
-            TsvEscape = NumToTsv(v)
+            TsvEscape = LTrim$(Str$(CDbl(v)))
         Case Else
             s = CStr(v)
+            If Left$(s, 1) = "#" Then Exit Function
             s = Replace(s, vbCr, " ")
             s = Replace(s, vbLf, " ")
             s = Replace(s, vbTab, " ")
             TsvEscape = Trim$(s)
     End Select
-End Function
-
-' CLng overflows (error 6) on whole numbers outside Long, which
-' Garland Material / Order Number / Date Int cells can hit.
-Private Function NumToTsv(ByVal v As Variant) As String
-    Dim d As Double
-    On Error GoTo Fallback
-    d = CDbl(v)
-    If d >= -2147483647# And d <= 2147483647# Then
-        If Abs(d - Round(d, 0)) < 0.0000001 Then
-            NumToTsv = CStr(CLng(Round(d, 0)))
-            Exit Function
-        End If
-    End If
-    NumToTsv = LTrim$(Str$(d))
     Exit Function
 Fallback:
-    On Error Resume Next
-    NumToTsv = Trim$(CStr(v))
+    TsvEscape = ""
 End Function
 
 Private Sub PutTextOnClipboard(ByVal s As String)

@@ -22,6 +22,8 @@ function isTsvHeaderLine(line) {
   if (!heads.length) return false;
   const compact = heads.map(h => String(h).replace(/\s+/g, '').toLowerCase());
   if (compact.some(h => h === 'mspec' || h === 'mspec#')) return true;
+  if (compact.some(h => h === 'monoorcoex' || h === 'basisweight' || h === 'bwtarget')) return true;
+  if (compact.includes('material') && compact.some(h => h === 'time' || h === 'dateint' || h === 'structure')) return true;
   const hasDate = heads.some(h => /^date\/?time$/i.test(h));
   const hasLine = heads.some(h => /^line$/i.test(h));
   const hasItem = compact.some(h => h === 'item' || h === 'item#' || h === 'itemnumber' || h === 'itemdesc' || h === 'itemdescription' || h === 'description');
@@ -50,10 +52,10 @@ function parseTsv(lines) {
 }
 function splitDieGraph2(text) {
   const lines = text.replace(/\r/g, '').split('\n');
-  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [], TABLESBUBBLE: [], TABLESP1: [], TABLESRTS: [] };
+  const sections = { CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [], TABLESBUBBLE: [], TABLESGARLAND: [], TABLESP1: [], TABLESRTS: [] };
   let cur = null;
   for (const line of lines.slice(1)) {
-    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|TABLESBUBBLE|TABLESP1|TABLESRTS|HISTORY)\]$/i);
+    const m = line.trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|TABLESBUBBLE|TABLESGARLAND|TABLESP1|TABLESRTS|HISTORY)\]$/i);
     if (m) {
       const name = m[1].toUpperCase();
       cur = (name === 'HISTORY') ? 'TABLES4' : name;
@@ -165,7 +167,7 @@ assert.doesNotMatch(vbaFrom, /CopyForGraphS1S3\.CopyForGraph/);
 assert.doesNotMatch(vbaFrom, /Left\$\(src, i\)/);
 
 assert.match(html, /data-screen="welcome"/);
-assert.match(html, /S4, S1 S3, Bubble, P1, and RTS quality check sheets/);
+assert.match(html, /S4, S1 S3, Bubble, Garland Bubble, P1, and RTS quality check sheets/);
 assert.match(html, /function currentSheetSourceLabel/);
 assert.match(html, /TABLES1S3/);
 assert.match(html, /Paste results/);
@@ -287,7 +289,7 @@ assert.match(html, /calendar-picker-indicator/);
 assert.match(html, /thickness under/);
 assert.match(html, /range over/);
 assert.match(html, /data-comp-item/);
-assert.match(html, /APP_VERSION = '1\.7\.39'/);
+assert.match(html, /APP_VERSION = '1\.7\.40'/);
 assert.match(html, /id="spcSeriesGraph"/);
 assert.match(html, /id="seriesLimit"/);
 assert.match(html, /id="seriesBtn"/);
@@ -1234,8 +1236,9 @@ assert.equal(failLineForCheck('1:00 AM', [{ detail: 'thickness over (max 0.530, 
 
 function inferPlant(row, tagged) {
   const t = String(tagged || (row && row.__plant) || '').toLowerCase();
-  if (t === 'foam' || t === 'bubble' || t === 'p1' || t === 'rts') return t;
+  if (t === 'foam' || t === 'bubble' || t === 'garland' || t === 'p1' || t === 'rts') return t;
   const line = String(col(row, 'Line') || '').trim().toUpperCase();
+  if (/^GARLAND\s*(COEX|MONO)$/.test(line) || /^G-?(COEX|MONO)$/.test(line)) return 'garland';
   if (line === 'COEX' || line === 'MONO') return 'bubble';
   if (line === 'P1') return 'p1';
   if (line === 'RTS') return 'rts';
@@ -1245,6 +1248,9 @@ assert.equal(inferPlant({ Line: 'S4' }), 'foam');
 assert.equal(inferPlant({ Line: 'S1' }), 'foam');
 assert.equal(inferPlant({ Line: 'COEX' }), 'bubble');
 assert.equal(inferPlant({ Line: 'MONO' }), 'bubble');
+assert.equal(inferPlant({ Line: 'Garland COEX' }), 'garland');
+assert.equal(inferPlant({ Line: 'Garland MONO' }), 'garland');
+assert.equal(inferPlant({ __plant: 'garland', Line: 'COEX' }), 'garland');
 assert.equal(inferPlant({ Line: 'P1' }), 'p1');
 assert.equal(inferPlant({ Line: 'RTS' }), 'rts');
 assert.ok(isTsvHeaderLine('Item Description\tDate/Time\tLine\tItem\tWidth\tPass/Fail'));
@@ -1858,6 +1864,7 @@ assert.deepEqual(
 );
 function plantFromLine(line) {
   const s = String(line || '').trim().toUpperCase().replace(/\s+/g, '');
+  if (s === 'GARLANDCOEX' || s === 'GARLANDMONO' || s === 'G-COEX' || s === 'G-MONO' || s === 'GCOEX' || s === 'GMONO') return 'garland';
   if (s === 'COEX' || s === 'MONO') return 'bubble';
   if (s === 'P1') return 'p1';
   if (s === 'RTS') return 'rts';
@@ -1865,17 +1872,20 @@ function plantFromLine(line) {
   return '';
 }
 function itemFilterKey(plant) {
-  const cols = { foam: ['Item #'], bubble: ['Item'], p1: ['Item #'], rts: ['Item #'] }[plant] || ['Item #'];
+  const cols = { foam: ['Item #'], bubble: ['Item'], garland: ['Item #'], p1: ['Item #'], rts: ['Item #'] }[plant] || ['Item #'];
   return cols.includes('Item') && !cols.includes('Item #') ? 'Item' : 'Item #';
 }
 assert.equal(plantFromLine('COEX'), 'bubble');
 assert.equal(plantFromLine('MONO'), 'bubble');
+assert.equal(plantFromLine('Garland COEX'), 'garland');
+assert.equal(plantFromLine('Garland MONO'), 'garland');
 assert.equal(plantFromLine('S4'), 'foam');
 assert.equal(plantFromLine('S1'), 'foam');
 assert.equal(plantFromLine('P1'), 'p1');
 assert.equal(plantFromLine('RTS'), 'rts');
 assert.equal(itemFilterKey('bubble'), 'Item');
 assert.equal(itemFilterKey('foam'), 'Item #');
+assert.equal(itemFilterKey('garland'), 'Item #');
 assert.deepEqual(parseSapDate('4.6257E4'), { y: 2026, m: 8, d: 23 });
 assert.deepEqual(parseSapDate('4.6258E4'), { y: 2026, m: 8, d: 24 });
 assert.equal(parseSapDate('5.2245370370369998E-2'), null);
@@ -2163,10 +2173,11 @@ assert.match(tableXml, /name="Date\/Time"/);
 assert.match(styleXml, /numFmtId="164"/);
 assert.match(styleXml, /m\/d\/yyyy h:mm AM\/PM/);
 
-const countBySpcKey = new Function('rows', 'by', html.slice(
-  html.indexOf('function countBySpcKey'),
-  html.indexOf('return counts;', html.indexOf('function countBySpcKey'))
-) + 'return counts; } return countBySpcKey(rows, by);');
+const countBySpcKey = new Function('rows', 'by',
+  html.slice(html.indexOf('function spcKeyOf'), html.indexOf('function syncSpcByOptions')) +
+  html.slice(html.indexOf('function countBySpcKey'), html.indexOf('function spcComboStats')) +
+  'return countBySpcKey(rows, by);'
+);
 const itemCounts = countBySpcKey([
   { item: 'A', mspec: '4780' },
   { item: 'A', mspec: '4780' },
@@ -2315,5 +2326,91 @@ assert.equal(stripSpcPtsSuffix('3030053 · 37 fails'), '3030053');
 assert.equal(stripSpcPtsSuffix('4780 (.515 1.60#) · 12 fails'), '4780');
 assert.equal(stripSpcPtsSuffix('4780 (.515 1.60#)'), '4780');
 assert.equal(stripSpcPtsSuffix('4001 · 3 pts'), '4001');
+
+const vbaGarland = fs.readFileSync(path.join(dir, 'CopyForGraphGarland.bas'), 'utf8');
+assert.match(vbaGarland, /Attribute VB_Name = "CopyForGraphGarland"/);
+assert.match(vbaGarland, /Public Sub CopyForGraph/);
+assert.match(vbaGarland, /SheetByName\("Data"\)/);
+assert.match(vbaGarland, /ListObjects\("Table1"\)/);
+assert.match(vbaGarland, /\[TABLESGARLAND\]/);
+assert.match(vbaGarland, /source=GARLAND/);
+assert.match(vbaGarland, /PutTextOnClipboard/);
+assert.match(vbaGarland, /clipboard only/);
+assert.doesNotMatch(vbaGarland, /OpenGraphHtml/);
+assert.doesNotMatch(vbaGarland, /GRAPH_HTML/);
+assert.doesNotMatch(vbaGarland, /FollowHyperlink/);
+
+assert.match(html, /TABLESGARLAND/);
+assert.match(html, /Garland Bubble/);
+assert.match(html, /function normalizeGarlandRow/);
+assert.match(html, /function garlandLineName/);
+assert.match(html, /function isBwSpcPlant/);
+assert.match(html, /function isSpcPlant/);
+assert.match(html, /function spcSourceRows/);
+assert.match(html, /function bwValueFromRow/);
+assert.match(html, /option value="garland"/);
+assert.match(html, /CopyForGraphGarland/);
+assert.match(html, /basis weight fail/);
+assert.match(html, /view by <b>Structure<\/b>/);
+
+function garlandLineName(raw) {
+  const s = String(raw || '').trim().toUpperCase().replace(/[\s_-]+/g, '');
+  if (!s) return '';
+  if (/^(GARLAND)?MONO$/.test(s) || s === 'GMONO') return 'Garland MONO';
+  if (/^(GARLAND)?COEX$/.test(s) || s === 'GCOEX') return 'Garland COEX';
+  if (/MONO/.test(s)) return 'Garland MONO';
+  if (/COEX/.test(s)) return 'Garland COEX';
+  return '';
+}
+function garlandFlagFail(v) {
+  const s = String(v ?? '').trim().toUpperCase();
+  return /^(0|FAIL|FALSE|N|F|NO)$/.test(s);
+}
+function garlandFlagPass(v) {
+  const s = String(v ?? '').trim().toUpperCase();
+  return /^(1|PASS|TRUE|Y|P|YES)$/.test(s);
+}
+function garlandPassFail(row) {
+  if (garlandFlagFail(row['VTF']) || garlandFlagFail(row['Vacuum Test']) || garlandFlagFail(row['PT']) || garlandFlagFail(row['BWT']) || garlandFlagFail(row['Weight Pass'])) return 'Fail';
+  if (garlandFlagPass(row['VTP']) || garlandFlagPass(row['PT']) || garlandFlagPass(row['BWT']) || garlandFlagPass(row['Weight Pass']) || garlandFlagPass(row['Vacuum Test'])) return 'Pass';
+  return 'Pass';
+}
+function parseWhenToSerial(v) {
+  const raw = String(v ?? '').trim();
+  if (!raw) return NaN;
+  const n = parseFloat(raw);
+  if (isFinite(n) && n >= 20000 && n < 90000) return n;
+  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*([AP]M))?)?/i);
+  if (!m) return NaN;
+  let h = +(m[4] || 0);
+  const min = +(m[5] || 0);
+  const sec = +(m[6] || 0);
+  const ap = (m[7] || '').toUpperCase();
+  if (ap === 'PM' && h < 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  const utc = Date.UTC(+m[3], +m[1] - 1, +m[2], h, min, sec);
+  return utc / 86400000 + 25569;
+}
+assert.equal(garlandLineName('Mono'), 'Garland MONO');
+assert.equal(garlandLineName('Coex'), 'Garland COEX');
+assert.equal(garlandLineName('MONO'), 'Garland MONO');
+assert.equal(garlandPassFail({ BWT: '1' }), 'Pass');
+assert.equal(garlandPassFail({ BWT: '0', 'Vacuum Test': 'Fail' }), 'Fail');
+assert.ok(parseWhenToSerial('44390.36') > 44000);
+assert.ok(Math.abs(parseWhenToSerial('7/13/2021 8:39') - 44390.36) < 1);
+
+const payloadGarland = fs.readFileSync(path.join(dir, 'fixtures/sample-diegraph2-garland.txt'), 'utf8');
+const garlandSecs = splitDieGraph2(payloadGarland);
+assert.ok(garlandSecs.TABLESGARLAND.length > 1);
+const garlandTable = parseTsv(garlandSecs.TABLESGARLAND);
+assert.equal(garlandTable.rows.length, 4);
+assert.equal(String(garlandTable.rows[0].Material), '4060844');
+assert.equal(garlandTable.rows[0].Structure, 'SPC');
+assert.equal(garlandTable.rows[0].MonoorCoex, 'Mono');
+assert.equal(garlandTable.rows[2].Structure, 'SAB');
+assert.equal(garlandTable.rows[3].MonoorCoex, 'Coex');
+assert.equal(garlandLineName(garlandTable.rows[3].MonoorCoex), 'Garland COEX');
+assert.equal(garlandPassFail(garlandTable.rows[3]), 'Fail');
+assert.ok(isTsvHeaderLine(garlandSecs.TABLESGARLAND[0]));
 
 console.log('parse-diegraph tests passed');

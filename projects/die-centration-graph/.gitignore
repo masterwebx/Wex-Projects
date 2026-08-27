@@ -1,0 +1,6 @@
+# Shop-floor workbook and HTA output — required next to the HTA, never commit
+Quality AIO.xlsm
+Quality_AIO.xlsm
+Quality AIO.xlsx
+results/*.js
+!results/.gitkeep

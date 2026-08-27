@@ -127,39 +127,99 @@
             return dir;
         }
 
+        function fileExists(path) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.FileExists(path);
+        }
+
+        function peekAttrs(path) {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) return 0;
+                return fso.GetFile(path).Attributes;
+            } catch (e) { return 0; }
+        }
+
+        function setAttrs(path, attrs) {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (fso.FileExists(path)) fso.GetFile(path).Attributes = attrs;
+            } catch (e) {}
+        }
+
+        function revealFile(path) {
+            var prev = peekAttrs(path);
+            if (prev & 6) setAttrs(path, prev & ~6);
+            return prev;
+        }
+
+        function restoreAttrs(path, prev) {
+            if (prev & 6) setAttrs(path, prev);
+        }
+
+        function unlockPath(path) {
+            if (!fileExists(path)) return;
+            setAttrs(path, 0);
+            try {
+                var sh = new ActiveXObject("WScript.Shell");
+                sh.Run('cmd /c icacls "' + path + '" /reset >nul 2>&1', 0, true);
+            } catch (e) {}
+        }
+
         function writeUtf8(path, text) {
+            var prev = revealFile(path);
             var stream = new ActiveXObject("ADODB.Stream");
             stream.Type = 2;
             stream.Charset = "utf-8";
             stream.Open();
             stream.WriteText(text);
-            stream.SaveToFile(path, 2);
+            try {
+                stream.SaveToFile(path, 2);
+            } catch (e1) {
+                unlockPath(path);
+                stream.SaveToFile(path, 2);
+            }
             stream.Close();
+            restoreAttrs(path, prev);
         }
 
         function readUtf8(path) {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
-            if (!fso.FileExists(path)) return "";
-            var stream = new ActiveXObject("ADODB.Stream");
-            stream.Type = 2;
-            stream.Charset = "utf-8";
-            stream.Open();
-            stream.LoadFromFile(path);
-            var text = stream.ReadText();
-            stream.Close();
+            if (!fileExists(path)) return "";
+            var prev = revealFile(path);
+            var text = "";
+            try {
+                var stream = new ActiveXObject("ADODB.Stream");
+                stream.Type = 2;
+                stream.Charset = "utf-8";
+                stream.Open();
+                stream.LoadFromFile(path);
+                text = stream.ReadText();
+                stream.Close();
+            } catch (e1) {
+                unlockPath(path);
+                try {
+                    var stream2 = new ActiveXObject("ADODB.Stream");
+                    stream2.Type = 2;
+                    stream2.Charset = "utf-8";
+                    stream2.Open();
+                    stream2.LoadFromFile(path);
+                    text = stream2.ReadText();
+                    stream2.Close();
+                } catch (e2) {
+                    try {
+                        var fso = new ActiveXObject("Scripting.FileSystemObject");
+                        var ts = fso.OpenTextFile(path, 1);
+                        text = ts.AtEndOfStream ? "" : ts.ReadAll();
+                        ts.Close();
+                    } catch (e3) { text = ""; }
+                }
+            }
+            restoreAttrs(path, prev);
             return text;
         }
 
         function protectPath(path) {
-            try {
-                var fso = new ActiveXObject("Scripting.FileSystemObject");
-                if (fso.FileExists(path)) fso.GetFile(path).Attributes = 2;
-            } catch (e1) {}
-            try {
-                var sh = new ActiveXObject("WScript.Shell");
-                var user = sh.ExpandEnvironmentStrings("%USERNAME%");
-                sh.Run('cmd /c icacls "' + path + '" /inheritance:r /grant:r "' + user + ':(R,W)" >nul 2>&1', 0, true);
-            } catch (e2) {}
+            try { if (fileExists(path)) setAttrs(path, (peekAttrs(path) | 2) & ~4); } catch (e1) {}
         }
 
         function usersDatPath() {
@@ -196,18 +256,17 @@
         }
 
         function loadAuthUsers() {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
             var path = usersDatPath();
-            if (!fso.FileExists(path)) {
-                authUsers = [QD.makeUserRecord(QD.SEED_USER, "QCLAB", true, false)];
-                saveAuthUsers();
+            var parsed = [];
+            if (fileExists(path)) {
+                try { parsed = QD.parseUsersDat(readUtf8(path)); } catch (e1) { parsed = []; }
+            }
+            if (parsed.length) {
+                authUsers = parsed;
                 return authUsers;
             }
-            authUsers = QD.parseUsersDat(readUtf8(path));
-            if (!authUsers.length) {
-                authUsers = [QD.makeUserRecord(QD.SEED_USER, "QCLAB", true, false)];
-                saveAuthUsers();
-            }
+            if (!authUsers.length) authUsers = [QD.makeUserRecord(QD.SEED_USER, "QCLAB", true, false)];
+            try { saveAuthUsers(); } catch (e2) {}
             return authUsers;
         }
 
@@ -317,7 +376,7 @@
         function doLogin() {
             var name = QD.trim($("loginUser").value);
             var pass = $("loginPass").value;
-            loadAuthUsers();
+            try { loadAuthUsers(); } catch (e0) {}
             var rec = QD.findUserRecord(authUsers, name);
             if (!rec || !QD.verifyPassword(rec, pass)) {
                 $("loginStatus").innerText = "Unknown user or wrong password.";
@@ -333,13 +392,15 @@
             $("loginStatus").innerText = "";
             $("loginOverlay").className = "overlay login";
             showApp();
-            if (!aio.loaded) loadAio(false);
+            setStatus("Signed in as " + rec.name + (rec.admin ? " (admin)" : "") + ".");
+            try { if (!aio.loaded) loadAio(false); } catch (e1) {
+                setStatus("Signed in, but lookup files could not be opened.\n" + e1.message, true);
+            }
             if (rec.mustChange) {
                 $("pwOverlay").className = "overlay on";
                 $("pwTitle").innerText = "Set your password";
             }
-            setStatus("Signed in as " + rec.name + (rec.admin ? " (admin)" : "") + ".");
-            renderLists();
+            try { renderLists(); } catch (e2) {}
         }
 
         function logout(msg) {
@@ -1647,8 +1708,8 @@
 
         window.onload = function () {
             try { window.resizeTo(Math.min(1280, screen.availWidth), Math.min(860, screen.availHeight)); } catch (e) {}
-            loadAuthUsers();
-            loadSpecHistory();
+            try { loadAuthUsers(); } catch (e1) {}
+            try { loadSpecHistory(); } catch (e2) {}
             setLine("S4");
             hideApp("");
             $("loginStatus").innerText = "Sign in to use Quality Desk Checks. Session ends after 1 hour idle.";

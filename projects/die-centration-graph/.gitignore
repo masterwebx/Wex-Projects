@@ -13,3 +13,10 @@ BubbleSpecs.csv
 Bubble Specs.csv
 aio-csv/BubbleSpecs.csv
 edge-profile/
+
+# Floor release runtime (keep the encoded HTA)
+release/results/*.js
+release/results/*.dat
+release/results/*.txt
+!release/results/.gitkeep
+

@@ -2,23 +2,39 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.48';
+  QD.VERSION = '1.7.53';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
   QD.IDLE_MS = 60 * 60 * 1000;
+  QD.CHECK_IDLE_MS = 15 * 60 * 1000;
   QD.USERS_FILE = 'users.dat';
   QD.SEED_USER = 'GWEXLER';
   QD.SITES = ['VISALIA', 'GARLAND'];
   QD.CHECK_TYPES = ['HOURLY', 'RETEST', 'NO CHECK'];
   QD.NO_CHECK_REASONS = ['EQUIPMENT FAILURE', 'NO ORDERS', 'LINE DOWN', 'PREVENTATIVE MAINTENANCE'];
-  QD.DOC_TYPES = ['Work Instruction', 'QAN'];
+  QD.DOC_TYPES = ['Work Instruction', 'QAN', 'Construction Card'];
   QD.DOC_REVIEW_MS = 90 * 24 * 60 * 60 * 1000;
   QD.STARTUP_ITEMS = [
     { id: 'labelsOut', text: 'Were old labels thrown away?' },
     { id: 'poVerify', text: 'Do you have the Production Order and verify everything is correct?' },
     { id: 'labelsMatch', text: 'Verify new labels match Production Order' }
   ];
+  QD.STARTUP_PERF_ITEM = { id: 'perfTear', text: 'Perf teared cleanly and easily' };
+  QD.RTS_STARTUP_STATIONS = ['0', '1', '2', '3'];
+  QD.RTS_STARTUP_ACTIONS = [
+    { id: 'heat', text: 'Turn on heater and verify heat is distributed evenly', stations: true },
+    { id: 'airKnives', text: 'Check and clean air knives', stations: true },
+    { id: 'airFilters', text: 'Check and clean air filters', stations: true },
+    { id: 'heatKnife', text: 'Move heat knife and check in correct position', stations: true },
+    { id: 'heaterConn', text: 'Check heater connection isn\'t loose. No loose screws', stations: true },
+    { id: 'grease', text: 'Grease heater belts and hydraulic screws', stations: true },
+    { id: 'blower', text: 'Verify blower is working', stations: true },
+    { id: 'hoses', text: 'Check air hoses and listen for air leaks', stations: true },
+    { id: 'printhead', text: 'Check printhead is clean and ink is full', stations: false }
+  ];
+  QD.ULINE_DIAM_MIN = 36;
+  QD.ULINE_DIAM_MAX = 38;
 
   QD.LINES = [
     { id: 'S4', file: 's4', site: 'VISALIA', plant: 'foam', form: 's4', reasons: 'foam', label: 'S4' },
@@ -238,6 +254,7 @@
     var needle = trim(q).toLowerCase();
     var wantType = trim(typeFilter).toUpperCase();
     var out = [];
+    var cap = limit || (needle ? 20 : 5000);
     var i, it, item, desc, typ;
     if (!items) return out;
     for (i = 0; i < items.length; i++) {
@@ -249,10 +266,143 @@
       if (wantType && typ && typ !== wantType) continue;
       if (!needle || item.toLowerCase().indexOf(needle) >= 0 || desc.toLowerCase().indexOf(needle) >= 0) {
         out.push(it);
-        if (out.length >= (limit || 20)) break;
+        if (out.length >= cap) break;
       }
     }
     return out;
+  };
+
+  QD.itemHasPerf = function (it) {
+    if (!it) return false;
+    var p = QD.num(it.perf);
+    return isFinite(p) && p > 0;
+  };
+
+  QD.itemIsUline = function (it) {
+    return /ULINE/i.test(String(it && it.description || ''));
+  };
+
+  QD.itemDescHasCohAdh = function (it) {
+    var d = String(it && it.description || '').toUpperCase();
+    return d.indexOf('COH') >= 0 || d.indexOf('ADH') >= 0;
+  };
+
+  QD.formatThkFraction = function (n) {
+    var val = QD.num(n);
+    if (!isFinite(val)) return '';
+    var whole = Math.floor(val + 0.0001);
+    var frac = val - whole;
+    if (frac < 0.001) return whole > 0 ? String(whole) : '0';
+    var fracs = [[0.0625, '1/16'], [0.125, '1/8'], [0.1875, '3/16'], [0.25, '1/4'], [0.3125, '5/16'],
+      [0.375, '3/8'], [0.4375, '7/16'], [0.5, '1/2'], [0.5625, '9/16'], [0.625, '5/8'],
+      [0.6875, '11/16'], [0.75, '3/4'], [0.8125, '13/16'], [0.875, '7/8'], [0.9375, '15/16']];
+    var i, best = null, diff;
+    for (i = 0; i < fracs.length; i++) {
+      diff = Math.abs(frac - fracs[i][0]);
+      if (!best || diff < best.diff) best = { diff: diff, label: fracs[i][1] };
+    }
+    if (best && best.diff <= 0.02) return whole > 0 ? (whole + ' ' + best.label) : best.label;
+    return val.toFixed(3);
+  };
+
+  QD.allThkInRange = function (vals, lo, hi) {
+    var i, v, any = false, ok = true;
+    for (i = 0; i < (vals || []).length; i++) {
+      v = vals[i];
+      if (v == null || trim(v) === '') continue;
+      any = true;
+      if (QD.inRange(v, lo, hi) === false) ok = false;
+    }
+    if (!any) return null;
+    return ok;
+  };
+
+  QD.lineToForm = function (lineId) {
+    var info = QD.lineInfo(lineId);
+    return info ? info.form : '';
+  };
+
+  QD.docLinePlant = function (lineId) {
+    var info = QD.lineInfo(lineId);
+    if (!info) return '';
+    if (info.plant === 'bubble') return 'bubble';
+    if (info.plant === 'p1') return 'p1';
+    if (info.plant === 'rts') return 'rts';
+    return 'foam';
+  };
+
+  QD.parseDocLines = function (lineStr) {
+    if (!lineStr || lineStr === '*' || String(lineStr).toUpperCase() === 'ALL') return ['*'];
+    var parts = String(lineStr).split(/[,;]+/);
+    var out = [], i, p;
+    for (i = 0; i < parts.length; i++) {
+      p = trim(parts[i]);
+      if (p) out.push(p);
+    }
+    return out.length ? out : ['*'];
+  };
+
+  QD.docMatchesUserLines = function (docLine, lineIds) {
+    var parts = QD.parseDocLines(docLine);
+    var i, j, p, want;
+    if (parts[0] === '*') return true;
+    for (i = 0; i < (lineIds || []).length; i++) {
+      want = String(lineIds[i] || '').toUpperCase();
+      for (j = 0; j < parts.length; j++) {
+        p = String(parts[j]).toUpperCase();
+        if (p === want) return true;
+        if (p === String(QD.lineLabel(lineIds[i]) || '').toUpperCase()) return true;
+      }
+    }
+    return false;
+  };
+
+  QD.docAppliesToSection = function (docLine, section) {
+    var parts = QD.parseDocLines(docLine);
+    var i, plant;
+    if (parts[0] === '*') return true;
+    for (i = 0; i < parts.length; i++) {
+      plant = QD.docLinePlant(parts[i]);
+      if (plant === section) return true;
+    }
+    return false;
+  };
+
+  QD.checkLinkFieldsForDocLines = function (lineStr) {
+    var lines = QD.parseDocLines(lineStr);
+    var allowed = {}, out = [], i, j, form, fields, cf, lid;
+    if (lines[0] === '*') {
+      for (i = 0; i < QD.CHECK_LINK_FIELDS.length; i++) out.push(QD.CHECK_LINK_FIELDS[i]);
+      return out;
+    }
+    for (i = 0; i < lines.length; i++) {
+      lid = lines[i];
+      form = QD.lineToForm(lid);
+      if (!form && String(lid).toUpperCase() === 'G-COEX') form = 'bubble';
+      if (!form) form = QD.docLinePlant(lid);
+      fields = QD.CHECK_FIELDS[form];
+      if (fields) {
+        for (j = 0; j < fields.length; j++) allowed[fields[j].key] = true;
+      }
+      if (form === 'p1') {
+        fields = QD.CHECK_FIELDS.p1Double;
+        for (j = 0; j < fields.length; j++) allowed[fields[j].key] = true;
+      }
+      if (form === 's1s3' || form === 's4') allowed.points = true;
+    }
+    for (i = 0; i < QD.CHECK_LINK_FIELDS.length; i++) {
+      cf = QD.CHECK_LINK_FIELDS[i];
+      if (allowed[cf.id]) out.push(cf);
+    }
+    return out;
+  };
+
+  QD.thkSpecLabel = function (min, target, max) {
+    var a = QD.formatThkFraction(min);
+    var b = QD.formatThkFraction(target);
+    var c = QD.formatThkFraction(max);
+    if (!a && !b && !c) return '';
+    return (a || '—') + ' / ' + (b || '—') + ' / ' + (c || '—');
   };
 
   QD.findMspec = function (mspecs, mspec) {
@@ -294,8 +444,21 @@
     return raw.replace(/^(G-)?(COEX|MONO)[\s\-_\/:]*/, '');
   };
 
+  QD.bubbleFamily = function (line) {
+    var key = String(line || '').toUpperCase().replace(/\s+/g, '');
+    if (key === 'MONO' || key === 'G-MONO') return 'MONO';
+    if (key === 'COEX' || key === 'G-COEX') return 'COEX';
+    var info = QD.lineInfo(line);
+    if (info && info.plant === 'bubble') {
+      if (String(info.id).indexOf('MONO') >= 0) return 'MONO';
+      return 'COEX';
+    }
+    return '';
+  };
+
   QD.matchBubbleWeight = function (line, bubbleType) {
-    var table = QD.BUBBLE_WEIGHT[String(line || '').toUpperCase()] || {};
+    var fam = QD.bubbleFamily(line) || String(line || '').toUpperCase();
+    var table = QD.BUBBLE_WEIGHT[fam] || {};
     var raw = QD.normalizeBubbleType(bubbleType);
     var key, best = '';
     if (!raw) return null;
@@ -308,11 +471,91 @@
     return null;
   };
 
+  QD.normalizeBubbleWeightRow = function (row) {
+    if (!row) return null;
+    var min = QD.num(row.min);
+    var target = QD.num(row.target);
+    var max = QD.num(row.max);
+    if (!isFinite(min) && !isFinite(target) && !isFinite(max)) return null;
+    return {
+      key: trim(row.abbreviation || row.key || ''),
+      min: min,
+      target: target,
+      max: max
+    };
+  };
+
+  QD.bubbleWeightForLine = function (specs, line, bubbleType) {
+    var fam = QD.bubbleFamily(line);
+    var raw = trim(bubbleType);
+    var row, bt;
+    if (!fam || !raw) return QD.matchBubbleWeight(fam, bubbleType);
+    row = QD.findBubbleSpec(specs, fam, bubbleType);
+    if (row) {
+      bt = QD.normalizeBubbleWeightRow(row);
+      if (bt) return bt;
+    }
+    row = QD.matchBubbleWeight(fam, bubbleType);
+    return row ? { key: row.key, min: row.min, target: row.target, max: row.max } : null;
+  };
+
   QD.bubbleWeightPair = function (specs, bubbleType) {
     return {
       coex: QD.findBubbleSpec(specs, 'COEX', bubbleType) || QD.matchBubbleWeight('COEX', bubbleType),
       mono: QD.findBubbleSpec(specs, 'MONO', bubbleType) || QD.matchBubbleWeight('MONO', bubbleType)
     };
+  };
+
+  QD.isDoubleShot = function (shots) {
+    var s = trim(shots).toUpperCase();
+    if (!s) return false;
+    if (s === '2' || s === 'DOUBLE' || s === 'DBL' || s.indexOf('DOUBLE') >= 0) return true;
+    var n = QD.num(s);
+    return isFinite(n) && n >= 2;
+  };
+
+  QD.parseLooseDate = function (raw) {
+    var s = trim(raw);
+    if (!s) return null;
+    var m, d;
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+      d = new Date(s.substring(0, 10) + 'T12:00:00');
+      return isNaN(d.getTime()) ? null : d;
+    }
+    m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+    if (m) {
+      var yy = parseInt(m[3], 10);
+      if (yy < 100) yy += 2000;
+      d = new Date(yy, parseInt(m[1], 10) - 1, parseInt(m[2], 10), 12, 0, 0);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    d = new Date(s);
+    return isNaN(d.getTime()) ? null : d;
+  };
+
+  /** Pass when today is at least 5 calendar days after MFG date. */
+  QD.mfgDatePf = function (mfgDate, now) {
+    var mfg = QD.parseLooseDate(mfgDate);
+    if (!mfg) return null;
+    var today = now instanceof Date ? now : new Date();
+    var a = new Date(mfg.getFullYear(), mfg.getMonth(), mfg.getDate());
+    var b = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var days = Math.round((b.getTime() - a.getTime()) / 86400000);
+    return days >= 5;
+  };
+
+  QD.homeStatusTone = function (row) {
+    if (!row) return 'gray';
+    var reason = String(row['Reason for Check'] || '').toUpperCase();
+    var extra = String(row['No Check Reason'] || '').toUpperCase();
+    var pf = String(row['Pass/Fail'] || '').toUpperCase();
+    if (reason === 'LINE UP' || pf === 'PASS' || pf === 'LINE UP') return 'green';
+    if (extra === 'LINE DOWN' || pf === 'FAIL' || pf === 'LINE DOWN' || reason === 'LINE DOWN') return 'red';
+    if (extra === 'NO ORDERS' || extra === 'PREVENTATIVE MAINTENANCE' || pf === 'NO ORDERS' || pf === 'PREVENTATIVE MAINTENANCE') return 'gray';
+    if (reason === 'NO CHECK') return 'gray';
+    if (pf === 'FAIL') return 'red';
+    if (pf === 'PASS') return 'green';
+    return 'gray';
   };
 
   QD.deadCellMax = function (bubbleType) {
@@ -417,6 +660,7 @@
       setIf(row, 'Post Pass', input.postPf);
       setIf(row, 'Maximum allowed', input.deadMax);
     } else if (info.plant === 'p1') {
+      var pi;
       setIf(row, 'Item #', item);
       setIf(row, 'Item Description', desc);
       setIf(row, 'Length', input.length);
@@ -426,14 +670,23 @@
       setIf(row, 'Plank Weight', input.weight);
       setIf(row, 'Volume', input.volume);
       setIf(row, 'Density', input.density);
-      setIf(row, 'P1', input.head);
-      setIf(row, 'P2', input.end1);
-      setIf(row, 'P3', input.end2);
-      setIf(row, 'P4', input.tail);
+      setIf(row, '# Shots', input.shots);
       setIf(row, 'Average Single Shot', input.avgSingle);
       setIf(row, 'Width Pass', input.widthPf);
       setIf(row, 'Length Pass', input.lengthPf);
       setIf(row, 'Density Pass/Fail', input.densityPf);
+      if (input.headPoints) {
+        for (pi = 0; pi < input.headPoints.length; pi++) setIf(row, 'Head T' + (pi + 1), input.headPoints[pi]);
+      }
+      setIf(row, 'Tail Length', input.tailLength);
+      setIf(row, 'Tail Width', input.tailWidth);
+      if (input.tailPoints) {
+        for (pi = 0; pi < input.tailPoints.length; pi++) setIf(row, 'Tail T' + (pi + 1), input.tailPoints[pi]);
+      }
+      setIf(row, 'P1', input.head);
+      setIf(row, 'P2', input.end1);
+      setIf(row, 'P3', input.end2);
+      setIf(row, 'P4', input.tail);
     } else if (info.plant === 'rts') {
       setIf(row, 'Item #', item);
       setIf(row, 'Description', desc);
@@ -550,7 +803,7 @@
   QD.CHECK_FIELDS = {
     s4: [
       { key: 'bundle', label: 'Bundle #' },
-      { key: 'width', label: 'Slit/Width' },
+      { key: 'width', label: 'Width' },
       { key: 'footage', label: 'Footage' },
       { key: 'cellMd', label: 'Cell Count MD' },
       { key: 'cellCd', label: 'Cell Count CD' },
@@ -561,35 +814,39 @@
       { key: 'bundle', label: 'Bundle #' },
       { key: 'width', label: 'Width' },
       { key: 'footage', label: 'Footage' },
-      { key: 'perf', label: 'Perf' },
+      { key: 'perf', label: 'Perf', when: 'perf' },
       { key: 'cellMd', label: 'Cell Count MD' },
       { key: 'cellCd', label: 'Cell Count CD' },
       { key: 'weight', label: 'Weight' },
-      { key: 'points', label: 'Thickness points', kind: 'points', count: 13 }
+      { key: 'points', label: 'Thickness points', kind: 'points', count: 13 },
+      { key: 'winderTension', label: 'Winder tension', when: 's1' },
+      { key: 'bumperPressure', label: 'Bumper roll pressure', when: 's1' },
+      { key: 'diameter', label: 'Diameter (ULINE)', when: 'uline' }
     ],
     bubble: [
-      { key: 'productVf', label: 'Product Verification' },
-      { key: 'cohAdh', label: 'COH/ADH Verification' },
-      { key: 'postVisual', label: 'Post-Visual Inspection' },
-      { key: 'slits', label: '# Slits' },
+      { key: 'cohAdh', label: 'COH/ADH Verification', when: 'cohAdh' },
+      { key: 'deadPre', label: 'Dead Cell Pre' },
+      { key: 'deadPost', label: 'Dead Cell Post' },
+      { key: 'postVisual', label: 'Post-Visual Inspection', when: 'deadDone' },
       { key: 'width', label: 'Width' },
       { key: 'footage', label: 'Footage' },
-      { key: 'perfWidth', label: 'Perf Width' },
-      { key: 'perfTester', label: 'Perf Tester Results' },
+      { key: 'perfWidth', label: 'Perf Width', when: 'perf' },
+      { key: 'perfTester', label: 'Perf Tester Results', when: 'perf' },
       { key: 'weight', label: 'Weight' },
-      { key: 'deadPre', label: 'Dead Cell Pre' },
-      { key: 'deadPost', label: 'Dead Cell Post' }
+      { key: 'diameter', label: 'Diameter (ULINE)', when: 'uline' }
     ],
     p1: [
-      { key: 'length', label: 'Length' },
-      { key: 'width', label: 'Width' },
+      { key: 'length', label: 'Head Length' },
+      { key: 'width', label: 'Head Width' },
       { key: 'cellMd', label: 'Cell Count MD' },
       { key: 'cellCd', label: 'Cell Count CD' },
       { key: 'weight', label: 'Plank Weight' },
-      { key: 'head', label: 'P1' },
-      { key: 'end1', label: 'P2' },
-      { key: 'end2', label: 'P3' },
-      { key: 'tail', label: 'P4' }
+      { key: 'headPoints', label: 'Head thickness points', kind: 'points', count: 12 }
+    ],
+    p1Double: [
+      { key: 'tailLength', label: 'Tail Length' },
+      { key: 'tailWidth', label: 'Tail Width' },
+      { key: 'tailPoints', label: 'Tail thickness points', kind: 'points', count: 12 }
     ],
     rts: [
       { key: 'parent', label: 'Parent Material' },
@@ -601,10 +858,78 @@
       { key: 'delam', label: 'Delamination' },
       { key: 'blister', label: 'Blistering' },
       { key: 'alligator', label: 'Alligator Skin' },
+      { key: 'tattoo', label: 'Verify side tattoo exists' },
       { key: 't1', label: 'T Point 1' },
       { key: 't2', label: 'T Point 2' },
       { key: 't3', label: 'T Point 3' }
     ]
+  };
+
+  QD.CHECK_LINK_FIELDS = [
+    { id: 'bundle', label: 'Bundle #' },
+    { id: 'width', label: 'Width' },
+    { id: 'footage', label: 'Footage' },
+    { id: 'weight', label: 'Weight' },
+    { id: 'cellMd', label: 'Cell Count MD' },
+    { id: 'cellCd', label: 'Cell Count CD' },
+    { id: 'perf', label: 'Perf' },
+    { id: 'productVf', label: 'Product Verification' },
+    { id: 'cohAdh', label: 'COH/ADH Verification' },
+    { id: 'postVisual', label: 'Post-Visual Inspection' },
+    { id: 'deadPre', label: 'Dead Cell Pre' },
+    { id: 'deadPost', label: 'Dead Cell Post' },
+    { id: 'perfWidth', label: 'Perf Width' },
+    { id: 'perfTester', label: 'Perf Tester Results' },
+    { id: 'diameter', label: 'Diameter (ULINE)' },
+    { id: 'parent', label: 'Parent Material' },
+    { id: 'parentDate', label: 'Parent MFG Date' },
+    { id: 'shift', label: 'Parent Shift' },
+    { id: 'color', label: 'Color' },
+    { id: 'delam', label: 'Delamination' },
+    { id: 'blister', label: 'Blistering' },
+    { id: 'alligator', label: 'Alligator Skin' },
+    { id: 'tattoo', label: 'Verify side tattoo exists' },
+    { id: 'winderTension', label: 'Winder tension' },
+    { id: 'bumperPressure', label: 'Bumper roll pressure' },
+    { id: 'points', label: 'Thickness points (T1–T13)' },
+    { id: 'headPoints', label: 'Head thickness points (T1–T12)' },
+    { id: 'tailPoints', label: 'Tail thickness points (T1–T12)' },
+    { id: 'entries', label: '… entries section' }
+  ];
+
+  QD.fieldApplies = function (f, ctx) {
+    if (!f || !f.when) return true;
+    var w = String(f.when);
+    if (w === 'perf') return !!ctx.hasPerf;
+    if (w === 'uline') return !!ctx.isUline;
+    if (w === 'cohAdh') return !!ctx.hasCohAdh;
+    if (w === 's1') return ctx.lineId === 'S1';
+    if (w === 'deadDone') return !!ctx.deadDone;
+    return true;
+  };
+
+  QD.mergeItemRows = function (items) {
+    var map = {}, out = [], i, it, item, parent, rec, j;
+    for (i = 0; i < (items || []).length; i++) {
+      it = items[i];
+      item = QD.canonItem(it.item || it['Item #']);
+      if (!item) continue;
+      parent = trim(it.parent || it['Parent Material'] || '');
+      if (!map[item]) {
+        rec = {};
+        for (j in it) if (it.hasOwnProperty(j)) rec[j] = it[j];
+        rec.item = item;
+        rec.parents = parent ? [parent] : [];
+        if (parent) rec.parent = parent;
+        map[item] = rec;
+        out.push(rec);
+      } else {
+        rec = map[item];
+        if (parent && rec.parents.indexOf(parent) < 0) rec.parents.push(parent);
+        if (!rec.parent && parent) rec.parent = parent;
+      }
+    }
+    return out;
   };
 
   QD.missingCheckFields = function (lineId, reason, input) {
@@ -628,12 +953,22 @@
     if (!QD.canonItem(src.item)) miss.push('Item #');
     var info = QD.lineInfo(lineId);
     var form = info ? info.form : '';
-    var fields = QD.CHECK_FIELDS[form] || [];
+    var it = src.itemObj || null;
+    var hasPerf = QD.itemHasPerf(it);
+    var isUline = QD.itemIsUline(it);
+    var hasCohAdh = QD.itemDescHasCohAdh(it);
+    var deadDone = QD.trim(src.deadPre) !== '' && QD.trim(src.deadPost) !== '';
+    var ctx = { lineId: lineId, hasPerf: hasPerf, isUline: isUline, hasCohAdh: hasCohAdh, deadDone: deadDone };
+    var fields = (QD.CHECK_FIELDS[form] || []).slice();
+    if (form === 'p1' && QD.isDoubleShot(src.shots)) {
+      fields = fields.concat(QD.CHECK_FIELDS.p1Double || []);
+    }
     var i, f, v, pts, filled, j;
     for (i = 0; i < fields.length; i++) {
       f = fields[i];
+      if (!QD.fieldApplies(f, ctx)) continue;
       if (f.kind === 'points') {
-        pts = src.points || [];
+        pts = src[f.key] || (f.key === 'points' ? src.points : []) || [];
         filled = 0;
         for (j = 0; j < pts.length; j++) if (trim(pts[j]) !== '') filled += 1;
         if (filled < (f.count || 13)) miss.push(f.label);
@@ -641,6 +976,9 @@
         v = src[f.key];
         if (v == null || trim(v) === '') miss.push(f.label);
       }
+    }
+    if (form === 's4' && isFinite(QD.num(src.itemLength)) && QD.num(src.itemLength) > 0) {
+      if (!trim(src.sheetLength)) miss.push('Sheet Length');
     }
     return miss;
   };
@@ -804,18 +1142,50 @@
   };
 
   QD.findBubbleSpec = function (specs, family, bubbleType) {
-    var fam = trim(family).toUpperCase();
+    var fam = QD.bubbleFamily(family) || trim(family).toUpperCase();
     var raw = QD.normalizeBubbleType(bubbleType);
-    var i, row, key, best = null;
+    var full = trim(bubbleType).toUpperCase();
+    var i, row, key, bt, best = null, bestLen = 0;
     if (!raw || !specs) return null;
     for (i = 0; i < specs.length; i++) {
       row = specs[i];
       if (fam && String(row.family || '').toUpperCase() !== fam) continue;
       key = trim(row.abbreviation).toUpperCase();
-      if (key === raw) return row;
-      if (raw.indexOf(key) === 0 && (!best || key.length > trim(best.abbreviation).length)) best = row;
+      bt = trim(row.bubbleType || '').toUpperCase();
+      if (key === raw || bt === full || bt === raw) return row;
+      if (raw.indexOf(key) === 0 && key.length > bestLen) { best = row; bestLen = key.length; }
+      if (full.indexOf(key) === 0 && key.length > bestLen) { best = row; bestLen = key.length; }
     }
     return best;
+  };
+
+  QD.findP1Spec = function (specs, item) {
+    if (!item || !specs) return null;
+    var thk = trim(item.thickness);
+    var dens = trim(item.density);
+    var i, row;
+    for (i = 0; i < specs.length; i++) {
+      row = specs[i];
+      if (trim(row.thickness) === thk && String(row.density) === String(dens)) return row;
+    }
+    for (i = 0; i < specs.length; i++) {
+      row = specs[i];
+      if (trim(row.thickness) === thk) return row;
+    }
+    return null;
+  };
+
+  QD.findRtsSpec = function (specs, parentMaterial) {
+    var want = trim(parentMaterial).toUpperCase();
+    var i, row, product;
+    if (!want || !specs) return null;
+    for (i = 0; i < specs.length; i++) {
+      row = specs[i];
+      product = trim(row.product).toUpperCase();
+      if (product === want) return row;
+      if (want.indexOf(product) >= 0 || product.indexOf(want) >= 0) return row;
+    }
+    return null;
   };
 
   QD.deadCellMaxFromFile = function (deadCells, bubbleType) {
@@ -902,14 +1272,30 @@
       status: 'pending',
       salt: extra.salt || '',
       hash: extra.hash || '',
-      plant: trim(extra.plant || 'VISALIA').toUpperCase() || 'VISALIA'
+      plant: trim(extra.plant || 'VISALIA').toUpperCase() || 'VISALIA',
+      line: trim(extra.line || ''),
+      item: trim(extra.item || ''),
+      disposition: trim(extra.disposition || ''),
+      detail: trim(extra.detail || ''),
+      checkAt: trim(extra.checkAt || '')
     };
   };
 
-  QD.pendingInbox = function (requests) {
-    var out = [], i;
+  QD.DISPOSITIONS = ['SCRAP', 'QUALITY HOLD', 'PASS AS IS'];
+
+  QD.pendingInbox = function (requests, user) {
+    var out = [], i, r;
     for (i = 0; i < (requests || []).length; i++) {
-      if (requests[i] && requests[i].status === 'pending') out.push(requests[i]);
+      r = requests[i];
+      if (!r || r.status !== 'pending') continue;
+      if (user) {
+        if (r.type === 'newUser' || r.type === 'reset') {
+          if (!user.admin) continue;
+        } else if (r.type === 'deviation' || r.type === 'rtsStartup' || r.type === 'itemChange') {
+          if (!QD.userCanApprovePlant(user, r.plant)) continue;
+        } else if (!user.admin && !QD.userIsSupervisor(user) && !QD.userIsLead(user)) continue;
+      }
+      out.push(r);
     }
     return out;
   };
@@ -1028,7 +1414,7 @@
     return QD.sha256(String(salt || '') + '\n' + String(password || ''));
   };
 
-  QD.makeUserRecord = function (name, password, admin, mustChange, plant, lines) {
+  QD.makeUserRecord = function (name, password, admin, mustChange, plant, lines, supervisor, lead) {
     var salt = QD.randomSalt();
     return {
       name: trim(name),
@@ -1037,8 +1423,27 @@
       hash: QD.hashPassword(password, salt),
       mustChange: !!mustChange,
       plant: trim(plant || (admin ? 'BOTH' : 'VISALIA')).toUpperCase() || 'VISALIA',
-      lines: trim(lines || '*') || '*'
+      lines: trim(lines || '*') || '*',
+      supervisor: !!supervisor,
+      lead: !!lead
     };
+  };
+
+  QD.userIsSupervisor = function (user) {
+    return !!(user && (user.supervisor || user.admin));
+  };
+
+  QD.userIsLead = function (user) {
+    return !!(user && (user.lead || user.admin));
+  };
+
+  QD.userCanApprovePlant = function (user, plant) {
+    if (!user) return false;
+    if (user.admin) return true;
+    if (!QD.userIsSupervisor(user) && !QD.userIsLead(user)) return false;
+    var up = String(user.plant || 'VISALIA').toUpperCase();
+    var want = String(plant || 'VISALIA').toUpperCase();
+    return up === 'BOTH' || up === want;
   };
 
   QD.parseUsersDat = function (text) {
@@ -1057,7 +1462,9 @@
         hash: parts[3] || '',
         mustChange: parts[4] === '1',
         plant: trim(parts[5] || (name.toUpperCase() === QD.SEED_USER ? 'BOTH' : 'VISALIA')).toUpperCase() || 'VISALIA',
-        lines: trim(parts[6] || '*') || '*'
+        lines: trim(parts[6] || '*') || '*',
+        supervisor: parts[7] === '1' || /^true$/i.test(parts[7] || ''),
+        lead: parts[8] === '1' || /^true$/i.test(parts[8] || '')
       });
     }
     return out;
@@ -1076,7 +1483,9 @@
         u.hash || '',
         u.mustChange ? '1' : '0',
         trim(u.plant || 'VISALIA').toUpperCase(),
-        trim(u.lines || '*') || '*'
+        trim(u.lines || '*') || '*',
+        u.supervisor ? '1' : '0',
+        u.lead ? '1' : '0'
       ].join('|'));
     }
     return lines.join('\n') + '\n';
@@ -1146,13 +1555,64 @@
 
   QD.lastCheckLabel = function (row) {
     if (!row) return 'No checks yet';
-    var when = QD.formatClock(row['Date/Time']);
+    var d = QD.dateFromSerial(row['Date/Time']);
+    var now = new Date();
+    var sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    var when;
+    if (sameDay) when = QD.formatClock(row['Date/Time']);
+    else {
+      var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      when = days[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + QD.formatClock(row['Date/Time']);
+    }
     var reason = String(row['Reason for Check'] || '').toUpperCase();
     var extra = trim(row['No Check Reason'] || '');
     var pf = trim(row['Pass/Fail'] || '');
     if (reason === 'NO CHECK') return 'last check ' + (extra || 'NO CHECK') + ' @ ' + when;
     if (reason === 'LINE UP') return 'last check LINE UP @ ' + when;
     return 'last check ' + (pf || reason || '—') + ' @ ' + when;
+  };
+
+  QD.docIsConstructionCard = function (doc) {
+    return doc && String(doc.type || '') === 'Construction Card';
+  };
+
+  QD.conCardLinkedItems = function (doc) {
+    var out = [], raw = doc && doc.linkedItems, i;
+    if (!raw) return out;
+    if (typeof raw === 'string') {
+      raw = raw.split(/[,;]+/);
+      for (i = 0; i < raw.length; i++) {
+        if (trim(raw[i])) out.push(QD.canonItem(raw[i]));
+      }
+      return out;
+    }
+    if (raw.length) {
+      for (i = 0; i < raw.length; i++) if (trim(raw[i])) out.push(QD.canonItem(raw[i]));
+    }
+    return out;
+  };
+
+  QD.pendingConCardsForCheck = function (docs, acks, userName, lineId, itemNo) {
+    var out = [], i, d, a, j, items, item = QD.canonItem(itemNo), line = QD.lineLabel(lineId);
+    if (!item) return out;
+    for (i = 0; i < (docs || []).length; i++) {
+      d = docs[i];
+      if (!QD.docIsConstructionCard(d)) continue;
+      if (d.line && d.line !== '*' && String(d.line).toUpperCase() !== 'ALL'
+          && String(d.line).toUpperCase() !== String(lineId || '').toUpperCase()
+          && String(d.line).toUpperCase() !== String(line || '').toUpperCase()) continue;
+      items = QD.conCardLinkedItems(d);
+      if (!items.length) continue;
+      if (items.indexOf(item) < 0) continue;
+      a = null;
+      for (j = 0; j < (acks || []).length; j++) {
+        if (acks[j] && acks[j].docId === d.id && String(acks[j].user || '').toUpperCase() === String(userName || '').toUpperCase()) {
+          if (!a || String(acks[j].at) > String(a.at)) a = acks[j];
+        }
+      }
+      if (QD.docNeedsReview(d, a)) out.push(d);
+    }
+    return out;
   };
 
   QD.docNeedsReview = function (doc, ack, now) {
@@ -1163,6 +1623,16 @@
     return !isFinite(at) || (t - at) >= QD.DOC_REVIEW_MS;
   };
 
+  QD.docsForAssignedLines = function (docs, lineIds) {
+    var out = [], i, d;
+    for (i = 0; i < (docs || []).length; i++) {
+      d = docs[i];
+      if (!d || QD.docIsConstructionCard(d)) continue;
+      if (QD.docMatchesUserLines(d.line, lineIds)) out.push(d);
+    }
+    return out;
+  };
+
   QD.pendingDocs = function (docs, acks, userName, lineIds) {
     var out = [];
     var i, d, a, j, match;
@@ -1170,12 +1640,8 @@
     for (i = 0; i < (docs || []).length; i++) {
       d = docs[i];
       if (!d) continue;
-      match = false;
-      if (!d.line || d.line === '*' || String(d.line).toUpperCase() === 'ALL') match = true;
-      for (j = 0; j < lines.length; j++) {
-        if (String(d.line || '').toUpperCase() === String(lines[j] || '').toUpperCase()) match = true;
-        if (String(d.line || '').toUpperCase() === QD.lineLabel(lines[j])) match = true;
-      }
+      if (QD.docIsConstructionCard(d)) continue;
+      match = QD.docMatchesUserLines(d.line, lines);
       if (!match) continue;
       a = null;
       for (j = 0; j < (acks || []).length; j++) {
@@ -1188,11 +1654,38 @@
     return out;
   };
 
-  QD.startupComplete = function (answers) {
+  QD.bubbleStartupIncludePerf = function (lineId, it) {
+    var fam = QD.bubbleFamily(lineId);
+    return (fam === 'COEX' || fam === 'MONO') && QD.itemHasPerf(it);
+  };
+
+  QD.startupComplete = function (answers, includePerf) {
     var i, id;
     for (i = 0; i < QD.STARTUP_ITEMS.length; i++) {
       id = QD.STARTUP_ITEMS[i].id;
       if (!answers || String(answers[id] || '').toUpperCase() !== 'YES') return false;
+    }
+    if (includePerf) {
+      id = QD.STARTUP_PERF_ITEM.id;
+      var v = String((answers && answers[id]) || '').toUpperCase();
+      if (v !== 'PASS' && v !== 'FAIL') return false;
+    }
+    return true;
+  };
+
+  QD.rtsStartupComplete = function (answers) {
+    var i, j, act, st, v, stations = QD.RTS_STARTUP_STATIONS;
+    for (i = 0; i < QD.RTS_STARTUP_ACTIONS.length; i++) {
+      act = QD.RTS_STARTUP_ACTIONS[i];
+      if (act.stations) {
+        for (j = 0; j < stations.length; j++) {
+          v = answers ? answers[act.id + '_s' + stations[j]] : '';
+          if (String(v).toUpperCase() !== 'PASS' && String(v).toUpperCase() !== 'FAIL') return false;
+        }
+      } else {
+        v = answers ? answers[act.id] : '';
+        if (String(v).toUpperCase() !== 'PASS' && String(v).toUpperCase() !== 'FAIL') return false;
+      }
     }
     return true;
   };

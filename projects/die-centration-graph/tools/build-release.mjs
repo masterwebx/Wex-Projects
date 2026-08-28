@@ -1,16 +1,21 @@
 /**
- * Build release/ floor package using Microsoft screnc.exe when available.
+ * Build release/ floor package.
+ *
+ * Microsoft screnc.exe / JScript.Encode does not run under modern mshta.
+ * We pack scripts as base64+eval instead. mshta also rejects a single eval
+ * larger than ~100KB, so large scripts are split into <90KB chunks at
+ * top-level function boundaries.
+ *
  * Usage: node tools/build-release.mjs
  */
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { spawnSync } from 'child_process';
-import { encodeScript } from './screnc.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const outDir = path.join(root, 'release');
+const MAX_CHUNK = 90000;
 
 function read(rel) {
   return fs.readFileSync(path.join(root, rel), 'utf8');
@@ -29,137 +34,113 @@ function copyFile(fromRel, toRel) {
   fs.copyFileSync(from, to);
 }
 
-function findScrenc() {
-  if (process.env.SCRENC && fs.existsSync(process.env.SCRENC)) return process.env.SCRENC;
-  const local = path.join(root, 'tools', 'screnc.exe');
-  if (fs.existsSync(local)) return local;
-  const candidates = [
-    'C:\\Program Files\\Windows Script Encoder\\screnc.exe',
-    'C:\\Program Files (x86)\\Windows Script Encoder\\screnc.exe'
-  ];
-  for (const c of candidates) if (fs.existsSync(c)) return c;
-  return '';
+function asciiFold(s) {
+  return String(s)
+    .replace(/\uFEFF/g, '')
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, '-')
+    .replace(/\u2026/g, '...')
+    .replace(/\u00A0/g, ' ')
+    .replace(/\u00B7/g, '-')
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, '?');
 }
 
-function preparePlainHta(htaSrc, checkJs) {
-  let html = htaSrc.replace(/\r\n/g, '\n');
-  // Inline shared logic — floor package must not ship editable qd-check.js
-  html = html.replace(
-    /<script\b[^>]*\bsrc\s*=\s*["']qd-check\.js["'][^>]*>\s*<\/script>/i,
-    () => `<script language="JScript">\n//**Start Encode**\n${checkJs}\n</script>`
-  );
-  // Mark the main HTA script for encoding
-  html = html.replace(
-    /<script\b([^>]*)>([\s\S]*?)<\/script>/gi,
-    (full, attrs, body) => {
-      if (/src\s*=/i.test(attrs)) return full;
-      if (/JScript\.Encode/i.test(attrs) || /#@~\^/.test(body)) return full;
-      if (/language\s*=\s*["']JScript["']/i.test(attrs) && /\/\/\*\*Start Encode\*\*/.test(body)) {
-        return full;
-      }
-      const trimmed = body.replace(/^\uFEFF/, '');
-      if (!trimmed.trim()) return full;
-      return `<script language="JScript">\n//**Start Encode**\n${trimmed}\n</script>`;
-    }
-  );
-  return html;
-}
-
-function encodeWithScrenc(plainHtml) {
-  const screnc = findScrenc();
-  if (!screnc) return null;
-  const tmpDir = path.join(outDir, '_tmp');
-  fs.mkdirSync(tmpDir, { recursive: true });
-  const inFile = path.join(tmpDir, 'in.htm');
-  const outFile = path.join(tmpDir, 'out.htm');
-  fs.writeFileSync(inFile, plainHtml.replace(/\n/g, '\r\n'), 'utf8');
-  const r = spawnSync(screnc, ['/s', '/e', 'htm', inFile, outFile], {
-    encoding: 'utf8',
-    windowsHide: true
-  });
-  let encoded = null;
-  if (r.status === 0 && fs.existsSync(outFile)) {
-    encoded = fs.readFileSync(outFile, 'utf8');
-    if (!/JScript\.Encode/i.test(encoded) || !/#@~\^/.test(encoded)) {
-      console.warn('screnc.exe ran but output missing JScript.Encode markers');
-      encoded = null;
-    }
-  } else {
-    console.warn('screnc.exe failed:', r.status, r.stderr || r.stdout || '');
-  }
-  try { fs.rmSync(tmpDir, { recursive: true, force: true }); } catch (e) {}
-  if (encoded) console.log('Encoded HTA with Microsoft screnc.exe:', screnc);
-  return encoded;
-}
-
-function encodeWithNode(plainHtml) {
-  let blocks = 0;
-  const html = plainHtml.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (full, attrs, body) => {
-    if (/src\s*=/i.test(attrs)) return full;
-    let src = body.replace(/^\uFEFF/, '');
-    src = src.replace(/^[\s\r\n]*\/\/\*\*Start Encode\*\*[\s\r\n]*/, '');
-    if (!src.trim()) return full;
-    if (/JScript\.Encode/i.test(attrs) || /#@~\^/.test(src)) return full;
-    blocks += 1;
-    return `<script language="JScript.Encode">\n${encodeScript(src)}\n</script>`;
-  });
-  console.log('Encoded HTA with Node screnc port; blocks=', blocks);
-  return html;
-}
-
-function packForBrowser(jsSource) {
-  const b64 = Buffer.from(String(jsSource), 'utf8').toString('base64');
+function packScript(jsSource) {
+  const plain = asciiFold(jsSource);
+  const b64 = Buffer.from(plain, 'utf8').toString('base64');
+  const chunks = [];
+  for (let i = 0; i < b64.length; i += 120) chunks.push(JSON.stringify(b64.slice(i, i + 120)));
   return (
-    '!function(){var a="' +
-    b64 +
-    '",s=atob(a),o="";for(var i=0;i<s.length;i++)o+=String.fromCharCode(s.charCodeAt(i));(0,eval)(o)}();'
+    '!function(){var a=' +
+    chunks.join('+') +
+    ',s=atob(a),o="";for(var i=0;i<s.length;i++)o+=String.fromCharCode(s.charCodeAt(i));(0,eval)(o)}();'
   );
 }
 
-function packIndexHtml(indexSrc) {
-  let html = indexSrc.replace(/\r\n/g, '\n');
+/**
+ * Split source into chunks under maxLen, preferring breaks before
+ * top-level `function` declarations.
+ */
+function splitScript(src, maxLen) {
+  const text = asciiFold(src);
+  if (text.length <= maxLen) return [text];
+
+  // Break candidates: newline + spaces + "function "
+  const breaks = [0];
+  const re = /\n[ \t]*function\s+/g;
+  let m;
+  while ((m = re.exec(text))) breaks.push(m.index + 1);
+  breaks.push(text.length);
+
+  const out = [];
+  let start = 0;
+  let i = 1;
+  while (start < text.length) {
+    let end = start;
+    while (i < breaks.length && breaks[i] - start <= maxLen) {
+      end = breaks[i];
+      i += 1;
+    }
+    if (end <= start) {
+      // No function break within window — hard split
+      end = Math.min(start + maxLen, text.length);
+      // try not to split mid-line
+      const nl = text.lastIndexOf('\n', end);
+      if (nl > start + maxLen * 0.5) end = nl + 1;
+      while (i < breaks.length && breaks[i] <= end) i += 1;
+    }
+    out.push(text.slice(start, end));
+    start = end;
+  }
+  return out.filter((c) => c.trim().length);
+}
+
+function scriptTagsFromSource(jsSource) {
+  const parts = splitScript(jsSource, MAX_CHUNK);
+  return parts
+    .map((p) => `<script language="JScript">\n${packScript(p)}\n</script>`)
+    .join('\n');
+}
+
+function packHtmlScripts(html) {
   let blocks = 0;
-  html = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (full, attrs, body) => {
+  let chunks = 0;
+  const out = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (full, attrs, body) => {
     if (/src\s*=/i.test(attrs)) return full;
     const trimmed = body.replace(/^\uFEFF/, '');
     if (!trimmed.trim()) return full;
     blocks += 1;
-    return `<script>\n${packForBrowser(trimmed)}\n</script>`;
+    const parts = splitScript(trimmed, MAX_CHUNK);
+    chunks += parts.length;
+    return parts.map((p) => `<script language="JScript">\n${packScript(p)}\n</script>`).join('\n');
   });
-  if (blocks < 1) throw new Error('No index.html script blocks packed');
-  return { html, blocks };
+  return { html: out, blocks, chunks };
 }
 
 function main() {
   fs.mkdirSync(outDir, { recursive: true });
 
-  const plain = preparePlainHta(read('qualitydesk.hta'), read('qd-check.js'));
-  let encoderNote = '';
-  let encodedHta = encodeWithScrenc(plain);
-  if (encodedHta) {
-    encoderNote = 'Microsoft screnc.exe (tools/screnc.exe)';
-  } else {
-    encodedHta = encodeWithNode(plain);
-    encoderNote = 'Node JScript.Encode port (fallback)';
-  }
-  write('QualityDesk.hta', encodedHta);
+  let hta = read('qualitydesk.hta').replace(/\r\n/g, '\n');
+  const checkJs = read('qd-check.js');
+  hta = hta.replace(
+    /<script\b[^>]*\bsrc\s*=\s*["']qd-check\.js["'][^>]*>\s*<\/script>/i,
+    () => `<script language="JScript">\n${checkJs}\n</script>`
+  );
+  const htaPack = packHtmlScripts(hta);
+  if (htaPack.chunks < 1) throw new Error('No HTA scripts packed');
+  write('QualityDesk.hta', htaPack.html);
 
-  if (!fs.existsSync(path.join(root, 'index.html'))) {
-    throw new Error('index.html missing');
-  }
+  if (!fs.existsSync(path.join(root, 'index.html'))) throw new Error('index.html missing');
   if (!fs.existsSync(path.join(root, 'vendor', 'chart.umd.min.js'))) {
     throw new Error('vendor/chart.umd.min.js missing');
   }
-  const { html: packedIndex, blocks: indexBlocks } = packIndexHtml(read('index.html'));
-  write('index.html', packedIndex);
+  const idxPack = packHtmlScripts(read('index.html').replace(/\r\n/g, '\n'));
+  write('index.html', idxPack.html);
   copyFile('vendor/chart.umd.min.js', 'vendor/chart.umd.min.js');
 
   fs.mkdirSync(path.join(outDir, 'results'), { recursive: true });
-  fs.writeFileSync(
-    path.join(outDir, 'results', '.gitkeep'),
-    'Runtime data is written here by the HTA.\n',
-    'utf8'
-  );
+  fs.writeFileSync(path.join(outDir, 'results', '.gitkeep'), 'Runtime data folder.\n', 'utf8');
 
   write(
     'README.txt',
@@ -169,30 +150,28 @@ function main() {
       '',
       'Contents',
       '--------',
-      '  QualityDesk.hta   Checks app (mshta). Encoded with Microsoft Script Encoder.',
-      '  index.html        History / die graph (Edge). Scripts packed for casual viewing.',
-      '  vendor/           Chart.js dependency for index.html',
-      '  results/          Runtime data folder (writable)',
+      '  QualityDesk.hta   Checks app (double-click)',
+      '  index.html        History / die graph (keep beside HTA)',
+      '  vendor/           Chart.js',
+      '  results/          Runtime data',
       '',
-      'How to run',
-      '----------',
-      '1. Copy this entire folder to the shop PC.',
-      '2. Double-click QualityDesk.hta',
-      '3. Keep index.html + vendor next to the HTA (History button needs them).',
+      'How to run: copy this folder to the shop PC, open QualityDesk.hta',
       '',
-      'Rebuild',
-      '-------',
-      '  node tools/build-release.mjs',
-      'Uses tools/screnc.exe when present (Microsoft Script Encoder 1.0).',
+      'Obfuscation',
+      '-----------',
+      'Scripts are packed (base64) so casual editing is hard.',
+      'Microsoft screnc.exe is NOT used in this build: modern mshta will not',
+      'run JScript.Encode (that caused "doLogin is undefined").',
+      'tools/screnc.exe remains for legacy reference only.',
       '',
-      'Encoder used: ' + encoderNote,
+      'Rebuild: node tools/build-release.mjs',
       ''
     ].join('\r\n')
   );
 
-  console.log('Encoder:', encoderNote);
-  console.log('index.html packed blocks:', indexBlocks);
-  console.log('Release ready in', outDir);
+  console.log('HTA logical scripts:', htaPack.blocks, 'packed chunks:', htaPack.chunks);
+  console.log('index logical scripts:', idxPack.blocks, 'packed chunks:', idxPack.chunks);
+  console.log('Release ready:', outDir);
 }
 
 main();

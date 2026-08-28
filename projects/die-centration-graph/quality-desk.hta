@@ -455,11 +455,19 @@
 
         function streamWriteLocal(path, text) {
             var stream = new ActiveXObject("ADODB.Stream");
+            var bin = new ActiveXObject("ADODB.Stream");
             stream.Type = 2;
             stream.Charset = "utf-8";
             stream.Open();
-            stream.WriteText(text);
-            stream.SaveToFile(path, 2);
+            stream.WriteText(text == null ? "" : String(text));
+            stream.Position = 0;
+            stream.Type = 1;
+            if (stream.Size >= 3) stream.Position = 3;
+            bin.Type = 1;
+            bin.Open();
+            stream.CopyTo(bin);
+            bin.SaveToFile(path, 2);
+            bin.Close();
             stream.Close();
         }
 
@@ -510,11 +518,32 @@
             }
             deleteTemp(tmp);
             restoreAttrs(path, prev);
-            return text;
+            return QD.stripBom(text);
         }
 
         function protectPath(path) {
             try { if (fileExists(path)) setAttrs(path, (peekAttrs(path) | 2) & ~4); } catch (e1) {}
+        }
+
+        function unhidePath(path) {
+            try { if (fileExists(path)) setAttrs(path, peekAttrs(path) & ~2); } catch (e1) {}
+        }
+
+        function exposeResultsJs() {
+            var fso, folder, e, f, n;
+            try {
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FolderExists(resultsDir())) return;
+                folder = fso.GetFolder(resultsDir());
+                e = new Enumerator(folder.Files);
+                for (; !e.atEnd(); e.moveNext()) {
+                    f = e.item();
+                    n = String(f.Name || "").toLowerCase();
+                    if (n === "users.dat" || n === "theme.txt") continue;
+                    if (n.length < 4 || n.substring(n.length - 3) !== ".js") continue;
+                    try { f.Attributes = f.Attributes & ~2; } catch (e1) {}
+                }
+            } catch (e0) {}
         }
 
         function usersDatPath() {
@@ -693,6 +722,7 @@
                 if (fso.FileExists(p)) files.push(names[i]);
             }
             writeUtf8(fso.BuildPath(dir, "manifest.js"), QD.diskManifestScript(files));
+            unhidePath(fso.BuildPath(dir, "manifest.js"));
         }
 
         function findSapCsv() {
@@ -721,6 +751,7 @@
                 writtenAt: (new Date()).toISOString(),
                 mtime: mtime
             }));
+            unhidePath(fso.BuildPath(resultsDir(), "sap.js"));
             sapCache = { path: path, mtime: mtime };
             writeManifest();
             dbg("Published " + fso.GetFileName(path) + " for Quality Desk");
@@ -1343,6 +1374,7 @@
             ensureLineFiles();
             try { publishSapCsv(); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
             writeManifest();
+            exposeResultsJs();
             renderCurrentTab();
             setWork("Ready", 100);
             setStatus(source);
@@ -1407,10 +1439,12 @@
 
         function writeLookupFile() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
-            writeUtf8(fso.BuildPath(resultsDir(), "lookup.js"), QD.diskScript("lookup", {
+            var path = fso.BuildPath(resultsDir(), "lookup.js");
+            writeUtf8(path, QD.diskScript("lookup", {
                 lookupRows: aio.mspecs,
                 users: aio.users
             }));
+            unhidePath(path);
             writeManifest();
         }
 
@@ -1435,9 +1469,17 @@
                 lineCache[fileKey] = { mtime: 0, rows: [] };
                 return [];
             }
-            try { eval(readUtf8(path)); } catch (e) {
-                lineCache[fileKey] = { mtime: mtime, rows: [] };
-                return [];
+            var text = readUtf8(path);
+            try { eval(text); } catch (e) {
+                var recovered = QD.parseDiskJson(text, fileKey);
+                if (recovered) {
+                    window.QD_DISK.lines[fileKey] = recovered;
+                    dbg("results/" + fileKey + ".js recovered after eval: " + e.message);
+                } else {
+                    dbg("results/" + fileKey + ".js eval: " + e.message, false);
+                    lineCache[fileKey] = { mtime: mtime, rows: [] };
+                    return [];
+                }
             }
             var rows = (window.QD_DISK.lines[fileKey] && window.QD_DISK.lines[fileKey].rows) || [];
             lineCache[fileKey] = { mtime: mtime, rows: rows };
@@ -1451,6 +1493,7 @@
                 file: fileKey,
                 rows: rows || []
             }));
+            unhidePath(path);
             lineCache[fileKey] = { mtime: fileMtime(path), rows: rows || [] };
             writeManifest();
         }
@@ -5174,7 +5217,7 @@
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.57</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.58</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

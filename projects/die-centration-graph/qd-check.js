@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.57';
+  QD.VERSION = '1.7.58';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -10,6 +10,13 @@
   QD.CHECK_IDLE_MS = 15 * 60 * 1000;
   QD.USERS_FILE = 'users.dat';
   QD.HANDOFF_FILE = 'DIEGRAPH2.txt';
+  QD.stripBom = function (text) {
+    var s = String(text == null ? '' : text);
+    if (!s) return '';
+    if (s.charCodeAt(0) === 0xFEFF || s.charCodeAt(0) === 0xFFFE) return s.substring(1);
+    if (s.charCodeAt(0) === 0xEF && s.charCodeAt(1) === 0xBB && s.charCodeAt(2) === 0xBF) return s.substring(3);
+    return s;
+  };
   QD.HIST_CHECK_FIELDS = [
     'Date/Time', 'Line', 'User', 'Item #', 'Item Desc', 'MSPEC',
     'Reason for Check', 'No Check Reason', 'Pass/Fail', 'Notes',
@@ -763,6 +770,34 @@
       body += 'QD_DISK.lines[' + stringify(kind) + ']=' + stringify(payload) + ';\n';
     }
     return body;
+  };
+
+  QD.parseDiskJson = function (text, fileKey) {
+    var src = QD.stripBom(text);
+    var key = String(fileKey || '');
+    var needle, i, json, parsed;
+    if (!src || !key) return null;
+    if (key === 'lookup') {
+      needle = 'QD_DISK.lookupRows=';
+      i = src.indexOf(needle);
+      if (i < 0) return null;
+      json = QD.trim(src.substring(i + needle.length));
+      i = json.indexOf(';\nQD_DISK.users=');
+      if (i < 0) i = json.indexOf(';QD_DISK.users=');
+      if (i >= 0) json = json.substring(0, i);
+      try { return { lookupRows: JSON.parse(json) }; } catch (e0) { return null; }
+    }
+    needle = 'QD_DISK.lines[' + stringify(key) + ']=';
+    i = src.indexOf(needle);
+    if (i < 0) {
+      needle = 'QD_DISK.lines["' + key + '"]=';
+      i = src.indexOf(needle);
+    }
+    if (i < 0) return null;
+    json = QD.trim(src.substring(i + needle.length));
+    if (json.charAt(json.length - 1) === ';') json = json.substring(0, json.length - 1);
+    try { parsed = JSON.parse(json); } catch (e1) { return null; }
+    return parsed;
   };
 
   QD.CSV_FILES = {

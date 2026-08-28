@@ -5057,7 +5057,7 @@
 
     <script src="vendor/chart.umd.min.js"></script>
     <script>
-      const APP_VERSION = "1.7.57";
+      const APP_VERSION = "1.7.58";
       const APP_NAME = "Quality Desk";
       const HTML_LOCK = "qdHtmlInstance.v1";
       const HTML_FOCUS = "qdHtmlFocus.v1";
@@ -5837,25 +5837,64 @@
         "gcoex",
         "gmono",
       ];
-      function loadHtaScript(src, timeoutMs) {
+      function fileUrl(rel) {
+        const loc = location.href.split("?")[0].split("#")[0];
+        const slash = loc.lastIndexOf("/");
+        return slash >= 0 ? loc.slice(0, slash + 1) + rel : rel;
+      }
+      function stripBom(text) {
+        return String(text || "").replace(/^\uFEFF/, "");
+      }
+      function loadHtaScript(rel, timeoutMs) {
         return new Promise((resolve) => {
-          const s = document.createElement("script");
           let done = false;
           const finish = (ok) => {
             if (done) return;
             done = true;
-            s.onload = null;
-            s.onerror = null;
-            try {
-              if (s.parentNode) s.parentNode.removeChild(s);
-            } catch {}
             resolve(!!ok);
           };
-          s.onload = () => finish(true);
-          s.onerror = () => finish(false);
-          window.setTimeout(() => finish(false), timeoutMs || 1500);
-          s.src = src;
-          document.head.appendChild(s);
+          const wait = timeoutMs || 20000;
+          let src = String(rel || "");
+          if ((location.protocol || "").toLowerCase() === "file:") {
+            src = src.replace(/\?t=\d+$/, "");
+          }
+          const tryScript = () => {
+            const s = document.createElement("script");
+            s.onload = () => {
+              try {
+                if (s.parentNode) s.parentNode.removeChild(s);
+              } catch {}
+              finish(true);
+            };
+            s.onerror = () => {
+              try {
+                if (s.parentNode) s.parentNode.removeChild(s);
+              } catch {}
+              finish(false);
+            };
+            s.src = src;
+            document.head.appendChild(s);
+            window.setTimeout(() => finish(false), wait);
+          };
+          if (typeof fetch === "function" && (location.protocol || "").toLowerCase() !== "file:") {
+            const timer = window.setTimeout(() => finish(false), wait);
+            fetch(fileUrl(src))
+              .then((res) => {
+                if (!res.ok) throw new Error("missing");
+                return res.text();
+              })
+              .then((text) => {
+                (0, eval)(stripBom(text));
+                window.clearTimeout(timer);
+                finish(true);
+              })
+              .catch(() => {
+                window.clearTimeout(timer);
+                if (!done) tryScript();
+              });
+            return;
+          }
+          tryScript();
         });
       }
       function plantForHtaFile(key) {
@@ -5875,7 +5914,7 @@
         window.QD_DISK_MANIFEST = null;
         const t = Date.now();
         let loaded = 0;
-        await loadHtaScript("results/manifest.js?t=" + t, 800);
+        await loadHtaScript("results/manifest.js?t=" + t, 20000);
         const listed =
           (window.QD_DISK_MANIFEST && window.QD_DISK_MANIFEST.files) || [];
         const names = listed.length
@@ -5884,7 +5923,7 @@
               .filter((n) => n && n !== "manifest")
           : HTA_DISK_FILES.slice();
         for (const name of names) {
-          if (await loadHtaScript("results/" + name + ".js?t=" + t, 1500))
+          if (await loadHtaScript("results/" + name + ".js?t=" + t, 20000))
             loaded += 1;
         }
         const rows = [];
@@ -5921,7 +5960,7 @@
         const silent = !!(opts && opts.silent);
         window.QD_DISK_SAP = null;
         const t = Date.now();
-        if (!(await loadHtaScript("results/sap.js?t=" + t, 1500))) return false;
+        if (!(await loadHtaScript("results/sap.js?t=" + t, 20000))) return false;
         const pack = window.QD_DISK_SAP;
         if (!pack || !pack.csv) return false;
         const grid = parseDelimitedGrid(pack.csv);

@@ -20,3 +20,7 @@ release/results/*.dat
 release/results/*.txt
 !release/results/.gitkeep
 
+
+tools/_screnc_extract/
+tools/sce10en.exe
+

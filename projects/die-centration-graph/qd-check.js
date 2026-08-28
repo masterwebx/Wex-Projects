@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.53';
+  QD.VERSION = '1.7.54';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -390,11 +390,26 @@
       }
       if (form === 's1s3' || form === 's4') allowed.points = true;
     }
+    allowed.entries = true;
     for (i = 0; i < QD.CHECK_LINK_FIELDS.length; i++) {
       cf = QD.CHECK_LINK_FIELDS[i];
-      if (allowed[cf.id]) out.push(cf);
+      if (allowed[cf.id] || cf.id === 'entries') out.push(cf);
     }
     return out;
+  };
+
+  QD.isCoveredNoMeasure = function (v) {
+    var s = trim(v).toUpperCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+    return s === 'NO CHECK' || s === 'LINE DOWN' || s === 'LINE UP'
+      || s === 'EQUIPMENT FAIL' || s === 'EQUIPMENT FAILURE'
+      || s === 'NO ORDERS' || s === 'PREVENTATIVE MAINTENANCE'
+      || s === 'STARTUP' || s === 'DIE CHANGE' || s === 'CYLINDER CHANGE';
+  };
+
+  QD.noMeasureLabel = function (v) {
+    var s = trim(v).toUpperCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+    if (s === 'LINE UP') return 'LINE UP';
+    return 'LINE DOWN';
   };
 
   QD.thkSpecLabel = function (min, target, max) {
@@ -500,10 +515,11 @@
   };
 
   QD.bubbleWeightPair = function (specs, bubbleType) {
-    return {
-      coex: QD.findBubbleSpec(specs, 'COEX', bubbleType) || QD.matchBubbleWeight('COEX', bubbleType),
-      mono: QD.findBubbleSpec(specs, 'MONO', bubbleType) || QD.matchBubbleWeight('MONO', bubbleType)
-    };
+    function one(fam) {
+      var n = QD.normalizeBubbleWeightRow(QD.findBubbleSpec(specs, fam, bubbleType));
+      return n || QD.matchBubbleWeight(fam, bubbleType);
+    }
+    return { coex: one('COEX'), mono: one('MONO') };
   };
 
   QD.isDoubleShot = function (shots) {
@@ -1763,6 +1779,172 @@
       ctx.fillStyle = band === 'over' ? '#ef4444' : (band === 'under' ? '#eab308' : '#22c55e');
       ctx.beginPath(); ctx.arc(x, y, 6, 0, Math.PI * 2); ctx.fill();
     }
+  };
+
+  QD.LEGACY_ALIASES = {
+    'Item #': ['Item #', 'Item', 'Item Number', 'Material'],
+    'Item Desc': ['Item Desc', 'Item Description', 'ItemDescription', 'Description', 'Material Description'],
+    'Date/Time': ['Date/Time', 'Time', 'Date Int', 'Date', 'Timestamp'],
+    Line: ['Line', 'MonoorCoex', 'Mono or Coex', 'Line Name'],
+    User: ['User', 'Operator', 'Initials'],
+    Notes: ['Notes', 'Comments', 'Comment'],
+    'Reason for Check': ['Reason for Check', 'Check Type', 'Type of Check', 'Reason', 'Check Reason'],
+    'No Check Reason': ['No Check Reason', 'Additional Reason', 'Skip Reason', 'Why No Check'],
+    'Pass/Fail': ['Pass/Fail', 'Result', 'Overall', 'PF', 'P/F'],
+    MSPEC: ['MSPEC', 'MSPEC #', 'M-Spec Number', 'MSpec'],
+    'Bundle #': ['Bundle #', 'Bundle', 'Bundle Number'],
+    'Slit/Width': ['Slit/Width', 'Width', 'Slit Width'],
+    Footage: ['Footage', 'Feet', 'FT'],
+    'Cell Count MD': ['Cell Count MD', 'Cell MD', 'MD Cell'],
+    'Cell Count CD': ['Cell Count CD', 'Cell CD', 'CD Cell'],
+    'Thickness Average': ['Thickness Average', 'Avg', 'Average', 'Thk Avg'],
+    'Thickness Range': ['Thickness Range', 'Range'],
+    Density: ['Density', 'Dens'],
+    Weight: ['Weight', 'Basis Weight', 'BW', 'Gram Weight', 'Weight (g)']
+  };
+
+  QD.pickLegacy = function (row, key) {
+    var aliases = QD.LEGACY_ALIASES[key] || [key];
+    var i, v;
+    if (!row) return '';
+    if (row[key] != null && trim(row[key]) !== '') return row[key];
+    for (i = 0; i < aliases.length; i++) {
+      v = row[aliases[i]];
+      if (v != null && trim(v) !== '') return v;
+    }
+    return '';
+  };
+
+  QD.splitDieGraph2 = function (text) {
+    var lines = String(text || '').replace(/\r/g, '').split('\n');
+    var sections = {
+      CURRENT: [], LOOKUP: [], TABLES4: [], TABLES1S3: [],
+      TABLESBUBBLE: [], TABLESGARLAND: [], TABLESP1: [], TABLESRTS: []
+    };
+    var cur = null, i, m, name;
+    for (i = 0; i < lines.length; i++) {
+      m = String(lines[i] || '').trim().match(/^\[(CURRENT|LOOKUP|TABLES4|TABLES1S3|TABLESBUBBLE|TABLESGARLAND|TABLESP1|TABLESRTS|HISTORY)\]$/i);
+      if (m) {
+        name = m[1].toUpperCase();
+        cur = name === 'HISTORY' ? 'TABLES4' : name;
+        continue;
+      }
+      if (cur) sections[cur].push(lines[i]);
+    }
+    return sections;
+  };
+
+  QD.parseLegacyTsv = function (lines) {
+    var rows = [];
+    var headers = [];
+    var i, j, parts, row, line, delim;
+    if (!lines || !lines.length) return rows;
+    line = String(lines[0] || '');
+    delim = line.indexOf('\t') >= 0 ? '\t' : ',';
+    headers = line.split(delim);
+    for (i = 0; i < headers.length; i++) headers[i] = trim(headers[i]);
+    for (i = 1; i < lines.length; i++) {
+      if (!trim(lines[i])) continue;
+      parts = String(lines[i]).split(delim);
+      row = {};
+      for (j = 0; j < headers.length; j++) row[headers[j]] = parts[j] != null ? parts[j] : '';
+      rows.push(row);
+    }
+    return rows;
+  };
+
+  QD.normalizeLegacyCheckRow = function (row) {
+    var out = {};
+    var keys = [
+      'Date/Time', 'Line', 'User', 'Item #', 'Item Desc', 'MSPEC',
+      'Reason for Check', 'No Check Reason', 'Notes', 'Pass/Fail',
+      'Bundle #', 'Slit/Width', 'Footage', 'Cell Count MD', 'Cell Count CD',
+      'Thickness Average', 'Thickness Range', 'Density', 'Weight'
+    ];
+    var i, key, reason, pf;
+    if (!row) return null;
+    for (i = 0; i < keys.length; i++) {
+      key = keys[i];
+      out[key] = QD.pickLegacy(row, key);
+    }
+    reason = trim(out['Reason for Check']).toUpperCase();
+    pf = trim(out['Pass/Fail']).toUpperCase().replace(/[_-]+/g, ' ');
+    if (QD.isCoveredNoMeasure(reason) || QD.isCoveredNoMeasure(pf)) {
+      if (reason === 'LINE UP' || pf === 'LINE UP') {
+        out['Reason for Check'] = 'LINE UP';
+        out['Pass/Fail'] = 'LINE UP';
+      } else {
+        out['Reason for Check'] = 'NO CHECK';
+        if (!trim(out['No Check Reason'])) {
+          if (QD.isCoveredNoMeasure(pf) && pf !== 'NO CHECK') out['No Check Reason'] = pf;
+          else if (reason && reason !== 'NO CHECK') out['No Check Reason'] = reason;
+          else out['No Check Reason'] = 'LINE DOWN';
+        }
+        out['Pass/Fail'] = out['No Check Reason'] || 'LINE DOWN';
+      }
+    }
+    out.__source = 'legacy';
+    return out;
+  };
+
+  QD.legacySectionFile = function (section) {
+    var name = String(section || '').toUpperCase();
+    if (name === 'TABLES4' || name === 'HISTORY') return 's4';
+    if (name === 'TABLES1S3') return 's1';
+    if (name === 'TABLESBUBBLE') return 'coex';
+    if (name === 'TABLESGARLAND') return 'gcoex';
+    if (name === 'TABLESP1') return 'p1';
+    if (name === 'TABLESRTS') return 'rts';
+    return '';
+  };
+
+  QD.legacyRowFile = function (row, fallback) {
+    var line = trim(QD.pickLegacy(row, 'Line')).toUpperCase().replace(/\s+/g, '');
+    if (line === 'S4') return 's4';
+    if (line === 'S1') return 's1';
+    if (line === 'S3') return 's3';
+    if (line === 'COEX' || line === 'VISALIACOEX') return 'coex';
+    if (line === 'MONO' || line === 'VISALIAMONO') return 'mono';
+    if (line === 'P1') return 'p1';
+    if (line === 'RTS') return 'rts';
+    if (line === 'G-COEX' || line === 'GARLANDCOEX' || line === 'GARLAND' || line === 'GCOEX') return 'gcoex';
+    if (line === 'G-MONO' || line === 'GARLANDMONO' || line === 'GMONO') return 'gmono';
+    return fallback || '';
+  };
+
+  QD.importLegacyChecks = function (text) {
+    var raw = String(text || '');
+    var out = { s4: [], s1: [], s3: [], coex: [], mono: [], p1: [], rts: [], gcoex: [], gmono: [] };
+    var sections, name, rows, i, row, file, n = 0;
+    if (/^DIEGRAPH2\b/i.test(trim(raw))) {
+      sections = QD.splitDieGraph2(raw);
+      for (name in sections) {
+        if (!sections.hasOwnProperty(name) || name === 'CURRENT' || name === 'LOOKUP') continue;
+        rows = QD.parseLegacyTsv(sections[name]);
+        for (i = 0; i < rows.length; i++) {
+          row = QD.normalizeLegacyCheckRow(rows[i]);
+          if (!row || (!trim(row['Date/Time']) && !trim(row.Line) && !trim(row['Item #']))) continue;
+          file = QD.legacyRowFile(row, QD.legacySectionFile(name));
+          if (!file || !out[file]) continue;
+          row.__lineFile = file;
+          out[file].push(row);
+          n += 1;
+        }
+      }
+    } else {
+      rows = QD.parseLegacyTsv(raw.replace(/\r/g, '').split('\n'));
+      for (i = 0; i < rows.length; i++) {
+        row = QD.normalizeLegacyCheckRow(rows[i]);
+        if (!row) continue;
+        file = QD.legacyRowFile(row, '');
+        if (!file || !out[file]) continue;
+        row.__lineFile = file;
+        out[file].push(row);
+        n += 1;
+      }
+    }
+    out.count = n;
+    return out;
   };
 
   QD.findUserRecord = function (users, name) {

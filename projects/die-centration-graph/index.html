@@ -1906,11 +1906,6 @@
         <p class="welcome-tag">
           History, specs, compliance, trends, and posting checks.
         </p>
-        <p>
-          Reload from disk reads checks from the HTA <b>results</b> folder. Put
-          <b>SAP.csv</b> next to quality-desk.hta and the HTA hands it off the
-          same way.
-        </p>
         <div class="actions">
           <button
             class="secondary"
@@ -2107,8 +2102,8 @@
       <div class="card comp-chart" id="complianceChart">
         <div class="comp-legend" id="complianceLegend">
           <span><i style="background: #22c55e"></i>Checked</span>
-          <span><i style="background: #9ca3af"></i>NO CHECK</span>
-          <span><i style="background: #ef4444"></i>No checks</span>
+          <span><i style="background: #9ca3af"></i>LINE DOWN</span>
+          <span><i style="background: #ef4444"></i>MISSING CHECK</span>
           <span><i style="background: transparent"></i>Not yet</span>
         </div>
         <div class="comp-hours" id="complianceHours"></div>
@@ -3177,8 +3172,8 @@
                 Notes before you treat it as clean.
               </li>
               <li>
-                <b>NO CHECK</b> means the sheet was marked with no measurement
-                for that slot.
+                <b>LINE DOWN</b> covers a no-measure hour (including legacy
+                NO CHECK). <b>MISSING CHECK</b> means nothing was recorded.
               </li>
               <li>
                 Reset filters / Reset sort clear the table menus only — they do
@@ -3458,7 +3453,7 @@
                   font-size="12"
                   fill="#374151"
                 >
-                  NO CHECK
+                  LINE DOWN
                 </text>
                 <rect
                   x="360"
@@ -3475,7 +3470,7 @@
                   font-size="12"
                   fill="#991b1b"
                 >
-                  No checks
+                  MISSING CHECK
                 </text>
                 <rect
                   x="530"
@@ -3499,8 +3494,7 @@
                   Green = a real measurement is on file for that hour or item.
                 </text>
                 <text x="20" y="182" font-size="13" fill="var(--text)">
-                  Gray = the sheet said NO CHECK. Red = SAP posted it, but no
-                  quality row exists.
+                  Gray = LINE DOWN / no-measure. Red = MISSING CHECK.
                 </text>
                 <text x="20" y="204" font-size="13" fill="var(--text)">
                   Empty / Not yet = that hour has not happened, or nothing was
@@ -5062,7 +5056,7 @@
 
     <script src="vendor/chart.umd.min.js"></script>
     <script>
-      const APP_VERSION = "1.7.47";
+      const APP_VERSION = "1.7.54";
       const APP_NAME = "Quality Desk";
       const FILE_PREFIX = "quality-desk";
       const STORE = "dieGraphState.v5";
@@ -5484,6 +5478,7 @@
       let applyingClipboard = false;
       let spcHideOutliers = true;
       let openFilterCol = null;
+      let filterJustOpened = 0;
       let enterMode = false;
       let complianceMonday = null;
       let complianceBackTo = "welcome";
@@ -7693,9 +7688,30 @@
       function isNoCheckPf(v) {
         const s = String(v || "")
           .trim()
+          .toUpperCase()
           .replace(/[_-]+/g, " ")
           .replace(/\s+/g, " ");
-        return /^no check$/i.test(s);
+        return (
+          s === "NO CHECK" ||
+          s === "LINE DOWN" ||
+          s === "LINE UP" ||
+          s === "EQUIPMENT FAIL" ||
+          s === "EQUIPMENT FAILURE" ||
+          s === "NO ORDERS" ||
+          s === "PREVENTATIVE MAINTENANCE" ||
+          s === "STARTUP" ||
+          s === "DIE CHANGE" ||
+          s === "CYLINDER CHANGE"
+        );
+      }
+      function noMeasureLabel(v) {
+        const s = String(v || "")
+          .trim()
+          .toUpperCase()
+          .replace(/[_-]+/g, " ")
+          .replace(/\s+/g, " ");
+        if (s === "LINE UP") return "LINE UP";
+        return "LINE DOWN";
       }
       function hourComplianceStatus(pfs, isFuture) {
         if (isFuture) return "future";
@@ -8113,8 +8129,10 @@
         return computed;
       }
       function formatPfPill(pf) {
-        if (pf === "NO CHECK")
-          return '<span class="pf-pill gray">NO CHECK</span>';
+        if (pf === "NO CHECK" || pf === "LINE DOWN")
+          return '<span class="pf-pill gray">LINE DOWN</span>';
+        if (pf === "LINE UP")
+          return '<span class="pf-pill gray">LINE UP</span>';
         if (pf === "Pass*") return '<span class="pf-pill warn">Pass*</span>';
         if (pf === "Pass") return '<span class="pf-pill good">Pass</span>';
         if (pf === "Fail") return '<span class="pf-pill bad">Fail</span>';
@@ -8122,7 +8140,7 @@
       }
       function displayOverallPf(row, specs) {
         const raw = col(row, "Pass/Fail");
-        if (isNoCheckPf(raw)) return "NO CHECK";
+        if (isNoCheckPf(raw)) return noMeasureLabel(raw);
         const stored = normalizePf(raw);
         const mismatches = failDetailsForRow(row, specs || {});
         if (stored === "Pass" && mismatches.length) return "Pass*";
@@ -8296,7 +8314,7 @@
           / pass$/i.test(key)
         ) {
           return formatPfPill(
-            isNoCheckPf(raw) ? "NO CHECK" : normalizePf(raw) || raw,
+            isNoCheckPf(raw) ? noMeasureLabel(raw) : normalizePf(raw) || raw,
           );
         }
         if (key === "Notes") {
@@ -8519,7 +8537,7 @@
           const pfLabel = foam
             ? displayOverallPf(row, lookupSpecs(mspec) || {})
             : isNoCheckPf(pfRaw)
-              ? "NO CHECK"
+              ? noMeasureLabel(pfRaw)
               : normalizePf(pfRaw) || String(pfRaw || "").trim();
           const thickAvg = foam ? thicknessAvgFromRow(row) : NaN;
           for (const k of keys) {
@@ -9251,6 +9269,7 @@
           pop.style.top =
             Math.min(r.bottom + 4, window.innerHeight - 200) + "px";
           pop.classList.add("show");
+          filterJustOpened = Date.now();
           pop.querySelectorAll("[data-sort]").forEach((btn) => {
             btn.onclick = () => {
               tableSort = {
@@ -9311,6 +9330,7 @@
             window.innerHeight - (TONE_COLS.has(col) ? 520 : 400),
           ) + "px";
         pop.classList.add("show");
+        filterJustOpened = Date.now();
         pop.querySelectorAll("[data-sort]").forEach((btn) => {
           btn.onclick = () => {
             tableSort = {
@@ -9920,8 +9940,7 @@
           if (!r.y || !r.item) continue;
           const rec = slot(r.y, r.m, r.d, r.line, r.item, r.mspec);
           rec.expectedChecks += 1;
-          if (r.pf === "NO CHECK" || isNoCheckPf(r.pf)) rec.missedChecks += 1;
-          else rec.completedChecks += 1;
+          rec.completedChecks += 1;
           if (r.pf === "Fail") {
             rec.failCount += 1;
             const reasons = failReasonsForRow(
@@ -10888,7 +10907,7 @@
               (dayN === todayN && h > today.h) ||
               (dayN === todayN && h === today.h && !byHour[h].length);
             const st = hourComplianceStatus(byHour[h], future);
-            const title = `${DAYS[d]} ${String(h).padStart(2, "0")}:00 · ${st === "check" ? "checked" : st === "nocheck" ? "NO CHECK" : st === "miss" ? "no checks" : "not yet"}`;
+            const title = `${DAYS[d]} ${String(h).padStart(2, "0")}:00 · ${st === "check" ? "checked" : st === "nocheck" ? "LINE DOWN" : st === "miss" ? "MISSING CHECK" : "not yet"}`;
             html += `<div class="comp-hour ${st}" title="${esc(title)}"></div>`;
           }
         }
@@ -11102,8 +11121,8 @@
           const missing = hours
             .map((st, h) => (st === "miss" ? h : ""))
             .filter((h) => h !== "");
-          const missHtml = missing.length
-            ? `<div class="comp-miss"><b>Missing checks</b>${esc(formatHourRanges(missing))}</div>`
+            const missHtml = missing.length
+            ? `<div class="comp-miss"><b>MISSING CHECK</b>${esc(formatHourRanges(missing))}</div>`
             : `<p class="comp-empty">No missing hours</p>`;
           parts.push(
             `<div class="comp-day"><h3>${esc(heading)}</h3>${missHtml}${tableHtml || '<p class="comp-empty">No items</p>'}</div>`,
@@ -11115,7 +11134,7 @@
         const bits = [];
         if (passed) bits.push(`<span class="good">${passed} passed</span>`);
         if (failed) bits.push(`<span class="bad">${failed} failed</span>`);
-        if (noCheck) bits.push(`<span class="gray">${noCheck} NO CHECK</span>`);
+        if (noCheck) bits.push(`<span class="gray">${noCheck} LINE DOWN</span>`);
         return bits.join(", ") || "—";
       }
       const MSPEC_AUDIT_COLS = [
@@ -12179,7 +12198,7 @@
         const bits = [];
         if (passed) bits.push(`${passed} passed`);
         if (failed) bits.push(`${failed} failed`);
-        if (noCheck) bits.push(`${noCheck} NO CHECK`);
+        if (noCheck) bits.push(`${noCheck} LINE DOWN`);
         return {
           passed,
           failed,
@@ -13008,7 +13027,7 @@
         const bits = [];
         if (failed) bits.push(`${failed} failed`);
         if (passed) bits.push(`${passed} passed`);
-        if (noCheck) bits.push(`${noCheck} NO CHECK`);
+        if (noCheck) bits.push(`${noCheck} LINE DOWN`);
         const failNotes = failLinesForRows(hits);
         let text =
           (prev ? "Checked previous day" : "Checked") +
@@ -13621,8 +13640,8 @@
         } else {
           const legend = [
             ["#22c55e", "Checked"],
-            ["#9ca3af", "NO CHECK"],
-            ["#ef4444", "No checks"],
+            ["#9ca3af", "LINE DOWN"],
+            ["#ef4444", "MISSING CHECK"],
             ["#ffffff", "Not yet"],
           ];
           let lx = 40;
@@ -16098,7 +16117,11 @@
         if (openFilterCol === btn.dataset.col) closeFilterPop();
         else openFilterMenu(btn.dataset.col, btn);
       });
+      document.addEventListener("mousedown", (e) => {
+        if (e.target.closest("#filterPop")) e.stopPropagation();
+      });
       document.addEventListener("click", (e) => {
+        if (Date.now() - filterJustOpened < 300) return;
         if (!e.target.closest("#filterPop") && !e.target.closest(".th-menu"))
           closeFilterPop();
         if (!e.target.closest("#spcValueCombo")) hideSpcValueList();

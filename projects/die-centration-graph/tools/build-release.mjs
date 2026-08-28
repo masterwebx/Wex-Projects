@@ -121,7 +121,7 @@ function packHtmlScripts(html) {
 function main() {
   fs.mkdirSync(outDir, { recursive: true });
 
-  let hta = read('qualitydesk.hta').replace(/\r\n/g, '\n');
+  let hta = read('quality-desk.hta').replace(/\r\n/g, '\n');
   const checkJs = read('qd-check.js');
   hta = hta.replace(
     /<script\b[^>]*\bsrc\s*=\s*["']qd-check\.js["'][^>]*>\s*<\/script>/i,

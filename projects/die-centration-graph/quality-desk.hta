@@ -17,7 +17,9 @@
     />
 
     <style>
-        body { font-family: Segoe UI, Arial; margin: 0; background: #121212; color: #f3f4f6; font-size: 15px; }
+        html, body { background: #5c6370; }
+        body { font-family: Segoe UI, Arial; margin: 0; color: #f3f4f6; font-size: 15px; }
+        body.qd-app { background: #121212; }
         header.app { padding: 12px 18px; background: #1a1a1a; border-bottom: 1px solid #2a2f36; overflow: hidden; }
         header.app .brand { float: left; }
         header.app .tools { float: right; }
@@ -147,8 +149,22 @@
         .list-wrap { max-height: 520px; overflow: auto; border: 1px solid #2a2f36; border-radius: 8px; }
         .overlay { display: none; position: fixed; left: 0; top: 0; right: 0; bottom: 0; background: rgba(0,0,0,.55); z-index: 20; }
         .overlay.on { display: block; }
-        .overlay.login { background: #0f172a; z-index: 40; }
+        .overlay.login { background: #5c6370; z-index: 40; }
+        .overlay.login .modal { background: #6b7280; border-color: #9ca3af; color: #f9fafb; box-shadow: 0 18px 40px rgba(15,23,42,.28); margin-top: 10vh; }
+        .overlay.login .modal h3 { color: #f9fafb; letter-spacing: 0.02em; margin-bottom: 6px; }
+        .overlay.login .muted { color: #e5e7eb; }
+        .overlay.login label.f { color: #e5e7eb; }
+        .overlay.login label.f input { background: #4b5563; color: #f9fafb; border-color: #9ca3af; }
+        .overlay.login button.ok { background: #374151; border: 1px solid #9ca3af; }
+        .overlay.login button.secondary { background: #4b5563; color: #f9fafb; border-color: #9ca3af; }
+        .login-kicker { font-size: 11px; letter-spacing: 0.18em; font-weight: 800; color: #d1d5db; margin: 0 0 8px; }
         .overlay.raise { z-index: 50; }
+        .filter-row { margin: 0 0 10px; }
+        .filter-row .f { display: inline-block; width: auto; margin: 0 10px 0 0; vertical-align: middle; }
+        .filter-row input, .filter-row select { display: inline-block; width: auto; min-width: 140px; margin: 4px 8px 0 0; vertical-align: middle; padding: 8px; border: 2px solid #3f3f46; border-radius: 8px; font: inherit; background: #111; color: #f3f4f6; }
+        .item-tools { margin: 0 0 10px; }
+        .item-tools .subtabs { display: inline-block; vertical-align: middle; }
+        .item-tools > button { margin: 0 6px 6px 0; vertical-align: middle; }
         .modal { width: 520px; max-width: 92%; margin: 40px auto; background: #1e1e1e; border-radius: 12px; padding: 16px; border: 1px solid #2a2f36; color: #f3f4f6; }
         .modal.wide { width: 780px; }
         .modal h3 { margin: 0 0 10px; }
@@ -193,7 +209,7 @@
         .hist-changed { background: #713f12; color: #fde68a; font-weight: 700; }
         .hist-grid td { padding: 4px 8px; }
 
-        body.light { background: #e8edf3; color: #111827; }
+        body.qd-app.light, body.light { background: #e8edf3; color: #111827; }
         body.light header.app { background: #fff; border-bottom-color: #d1d5db; }
         body.light h1 .ver, body.light .muted, body.light .crumbs, body.light .session, body.light label.f, body.light .theme-toggle, body.light table.list th, body.light .results th:first-child, body.light .results td:first-child, body.light .mspec-ro, body.light .spec b { color: #4b5563; }
         body.light .crumbs b, body.light .who { color: #111827; }
@@ -202,7 +218,7 @@
         body.light .status { background: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
         body.light .status.bad { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
         body.light .card, body.light .home-line, body.light .modal { background: #fff; border-color: #d1d5db; color: #111827; }
-        body.light label.f input, body.light label.f select, body.light label.f textarea, body.light .hits, body.light canvas.radial, body.light .mspec-ro b { background: #fff; color: #111827; border-color: #d1d5db; }
+        body.light label.f input, body.light label.f select, body.light label.f textarea, body.light .hits, body.light canvas.radial, body.light .mspec-ro b, body.light .filter-row input, body.light .filter-row select { background: #fff; color: #111827; border-color: #d1d5db; }
         body.light .tabs button, body.light .subtabs button, body.light .lines button { background: #e5e7eb; color: #111827; border-color: #d1d5db; }
         body.light .tabs button.on, body.light .lines button.on { background: #2563eb; color: #fff; border-color: #2563eb; }
         body.light .chip { background: #f3f4f6; border-color: #d1d5db; }
@@ -226,12 +242,33 @@
         body.light .results td.bad { color: #b91c1c; }
         body.light table.specs thead th { background: #f3f4f6; color: #4b5563; }
         body.light table.specs th.group { background: #e5e7eb; }
-        body.light .overlay.login { background: #e5e7eb; }
+        body.light .overlay.login { background: #5c6370; }
+        body.light .overlay.login .modal { background: #6b7280; border-color: #9ca3af; color: #f9fafb; }
+        body.light .overlay.login .muted, body.light .overlay.login label.f { color: #e5e7eb; }
+        body.light .overlay.login label.f input { background: #4b5563; color: #f9fafb; border-color: #9ca3af; }
         body.light .line-checks label { color: #111827; }
         body.light .role-checks label, body.light .plant-checks label { color: #111827; }
         body.light .op-banner { background: #dbeafe; color: #1e3a8a; }
         body.light #debugBox { background: #111827; color: #d1fae5; }
     </style>
+</head>
+<body>
+    <div id="loginOverlay" class="overlay login on">
+        <div class="modal">
+            <div class="login-kicker">WEX QUALITY</div>
+            <h3>Quality Desk Checks</h3>
+            <p class="muted" id="loginStatus">Sign in to look up items and submit floor checks. Open History any time to review results.</p>
+            <label class="f">User <input id="loginUser"></label>
+            <label class="f">Password <input id="loginPass" type="password" onkeydown="if(event.keyCode==13)doLogin()"></label>
+            <button type="button" class="ok" onclick="doLogin()">Sign in</button>
+            <div class="login-extra">
+                <button type="button" class="secondary" onclick="openNewUserForm()">New User</button>
+                <button type="button" class="secondary" onclick="openForgotForm()">Forgot Password</button>
+                <button type="button" class="secondary" onclick="openDesk(false)">History</button>
+            </div>
+            <p class="muted">New accounts wait for an admin to approve. Sessions end after 1 hour idle. Passwords stay hashed on this PC.</p>
+        </div>
+    </div>
     <script src="qd-check.js" type="text/javascript"></script>
     <script type="text/javascript">
         var aio = { items: [], mspecs: [], users: [], bubble: [], bubbleDead: [], p1: [], rts: [], path: '', loaded: false };
@@ -266,6 +303,7 @@
         var docsLoaded = false;
         var lastHomeHtml = "";
         var lastResultsHtml = "";
+        var specPaintTarget = null;
         var lastRadialKey = "";
         var skipLeaveGuard = false;
         var pendingFailContext = null;
@@ -476,7 +514,7 @@
 
         function setTheme(mode, skipWrite) {
             themeMode = mode === "light" ? "light" : "dark";
-            document.body.className = themeMode === "light" ? "light" : "";
+            document.body.className = "qd-app" + (themeMode === "light" ? " light" : "");
             if ($("themeToggle")) $("themeToggle").checked = themeMode === "light";
             if (!skipWrite) {
                 try { writeUtf8(themePath(), themeMode); } catch (e1) {}
@@ -689,6 +727,7 @@
         }
 
         function showApp() {
+            loadTheme();
             $("loginOverlay").className = "overlay login";
             $("appRoot").style.display = "block";
             $("sessionWho").innerText = session.user + (session.admin ? " (admin)" : "");
@@ -703,6 +742,7 @@
             session.user = "";
             session.admin = false;
             session.rec = null;
+            document.body.className = "";
             $("appRoot").style.display = "none";
             $("loginOverlay").className = "overlay login on";
             if ($("loginPass")) $("loginPass").value = "";
@@ -1219,6 +1259,52 @@
             writeManifest();
         }
 
+        function legacyRowKey(r) {
+            return [r["Date/Time"] || "", r.Line || "", r["Item #"] || "", r["Pass/Fail"] || "", r["Reason for Check"] || ""].join("|");
+        }
+
+        function pickLegacyFile() {
+            if (!requireAdmin()) return;
+            if ($("legacyFile")) $("legacyFile").click();
+        }
+
+        function importLegacyPicked() {
+            var inp = $("legacyFile");
+            var path, text, pack, key, existing, incoming, seen, i, r, k, added = 0, total = 0;
+            if (!inp || !inp.value) return;
+            path = inp.value;
+            try { inp.value = ""; } catch (eC) {}
+            try { text = readUtf8(path); } catch (eR) {
+                setStatus("Could not read that file.\n" + eR.message, true);
+                return;
+            }
+            pack = QD.importLegacyChecks(text);
+            if (!pack || !pack.count) {
+                setStatus("No legacy checks found. Use a DIEGRAPH2.txt from Copy for Graph, or a TSV/CSV with Date/Time, Line, and Item #.", true);
+                return;
+            }
+            for (key in pack) {
+                if (!pack.hasOwnProperty(key) || key === "count" || !pack[key] || !pack[key].length) continue;
+                incoming = pack[key];
+                existing = readLineRows(key).slice();
+                seen = {};
+                for (i = 0; i < existing.length; i++) seen[legacyRowKey(existing[i])] = true;
+                for (i = 0; i < incoming.length; i++) {
+                    r = incoming[i];
+                    k = legacyRowKey(r);
+                    total += 1;
+                    if (seen[k]) continue;
+                    seen[k] = true;
+                    existing.push(r);
+                    added += 1;
+                }
+                writeLineRows(key, existing);
+            }
+            try { writeLookupFile(); } catch (eL) {}
+            audit("legacy-import", added + " new of " + total + " from " + path);
+            setStatus("Imported " + added + " new legacy check" + (added === 1 ? "" : "s") + " (" + total + " in file). Open History and Reload from disk to review.");
+        }
+
         function fillUsers() {
             var sel = $("user");
             if (!sel) return;
@@ -1344,7 +1430,6 @@
             var lock = docsLocked();
             var admin = isAdmin();
             if ($("homeTabBtn")) $("homeTabBtn").style.display = lock ? "none" : "";
-            if ($("lookupTabBtn")) $("lookupTabBtn").style.display = lock ? "none" : "";
             if ($("usersTabBtn")) $("usersTabBtn").style.display = (!lock && admin) ? "" : "none";
             if ($("mspecsTabBtn")) $("mspecsTabBtn").style.display = lock ? "none" : "";
             if ($("itemsTabBtn")) $("itemsTabBtn").style.display = lock ? "none" : "";
@@ -1973,7 +2058,7 @@
                     d.name = name; d.line = line; d.type = type; d.url = url; d.version = ver;
                     if (type === "Construction Card") d.linkedItems = linkedItems;
                     else delete d.linkedItems;
-                    if (type === "Work Instruction" && checkLink) d.checkLink = checkLink;
+                    if (checkLink) d.checkLink = checkLink;
                     else delete d.checkLink;
                     audit("doc-edit", name + " v" + ver);
                 }
@@ -1987,7 +2072,7 @@
         function syncDocTypeFields() {
             var type = $("docType") ? $("docType").value : "";
             if ($("docLinkedWrap")) $("docLinkedWrap").style.display = type === "Construction Card" ? "" : "none";
-            if ($("docCheckLinkWrap")) $("docCheckLinkWrap").style.display = type === "Work Instruction" ? "" : "none";
+            if ($("docCheckLinkWrap")) $("docCheckLinkWrap").style.display = "";
         }
 
         function collectDocLines() {
@@ -2064,7 +2149,7 @@
             loadDocs();
             var rec = { id: "d" + (new Date()).getTime(), name: name, line: line, type: type, url: url, version: ver };
             if (type === "Construction Card" && linkedItems) rec.linkedItems = linkedItems;
-            if (type === "Work Instruction" && checkLink) rec.checkLink = checkLink;
+            if (checkLink) rec.checkLink = checkLink;
             docsStore.docs.push(rec);
             saveDocs();
             audit("doc-add", name + " v" + ver);
@@ -2260,7 +2345,6 @@
             btn.className = ready ? "ok" : "ghost";
             btn.setAttribute("data-ready", ready ? "1" : "0");
             if (ready) clearHint();
-            else hintMissing();
         }
 
         function scheduleCompute() {
@@ -2321,12 +2405,10 @@
             $("tabMspecs").className = "tabpanel" + (id === "mspecs" ? " on" : "");
             $("tabItems").className = "tabpanel" + (id === "items" ? " on" : "");
             if ($("tabDocs")) $("tabDocs").className = "tabpanel" + (id === "docs" ? " on" : "");
-            if ($("tabLookup")) $("tabLookup").className = "tabpanel" + (id === "lookup" ? " on" : "");
             if ($("tabAudit")) $("tabAudit").className = "tabpanel" + (id === "audit" ? " on" : "");
             if (id === "mspecs" && currentSite === "GARLAND") specTab = "bubble";
             renderCurrentTab();
             if ($("submitBar") && id !== "checks") $("submitBar").className = "submit-bar";
-            if (id === "lookup" && $("lookupItem")) $("lookupItem").focus();
         }
 
         function renderCurrentTab() {
@@ -2335,7 +2417,6 @@
             else if (currentTab === "items") renderItemTable();
             else if (currentTab === "docs") renderDocsTab(docsLocked());
             else if (currentTab === "audit") renderAuditTable();
-            else if (currentTab === "lookup") renderLookup();
             else if (currentTab === "checks" && currentScreen === "home") renderHome();
         }
 
@@ -2591,10 +2672,12 @@
         function renderItemTable() {
             fillItemFilterBy();
             if ($("itemTabs")) {
-                var btns = $("itemTabs").getElementsByTagName("button"), i;
+                var btns = $("itemTabs").getElementsByTagName("button"), i, kind;
                 for (i = 0; i < btns.length; i++) {
-                    btns[i].className = (btns[i].getAttribute("data-item") === itemTab) ? "on" : "";
-                    if (currentSite === "GARLAND") btns[i].style.display = btns[i].getAttribute("data-item") === "bubble" ? "" : "none";
+                    kind = btns[i].getAttribute("data-item");
+                    if (!kind) continue;
+                    btns[i].className = (kind === itemTab) ? "on" : "";
+                    if (currentSite === "GARLAND") btns[i].style.display = kind === "bubble" ? "" : "none";
                     else btns[i].style.display = "";
                 }
             }
@@ -2602,10 +2685,17 @@
             var q = ($("itemFilter") && $("itemFilter").value || "").toLowerCase();
             var by = ($("itemFilterBy") && $("itemFilterBy").value) || "Item #";
             var html = "", i, it, n = 0, shown = 0, typ, cap = 200;
+            function itemActions(rec) {
+                var safe = String(rec.item).replace(/'/g, "");
+                var cell = "<td><button type='button' class='secondary' onclick=\"viewItem('" + safe + "')\">View</button>";
+                if (session.admin) {
+                    cell += "<button type='button' onclick=\"openItemModal('" + safe + "',true)\">Edit</button>";
+                    cell += "<button type='button' class='danger' onclick=\"deleteItem('" + safe + "')\">Delete</button>";
+                }
+                return cell + "</td>";
+            }
             if (itemTab === "foam") {
-                html += "<tr><th>Item #</th><th>Description</th><th>MSPEC</th><th>Width</th><th>Footage</th><th>Perf</th>";
-                if (session.admin) html += "<th></th>";
-                html += "</tr>";
+                html += "<tr><th>Item #</th><th>Description</th><th>MSPEC</th><th>Width</th><th>Footage</th><th>Perf</th><th></th></tr>";
                 for (i = 0; i < aio.items.length; i++) {
                     it = aio.items[i];
                     if (it.deleted) continue;
@@ -2616,14 +2706,10 @@
                     n += 1;
                     if (shown >= cap) continue;
                     shown += 1;
-                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.mspec) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td>";
-                    if (session.admin) html += "<td><button type='button' onclick=\"openItemModal('" + String(it.item).replace(/'/g, "") + "',true)\">Edit</button><button type='button' class='danger' onclick=\"deleteItem('" + String(it.item).replace(/'/g, "") + "')\">Delete</button></td>";
-                    html += "</tr>";
+                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.mspec) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td>" + itemActions(it) + "</tr>";
                 }
             } else if (itemTab === "bubble") {
-                html += "<tr><th>Item #</th><th>Description</th><th>Width</th><th>Footage</th><th>Perf</th><th>Bubble type</th>";
-                if (session.admin) html += "<th></th>";
-                html += "</tr>";
+                html += "<tr><th>Item #</th><th>Description</th><th>Width</th><th>Footage</th><th>Perf</th><th>Bubble type</th><th></th></tr>";
                 for (i = 0; i < aio.items.length; i++) {
                     it = aio.items[i];
                     if (it.deleted) continue;
@@ -2634,14 +2720,10 @@
                     n += 1;
                     if (shown >= cap) continue;
                     shown += 1;
-                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td><td>" + esc(it.bubbleType) + "</td>";
-                    if (session.admin) html += "<td><button type='button' onclick=\"openItemModal('" + String(it.item).replace(/'/g, "") + "',true)\">Edit</button><button type='button' class='danger' onclick=\"deleteItem('" + String(it.item).replace(/'/g, "") + "')\">Delete</button></td>";
-                    html += "</tr>";
+                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td><td>" + esc(it.bubbleType) + "</td>" + itemActions(it) + "</tr>";
                 }
             } else if (itemTab === "p1") {
-                html += "<tr><th>Item #</th><th>Description</th><th>Length</th><th>Width</th><th>Density</th><th>Shots</th>";
-                if (session.admin) html += "<th></th>";
-                html += "</tr>";
+                html += "<tr><th>Item #</th><th>Description</th><th>Length</th><th>Width</th><th>Density</th><th>Shots</th><th></th></tr>";
                 for (i = 0; i < aio.items.length; i++) {
                     it = aio.items[i];
                     if (it.deleted) continue;
@@ -2651,14 +2733,10 @@
                     n += 1;
                     if (shown >= cap) continue;
                     shown += 1;
-                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.density) + "</td><td>" + esc(it.shots) + "</td>";
-                    if (session.admin) html += "<td><button type='button' onclick=\"openItemModal('" + String(it.item).replace(/'/g, "") + "',true)\">Edit</button><button type='button' class='danger' onclick=\"deleteItem('" + String(it.item).replace(/'/g, "") + "')\">Delete</button></td>";
-                    html += "</tr>";
+                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.density) + "</td><td>" + esc(it.shots) + "</td>" + itemActions(it) + "</tr>";
                 }
             } else {
-                html += "<tr><th>Item #</th><th>Description</th><th>Parents</th><th>Length</th><th>Width</th><th>Thickness</th>";
-                if (session.admin) html += "<th></th>";
-                html += "</tr>";
+                html += "<tr><th>Item #</th><th>Description</th><th>Parents</th><th>Length</th><th>Width</th><th>Thickness</th><th></th></tr>";
                 for (i = 0; i < aio.items.length; i++) {
                     it = aio.items[i];
                     if (it.deleted) continue;
@@ -2668,9 +2746,7 @@
                     n += 1;
                     if (shown >= cap) continue;
                     shown += 1;
-                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc((it.parents && it.parents.length) ? it.parents.join(", ") : (it.parent || "")) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.thickness) + "</td>";
-                    if (session.admin) html += "<td><button type='button' onclick=\"openItemModal('" + String(it.item).replace(/'/g, "") + "',true)\">Edit</button><button type='button' class='danger' onclick=\"deleteItem('" + String(it.item).replace(/'/g, "") + "')\">Delete</button></td>";
-                    html += "</tr>";
+                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc((it.parents && it.parents.length) ? it.parents.join(", ") : (it.parent || "")) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.thickness) + "</td>" + itemActions(it) + "</tr>";
                 }
             }
             if (!shown) html += "<tr><td colspan='8' class='muted'>No matching items.</td></tr>";
@@ -3312,8 +3388,12 @@
                     row("Sheet Length", QD.num(it.length), "—", "—", val("s4sheet"), calc.sheetPf);
                 }
             } else if (form === "bubble") {
-                var bw = QD.bubbleWeightForLine(aio.bubble, currentLine, it.bubbleType);
-                if (bw) row("Weight", bw.min, bw.target, bw.max, val("bweight"), calc.weightPf === "Fail" ? false : (val("bweight") ? true : null));
+                var pair = QD.bubbleWeightPair(aio.bubble, it.bubbleType);
+                var fam = QD.bubbleFamily(currentLine);
+                var liveW = specPaintTarget ? "" : val("bweight");
+                var liveOk = calc.weightPf === "Fail" ? false : (liveW ? true : null);
+                row("COEX weight", pair.coex ? pair.coex.min : "—", pair.coex ? pair.coex.target : "—", pair.coex ? pair.coex.max : "—", fam === "MONO" ? "—" : liveW, fam === "MONO" ? null : liveOk);
+                row("MONO weight", pair.mono ? pair.mono.min : "—", pair.mono ? pair.mono.target : "—", pair.mono ? pair.mono.max : "—", fam === "MONO" ? liveW : "—", fam === "MONO" ? liveOk : null);
                 var dead = QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType);
                 if (!isFinite(dead)) dead = QD.deadCellMax(it.bubbleType);
                 if (isFinite(dead)) row("Max dead cells", "—", "—", dead, val("bdeadPost"), calc.postPf === "Fail" ? false : (val("bdeadPost") ? true : null));
@@ -3346,10 +3426,46 @@
                 }
             }
             html += "</table>";
-            if ($("resultsBox") && html !== lastResultsHtml) {
-                lastResultsHtml = html;
-                $("resultsBox").innerHTML = html;
+            var box = specPaintTarget || $("resultsBox");
+            if (specPaintTarget) {
+                specPaintTarget.innerHTML = html;
+                return;
             }
+            if (box && html !== lastResultsHtml) {
+                lastResultsHtml = html;
+                box.innerHTML = html;
+            }
+        }
+
+        function viewLineForItem(it) {
+            var typ = QD.itemType(it);
+            if (typ === "BUBBLE") return currentSite === "GARLAND" ? "G-COEX" : "COEX";
+            if (typ === "PLANK") return "P1";
+            if (typ === "LAM") return "RTS";
+            return currentLine || "S4";
+        }
+
+        function viewItem(itemNo) {
+            var it = itemByNo[QD.canonItem(itemNo)] || QD.findItem(aio.items, itemNo);
+            if (!it) { setStatus("Item not found.", true); return; }
+            var lineId = viewLineForItem(it);
+            var prevLine = currentLine;
+            var spec = null;
+            var typ = QD.itemType(it);
+            if (typ === "PLANK") spec = QD.findP1Spec(aio.p1, it);
+            else if (typ === "LAM") spec = QD.findRtsSpec(aio.rts, it.parent);
+            else spec = QD.findMspec(aio.mspecs, it.mspec);
+            if ($("itemViewInfo")) $("itemViewInfo").innerHTML = itemInfoHtml(it, lineId);
+            specPaintTarget = $("itemViewSpec");
+            currentLine = lineId;
+            try { paintSpecTable(it, spec, {}); } catch (eV) {}
+            currentLine = prevLine;
+            specPaintTarget = null;
+            if ($("itemViewOverlay")) $("itemViewOverlay").className = "overlay on";
+        }
+
+        function closeItemView() {
+            if ($("itemViewOverlay")) $("itemViewOverlay").className = "overlay";
         }
 
         function itemSpecHtml(it, spec, lineId) {
@@ -3517,17 +3633,17 @@
             while (links.length) links[0].parentNode.removeChild(links[0]);
             loadDocs();
             var fmap = checkLinkFieldMap(), docs = docsStore.docs, d, el, lab, fid, lineLabel = QD.lineLabel(currentLine, currentSite);
-            var link, url, h2;
+            var link, url, h2, matchLines;
+            matchLines = [currentLine, lineLabel];
+            if (currentLine === "G-COEX") matchLines.push("COEX");
             for (i = 0; i < docs.length; i++) {
                 d = docs[i];
-                if (!d || d.type !== "Work Instruction" || !d.checkLink) continue;
-                if (d.line && d.line !== "*" && String(d.line).toUpperCase() !== "ALL"
-                    && String(d.line).toUpperCase() !== String(currentLine).toUpperCase()
-                    && String(d.line).toUpperCase() !== lineLabel.toUpperCase()) continue;
+                if (!d || !d.checkLink) continue;
+                if (!QD.docMatchesUserLines(d.line, matchLines)) continue;
                 url = d.url || "";
                 if (d.checkLink === "entries") {
                     h2 = activeFormHeading();
-                    if (!h2 || h2.getElementsByClassName("wi-link").length) continue;
+                    if (!h2) continue;
                     h2.appendChild(document.createTextNode(" "));
                     link = document.createElement("a");
                     link.href = "#";
@@ -3535,7 +3651,7 @@
                     link.style.color = "#93c5fd";
                     link.style.textDecoration = "underline";
                     link.style.fontWeight = "400";
-                    link.appendChild(document.createTextNode("Instructions"));
+                    link.appendChild(document.createTextNode(d.name || "Instructions"));
                     link.onclick = (function (u) { return function () { openDocLink(u); return false; }; })(url);
                     h2.appendChild(link);
                     continue;
@@ -3546,7 +3662,6 @@
                 if (!el) continue;
                 lab = el.parentNode;
                 if (!lab || lab.tagName !== "LABEL") continue;
-                if (lab.getElementsByClassName("wi-link").length) continue;
                 lab.appendChild(document.createTextNode(" "));
                 link = document.createElement("a");
                 link.href = "#";
@@ -3554,7 +3669,7 @@
                 link.style.color = "#93c5fd";
                 link.style.textDecoration = "underline";
                 link.style.fontWeight = "400";
-                link.appendChild(document.createTextNode("Instructions"));
+                link.appendChild(document.createTextNode(d.name || "Instructions"));
                 link.onclick = (function (u) {
                     return function () { openDocLink(u); return false; };
                 })(url);
@@ -4550,7 +4665,12 @@
 
         window.onload = function () {
             try { window.resizeTo(Math.min(1280, screen.availWidth), Math.min(860, screen.availHeight)); } catch (e) {}
-            try { loadTheme(); } catch (e0) {}
+            hideApp("");
+            $("loginStatus").innerText = "Sign in to look up items and submit checks. History is available without a login.";
+            if ($("loginUser")) $("loginUser").focus();
+            window.setTimeout(bootDesk, 40);
+        };
+        function bootDesk() {
             try { loadAuthUsers(); } catch (e1) {}
             try { loadSpecHistory(); } catch (e2) {}
             try { loadInbox(); } catch (eIn) {}
@@ -4559,12 +4679,9 @@
             try { fillDocLineChecks("*"); fillDocCheckLinkSelect(); syncDocTypeFields(); fillMspecFilterBy(); fillItemFilterBy(); } catch (eDoc) {}
             try { publishSapCsv(); } catch (e4) {}
             try { bindFormWatch(); } catch (e5) {}
-            setLine("S4");
-            hideApp("");
-            $("loginStatus").innerText = "Sign in to use Quality Desk Checks. Session ends after 1 hour idle.";
-            if ($("loginUser")) $("loginUser").focus();
+            try { setLine("S4"); } catch (e6) {}
             dbg("HTA v" + QD.VERSION + " ready");
-        };
+        }
         window.onerror = function (msg, url, line, col, err) {
             var detail = "ERROR " + msg + " @" + line + (col != null ? ":" + col : "");
             if (url) detail += "\nURL: " + url;
@@ -4585,26 +4702,10 @@
             return true;
         };
     </script>
-</head>
-<body>
-    <div id="loginOverlay" class="overlay login on">
-        <div class="modal">
-            <h3>Sign in</h3>
-            <p class="muted" id="loginStatus">Sign in to use Quality Desk Checks.</p>
-            <label class="f">User <input id="loginUser"></label>
-            <label class="f">Password <input id="loginPass" type="password" onkeydown="if(event.keyCode==13)doLogin()"></label>
-            <button type="button" class="ok" onclick="doLogin()">Sign in</button>
-            <div class="login-extra">
-                <button type="button" class="secondary" onclick="openNewUserForm()">New User</button>
-                <button type="button" class="secondary" onclick="openForgotForm()">Forgot Password</button>
-            </div>
-            <p class="muted">First run creates admin GWEXLER. Sessions end after 1 hour idle. Passwords are stored hashed and hidden on this PC. New users wait for admin approval. Forgot Password notifies admins, who issue a temporary password.</p>
-        </div>
-    </div>
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.53</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.54</span></h1>
         </div>
         <div class="tools">
             <span class="session">Signed in as <span class="who" id="sessionWho"></span></span>
@@ -4615,6 +4716,8 @@
                 Light
             </label>
             <button class="secondary inbox-btn" id="btnInbox" onclick="openInbox()">Inbox <span class="badge" id="inboxBadge"></span></button>
+            <button class="secondary admin-only" id="btnLegacy" onclick="pickLegacyFile()">Import legacy data</button>
+            <input type="file" id="legacyFile" style="display:none" onchange="importLegacyPicked()">
             <button class="secondary real-admin" id="btnViewOp" onclick="toggleOperatorView()">View as operator</button>
             <button class="secondary real-admin" id="btnDebug" onclick="openDebug()">Debug log</button>
             <button class="secondary" onclick="changeOwnPassword()">Password</button>
@@ -4628,7 +4731,6 @@
         <div id="status" class="status">Starting…</div>
         <div class="tabs" id="mainTabs">
             <button data-tab="checks" id="homeTabBtn" class="on" onclick="goHome()">Home</button>
-            <button data-tab="lookup" id="lookupTabBtn" onclick="showTab('lookup')">Item lookup</button>
             <button data-tab="users" id="usersTabBtn" class="admin-only" onclick="showTab('users')">Users</button>
             <button data-tab="mspecs" id="mspecsTabBtn" onclick="showTab('mspecs')">MSPECs</button>
             <button data-tab="items" id="itemsTabBtn" onclick="showTab('items')">Item database</button>
@@ -4928,24 +5030,14 @@
         </div>
         </div>
         </div>
-        <div id="tabLookup" class="tabpanel">
-            <div class="card lookup-card">
-                <h2>Item lookup</h2>
-                <p class="muted">Look up an item # without starting a quality check.</p>
-                <label class="f">Item #
-                    <input id="lookupItem" onkeyup="scheduleLookup()" onchange="renderLookup()">
-                </label>
-                <div class="hits" id="lookupHits"></div>
-                <div class="card spec" id="lookupCard"><div class="muted">Type an item # to see description and specs.</div></div>
-            </div>
-        </div>
         <div id="tabUsers" class="tabpanel">
             <div class="card">
                 <h2>Users <span class="muted" id="userCount"></span></h2>
                 <div class="pair">
-                    <div><label class="f">Filter <input id="userFilter" onkeyup="scheduleList(renderUserTable)">
+                    <div class="filter-row">
+                        <label class="f">Filter <input id="userFilter" onkeyup="scheduleList(renderUserTable)"></label>
                         <select id="userFilterBy" onchange="renderUserTable()"><option value="User">User</option><option value="Plant">Plant</option><option value="Lines">Lines</option></select>
-                    </label></div>
+                    </div>
                     <div class="admin-only">
                         <label class="f">New user <input id="newUser"></label>
                         <label class="f">Password <input id="newUserPass" type="password"></label>
@@ -4972,26 +5064,28 @@
                     <button data-spec="p1" onclick="setSpecTab('p1')">P1</button>
                     <button data-spec="rts" onclick="setSpecTab('rts')">RTS</button>
                 </div>
-                <label class="f">Filter <input id="mspecFilter" onkeyup="scheduleList(renderMspecTable)">
+                <div class="filter-row">
+                    <label class="f">Filter <input id="mspecFilter" onkeyup="scheduleList(renderMspecTable)"></label>
                     <select id="mspecFilterBy" onchange="renderMspecTable()"></select>
-                </label>
+                </div>
                 <div class="list-wrap"><table class="specs" id="mspecTable"></table></div>
             </div>
         </div>
         <div id="tabItems" class="tabpanel">
             <div class="card">
                 <h2>Item database <span class="muted" id="itemCount"></span></h2>
-                <div class="subtabs" id="itemTabs">
-                    <button data-item="foam" class="on" onclick="setItemTab('foam')">Foam</button>
-                    <button data-item="bubble" onclick="setItemTab('bubble')">Bubble</button>
-                    <button data-item="p1" onclick="setItemTab('p1')">P1</button>
-                    <button data-item="rts" onclick="setItemTab('rts')">RTS</button>
+                <div class="item-tools">
+                    <div class="subtabs" id="itemTabs">
+                        <button data-item="foam" class="on" onclick="setItemTab('foam')">Foam</button>
+                        <button data-item="bubble" onclick="setItemTab('bubble')">Bubble</button>
+                        <button data-item="p1" onclick="setItemTab('p1')">P1</button>
+                        <button data-item="rts" onclick="setItemTab('rts')">RTS</button>
+                    </div>
+                    <button type="button" onclick="openItemModal()">Add item #</button>
                 </div>
-                <div class="pair">
-                    <div><label class="f">Filter <input id="itemFilter" onkeyup="scheduleList(renderItemTable)">
-                        <select id="itemFilterBy" onchange="renderItemTable()"></select>
-                    </label></div>
-                    <div><button type="button" onclick="openItemModal()">Add item #</button></div>
+                <div class="filter-row">
+                    <label class="f">Filter <input id="itemFilter" onkeyup="scheduleList(renderItemTable)"></label>
+                    <select id="itemFilterBy" onchange="renderItemTable()"></select>
                 </div>
                 <div class="list-wrap"><table class="list" id="itemTable"></table></div>
             </div>
@@ -5041,6 +5135,14 @@
     <div class="submit-bar" id="submitBar" onmouseover="hintMissing()" onmouseout="clearHint()">
         <button type="button" id="submitBtn" class="ghost" onclick="if(this.getAttribute('data-ready')==='1')submitCheck(); else hintMissing();">Submit check</button>
     </div>
+    </div>
+    <div class="overlay" id="itemViewOverlay">
+        <div class="modal wide">
+            <h3>Item information</h3>
+            <div class="card spec" id="itemViewInfo"></div>
+            <div id="itemViewSpec"></div>
+            <button type="button" class="secondary" onclick="closeItemView()">Close</button>
+        </div>
     </div>
     <div class="overlay" id="itemOverlay">
         <div class="modal">

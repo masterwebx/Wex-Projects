@@ -410,54 +410,105 @@
             } catch (e) {}
         }
 
-        function writeUtf8(path, text) {
-            var prev = revealFile(path);
+        function tempDir() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var sh, dir = "";
+            try {
+                sh = new ActiveXObject("WScript.Shell");
+                dir = String(sh.ExpandEnvironmentStrings("%TEMP%") || "");
+            } catch (e0) {}
+            if (!dir || dir.indexOf("%") >= 0) {
+                try { dir = fso.GetSpecialFolder(2).Path; } catch (e1) { dir = getAppFolder(); }
+            }
+            return dir;
+        }
+
+        function tempFile(tag) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(tempDir(), "qd-" + (tag || "tmp") + "-" + String((new Date()).getTime()) + "-" + String(Math.floor(Math.random() * 100000)) + ".tmp");
+        }
+
+        function deleteTemp(path) {
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (path && fso.FileExists(path)) fso.DeleteFile(path, true);
+            } catch (e) {}
+        }
+
+        function copyFile(src, dest) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            if (fso.FileExists(dest)) fso.DeleteFile(dest, true);
+            fso.CopyFile(src, dest, true);
+            return fso.FileExists(dest);
+        }
+
+        function streamReadLocal(path) {
+            var stream = new ActiveXObject("ADODB.Stream");
+            stream.Type = 2;
+            stream.Charset = "utf-8";
+            stream.Open();
+            stream.LoadFromFile(path);
+            var text = stream.ReadText();
+            stream.Close();
+            return text;
+        }
+
+        function streamWriteLocal(path, text) {
             var stream = new ActiveXObject("ADODB.Stream");
             stream.Type = 2;
             stream.Charset = "utf-8";
             stream.Open();
             stream.WriteText(text);
-            try {
-                stream.SaveToFile(path, 2);
-            } catch (e1) {
-                unlockPath(path);
-                stream.SaveToFile(path, 2);
-            }
+            stream.SaveToFile(path, 2);
             stream.Close();
+        }
+
+        function fsoReadAll(path) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var ts = fso.OpenTextFile(path, 1);
+            var text = ts.AtEndOfStream ? "" : ts.ReadAll();
+            ts.Close();
+            return text;
+        }
+
+        function fsoWriteAll(path, text) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var ts = fso.CreateTextFile(path, true);
+            ts.Write(text);
+            ts.Close();
+        }
+
+        function writeUtf8(path, text) {
+            var prev = revealFile(path);
+            var tmp = tempFile("w");
+            var body = text == null ? "" : String(text);
+            try {
+                streamWriteLocal(tmp, body);
+                if (!copyFile(tmp, path)) throw new Error("copy failed");
+            } catch (e1) {
+                try {
+                    unlockPath(path);
+                    if (!copyFile(tmp, path)) throw e1;
+                } catch (e2) {
+                    fsoWriteAll(path, body);
+                }
+            }
+            deleteTemp(tmp);
             restoreAttrs(path, prev);
         }
 
         function readUtf8(path) {
             if (!fileExists(path)) return "";
             var prev = revealFile(path);
+            var tmp = tempFile("r");
             var text = "";
             try {
-                var stream = new ActiveXObject("ADODB.Stream");
-                stream.Type = 2;
-                stream.Charset = "utf-8";
-                stream.Open();
-                stream.LoadFromFile(path);
-                text = stream.ReadText();
-                stream.Close();
+                if (!copyFile(path, tmp)) throw new Error("copy failed");
+                text = streamReadLocal(tmp);
             } catch (e1) {
-                unlockPath(path);
-                try {
-                    var stream2 = new ActiveXObject("ADODB.Stream");
-                    stream2.Type = 2;
-                    stream2.Charset = "utf-8";
-                    stream2.Open();
-                    stream2.LoadFromFile(path);
-                    text = stream2.ReadText();
-                    stream2.Close();
-                } catch (e2) {
-                    try {
-                        var fso = new ActiveXObject("Scripting.FileSystemObject");
-                        var ts = fso.OpenTextFile(path, 1);
-                        text = ts.AtEndOfStream ? "" : ts.ReadAll();
-                        ts.Close();
-                    } catch (e3) { text = ""; }
-                }
+                try { text = fsoReadAll(path); } catch (e2) { text = ""; }
             }
+            deleteTemp(tmp);
             restoreAttrs(path, prev);
             return text;
         }
@@ -5123,7 +5174,7 @@
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.56</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.57</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

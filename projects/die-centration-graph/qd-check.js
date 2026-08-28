@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.59';
+  QD.VERSION = '1.7.60';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -30,7 +30,7 @@
   QD.DOC_TYPES = ['Work Instruction', 'QAN', 'Construction Card'];
   QD.DOC_REVIEW_MS = 90 * 24 * 60 * 60 * 1000;
   QD.STARTUP_ITEMS = [
-    { id: 'labelsOut', text: 'Were old labels thrown away?' },
+    { id: 'labelsOut', text: 'Were old labels from prior production order thrown away?' },
     { id: 'poVerify', text: 'Do you have the Production Order and verify everything is correct?' },
     { id: 'labelsMatch', text: 'Verify new labels match Production Order' }
   ];
@@ -471,6 +471,21 @@
   QD.normalizeBubbleType = function (bubbleType) {
     var raw = trim(bubbleType).toUpperCase();
     return raw.replace(/^(G-)?(COEX|MONO)[\s\-_\/:]*/, '');
+  };
+
+  QD.bubbleFamiliesForSite = function (site) {
+    var sit = String(site || 'VISALIA').toUpperCase();
+    if (sit === 'GARLAND') return ['COEX'];
+    return ['COEX', 'MONO'];
+  };
+
+  QD.bubbleFamilyAllowed = function (family, site) {
+    var fam = QD.bubbleFamily(family) || String(family || '').toUpperCase();
+    var allowed = QD.bubbleFamiliesForSite(site);
+    var i;
+    if (!fam) return false;
+    for (i = 0; i < allowed.length; i++) if (allowed[i] === fam) return true;
+    return false;
   };
 
   QD.bubbleFamily = function (line) {

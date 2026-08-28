@@ -2738,6 +2738,7 @@
             sel.options.length = 0;
             for (i = 0; i < opts.length; i++) sel.options.add(new Option(opts[i], opts[i]));
             if (cur) sel.value = cur;
+            if (!sel.value && sel.options.length) sel.selectedIndex = 0;
         }
 
         function fillItemFilterBy() {
@@ -2751,6 +2752,7 @@
             sel.options.length = 0;
             for (i = 0; i < opts.length; i++) sel.options.add(new Option(opts[i], opts[i]));
             if (cur) sel.value = cur;
+            if (!sel.value && sel.options.length) sel.selectedIndex = 0;
         }
 
         function mspecFilterMatch(row, q, by, kind) {
@@ -2834,7 +2836,7 @@
             if (specTab === "bubble") return renderBubbleTable();
             if (specTab === "p1") return renderP1Table();
             if (specTab === "rts") return renderRtsTable();
-            var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
+            var q = QD.trim(($("mspecFilter") && $("mspecFilter").value) || "").toLowerCase();
             var by = ($("mspecFilterBy") && $("mspecFilterBy").value) || "MSPEC";
             var html = "<thead><tr>";
             html += "<th class='mspec' rowspan='2'>MSPEC</th><th rowspan='2'>AF#</th><th rowspan='2'>Ver</th>";
@@ -2863,7 +2865,7 @@
         }
 
         function renderBubbleTable() {
-            var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
+            var q = QD.trim(($("mspecFilter") && $("mspecFilter").value) || "").toLowerCase();
             var by = ($("mspecFilterBy") && $("mspecFilterBy").value) || "Product";
             var html = "<thead><tr><th>Line</th><th>Abbr</th><th>Product</th><th>Ver</th><th>Calc gauge</th>";
             html += "<th class='group' colspan='3'>Weight</th><th></th></tr>";
@@ -2872,6 +2874,7 @@
             for (i = 0; i < aio.bubble.length; i++) {
                 r = aio.bubble[i];
                 key = QD.bubbleKey(r);
+                if (!QD.bubbleFamilyAllowed(r.family, currentSite)) continue;
                 if (q && !mspecFilterMatch(r, q, by, "bubble")) continue;
                 html += "<tr><td>" + esc(r.family) + "</td><td>" + esc(r.abbreviation) + "</td><td>" + esc(r.product) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + esc(r.calcGauge) + "</td>";
                 html += "<td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.target) + "</td><td class='num'>" + esc(r.max) + "</td>";
@@ -2960,7 +2963,7 @@
                 }
             }
             if (currentSite === "GARLAND") itemTab = "bubble";
-            var q = ($("itemFilter") && $("itemFilter").value || "").toLowerCase();
+            var q = QD.trim(($("itemFilter") && $("itemFilter").value) || "").toLowerCase();
             var by = ($("itemFilterBy") && $("itemFilterBy").value) || "Item #";
             var html = "", i, it, n = 0, shown = 0, typ, cap = 200;
             function itemActions(rec) {
@@ -3712,8 +3715,10 @@
                 var liveOk = calc.weightPf === "Fail" ? false : (liveW ? true : null);
                 var coexW = pair.coex || QD.matchBubbleWeight("COEX", it.bubbleType);
                 var monoW = pair.mono || QD.matchBubbleWeight("MONO", it.bubbleType);
-                row("COEX weight", coexW ? coexW.min : "—", coexW ? coexW.target : "—", coexW ? coexW.max : "—", fam === "MONO" ? "—" : liveW, fam === "MONO" ? null : liveOk);
-                row("MONO weight", monoW ? monoW.min : "—", monoW ? monoW.target : "—", monoW ? monoW.max : "—", fam === "MONO" ? liveW : "—", fam === "MONO" ? liveOk : null);
+                var showCoex = QD.bubbleFamilyAllowed("COEX", currentSite);
+                var showMono = QD.bubbleFamilyAllowed("MONO", currentSite);
+                if (showCoex) row("COEX weight", coexW ? coexW.min : "—", coexW ? coexW.target : "—", coexW ? coexW.max : "—", fam === "MONO" ? "—" : liveW, fam === "MONO" ? null : liveOk);
+                if (showMono) row("MONO weight", monoW ? monoW.min : "—", monoW ? monoW.target : "—", monoW ? monoW.max : "—", fam === "MONO" ? liveW : "—", fam === "MONO" ? liveOk : null);
                 var dead = QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType);
                 if (!isFinite(dead)) dead = QD.deadCellMax(it.bubbleType);
                 if (isFinite(dead)) row("Max dead cells", "—", "—", dead, val("bdeadPost"), calc.postPf === "Fail" ? false : (val("bdeadPost") ? true : null));
@@ -5041,31 +5046,55 @@
             return String(row[key]);
         }
 
+        function histRowSearchText(row, fileKey, cols) {
+            var parts = [], i, key;
+            if (!row) return "";
+            parts.push(String(fileKey || ""));
+            parts.push(QD.formatClock(row["Date/Time"]));
+            for (i = 0; i < (cols || []).length; i++) {
+                key = cols[i];
+                if (key === "Date/Time") continue;
+                if (row[key] == null || row[key] === "") continue;
+                parts.push(String(row[key]));
+            }
+            return parts.join(" ").toLowerCase();
+        }
+
+        function clearHistFilters() {
+            if ($("histLineFilter")) $("histLineFilter").selectedIndex = 0;
+            if ($("histTextFilter")) $("histTextFilter").value = "";
+            renderAdminHistory();
+        }
+
         function renderAdminHistory() {
             if (!session.user) { goHome(); return; }
             var prevFile = $("histLineFilter") ? $("histLineFilter").value : "";
-            if ($("histLineFilter")) $("histLineFilter").innerHTML = histLineOptions();
-            if ($("histLineFilter") && prevFile) $("histLineFilter").value = prevFile;
+            if ($("histLineFilter")) {
+                $("histLineFilter").innerHTML = histLineOptions();
+                $("histLineFilter").value = prevFile;
+                if ($("histLineFilter").value !== prevFile) $("histLineFilter").selectedIndex = 0;
+            }
             if ($("histAdminHelp")) {
                 $("histAdminHelp").innerText = isAdmin()
                     ? "All columns for lines you can use. Green = in spec / pass, yellow = under spec, red = over spec or fail. Edit or delete requires notes."
                     : "Checks for the lines you can use. Green = in spec / pass, yellow = under spec, red = over spec or fail.";
             }
             var file = $("histLineFilter") ? $("histLineFilter").value : "";
-            var q = (($("histTextFilter") && $("histTextFilter").value) || "").toLowerCase();
+            var q = QD.trim(($("histTextFilter") && $("histTextFilter").value) || "").toLowerCase();
             var rows = collectAdminHistory();
-            var filtered = [], i, rec, r, cols, html, n = 0, shown = 0, cap = 250, cls, rowBand, cellBand, ctx, c, key, admin, actions;
+            var filtered = [], i, rec, r, cols, html, n = 0, shown = 0, cap = 5000, cls, rowBand, cellBand, ctx, c, key, admin, actions, blob;
             admin = isAdmin();
+            cols = QD.histColumns(rows);
             for (i = rows.length - 1; i >= 0; i--) {
                 rec = rows[i];
                 r = rec.row;
                 if (file && rec.file !== file) continue;
                 if (q) {
-                    if ((String(r["Item #"] || r.Item || "") + " " + (r.Line || "") + " " + (r.User || "") + " " + (r.Notes || "") + " " + (r["Reason for Check"] || "") + " " + (r.MSPEC || "")).toLowerCase().indexOf(q) < 0) continue;
+                    blob = histRowSearchText(r, rec.file, cols);
+                    if (blob.indexOf(q) < 0) continue;
                 }
                 filtered.push(rec);
             }
-            cols = QD.histColumns(filtered);
             html = "<tr>";
             for (c = 0; c < cols.length; c++) html += "<th>" + esc(cols[c]) + "</th>";
             if (admin) html += "<th></th>";
@@ -5253,7 +5282,7 @@
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.59</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.60</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>
@@ -5615,6 +5644,7 @@
                 <div class="filter-row">
                     <label class="f">Filter <input id="mspecFilter" onkeyup="scheduleList(renderMspecTable)"></label>
                     <select id="mspecFilterBy" onchange="renderMspecTable()"></select>
+                    <button type="button" class="secondary" onclick="if($('mspecFilter'))$('mspecFilter').value='';renderMspecTable()">Clear filter</button>
                 </div>
                 <div class="list-wrap"><table class="specs" id="mspecTable"></table></div>
             </div>
@@ -5634,6 +5664,7 @@
                 <div class="filter-row">
                     <label class="f">Filter <input id="itemFilter" onkeyup="scheduleList(renderItemTable)"></label>
                     <select id="itemFilterBy" onchange="renderItemTable()"></select>
+                    <button type="button" class="secondary" onclick="if($('itemFilter'))$('itemFilter').value='';renderItemTable()">Clear filter</button>
                 </div>
                 <div class="list-wrap"><table class="list" id="itemTable"></table></div>
             </div>
@@ -5679,6 +5710,7 @@
                 <div class="filter-row">
                     <select id="histLineFilter" onchange="renderAdminHistory()"></select>
                     <label class="f">Filter <input id="histTextFilter" onkeyup="scheduleList(renderAdminHistory)"></label>
+                    <button type="button" class="secondary" onclick="clearHistFilters()">Clear filters</button>
                 </div>
                 <div class="list-wrap"><table class="list hist-grid" id="histAdminTable"></table></div>
             </div>

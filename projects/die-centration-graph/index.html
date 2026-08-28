@@ -5057,7 +5057,7 @@
 
     <script src="vendor/chart.umd.min.js"></script>
     <script>
-      const APP_VERSION = "1.7.59";
+      const APP_VERSION = "1.7.60";
       const APP_NAME = "Quality Desk";
       const HTML_LOCK = "qdHtmlInstance.v1";
       const HTML_FOCUS = "qdHtmlFocus.v1";
@@ -8748,7 +8748,10 @@
           for (const k of histCols()) {
             if (k === "Date/Time" || k === exceptKey) continue;
             const sel = tableFilters[k];
-            if (sel instanceof Set && !sel.has(r.text[k])) return false;
+            if (!(sel instanceof Set) || !sel.size) continue;
+            const cell = r.text[k] == null ? "" : String(r.text[k]);
+            if (cell === "") continue;
+            if (!sel.has(cell)) return false;
           }
           if (!rowMatchesTone(r, exceptKey)) return false;
           return true;
@@ -8947,7 +8950,10 @@
         for (const k of histCols()) {
           if (k === "Date/Time") continue;
           const sel = tableFilters[k];
-          if (sel instanceof Set && !sel.has(r.text[k])) return false;
+          if (!(sel instanceof Set) || !sel.size) continue;
+          const cell = r.text[k] == null ? "" : String(r.text[k]);
+          if (cell === "") continue;
+          if (!sel.has(cell)) return false;
         }
         return rowMatchesTone(r);
       }
@@ -9099,6 +9105,10 @@
         tableFilters = {};
         tableToneShow = {};
         tableSort = defaultSort();
+        const jump = document.getElementById("histJumpDate");
+        if (jump) jump.value = "";
+        filteredDirty = true;
+        histColsMemo = { plant: "", n: -1, cols: null };
         renderHistoryTable();
       }
       function syncFilterBar() {
@@ -9518,7 +9528,7 @@
           const allOn =
             document.getElementById("filterAll").checked && !pop.dataset.q;
           tableFilters[col] =
-            allOn || on.length === valuesForFilter(col).length
+            allOn || !on.length || on.length === valuesForFilter(col).length
               ? null
               : new Set(on);
           pop.dataset.q = "";
@@ -16045,7 +16055,11 @@
         const btn = e.target.closest("button[data-clear-col]");
         if (!btn) return;
         if (btn.dataset.clearTone) delete tableToneShow[btn.dataset.clearCol];
-        else tableFilters[btn.dataset.clearCol] = null;
+        else delete tableFilters[btn.dataset.clearCol];
+        if (btn.dataset.clearCol === "Date/Time") {
+          const jump = document.getElementById("histJumpDate");
+          if (jump) jump.value = "";
+        }
         filteredDirty = true;
         renderHistoryTable();
       };

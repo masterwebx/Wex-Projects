@@ -2,13 +2,20 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.55';
+  QD.VERSION = '1.7.56';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
   QD.IDLE_MS = 60 * 60 * 1000;
   QD.CHECK_IDLE_MS = 15 * 60 * 1000;
   QD.USERS_FILE = 'users.dat';
+  QD.HANDOFF_FILE = 'DIEGRAPH2.txt';
+  QD.HIST_CHECK_FIELDS = [
+    'Date/Time', 'Line', 'User', 'Item #', 'Item Desc', 'MSPEC',
+    'Reason for Check', 'No Check Reason', 'Pass/Fail', 'Notes',
+    'Bundle #', 'Slit/Width', 'Footage', 'Cell Count MD', 'Cell Count CD',
+    'Thickness Average', 'Thickness Range', 'Density', 'Weight'
+  ];
   QD.SEED_USER = 'GWEXLER';
   QD.SITES = ['VISALIA', 'GARLAND'];
   QD.CHECK_TYPES = ['HOURLY', 'RETEST', 'NO CHECK'];

@@ -25,14 +25,15 @@ Option Explicit
 
 Private Const CF_UNICODETEXT As Long = 13
 Private Const GMEM_MOVEABLE As Long = &H2
-Private Const GRAPH_HTML As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\centration.html"
+Private Const WEX_QUALITY As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Wex Quality"
+Private Const HANDOFF_NAME As String = "DIEGRAPH2.txt"
+Private Const HTA_NAME As String = "qualitydesk.hta"
 
 ' Import this module into the S1 S3 quality check workbook only.
 ' The S4 book uses CopyForGraphS4.bas — do not put both in the same file.
 ' Button name: Copy for Graph  (macro CopyForGraphS1S3.CopyForGraph)
-' Copies current S1 S3 values, lookup specs from the same Master Sheet
-' S1 S3 VLOOKUPs (Quality AIO / linked workbook, not the stale local copy),
-' and the full Data S1 S3 TableS1S3 table as DIEGRAPH2 text for the HTML graph.
+' Writes current S1 S3 values, lookup specs, and TableS1S3 as DIEGRAPH2.txt
+' in the Wex Quality folder, then opens qualitydesk.hta.
 ' History is tagged [TABLES1S3] so foam history keeps S1 S3 column names.
 ' Internal CopyForGraphS1S3.bas is optional if you use CopyForGraphFromQuality.bas from Personal.xlsb.
 Public Sub CopyForGraph()
@@ -66,10 +67,9 @@ Public Sub CopyForGraph()
         payload = payload & tsvTable & vbCrLf
     End If
     
-    PutTextOnClipboard payload
-    OpenGraphHtml
+    WriteHandoffAndOpenHta payload
     
-    Application.StatusBar = "Copied for graph (current + lookup + TableS1S3)"
+    Application.StatusBar = "Saved DIEGRAPH2.txt and opened Quality Desk"
     Application.Cursor = xlDefault
     Exit Sub
     
@@ -79,37 +79,91 @@ ErrHandler:
     MsgBox "Copy for graph failed: " & Err.Description, vbCritical, "Copy for Graph"
 End Sub
 
-Private Function GraphHtmlPath() As String
-    Dim p As String
-    p = GRAPH_HTML
-    If FileExists(p) Then
-        GraphHtmlPath = p
-        Exit Function
-    End If
-    p = ThisWorkbook.Path & Application.PathSeparator & "centration.html"
-    If FileExists(p) Then GraphHtmlPath = p
-End Function
-
 Private Function FileExists(ByVal p As String) As Boolean
     On Error Resume Next
     FileExists = (LenB(Trim$(p)) > 0 And LenB(Dir$(p, vbNormal)) > 0)
 End Function
 
-Private Sub OpenGraphHtml()
+Private Function FolderExists(ByVal p As String) As Boolean
+    Dim fso As Object
+    On Error Resume Next
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso Is Nothing Then
+        FolderExists = fso.FolderExists(p)
+        Exit Function
+    End If
+    FolderExists = (LenB(Trim$(p)) > 0 And LenB(Dir$(p, vbDirectory)) > 0)
+End Function
+
+Private Function HandoffFolder() As String
+    If FolderExists(WEX_QUALITY) Then
+        HandoffFolder = WEX_QUALITY
+        Exit Function
+    End If
+    If LenB(ThisWorkbook.Path) > 0 Then HandoffFolder = ThisWorkbook.Path
+End Function
+
+Private Function HtaPath() As String
+    Dim folder As String
     Dim p As String
+    folder = HandoffFolder()
+    If LenB(folder) = 0 Then Exit Function
+    p = folder & Application.PathSeparator & HTA_NAME
+    If FileExists(p) Then
+        HtaPath = p
+        Exit Function
+    End If
+    p = folder & Application.PathSeparator & "quality-desk.hta"
+    If FileExists(p) Then HtaPath = p
+End Function
+
+Private Sub WriteTextFile(ByVal p As String, ByVal s As String)
+    Dim stm As Object
+    Dim fso As Object
+    Dim ts As Object
+    On Error GoTo Fallback
+    Set stm = CreateObject("ADODB.Stream")
+    stm.Type = 2
+    stm.Charset = "utf-8"
+    stm.Open
+    stm.WriteText s
+    stm.SaveToFile p, 2
+    stm.Close
+    Exit Sub
+Fallback:
+    On Error Resume Next
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set ts = fso.CreateTextFile(p, True)
+    If Not ts Is Nothing Then
+        ts.Write s
+        ts.Close
+    End If
+End Sub
+
+Private Sub WriteHandoffAndOpenHta(ByVal payload As String)
+    Dim folder As String
+    Dim p As String
+    Dim hta As String
     Dim sh As Object
-    p = GraphHtmlPath()
-    If LenB(p) = 0 Then
-        MsgBox "Copied for graph. Could not find:" & vbCrLf & GRAPH_HTML & vbCrLf & vbCrLf & "Open the graph and paste (Ctrl+V).", vbInformation, "Copy for Graph"
+    folder = HandoffFolder()
+    If LenB(folder) = 0 Then
+        MsgBox "Could not find the Wex Quality folder:" & vbCrLf & WEX_QUALITY, vbCritical, "Copy for Graph"
+        Exit Sub
+    End If
+    p = folder & Application.PathSeparator & HANDOFF_NAME
+    WriteTextFile p, payload
+    hta = HtaPath()
+    If LenB(hta) = 0 Then
+        MsgBox "Saved " & p & vbCrLf & vbCrLf & "Could not find qualitydesk.hta. Open Quality Desk to import.", vbInformation, "Copy for Graph"
         Exit Sub
     End If
     On Error GoTo Fallback
     Set sh = CreateObject("WScript.Shell")
-    sh.Run """" & p & """", 1, False
+    sh.Run """" & hta & """", 3, False
     Exit Sub
 Fallback:
     On Error Resume Next
-    ThisWorkbook.FollowHyperlink Address:=p, NewWindow:=True
+    ThisWorkbook.FollowHyperlink Address:=hta, NewWindow:=True
 End Sub
 
 Private Function SheetByName(ByVal sheetName As String) As Worksheet

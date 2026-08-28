@@ -6,9 +6,8 @@ Option Explicit
 ' or RTS.xlsm, and do not import CopyForGraphFromQuality here.
 '
 ' Button name: Copy for Graph  (macro CopyForGraphGarland.CopyForGraph)
-' Copies Data!Table1 (Garland COEX / MONO checks) as DIEGRAPH2 text
-' for Quality Desk. Puts the payload on the clipboard only — does not
-' open the HTML file.
+' Writes Data!Table1 as DIEGRAPH2.txt in the Wex Quality folder, then
+' opens qualitydesk.hta so the HTA can import and delete the file.
 
 #If Mac Then
     ' DataObject fallback only
@@ -34,6 +33,9 @@ Option Explicit
 
 Private Const CF_UNICODETEXT As Long = 13
 Private Const GMEM_MOVEABLE As Long = &H2
+Private Const WEX_QUALITY As String = "G:\Shipping\100% Inspection Sheets\Production Folder\1 - Quality\Wex Quality"
+Private Const HANDOFF_NAME As String = "DIEGRAPH2.txt"
+Private Const HTA_NAME As String = "qualitydesk.hta"
 
 Public Sub CopyForGraph()
     Dim payload As String
@@ -58,9 +60,9 @@ Public Sub CopyForGraph()
     payload = payload & "[TABLESGARLAND]" & vbCrLf
     payload = payload & tsvTable & vbCrLf
     
-    PutTextOnClipboard payload
+    WriteHandoffAndOpenHta payload
     
-    Application.StatusBar = "Copied Garland Table1 for graph (clipboard only)"
+    Application.StatusBar = "Saved DIEGRAPH2.txt and opened Quality Desk"
     Application.Cursor = xlDefault
     Exit Sub
     
@@ -68,6 +70,93 @@ ErrHandler:
     Application.Cursor = xlDefault
     Application.StatusBar = False
     MsgBox "Copy for graph failed: " & Err.Description, vbCritical, "Copy for Graph"
+End Sub
+
+Private Function FileExists(ByVal p As String) As Boolean
+    On Error Resume Next
+    FileExists = (LenB(Trim$(p)) > 0 And LenB(Dir$(p, vbNormal)) > 0)
+End Function
+
+Private Function FolderExists(ByVal p As String) As Boolean
+    Dim fso As Object
+    On Error Resume Next
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    If Not fso Is Nothing Then
+        FolderExists = fso.FolderExists(p)
+        Exit Function
+    End If
+    FolderExists = (LenB(Trim$(p)) > 0 And LenB(Dir$(p, vbDirectory)) > 0)
+End Function
+
+Private Function HandoffFolder() As String
+    If FolderExists(WEX_QUALITY) Then
+        HandoffFolder = WEX_QUALITY
+        Exit Function
+    End If
+    If LenB(ThisWorkbook.Path) > 0 Then HandoffFolder = ThisWorkbook.Path
+End Function
+
+Private Function HtaPath() As String
+    Dim folder As String
+    Dim p As String
+    folder = HandoffFolder()
+    If LenB(folder) = 0 Then Exit Function
+    p = folder & Application.PathSeparator & HTA_NAME
+    If FileExists(p) Then
+        HtaPath = p
+        Exit Function
+    End If
+    p = folder & Application.PathSeparator & "quality-desk.hta"
+    If FileExists(p) Then HtaPath = p
+End Function
+
+Private Sub WriteTextFile(ByVal p As String, ByVal s As String)
+    Dim stm As Object
+    Dim fso As Object
+    Dim ts As Object
+    On Error GoTo Fallback
+    Set stm = CreateObject("ADODB.Stream")
+    stm.Type = 2
+    stm.Charset = "utf-8"
+    stm.Open
+    stm.WriteText s
+    stm.SaveToFile p, 2
+    stm.Close
+    Exit Sub
+Fallback:
+    On Error Resume Next
+    Set fso = CreateObject("Scripting.FileSystemObject")
+    Set ts = fso.CreateTextFile(p, True)
+    If Not ts Is Nothing Then
+        ts.Write s
+        ts.Close
+    End If
+End Sub
+
+Private Sub WriteHandoffAndOpenHta(ByVal payload As String)
+    Dim folder As String
+    Dim p As String
+    Dim hta As String
+    Dim sh As Object
+    folder = HandoffFolder()
+    If LenB(folder) = 0 Then
+        MsgBox "Could not find the Wex Quality folder:" & vbCrLf & WEX_QUALITY, vbCritical, "Copy for Graph"
+        Exit Sub
+    End If
+    p = folder & Application.PathSeparator & HANDOFF_NAME
+    WriteTextFile p, payload
+    hta = HtaPath()
+    If LenB(hta) = 0 Then
+        MsgBox "Saved " & p & vbCrLf & vbCrLf & "Could not find qualitydesk.hta. Open Quality Desk to import.", vbInformation, "Copy for Graph"
+        Exit Sub
+    End If
+    On Error GoTo Fallback
+    Set sh = CreateObject("WScript.Shell")
+    sh.Run """" & hta & """", 3, False
+    Exit Sub
+Fallback:
+    On Error Resume Next
+    ThisWorkbook.FollowHyperlink Address:=hta, NewWindow:=True
 End Sub
 
 Private Function SheetByName(ByVal sheetName As String) As Worksheet

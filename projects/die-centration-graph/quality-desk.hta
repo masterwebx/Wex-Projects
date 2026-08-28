@@ -298,6 +298,9 @@
         var itemTab = 'foam';
         var docsStore = { docs: [], acks: [] };
         var homeTimer = null;
+        var handoffTimer = null;
+        var handoffBusy = false;
+        var histEdit = { file: "", idx: -1 };
         var specTab = 'foam';
         var session = { user: '', admin: false, last: 0, rec: null };
         var authUsers = [];
@@ -675,6 +678,95 @@
 
         function isAdmin() { return !!(session.user && session.admin && !viewAsOperator); }
 
+        function maximizeWindow() {
+            try {
+                window.moveTo(0, 0);
+                window.resizeTo(screen.availWidth, screen.availHeight);
+            } catch (eMax) {}
+        }
+
+        function qualityDeskHtaCount() {
+            var n = 0;
+            try {
+                var loc = GetObject("winmgmts:\\\\.\\root\\cimv2");
+                var q = loc.ExecQuery("SELECT CommandLine FROM Win32_Process WHERE Name='mshta.exe'");
+                var en = new Enumerator(q);
+                var folder = getAppFolder().toLowerCase();
+                var folderUrl = folder.replace(/\\/g, "/");
+                for (; !en.atEnd(); en.moveNext()) {
+                    var cmd = String(en.item().CommandLine || "").toLowerCase();
+                    if (!cmd) continue;
+                    if (cmd.indexOf("qualitydesk") >= 0 || cmd.indexOf("quality-desk") >= 0) n += 1;
+                    else if ((cmd.indexOf(folder) >= 0 || cmd.indexOf(folderUrl) >= 0) && cmd.indexOf(".hta") >= 0) n += 1;
+                }
+            } catch (eC) {}
+            return n;
+        }
+
+        function claimHtaInstance() {
+            if (qualityDeskHtaCount() > 1) {
+                try { (new ActiveXObject("WScript.Shell")).AppActivate("Quality Desk Checks"); } catch (eA) {}
+                try { window.close(); } catch (eC) {}
+                return false;
+            }
+            return true;
+        }
+
+        function handoffPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var folder = getAppFolder();
+            var names = [QD.HANDOFF_FILE, "diegraph2.txt", "DIEGRAPH2.TXT", "copy-for-graph.txt"];
+            var i, p;
+            for (i = 0; i < names.length; i++) {
+                p = fso.BuildPath(folder, names[i]);
+                if (fso.FileExists(p)) return p;
+            }
+            return "";
+        }
+
+        function deleteHandoff(path) {
+            if (!path) return;
+            try { (new ActiveXObject("Scripting.FileSystemObject")).DeleteFile(path, true); } catch (eD) {}
+        }
+
+        function importHandoffIfPresent(quiet) {
+            var path;
+            if (handoffBusy) return false;
+            try { path = handoffPath(); } catch (eP) { return false; }
+            if (!path) return false;
+            handoffBusy = true;
+            showWork("Copy for Graph", "Reading " + path + "…", 8);
+            window.setTimeout(function () {
+                var text, pack;
+                try { text = readUtf8(path); } catch (eR) {
+                    handoffBusy = false;
+                    hideWork();
+                    if (!quiet) setStatus("Could not read " + path + "\n" + eR.message, true);
+                    return;
+                }
+                pack = QD.importLegacyChecks(text);
+                if (!pack || !pack.count) {
+                    deleteHandoff(path);
+                    handoffBusy = false;
+                    hideWork();
+                    if (!quiet) setStatus("Copy for Graph file had no checks. Removed " + path + ".", true);
+                    return;
+                }
+                importLegacyWrite(pack, path, ["s4", "s1", "s3", "coex", "mono", "p1", "rts", "gcoex", "gmono"], 0, 0, 0, function () {
+                    deleteHandoff(path);
+                    handoffBusy = false;
+                });
+            }, 20);
+            return true;
+        }
+
+        function startHandoffWatch() {
+            if (handoffTimer) window.clearInterval(handoffTimer);
+            handoffTimer = window.setInterval(function () {
+                try { importHandoffIfPresent(true); } catch (eH) {}
+            }, 15000);
+        }
+
         function canUseInbox() {
             var u = sessionUser();
             return !!(u && (u.admin || QD.userIsSupervisor(u) || QD.userIsLead(u)));
@@ -716,7 +808,7 @@
             syncAdminChrome();
             lastHomeHtml = "";
             if (currentTab === "checks") renderHome();
-            else if (currentTab === "users" || currentTab === "mspecs" || currentTab === "items" || currentTab === "audit") goHome();
+            else if (currentTab === "users" || currentTab === "mspecs" || currentTab === "items" || currentTab === "audit" || currentTab === "history") goHome();
             dbg(viewAsOperator ? "View as operator on" : "Back to admin");
         }
 
@@ -745,6 +837,7 @@
             $("loginOverlay").className = "overlay login";
             $("appRoot").style.display = "block";
             $("sessionWho").innerText = session.user + (session.admin ? " (admin)" : "");
+            setStatus("Welcome, " + session.user + ".");
             syncAdminChrome();
             if ($("user")) $("user").value = session.user;
             startIdleWatch();
@@ -756,6 +849,9 @@
             session.user = "";
             session.admin = false;
             session.rec = null;
+            viewAsOperator = false;
+            if ($("opBanner")) $("opBanner").className = "op-banner";
+            if ($("btnViewOp")) $("btnViewOp").innerText = "View as operator";
             document.documentElement.className = "";
             document.body.className = "";
             $("appRoot").style.display = "none";
@@ -823,7 +919,7 @@
             $("loginStatus").innerText = "";
             $("loginOverlay").className = "overlay login";
             showApp();
-            setStatus("Signed in as " + rec.name + (rec.admin ? " (admin)" : "") + ". Loading lookup files…");
+            setStatus("Welcome, " + rec.name + ".");
             showWork("Loading Quality Desk", "Reading lookup files…", 12);
             window.setTimeout(function () {
                 try { if (!aio.loaded) loadAio(false); } catch (e1) {
@@ -835,7 +931,8 @@
                     $("pwTitle").innerText = "Set your password";
                 }
                 try { renderLists(); } catch (e2) {}
-                try { setSite(currentSite, true); startHomePoll(); } catch (e3) {}
+                try { setSite(currentSite, true); } catch (e3) {}
+                try { importHandoffIfPresent(true); } catch (eHandoff) {}
                 audit("login", rec.name);
                 if (pendingForUser().length) goDocs(true);
                 else goHome();
@@ -1364,7 +1461,7 @@
             }, 20);
         }
 
-        function importLegacyWrite(pack, path, keys, idx, added, total) {
+        function importLegacyWrite(pack, path, keys, idx, added, total, done) {
             var key, incoming, existing, seen, i, r, k, map, changed;
             if (idx >= keys.length) {
                 setWork("Updating lookup…", 96);
@@ -1372,8 +1469,10 @@
                 hideWork();
                 lastHomeHtml = "";
                 try { renderHome(); } catch (eH) {}
+                if (currentTab === "history") try { renderAdminHistory(); } catch (eHist) {}
                 audit("legacy-import", added + " new of " + total + " from " + path);
-                setStatus("Imported " + added + " new legacy check" + (added === 1 ? "" : "s") + " (" + total + " in file). Existing rows missing T1–T13 were filled in. Open History and Reload from disk to review.");
+                setStatus("Imported " + added + " new check" + (added === 1 ? "" : "s") + " (" + total + " in file). Existing rows missing T1–T13 were filled in.");
+                if (done) done();
                 return;
             }
             key = keys[idx];
@@ -1403,7 +1502,7 @@
                     }
                     writeLineRows(key, existing);
                 }
-                importLegacyWrite(pack, path, keys, idx + 1, added, total);
+                importLegacyWrite(pack, path, keys, idx + 1, added, total, done);
             }, 20);
         }
 
@@ -1536,6 +1635,7 @@
             if ($("mspecsTabBtn")) $("mspecsTabBtn").style.display = lock ? "none" : "";
             if ($("itemsTabBtn")) $("itemsTabBtn").style.display = lock ? "none" : "";
             if ($("auditTabBtn")) $("auditTabBtn").style.display = (!lock && admin) ? "" : "none";
+            if ($("histTabBtn")) $("histTabBtn").style.display = (!lock && admin) ? "" : "none";
             if ($("docsTabBtn")) $("docsTabBtn").style.display = "";
             if ($("plantToggle")) $("plantToggle").style.display = lock ? "none" : "";
             syncInboxBadge();
@@ -1923,10 +2023,7 @@
 
         function startHomePoll() {
             if (homeTimer) window.clearInterval(homeTimer);
-            homeTimer = window.setInterval(function () {
-                try { publishSapCsv(); } catch (e1) {}
-                if (currentScreen === "home" && currentTab === "checks") renderHome();
-            }, 30000);
+            homeTimer = null;
         }
 
         function openDocLink(url) {
@@ -2096,13 +2193,13 @@
         function renderDocTable() {
             loadDocs(true);
             var html = "<tr><th>Name</th><th>Line</th><th>Type</th><th>Check link</th><th>Linked items</th><th>Link</th><th>Version</th>";
-            if (session.admin) html += "<th></th>";
+            if (isAdmin()) html += "<th></th>";
             html += "</tr>";
             var i, d, n = 0;
             for (i = 0; i < docsStore.docs.length; i++) {
                 d = docsStore.docs[i];
                 html += "<tr><td>" + esc(d.name) + "</td><td>" + esc(d.line) + "</td><td>" + esc(d.type) + "</td><td>" + esc(d.checkLink ? checkLinkLabel(d.checkLink) : "") + "</td><td>" + esc(d.linkedItems || "") + "</td><td><a href='#' onclick=\"openDocLink('" + String(d.url || '').replace(/'/g, "") + "');return false;\">Open</a></td><td>" + esc(d.version) + "</td>";
-                if (session.admin) html += "<td><button type='button' onclick=\"editDoc('" + String(d.id).replace(/'/g, "") + "')\">Edit</button><button type='button' class='secondary' onclick=\"bumpDoc('" + String(d.id).replace(/'/g, "") + "')\">Bump version</button><button type='button' class='danger' onclick=\"deleteDoc('" + String(d.id).replace(/'/g, "") + "')\">Delete</button></td>";
+                if (isAdmin()) html += "<td><button type='button' onclick=\"editDoc('" + String(d.id).replace(/'/g, "") + "')\">Edit</button><button type='button' class='secondary' onclick=\"bumpDoc('" + String(d.id).replace(/'/g, "") + "')\">Bump version</button><button type='button' class='danger' onclick=\"deleteDoc('" + String(d.id).replace(/'/g, "") + "')\">Delete</button></td>";
                 html += "</tr>";
                 n += 1;
             }
@@ -2508,6 +2605,7 @@
             $("tabItems").className = "tabpanel" + (id === "items" ? " on" : "");
             if ($("tabDocs")) $("tabDocs").className = "tabpanel" + (id === "docs" ? " on" : "");
             if ($("tabAudit")) $("tabAudit").className = "tabpanel" + (id === "audit" ? " on" : "");
+            if ($("tabHistory")) $("tabHistory").className = "tabpanel" + (id === "history" ? " on" : "");
             if (id === "mspecs" && currentSite === "GARLAND") specTab = "bubble";
             renderCurrentTab();
             if ($("submitBar") && id !== "checks") $("submitBar").className = "submit-bar";
@@ -2519,6 +2617,7 @@
             else if (currentTab === "items") renderItemTable();
             else if (currentTab === "docs") renderDocsTab(docsLocked());
             else if (currentTab === "audit") renderAuditTable();
+            else if (currentTab === "history") renderAdminHistory();
             else if (currentTab === "checks" && currentScreen === "home") renderHome();
         }
 
@@ -2531,7 +2630,7 @@
         }
 
         function editBtn(kind, key) {
-            if (!session.admin) return "";
+            if (!isAdmin()) return "";
             return "<button type='button' onclick=\"openSpecEdit('" + esc(kind) + "','" + String(key).replace(/'/g, "") + "')\">Edit</button>";
         }
 
@@ -2604,7 +2703,7 @@
             var q = ($("userFilter") && $("userFilter").value || "").toLowerCase();
             var by = ($("userFilterBy") && $("userFilterBy").value) || "User";
             var html = "<tr><th>User</th><th>Admin</th><th>Supervisor</th><th>Lead</th><th>Plant</th><th>Lines</th><th>Password</th>";
-            if (session.admin) html += "<th></th>";
+            if (isAdmin()) html += "<th></th>";
             html += "</tr>";
             var i, u, n = 0;
             for (i = 0; i < authUsers.length; i++) {
@@ -2619,9 +2718,9 @@
                     if (!hit) continue;
                 }
                 html += "<tr><td>" + esc(u.name) + "</td><td>" + (u.admin ? "Yes" : "") + "</td><td>" + (u.supervisor ? "Yes" : "") + "</td><td>" + (u.lead ? "Yes" : "") + "</td><td>" + esc(u.plant || "VISALIA") + "</td><td>" + esc(u.lines || "*") + "</td><td>" + (u.hash ? "Set" : "Missing") + "</td>";
-                if (session.admin) {
+                if (isAdmin()) {
                     html += "<td>";
-                    html += "<button type='button' class='secondary' onclick=\"toggleAdmin('" + String(u.name).replace(/'/g, "") + "')\">" + (u.admin ? "Remove admin" : "Make admin") + "</button>";
+                    html += "<button type='button' class='secondary' onclick=\"editUserRoles('" + String(u.name).replace(/'/g, "") + "')\">Roles</button>";
                     html += "<button type='button' class='secondary' onclick=\"resetUserPass('" + String(u.name).replace(/'/g, "") + "')\">Set password</button>";
                     html += "<button type='button' class='secondary' onclick=\"assignUserLines('" + String(u.name).replace(/'/g, "") + "')\">Lines</button>";
                     if (String(u.name).toUpperCase() !== String(session.user).toUpperCase()) {
@@ -2790,7 +2889,7 @@
             function itemActions(rec) {
                 var safe = String(rec.item).replace(/'/g, "");
                 var cell = "<td><button type='button' class='secondary' onclick=\"viewItem('" + safe + "')\">View</button>";
-                if (session.admin) {
+                if (isAdmin()) {
                     cell += "<button type='button' onclick=\"openItemModal('" + safe + "',true)\">Edit</button>";
                     cell += "<button type='button' class='danger' onclick=\"deleteItem('" + safe + "')\">Delete</button>";
                 }
@@ -2875,6 +2974,7 @@
             aio.localUsers = QD.mergeUsers(aio.localUsers || [], [name]);
             $("newUser").value = "";
             if ($("newUserPass")) $("newUserPass").value = "";
+            if ($("newUserOperator")) $("newUserOperator").checked = true;
             if ($("newUserAdmin")) $("newUserAdmin").checked = false;
             if ($("newUserSupervisor")) $("newUserSupervisor").checked = false;
             if ($("newUserLead")) $("newUserLead").checked = false;
@@ -2997,6 +3097,40 @@
             saveAuthUsers();
             audit("user-admin", rec.name + (rec.admin ? " granted" : " removed"));
             renderUserTable();
+        }
+
+        function editUserRoles(name) {
+            if (!requireAdmin()) return;
+            loadAuthUsers();
+            var rec = QD.findUserRecord(authUsers, name);
+            if (!rec) return;
+            if ($("roleUserName")) $("roleUserName").value = rec.name;
+            if ($("roleOperator")) $("roleOperator").checked = true;
+            if ($("roleAdmin")) $("roleAdmin").checked = !!rec.admin;
+            if ($("roleSupervisor")) $("roleSupervisor").checked = !!rec.supervisor;
+            if ($("roleLead")) $("roleLead").checked = !!rec.lead;
+            if ($("rolesOverlay")) $("rolesOverlay").className = "overlay on";
+        }
+
+        function saveUserRoles() {
+            if (!requireAdmin()) return;
+            var name = $("roleUserName") ? $("roleUserName").value : "";
+            loadAuthUsers();
+            var rec = QD.findUserRecord(authUsers, name);
+            if (!rec) return;
+            var nextAdmin = $("roleAdmin") && $("roleAdmin").checked;
+            if (String(rec.name).toUpperCase() === String(session.user).toUpperCase() && rec.admin && !nextAdmin) {
+                alert("You cannot remove your own admin access.");
+                return;
+            }
+            rec.admin = !!nextAdmin;
+            rec.supervisor = !!($("roleSupervisor") && $("roleSupervisor").checked);
+            rec.lead = !!($("roleLead") && $("roleLead").checked);
+            saveAuthUsers();
+            if ($("rolesOverlay")) $("rolesOverlay").className = "overlay";
+            audit("user-roles", rec.name + " admin=" + (rec.admin ? "1" : "0") + " supervisor=" + (rec.supervisor ? "1" : "0") + " lead=" + (rec.lead ? "1" : "0"));
+            renderUserTable();
+            setStatus("Updated roles for " + rec.name + ".");
         }
 
         function resetUserPass(name) {
@@ -3454,10 +3588,15 @@
             }
             var info = QD.lineInfo(currentLine, currentSite);
             var form = info ? info.form : "";
-            var html = "<table class='results'><tr><th></th><th>MIN</th><th>TARGET</th><th>MAX</th><th>RESULT</th></tr>";
+            var hideResult = !!specPaintTarget;
+            var html = hideResult
+                ? "<table class='results'><tr><th></th><th>MIN</th><th>TARGET</th><th>MAX</th></tr>"
+                : "<table class='results'><tr><th></th><th>MIN</th><th>TARGET</th><th>MAX</th><th>RESULT</th></tr>";
             function row(label, mn, tg, mx, res, ok) {
                 var show = (res == null || res === "") ? "—" : res;
-                html += "<tr><td>" + label + "</td><td>" + (mn == null || mn === "" ? "—" : mn) + "</td><td>" + (tg == null || tg === "" ? "—" : tg) + "</td><td>" + (mx == null || mx === "" ? "—" : mx) + "</td><td class='" + specResultClass(show, ok) + "'>" + show + "</td></tr>";
+                html += "<tr><td>" + label + "</td><td>" + (mn == null || mn === "" ? "—" : mn) + "</td><td>" + (tg == null || tg === "" ? "—" : tg) + "</td><td>" + (mx == null || mx === "" ? "—" : mx) + "</td>";
+                if (!hideResult) html += "<td class='" + specResultClass(show, ok) + "'>" + show + "</td>";
+                html += "</tr>";
             }
             if (form === "s4" || form === "s1s3") {
                 var lo = spec ? QD.num(spec["Lower Control"]) : NaN;
@@ -4495,21 +4634,27 @@
             return false;
         }
 
+        function focusExistingDesk() {
+            try { return !!(new ActiveXObject("WScript.Shell")).AppActivate("Quality Desk History"); }
+            catch (eF) { return false; }
+        }
+
         function openDesk(quietIfOpen) {
             var htmlPath = findHtml();
             if (!htmlPath) { setStatus("index.html or centration.html not found next to this HTA.", true); return; }
-            if (deskIsOpen(htmlPath)) {
+            try { publishSapCsv(); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
+            if (deskIsOpen(htmlPath) || focusExistingDesk()) {
                 if (!quietIfOpen) setStatus("Quality Desk is already open. Use Reload from disk on that window.");
-                try { (new ActiveXObject("WScript.Shell")).AppActivate("Quality Desk"); } catch (e) {}
+                focusExistingDesk();
                 return;
             }
             var url = toFileUrl(htmlPath);
             var edge = findEdge();
             var profile = edgeProfileDir();
             var shell = new ActiveXObject("WScript.Shell");
-            try { shell.Run('"' + edge + '" --user-data-dir="' + profile + '" --app="' + url + '"', 1, false); }
+            try { shell.Run('"' + edge + '" --user-data-dir="' + profile + '" --app="' + url + '"', 3, false); }
             catch (e1) {
-                try { shell.Run('cmd /c start "" "' + htmlPath + '"', 0, false); }
+                try { shell.Run('cmd /c start "" "' + htmlPath + '"', 3, false); }
                 catch (e2) { setStatus("Could not open Quality Desk.\n" + htmlPath, true); }
             }
         }
@@ -4765,6 +4910,143 @@
             $("loginStatus").innerText = "Password reset sent to admins. They will give you a temporary password.";
         }
 
+        function histLineOptions() {
+            var html = "<option value=''>All lines</option>";
+            var i, info, list = QD.LINES;
+            for (i = 0; i < list.length; i++) {
+                info = list[i];
+                html += "<option value='" + info.file + "'>" + esc(info.site === "GARLAND" ? "Garland " + info.label : info.label) + "</option>";
+            }
+            return html;
+        }
+
+        function collectAdminHistory() {
+            var out = [], i, key, rows, j, r;
+            for (i = 0; i < QD.LINE_FILES.length; i++) {
+                key = QD.LINE_FILES[i];
+                rows = readLineRows(key);
+                for (j = 0; j < rows.length; j++) {
+                    r = rows[j];
+                    if (!r) continue;
+                    out.push({ file: key, idx: j, row: r });
+                }
+            }
+            return out;
+        }
+
+        function histRowChanged(row) {
+            return !!(row && (row.__edited || row.__editNotes));
+        }
+
+        function renderAdminHistory() {
+            if (!isAdmin()) { goHome(); return; }
+            if ($("histLineFilter") && !$("histLineFilter").options.length) {
+                $("histLineFilter").innerHTML = histLineOptions();
+            }
+            var file = $("histLineFilter") ? $("histLineFilter").value : "";
+            var q = (($("histTextFilter") && $("histTextFilter").value) || "").toLowerCase();
+            var rows = collectAdminHistory();
+            var html = "<tr><th>When</th><th>Line</th><th>Item</th><th>User</th><th>Reason</th><th>P/F</th><th>Notes</th><th></th></tr>";
+            var i, rec, r, n = 0, shown = 0, cap = 250, cls, when;
+            for (i = rows.length - 1; i >= 0; i--) {
+                rec = rows[i];
+                r = rec.row;
+                if (file && rec.file !== file) continue;
+                if (q) {
+                    if ((String(r["Item #"] || "") + " " + (r.Line || "") + " " + (r.User || "") + " " + (r.Notes || "") + " " + (r["Reason for Check"] || "")).toLowerCase().indexOf(q) < 0) continue;
+                }
+                n += 1;
+                if (shown >= cap) continue;
+                shown += 1;
+                cls = histRowChanged(r) ? " class='hist-changed'" : "";
+                when = r["Date/Time"];
+                html += "<tr" + cls + "><td>" + esc(QD.formatClock(when)) + "</td><td>" + esc(r.Line || rec.file) + "</td><td>" + esc(r["Item #"]) + "</td><td>" + esc(r.User) + "</td><td>" + esc(r["Reason for Check"]) + "</td><td>" + esc(r["Pass/Fail"]) + "</td><td>" + esc(r.Notes || r.__editNotes || "") + "</td>";
+                html += "<td><button type='button' class='secondary' onclick=\"openHistEdit('" + rec.file + "'," + rec.idx + ")\">Edit</button>";
+                html += "<button type='button' class='danger' onclick=\"deleteHistRow('" + rec.file + "'," + rec.idx + ")\">Delete</button></td></tr>";
+            }
+            if (!shown) html += "<tr><td colspan='8' class='muted'>No matching checks.</td></tr>";
+            if ($("histAdminTable")) $("histAdminTable").innerHTML = html;
+            if ($("histAdminCount")) $("histAdminCount").innerText = n + " check" + (n === 1 ? "" : "s") + (n > shown ? " (showing latest " + shown + ")" : "");
+        }
+
+        function histFieldValue(row, key) {
+            if (!row) return "";
+            if (key === "Date/Time") return QD.formatClock(row[key]);
+            return row[key] == null ? "" : String(row[key]);
+        }
+
+        function openHistEdit(file, idx) {
+            if (!requireAdmin()) return;
+            var rows = readLineRows(file);
+            var row = rows[idx];
+            if (!row) return;
+            histEdit = { file: file, idx: idx };
+            var html = "", i, key, fields = QD.HIST_CHECK_FIELDS;
+            for (i = 0; i < fields.length; i++) {
+                key = fields[i];
+                html += "<label class='f'>" + esc(key) + " <input data-hist=\"" + esc(key) + "\" value=\"" + esc(histFieldValue(row, key)) + "\"></label>";
+            }
+            for (i = 1; i <= 13; i++) {
+                key = "T" + i;
+                html += "<label class='f'>" + key + " <input data-hist=\"" + key + "\" value=\"" + esc(row[key] == null ? "" : row[key]) + "\"></label>";
+            }
+            if ($("histEditFields")) $("histEditFields").innerHTML = html;
+            if ($("histEditNotes")) $("histEditNotes").value = "";
+            if ($("histEditOverlay")) $("histEditOverlay").className = "overlay on";
+        }
+
+        function saveHistEdit() {
+            if (!requireAdmin()) return;
+            var notes = QD.trim($("histEditNotes") ? $("histEditNotes").value : "");
+            if (!notes) { alert("Enter notes describing what you changed."); return; }
+            var rows = readLineRows(histEdit.file, true);
+            var row = rows[histEdit.idx];
+            if (!row) return;
+            var box = $("histEditFields");
+            var inputs = box ? box.getElementsByTagName("input") : [];
+            var i, key, val, before = [];
+            for (i = 0; i < inputs.length; i++) {
+                key = inputs[i].getAttribute("data-hist");
+                if (!key) continue;
+                val = inputs[i].value;
+                if (key === "Date/Time") {
+                    if (QD.trim(val) === QD.trim(QD.formatClock(row[key]))) continue;
+                }
+                if (String(row[key] == null ? "" : row[key]) !== String(val)) {
+                    before.push(key + ": " + (row[key] == null ? "" : row[key]) + " → " + val);
+                    row[key] = val;
+                }
+            }
+            row.__edited = 1;
+            row.__editNotes = notes;
+            row.__editBy = session.user;
+            row.__editAt = (new Date()).toISOString();
+            writeLineRows(histEdit.file, rows);
+            if ($("histEditOverlay")) $("histEditOverlay").className = "overlay";
+            audit("hist-edit", histEdit.file + " #" + histEdit.idx + " " + notes + (before.length ? " | " + before.join("; ") : ""));
+            renderAdminHistory();
+            lastHomeHtml = "";
+            setStatus("Saved history change. " + notes);
+        }
+
+        function deleteHistRow(file, idx) {
+            if (!requireAdmin()) return;
+            var notes = prompt("Notes for deleting this check (required):");
+            if (notes == null) return;
+            notes = QD.trim(notes);
+            if (!notes) { alert("Notes are required to delete a history entry."); return; }
+            var rows = readLineRows(file, true);
+            var row = rows[idx];
+            if (!row) return;
+            var detail = (row.Line || file) + " " + (row["Item #"] || "") + " " + QD.formatClock(row["Date/Time"]);
+            rows.splice(idx, 1);
+            writeLineRows(file, rows);
+            audit("hist-delete", detail + " — " + notes);
+            renderAdminHistory();
+            lastHomeHtml = "";
+            setStatus("Deleted history entry. " + notes);
+        }
+
         function renderAuditTable() {
             loadAudit();
             var html = "<tr><th>When</th><th>User</th><th>Action</th><th>Detail</th></tr>";
@@ -4782,11 +5064,15 @@
         }
 
         window.onload = function () {
-            try { window.resizeTo(Math.min(1280, screen.availWidth), Math.min(860, screen.availHeight)); } catch (e) {}
+            if (!claimHtaInstance()) return;
+            maximizeWindow();
             hideApp("");
             $("loginStatus").innerText = "Sign in to look up items and submit checks. History is available without a login.";
             if ($("loginUser")) $("loginUser").focus();
             window.setTimeout(bootDesk, 40);
+        };
+        window.onfocus = function () {
+            try { importHandoffIfPresent(true); } catch (eF) {}
         };
         function bootDesk() {
             var steps = [
@@ -4797,7 +5083,8 @@
                 function () { setBoot("Preparing forms…", 60); fillPlantChecks("newUserPlantBox", "VISALIA"); fillLineChecks("newUserLineBox", "VISALIA", "*"); },
                 function () { setBoot("Preparing documentation…", 72); fillDocLineChecks("*"); fillDocCheckLinkSelect(); syncDocTypeFields(); fillMspecFilterBy(); fillItemFilterBy(); },
                 function () { setBoot("Checking SAP.csv…", 84); publishSapCsv(); },
-                function () { setBoot("Binding check form…", 92); bindFormWatch(); setLine("S4"); }
+                function () { setBoot("Checking Copy for Graph…", 90); importHandoffIfPresent(true); },
+                function () { setBoot("Binding check form…", 96); bindFormWatch(); setLine("S4"); startHandoffWatch(); }
             ];
             var i = 0;
             function next() {
@@ -4836,10 +5123,10 @@
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.55</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.56</span></h1>
         </div>
         <div class="tools">
-            <span class="session">Signed in as <span class="who" id="sessionWho"></span></span>
+            <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>
             <label class="theme-toggle" title="Dark / light">
                 Dark
                 <input id="themeToggle" type="checkbox" onchange="setTheme(this.checked?'light':'dark')">
@@ -4865,6 +5152,7 @@
             <button data-tab="users" id="usersTabBtn" class="admin-only" onclick="showTab('users')">Users</button>
             <button data-tab="mspecs" id="mspecsTabBtn" onclick="showTab('mspecs')">MSPECs</button>
             <button data-tab="items" id="itemsTabBtn" onclick="showTab('items')">Item database</button>
+            <button data-tab="history" id="histTabBtn" class="admin-only" onclick="showTab('history')">History</button>
             <button data-tab="audit" id="auditTabBtn" class="admin-only" onclick="showTab('audit')">Audit log</button>
             <span class="plant-toggle" id="plantToggle">
                 <button type="button" class="secondary" id="plantSwitchBtn" onclick="goPlantPick()">Switch plant</button>
@@ -5173,6 +5461,7 @@
                         <label class="f">New user <input id="newUser"></label>
                         <label class="f">Password <input id="newUserPass" type="password"></label>
                         <div class="role-checks">
+                            <label><input id="newUserOperator" type="checkbox" checked> Operator</label>
                             <label><input id="newUserAdmin" type="checkbox"> Admin</label>
                             <label><input id="newUserSupervisor" type="checkbox"> Supervisor</label>
                             <label><input id="newUserLead" type="checkbox"> Lead</label>
@@ -5212,7 +5501,7 @@
                         <button data-item="p1" onclick="setItemTab('p1')">P1</button>
                         <button data-item="rts" onclick="setItemTab('rts')">RTS</button>
                     </div>
-                    <button type="button" onclick="openItemModal()">Add item #</button>
+                    <button type="button" class="admin-only" onclick="openItemModal()">Add item #</button>
                 </div>
                 <div class="filter-row">
                     <label class="f">Filter <input id="itemFilter" onkeyup="scheduleList(renderItemTable)"></label>
@@ -5255,10 +5544,21 @@
                 <div class="list-wrap"><table class="list" id="docTable"></table></div>
             </div>
         </div>
+        <div id="tabHistory" class="tabpanel">
+            <div class="card">
+                <h2>History <span class="muted" id="histAdminCount"></span></h2>
+                <p class="muted">All line checks. Edit or delete requires notes. Changed rows stay highlighted and are written to the audit log.</p>
+                <div class="filter-row">
+                    <select id="histLineFilter" onchange="renderAdminHistory()"></select>
+                    <label class="f">Filter <input id="histTextFilter" onkeyup="scheduleList(renderAdminHistory)"></label>
+                </div>
+                <div class="list-wrap"><table class="list hist-grid" id="histAdminTable"></table></div>
+            </div>
+        </div>
         <div id="tabAudit" class="tabpanel">
             <div class="card">
                 <h2>Audit log <span class="muted" id="auditCount"></span></h2>
-                <p class="muted">Sign-ins, new users, password resets, submitted checks, MSPEC edits, item changes, and documentation updates.</p>
+                <p class="muted">Sign-ins, new users, password resets, submitted checks, MSPEC edits, item changes, history edits, and documentation updates.</p>
                 <div class="list-wrap"><table class="list" id="auditTable"></table></div>
             </div>
         </div>
@@ -5350,6 +5650,30 @@
             <label class="f">Confirm new password <input id="pwNew2" type="password"></label>
             <button type="button" class="ok" onclick="saveOwnPassword()">Save password</button>
             <button type="button" class="secondary" onclick="$('pwOverlay').className='overlay'">Cancel</button>
+        </div>
+    </div>
+    <div class="overlay" id="rolesOverlay">
+        <div class="modal">
+            <h3>User roles</h3>
+            <input type="hidden" id="roleUserName">
+            <div class="role-checks">
+                <label><input id="roleOperator" type="checkbox" checked disabled> Operator</label>
+                <label><input id="roleAdmin" type="checkbox"> Admin</label>
+                <label><input id="roleSupervisor" type="checkbox"> Supervisor</label>
+                <label><input id="roleLead" type="checkbox"> Lead</label>
+            </div>
+            <p class="muted">Operator is the default floor role. Admin, supervisor, and lead add extra tools on top of that.</p>
+            <button type="button" class="ok" onclick="saveUserRoles()">Save</button>
+            <button type="button" class="secondary" onclick="$('rolesOverlay').className='overlay'">Cancel</button>
+        </div>
+    </div>
+    <div class="overlay" id="histEditOverlay">
+        <div class="modal wide">
+            <h3>Edit history entry</h3>
+            <div id="histEditFields"></div>
+            <label class="f">Change notes (required) <textarea id="histEditNotes"></textarea></label>
+            <button type="button" class="ok" onclick="saveHistEdit()">Save</button>
+            <button type="button" class="secondary" onclick="$('histEditOverlay').className='overlay'">Cancel</button>
         </div>
     </div>
     <div class="overlay" id="linesOverlay">

@@ -5057,7 +5057,7 @@
 
     <script src="vendor/chart.umd.min.js"></script>
     <script>
-      const APP_VERSION = "1.7.58";
+      const APP_VERSION = "1.7.59";
       const APP_NAME = "Quality Desk";
       const HTML_LOCK = "qdHtmlInstance.v1";
       const HTML_FOCUS = "qdHtmlFocus.v1";
@@ -5131,13 +5131,30 @@
         "Bundle #",
         "Line",
         "User",
+        "Reason for Check",
+        "No Check Reason",
         "Pass/Fail",
         "Slit/Width",
+        "Footage",
         "Cell Count MD",
         "Cell Count CD",
         "Thickness Average",
         "Thickness Range",
         "Density",
+        "Weight",
+        "T1",
+        "T2",
+        "T3",
+        "T4",
+        "T5",
+        "T6",
+        "T7",
+        "T8",
+        "T9",
+        "T10",
+        "T11",
+        "T12",
+        "T13",
         "Notes",
       ];
       const BUBBLE_COLS = [
@@ -7220,7 +7237,17 @@
         const preferred = PLANT_COLS[activePlant] || FOAM_COLS;
         let cols;
         if (activePlant === "foam") {
-          cols = withNotesLast(preferred);
+          const seen = new Set(preferred);
+          const extra = [];
+          for (const r of plantRows()) {
+            const row = r.row || {};
+            for (const k of Object.keys(row)) {
+              if (!k || k.startsWith("__") || seen.has(k)) continue;
+              seen.add(k);
+              extra.push(k);
+            }
+          }
+          cols = withNotesLast(preferred.concat(extra));
         } else {
           const seen = new Set(preferred);
           const extra = [];
@@ -7263,12 +7290,14 @@
         if (k === "Posted (PT)") return 160;
         if (k === "Pass/Fail") return 100;
         if (k === "Line" || k === "User" || k === "Qty") return 110;
+        if (/^T\d+$/.test(k)) return 72;
         return 120;
       }
       function histColWidths() {
-        if (activePlant === "foam") return HIST_COL_W;
         const cols = histCols().map(histColWidth);
-        return isPostingsPlant() ? [72].concat(cols) : cols;
+        if (isPostingsPlant()) return [72].concat(cols);
+        if (isFoamPlant()) return [52].concat(cols);
+        return cols;
       }
       function syncPlantChrome() {
         const foam = isFoamPlant();
@@ -8545,7 +8574,7 @@
         const rangeMax = asThousandths(
           specs.rangeThou != null ? specs.rangeThou : specs.range,
         );
-        return {
+        const tones = {
           "Thickness Average": specToneFromStored(
             rowPick(row, "Thickness Average Pass/Fail") ||
               row["Thickness Average Pass/Fail"],
@@ -8585,6 +8614,15 @@
             NaN,
           ),
         };
+        for (let t = 1; t <= 13; t++) {
+          const tk = "T" + t;
+          tones[tk] = specTone(
+            numVal(row[tk] != null ? row[tk] : rowPick(row, tk)),
+            specs.min,
+            specs.max,
+          );
+        }
+        return tones;
       }
       async function indexHistory(onProg) {
         const rows = (historyPack && historyPack.rows) || [];
@@ -8613,12 +8651,10 @@
               keys.push(k);
             }
           }
-          if (!foam) {
-            for (const k of Object.keys(row || {})) {
-              if (k && !k.startsWith("__") && !seenKeys.has(k)) {
-                seenKeys.add(k);
-                keys.push(k);
-              }
+          for (const k of Object.keys(row || {})) {
+            if (k && !k.startsWith("__") && !seenKeys.has(k)) {
+              seenKeys.add(k);
+              keys.push(k);
             }
           }
           const parts = dateParts(

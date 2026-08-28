@@ -215,7 +215,18 @@
         .badge { display: none; min-width: 16px; padding: 1px 6px; margin-left: 6px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11px; }
         .badge.on { display: inline-block; }
         .hist-changed { background: #713f12; color: #fde68a; font-weight: 700; }
-        .hist-grid td { padding: 4px 8px; }
+        .hist-grid { width: auto; min-width: 100%; font-size: 12px; }
+        .hist-grid th { white-space: nowrap; }
+        .hist-grid td { padding: 4px 8px; white-space: nowrap; }
+        .hist-grid td.hist-in { background: #14532d; color: #86efac; }
+        .hist-grid td.hist-under { background: #713f12; color: #fde68a; }
+        .hist-grid td.hist-over { background: #7f1d1d; color: #fecaca; }
+        .hist-grid tr.hist-row-in td { border-left: 3px solid #22c55e; }
+        .hist-grid tr.hist-row-under td { border-left: 3px solid #eab308; }
+        .hist-grid tr.hist-row-over td { border-left: 3px solid #ef4444; }
+        .hist-grid tr.hist-row-in td:first-child { border-left-width: 6px; }
+        .hist-grid tr.hist-row-under td:first-child { border-left-width: 6px; }
+        .hist-grid tr.hist-row-over td:first-child { border-left-width: 6px; }
 
         html.qd-app.light, body.qd-app.light, body.light { background: #e8edf3; color: #111827; }
         body.qd-app.light #appRoot, body.light #appRoot { background: #e8edf3; }
@@ -238,6 +249,9 @@
         body.light .chip.extreme { outline-color: #111827; }
         body.light .chip.need { border-color: #d97706; outline-color: #d97706; }
         body.light .hist-changed { background: #fef3c7; color: #92400e; }
+        body.light .hist-grid td.hist-in { background: #dcfce7; color: #166534; }
+        body.light .hist-grid td.hist-under { background: #fef3c7; color: #92400e; }
+        body.light .hist-grid td.hist-over { background: #fee2e2; color: #991b1b; }
         body.light .pass { background: #dcfce7; color: #166534; }
         body.light .fail { background: #fee2e2; color: #991b1b; }
         body.light .pf-huge.pass { background: #dcfce7; color: #166534; }
@@ -890,7 +904,8 @@
             syncAdminChrome();
             lastHomeHtml = "";
             if (currentTab === "checks") renderHome();
-            else if (currentTab === "users" || currentTab === "mspecs" || currentTab === "items" || currentTab === "audit" || currentTab === "history") goHome();
+            else if (currentTab === "users" || currentTab === "mspecs" || currentTab === "items" || currentTab === "audit") goHome();
+            else if (currentTab === "history") renderAdminHistory();
             dbg(viewAsOperator ? "View as operator on" : "Back to admin");
         }
 
@@ -1502,11 +1517,6 @@
             return [r["Date/Time"] || "", r.Line || "", r["Item #"] || "", r["Pass/Fail"] || "", r["Reason for Check"] || ""].join("|");
         }
 
-        function pickLegacyFile() {
-            if (!requireAdmin()) return;
-            if ($("legacyFile")) $("legacyFile").click();
-        }
-
         function fillMissingLegacyFields(prev, incoming) {
             var key, i;
             if (!prev || !incoming) return false;
@@ -1526,33 +1536,6 @@
                 }
             }
             return changed;
-        }
-
-        function importLegacyPicked() {
-            var inp = $("legacyFile");
-            var path;
-            if (!inp || !inp.value) return;
-            path = inp.value;
-            try { inp.value = ""; } catch (eC) {}
-            showWork("Import legacy data", "Reading file…", 8);
-            window.setTimeout(function () {
-                var text, pack;
-                try { text = readUtf8(path); } catch (eR) {
-                    hideWork();
-                    setStatus("Could not read that file.\n" + eR.message, true);
-                    return;
-                }
-                setWork("Parsing DIEGRAPH2 / TSV…", 22);
-                window.setTimeout(function () {
-                    pack = QD.importLegacyChecks(text);
-                    if (!pack || !pack.count) {
-                        hideWork();
-                        setStatus("No legacy checks found. Use a DIEGRAPH2.txt from Copy for Graph, or a TSV/CSV with Date/Time, Line, and Item #.", true);
-                        return;
-                    }
-                    importLegacyWrite(pack, path, ["s4", "s1", "s3", "coex", "mono", "p1", "rts", "gcoex", "gmono"], 0, 0, 0);
-                }, 20);
-            }, 20);
         }
 
         function importLegacyWrite(pack, path, keys, idx, added, total, done) {
@@ -1729,7 +1712,7 @@
             if ($("mspecsTabBtn")) $("mspecsTabBtn").style.display = lock ? "none" : "";
             if ($("itemsTabBtn")) $("itemsTabBtn").style.display = lock ? "none" : "";
             if ($("auditTabBtn")) $("auditTabBtn").style.display = (!lock && admin) ? "" : "none";
-            if ($("histTabBtn")) $("histTabBtn").style.display = (!lock && admin) ? "" : "none";
+            if ($("histTabBtn")) $("histTabBtn").style.display = (!lock && session.user) ? "" : "none";
             if ($("docsTabBtn")) $("docsTabBtn").style.display = "";
             if ($("plantToggle")) $("plantToggle").style.display = lock ? "none" : "";
             syncInboxBadge();
@@ -5004,11 +4987,29 @@
             $("loginStatus").innerText = "Password reset sent to admins. They will give you a temporary password.";
         }
 
+        function fileLineInfo(fileKey) {
+            var i, list = QD.LINES;
+            for (i = 0; i < list.length; i++) {
+                if (list[i].file === fileKey) return list[i];
+            }
+            return null;
+        }
+
+        function userCanSeeHistFile(fileKey) {
+            var info, user;
+            if (isAdmin()) return true;
+            info = fileLineInfo(fileKey);
+            user = sessionUser();
+            if (!info || !user) return false;
+            return QD.userCanSeeLine({ admin: false, plant: user.plant, lines: user.lines }, info.id, info.site);
+        }
+
         function histLineOptions() {
             var html = "<option value=''>All lines</option>";
             var i, info, list = QD.LINES;
             for (i = 0; i < list.length; i++) {
                 info = list[i];
+                if (!userCanSeeHistFile(info.file)) continue;
                 html += "<option value='" + info.file + "'>" + esc(info.site === "GARLAND" ? "Garland " + info.label : info.label) + "</option>";
             }
             return html;
@@ -5018,6 +5019,7 @@
             var out = [], i, key, rows, j, r;
             for (i = 0; i < QD.LINE_FILES.length; i++) {
                 key = QD.LINE_FILES[i];
+                if (!userCanSeeHistFile(key)) continue;
                 rows = readLineRows(key);
                 for (j = 0; j < rows.length; j++) {
                     r = rows[j];
@@ -5032,33 +5034,67 @@
             return !!(row && (row.__edited || row.__editNotes));
         }
 
+        function histCellText(row, key) {
+            if (!row) return "";
+            if (key === "Date/Time") return QD.formatClock(row[key]);
+            if (row[key] == null || row[key] === "") return "";
+            return String(row[key]);
+        }
+
         function renderAdminHistory() {
-            if (!isAdmin()) { goHome(); return; }
-            if ($("histLineFilter") && !$("histLineFilter").options.length) {
-                $("histLineFilter").innerHTML = histLineOptions();
+            if (!session.user) { goHome(); return; }
+            var prevFile = $("histLineFilter") ? $("histLineFilter").value : "";
+            if ($("histLineFilter")) $("histLineFilter").innerHTML = histLineOptions();
+            if ($("histLineFilter") && prevFile) $("histLineFilter").value = prevFile;
+            if ($("histAdminHelp")) {
+                $("histAdminHelp").innerText = isAdmin()
+                    ? "All columns for lines you can use. Green = in spec / pass, yellow = under spec, red = over spec or fail. Edit or delete requires notes."
+                    : "Checks for the lines you can use. Green = in spec / pass, yellow = under spec, red = over spec or fail.";
             }
             var file = $("histLineFilter") ? $("histLineFilter").value : "";
             var q = (($("histTextFilter") && $("histTextFilter").value) || "").toLowerCase();
             var rows = collectAdminHistory();
-            var html = "<tr><th>When</th><th>Line</th><th>Item</th><th>User</th><th>Reason</th><th>P/F</th><th>Notes</th><th></th></tr>";
-            var i, rec, r, n = 0, shown = 0, cap = 250, cls, when;
+            var filtered = [], i, rec, r, cols, html, n = 0, shown = 0, cap = 250, cls, rowBand, cellBand, ctx, c, key, admin, actions;
+            admin = isAdmin();
             for (i = rows.length - 1; i >= 0; i--) {
                 rec = rows[i];
                 r = rec.row;
                 if (file && rec.file !== file) continue;
                 if (q) {
-                    if ((String(r["Item #"] || "") + " " + (r.Line || "") + " " + (r.User || "") + " " + (r.Notes || "") + " " + (r["Reason for Check"] || "")).toLowerCase().indexOf(q) < 0) continue;
+                    if ((String(r["Item #"] || r.Item || "") + " " + (r.Line || "") + " " + (r.User || "") + " " + (r.Notes || "") + " " + (r["Reason for Check"] || "") + " " + (r.MSPEC || "")).toLowerCase().indexOf(q) < 0) continue;
                 }
-                n += 1;
-                if (shown >= cap) continue;
-                shown += 1;
-                cls = histRowChanged(r) ? " class='hist-changed'" : "";
-                when = r["Date/Time"];
-                html += "<tr" + cls + "><td>" + esc(QD.formatClock(when)) + "</td><td>" + esc(r.Line || rec.file) + "</td><td>" + esc(r["Item #"]) + "</td><td>" + esc(r.User) + "</td><td>" + esc(r["Reason for Check"]) + "</td><td>" + esc(r["Pass/Fail"]) + "</td><td>" + esc(r.Notes || r.__editNotes || "") + "</td>";
-                html += "<td><button type='button' class='secondary' onclick=\"openHistEdit('" + rec.file + "'," + rec.idx + ")\">Edit</button>";
-                html += "<button type='button' class='danger' onclick=\"deleteHistRow('" + rec.file + "'," + rec.idx + ")\">Delete</button></td></tr>";
+                filtered.push(rec);
             }
-            if (!shown) html += "<tr><td colspan='8' class='muted'>No matching checks.</td></tr>";
+            cols = QD.histColumns(filtered);
+            html = "<tr>";
+            for (c = 0; c < cols.length; c++) html += "<th>" + esc(cols[c]) + "</th>";
+            if (admin) html += "<th></th>";
+            html += "</tr>";
+            n = filtered.length;
+            for (i = 0; i < filtered.length; i++) {
+                if (shown >= cap) break;
+                rec = filtered[i];
+                r = rec.row;
+                shown += 1;
+                ctx = QD.histSpecCtx(r, aio);
+                rowBand = QD.histRowBand(r, ctx);
+                cls = [];
+                if (rowBand) cls.push("hist-row-" + rowBand);
+                if (histRowChanged(r)) cls.push("hist-changed");
+                html += "<tr" + (cls.length ? " class='" + cls.join(" ") + "'" : "") + ">";
+                for (c = 0; c < cols.length; c++) {
+                    key = cols[c];
+                    cellBand = QD.histCellBand(r, key, ctx);
+                    html += "<td" + (cellBand ? " class='hist-" + cellBand + "'" : "") + ">" + esc(histCellText(r, key)) + "</td>";
+                }
+                if (admin) {
+                    actions = "<button type='button' class='secondary' onclick=\"openHistEdit('" + rec.file + "'," + rec.idx + ")\">Edit</button>";
+                    actions += "<button type='button' class='danger' onclick=\"deleteHistRow('" + rec.file + "'," + rec.idx + ")\">Delete</button>";
+                    html += "<td>" + actions + "</td>";
+                }
+                html += "</tr>";
+            }
+            if (!shown) html += "<tr><td colspan='" + (cols.length + (admin ? 1 : 0)) + "' class='muted'>No matching checks.</td></tr>";
             if ($("histAdminTable")) $("histAdminTable").innerHTML = html;
             if ($("histAdminCount")) $("histAdminCount").innerText = n + " check" + (n === 1 ? "" : "s") + (n > shown ? " (showing latest " + shown + ")" : "");
         }
@@ -5217,7 +5253,7 @@
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.58</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.59</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>
@@ -5228,8 +5264,6 @@
                 Light
             </label>
             <button class="secondary inbox-btn" id="btnInbox" onclick="openInbox()">Inbox <span class="badge" id="inboxBadge"></span></button>
-            <button class="secondary admin-only" id="btnLegacy" onclick="pickLegacyFile()">Import legacy data</button>
-            <input type="file" id="legacyFile" style="display:none" onchange="importLegacyPicked()">
             <button class="secondary real-admin" id="btnViewOp" onclick="toggleOperatorView()">View as operator</button>
             <button class="secondary real-admin" id="btnDebug" onclick="openDebug()">Debug log</button>
             <button class="secondary" onclick="changeOwnPassword()">Password</button>
@@ -5246,7 +5280,7 @@
             <button data-tab="users" id="usersTabBtn" class="admin-only" onclick="showTab('users')">Users</button>
             <button data-tab="mspecs" id="mspecsTabBtn" onclick="showTab('mspecs')">MSPECs</button>
             <button data-tab="items" id="itemsTabBtn" onclick="showTab('items')">Item database</button>
-            <button data-tab="history" id="histTabBtn" class="admin-only" onclick="showTab('history')">History</button>
+            <button data-tab="history" id="histTabBtn" onclick="showTab('history')">History</button>
             <button data-tab="audit" id="auditTabBtn" class="admin-only" onclick="showTab('audit')">Audit log</button>
             <span class="plant-toggle" id="plantToggle">
                 <button type="button" class="secondary" id="plantSwitchBtn" onclick="goPlantPick()">Switch plant</button>
@@ -5641,7 +5675,7 @@
         <div id="tabHistory" class="tabpanel">
             <div class="card">
                 <h2>History <span class="muted" id="histAdminCount"></span></h2>
-                <p class="muted">All line checks. Edit or delete requires notes. Changed rows stay highlighted and are written to the audit log.</p>
+                <p class="muted" id="histAdminHelp">Checks for the lines you can use. Green = in spec / pass, yellow = under spec, red = over spec or fail.</p>
                 <div class="filter-row">
                     <select id="histLineFilter" onchange="renderAdminHistory()"></select>
                     <label class="f">Filter <input id="histTextFilter" onkeyup="scheduleList(renderAdminHistory)"></label>

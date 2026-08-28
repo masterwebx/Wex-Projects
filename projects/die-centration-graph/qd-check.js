@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.58';
+  QD.VERSION = '1.7.59';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -1768,10 +1768,152 @@
 
   QD.pointBand = function (val, lo, hi) {
     var n = QD.num(val);
-    if (!isFinite(n) || !isFinite(lo) || !isFinite(hi)) return '';
-    if (n < lo) return 'under';
-    if (n > hi) return 'over';
-    return 'in';
+    if (!isFinite(n)) return '';
+    if (isFinite(lo) && n < lo) return 'under';
+    if (isFinite(hi) && n > hi) return 'over';
+    if (isFinite(lo) || isFinite(hi)) return 'in';
+    return '';
+  };
+
+  QD.histTFields = function () {
+    var out = [], i;
+    for (i = 1; i <= 13; i++) out.push('T' + i);
+    return out;
+  };
+
+  QD.histPreferredFields = function () {
+    return QD.HIST_CHECK_FIELDS.concat(QD.histTFields());
+  };
+
+  QD.histColumns = function (rows) {
+    var seen = {}, out = [], preferred = QD.histPreferredFields(), i, rec, row, k;
+    for (i = 0; i < preferred.length; i++) {
+      k = preferred[i];
+      if (!seen[k]) { seen[k] = 1; out.push(k); }
+    }
+    for (i = 0; i < (rows || []).length; i++) {
+      rec = rows[i];
+      row = rec && (rec.row || rec);
+      if (!row) continue;
+      for (k in row) {
+        if (!row.hasOwnProperty(k) || !k || k.charAt(0) === '_') continue;
+        if (seen[k]) continue;
+        seen[k] = 1;
+        out.push(k);
+      }
+    }
+    return out;
+  };
+
+  QD.histSpecCtx = function (row, aio) {
+    aio = aio || {};
+    var line = row ? (row.Line || '') : '';
+    var info = QD.lineInfo(line);
+    var itemNo = row ? (row['Item #'] || row.Item || '') : '';
+    var mspec = row ? (row.MSPEC || row['MSPEC #'] || '') : '';
+    return {
+      spec: QD.findMspec(aio.mspecs, mspec),
+      item: QD.findItem(aio.items, itemNo),
+      lineId: info ? info.id : line,
+      form: info ? info.form : '',
+      plant: info ? info.plant : '',
+      bubble: aio.bubble || [],
+      bubbleDead: aio.bubbleDead || [],
+      p1: aio.p1 || [],
+      rts: aio.rts || []
+    };
+  };
+
+  QD.histStoredBand = function (row, key) {
+    var stored = row ? (row[key + ' Pass/Fail'] || row[key + ' Pass'] || row[key + 'Pass'] || '') : '';
+    stored = String(stored).toUpperCase();
+    if (stored === 'PASS' || stored === 'OK') return 'in';
+    if (stored === 'FAIL') return 'over';
+    return '';
+  };
+
+  QD.histCellBand = function (row, key, ctx) {
+    var spec, item, v, lo, hi, bw, p1, wt, form, plant, stored;
+    if (!row || !key) return '';
+    ctx = ctx || {};
+    spec = ctx.spec || {};
+    item = ctx.item || {};
+    form = ctx.form || '';
+    plant = ctx.plant || '';
+    if (key === 'Pass/Fail') {
+      v = String(row['Pass/Fail'] || '').toUpperCase();
+      if (v === 'PASS') return 'in';
+      if (v === 'FAIL') return 'over';
+      return '';
+    }
+    if (/^T\d+$/.test(key) || key === 'Thickness Average') {
+      return QD.pointBand(row[key], QD.num(spec['Lower Control']), QD.num(spec['Upper Control']));
+    }
+    if (key === 'Thickness Range') {
+      v = QD.num(row[key]);
+      hi = QD.num(spec['Thickness Range Max']);
+      if (!isFinite(v) || !isFinite(hi)) return '';
+      return v > hi ? 'over' : 'in';
+    }
+    if (key === 'Density') {
+      if (plant === 'p1') {
+        p1 = QD.findP1Spec(ctx.p1, item);
+        if (p1) return QD.pointBand(row[key], QD.num(p1.min), QD.num(p1.max));
+      }
+      return QD.pointBand(row[key], QD.num(spec['Density Min']), QD.num(spec['Density Max']));
+    }
+    if (key === 'Cell Count MD' || key === 'Cell Count CD') {
+      lo = QD.num(spec['Cell Count Min']);
+      hi = QD.num(spec['Cell Count Max']);
+      if (plant === 'p1') {
+        p1 = QD.findP1Spec(ctx.p1, item);
+        if (p1) { lo = QD.num(p1.ccMin); hi = QD.num(p1.ccMax); }
+      }
+      return QD.pointBand(row[key], lo, hi);
+    }
+    if (key === 'Slit/Width' || (key === 'Width' && plant === 'foam')) {
+      v = QD.num(row['Slit/Width'] != null && row['Slit/Width'] !== '' ? row['Slit/Width'] : row.Width);
+      wt = QD.num(item.width);
+      if (!isFinite(v) || !isFinite(wt)) return QD.histStoredBand(row, key);
+      lo = wt - (form === 's4' ? 1.5 : 0.5);
+      return QD.pointBand(v, lo, Infinity);
+    }
+    if (key === 'Weight' || key === 'Basis Weight') {
+      bw = QD.bubbleWeightForLine(ctx.bubble, ctx.lineId, item.bubbleType);
+      if (bw) return QD.pointBand(row[key], QD.num(bw.min), QD.num(bw.max));
+      return QD.pointBand(row[key], QD.num(spec['Weight Min']), QD.num(spec['Weight Max']));
+    }
+    if (key === 'Width' && plant === 'bubble') {
+      v = QD.num(row.Width);
+      wt = QD.num(item.width);
+      if (!isFinite(v) || !isFinite(wt)) return QD.histStoredBand(row, 'Width');
+      return QD.pointBand(v, wt - 0.25, wt + 0.25);
+    }
+    if (key === '# Dead Cells Post' || key === 'DeadCellCount') {
+      hi = QD.deadCellMaxFromFile(ctx.bubbleDead, item.bubbleType);
+      if (!isFinite(hi)) hi = QD.deadCellMax(item.bubbleType);
+      v = QD.num(row[key]);
+      if (!isFinite(v) || !isFinite(hi)) return '';
+      return v > hi ? 'over' : 'in';
+    }
+    stored = QD.histStoredBand(row, key);
+    return stored;
+  };
+
+  QD.histRowBand = function (row, ctx) {
+    var keys = ['Pass/Fail', 'Thickness Average', 'Thickness Range', 'Density', 'Cell Count MD', 'Cell Count CD', 'Slit/Width', 'Weight', 'Width'];
+    var i, band, hasOver = false, hasUnder = false, hasIn = false;
+    for (i = 1; i <= 13; i++) keys.push('T' + i);
+    for (i = 0; i < keys.length; i++) {
+      band = QD.histCellBand(row, keys[i], ctx);
+      if (band === 'over') hasOver = true;
+      else if (band === 'under') hasUnder = true;
+      else if (band === 'in') hasIn = true;
+    }
+    if (hasOver) return 'over';
+    if (hasUnder) return 'under';
+    if (hasIn) return 'in';
+    return '';
   };
 
   QD.pointExtremes = function (vals) {

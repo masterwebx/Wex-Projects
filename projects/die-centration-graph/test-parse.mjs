@@ -2491,13 +2491,28 @@ assert.match(hta, /scheduleCompute/);
 assert.match(hta, /function computeNow/);
 assert.match(hta, /radialCard/);
 assert.match(hta, /body\.light/);
-assert.match(hta, /v1\.7\.60/);
+assert.match(hta, /v1\.7\.61/);
 assert.match(hta, /function userCanSeeHistFile/);
-assert.match(hta, /QD\.histColumns\(rows\)/);
+assert.match(hta, /QD\.histColumnsForLine\(file\)/);
 assert.match(hta, /function clearHistFilters/);
+assert.match(hta, /function selectHistLine/);
+assert.match(hta, /function loadMoreHistRows/);
 assert.match(hta, /QD\.bubbleFamilyAllowed\(r\.family, currentSite\)/);
-assert.match(hta, /QD\.histCellBand\(r, key, ctx\)/);
+assert.match(hta, /QD\.histRowBand\(r\)/);
 assert.match(hta, /hist-row-/);
+assert.match(hta, /pickReason\('LPA'\)/);
+assert.match(hta, /Changeover checklist/);
+assert.match(hta, /id="profilesTabBtn"/);
+assert.match(hta, /function renderProfiles/);
+assert.match(hta, /id="tabProfiles"/);
+assert.match(hta, /id="bcolor"/);
+assert.match(hta, /id="newBarcode"/);
+assert.match(hta, /id="bweb"/);
+assert.match(hta, /id="bperfLeft"/);
+assert.match(hta, /id="bperfRight"/);
+assert.doesNotMatch(hta, /id="bdeadPre"/);
+assert.doesNotMatch(hta, /id="btester"/);
+assert.doesNotMatch(hta, /Start of shift\/Changeover/);
 assert.match(hta, /id="histAdminHelp"/);
 assert.doesNotMatch(hta, /id="histTabBtn" class="admin-only"/);
 assert.match(hta, /function unhidePath\(path\)/);
@@ -2658,7 +2673,28 @@ assert.doesNotMatch(fs.readFileSync(path.join(dir, 'qd-check.js'), 'utf8'), /Qua
 assert.equal(QD.parseCsv('Item #,Description\n3030053,"AF500, 53"""').rows[0]['Item #'], '3030053');
 assert.equal(QD.mergeUsers(['GWEXLER'], ['gwexler', 'AGARCIA']).join(','), 'GWEXLER,AGARCIA');
 assert.equal(QD.mergeItems([{ item: '1', description: 'old' }], [{ item: '1', description: 'new', local: true }])[0].description, 'new');
-assert.equal(QD.VERSION, '1.7.60');
+assert.equal(QD.VERSION, '1.7.61');
+assert.ok(QD.CHECK_TYPES.indexOf('LPA') >= 0);
+assert.ok(QD.REASONS.foam.indexOf('LPA') >= 0);
+assert.ok(QD.REASONS.bubble.indexOf('LPA') >= 0);
+assert.equal(QD.frontToBackRatio({ description: 'ULINE 48' }), 1.75);
+assert.equal(QD.frontToBackRatio({ description: 'VAB CLEAR' }), 1.5);
+assert.ok(QD.histColumnsForLine('coex').indexOf('Slit Width') >= 0);
+assert.ok(QD.histColumnsForLine('s4').indexOf('Thickness Average') >= 0);
+assert.ok(!QD.needsStartup({ 'Item #': '1', User: 'GWEXLER', 'Date/Time': QD.nowSerial(new Date('2026-08-27T08:00:00')) }, '1', new Date('2026-08-27T16:00:00'), 'GWEXLER'));
+assert.ok(QD.needsStartup({ 'Item #': '1', User: 'OPA', 'Date/Time': QD.nowSerial(new Date('2026-08-27T08:00:00')) }, '1', new Date('2026-08-27T09:00:00'), 'OPB'));
+assert.ok(QD.needsCoexSpeeds('COEX', null, { bubbleType: 'VAB' }, []));
+assert.ok(!QD.needsCoexSpeeds('COEX', { 'Bubble Type': 'VAB' }, { bubbleType: 'VAB' }, []));
+assert.ok(QD.needsCoexSpeeds('COEX', { 'Bubble Type': 'VAB' }, { bubbleType: 'SAB' }, []));
+assert.ok(!QD.needsCoexSpeeds('MONO', null, { bubbleType: 'VAB' }, []));
+assert.ok(QD.startupComplete({ labelsOut: 'YES', poVerify: 'YES', labelsMatch: 'YES', lineSpeed: '200', extruderSpeed: '40', meltPump1: '10', meltPump2: '12' }, false, true));
+assert.ok(!QD.startupComplete({ labelsOut: 'YES', poVerify: 'YES', labelsMatch: 'YES' }, false, true));
+assert.ok(!QD.skipReason('COEX', 'LPA'));
+assert.equal(QD.missingCheckFields('COEX', 'HOURLY', {
+  user: 'GWEXLER', item: '1', itemObj: { width: '48', footage: '750', bubbleType: 'VAB' },
+  width: '48', webWidth: '48', footage: '750', weight: '12', deadPost: '0',
+  color: 'Clear', delam: 'PASS', prodNo: '1', rollNo: '2', postVisual: 'PASS'
+}).length, 0);
 assert.deepEqual(QD.bubbleFamiliesForSite('GARLAND'), ['COEX']);
 assert.deepEqual(QD.bubbleFamiliesForSite('VISALIA'), ['COEX', 'MONO']);
 assert.ok(QD.bubbleFamilyAllowed('COEX', 'GARLAND'));
@@ -2673,9 +2709,9 @@ assert.equal(QD.histCellBand({ T1: 0.52 }, 'T1', { spec: histSpec }), 'in');
 assert.equal(QD.histCellBand({ T1: 0.54 }, 'T1', { spec: histSpec }), 'over');
 assert.equal(QD.histCellBand({ 'Pass/Fail': 'Pass' }, 'Pass/Fail', {}), 'in');
 assert.equal(QD.histCellBand({ 'Pass/Fail': 'Fail' }, 'Pass/Fail', {}), 'over');
-assert.equal(QD.histRowBand({ T1: 0.50, 'Pass/Fail': 'Pass' }, { spec: histSpec }), 'under');
-assert.equal(QD.histRowBand({ T1: 0.54, 'Pass/Fail': 'Pass' }, { spec: histSpec }), 'over');
-assert.equal(QD.histRowBand({ T1: 0.52, 'Pass/Fail': 'Pass' }, { spec: histSpec }), 'in');
+assert.equal(QD.histRowBand({ T1: 0.50, 'Pass/Fail': 'Pass' }, { spec: histSpec }), 'in');
+assert.equal(QD.histRowBand({ T1: 0.54, 'Pass/Fail': 'Pass' }, { spec: histSpec }), 'in');
+assert.equal(QD.histRowBand({ T1: 0.52, 'Pass/Fail': 'Fail' }, { spec: histSpec }), 'over');
 const opUser = QD.makeUserRecord('OP', 'x', false, false, 'VISALIA', 'S4');
 assert.ok(QD.userCanSeeLine(opUser, 'S4', 'VISALIA'));
 assert.ok(!QD.userCanSeeLine(opUser, 'S1', 'VISALIA'));
@@ -2736,7 +2772,7 @@ assert.equal(QD.shiftAt(new Date('2026-08-27T08:00:00')), '1');
 assert.equal(QD.shiftAt(new Date('2026-08-27T16:00:00')), '2');
 assert.equal(QD.shiftAt(new Date('2026-08-27T23:30:00')), '3');
 assert.ok(QD.needsStartup(null, '35613', new Date()));
-assert.ok(QD.needsStartup({ 'Item #': '1', 'Date/Time': QD.nowSerial(new Date('2026-08-27T08:00:00')) }, '2', new Date('2026-08-27T09:00:00')));
+assert.ok(QD.needsStartup({ 'Item #': '1', User: 'GWEXLER', 'Date/Time': QD.nowSerial(new Date('2026-08-27T08:00:00')) }, '2', new Date('2026-08-27T09:00:00'), 'GWEXLER'));
 assert.ok(QD.needsLineUp({ 'Reason for Check': 'NO CHECK' }));
 assert.match(QD.lastCheckLabel({ 'Date/Time': QD.nowSerial(new Date('2026-08-27T08:38:00')), 'Pass/Fail': 'Pass', 'Reason for Check': 'HOURLY' }), /PASS @/i);
 assert.ok(QD.docNeedsReview({ version: '2' }, { version: '1', at: new Date().toISOString() }));
@@ -2758,6 +2794,19 @@ assert.equal(QD.lineItemType('RTS'), 'LAM');
 assert.equal(QD.lineItemType('P1'), 'PLANK');
 assert.equal(QD.itemType({ bubbleType: 'VAB', slits: 2 }), 'BUBBLE');
 assert.deepEqual(QD.fieldsForType('FOAM'), ['item', 'description', 'width', 'footage', 'perf', 'mspec']);
+assert.deepEqual(QD.fieldsForType('BUBBLE'), ['item', 'description', 'width', 'slits', 'footage', 'perf', 'bubbleType', 'color', 'barcodeLabel', 'boxLabel']);
+const lpaRow = QD.buildRow({
+  line: 'COEX', item: '9', description: 'VAB', user: 'GWEXLER', reason: 'LPA', passFail: 'Pass',
+  width: '48', webWidth: '48', footage: '750', weight: '12', deadPost: '0',
+  color: 'Clear', delam: 'PASS', prodNo: '1', rollNo: '2', bubbleType: 'VAB',
+  perfLeft: '12', perfRight: '13'
+});
+assert.equal(lpaRow['Reason for Check'], 'LPA');
+assert.equal(lpaRow['Slit Width'], '48');
+assert.equal(lpaRow['Web Width'], '48');
+assert.equal(lpaRow['Basis Weight'], '12');
+assert.ok(!lpaRow['Dead Cell Pre']);
+assert.ok(!lpaRow['Perf Tester Results']);
 assert.deepEqual(QD.missingCheckFields('S4', 'STARTUP', { user: 'GWEXLER', notes: '' }), ['Notes']);
 assert.ok(QD.missingCheckFields('S4', 'HOURLY', { user: 'GWEXLER', item: '' }).includes('Item #'));
 assert.ok(QD.missingCheckFields('S4', 'HOURLY', {

@@ -221,12 +221,14 @@
         .hist-grid td.hist-in { background: #14532d; color: #86efac; }
         .hist-grid td.hist-under { background: #713f12; color: #fde68a; }
         .hist-grid td.hist-over { background: #7f1d1d; color: #fecaca; }
-        .hist-grid tr.hist-row-in td { border-left: 3px solid #22c55e; }
+        .hist-grid tr.hist-row-in td { border-left: 3px solid #22c55e; background: #14532d; color: #86efac; }
         .hist-grid tr.hist-row-under td { border-left: 3px solid #eab308; }
-        .hist-grid tr.hist-row-over td { border-left: 3px solid #ef4444; }
+        .hist-grid tr.hist-row-over td { border-left: 3px solid #ef4444; background: #7f1d1d; color: #fecaca; }
         .hist-grid tr.hist-row-in td:first-child { border-left-width: 6px; }
         .hist-grid tr.hist-row-under td:first-child { border-left-width: 6px; }
         .hist-grid tr.hist-row-over td:first-child { border-left-width: 6px; }
+        .hist-line-tabs { margin: 0 0 10px; }
+        .hist-more { padding: 8px; color: #9ca3af; font-size: 12px; }
 
         html.qd-app.light, body.qd-app.light, body.light { background: #e8edf3; color: #111827; }
         body.qd-app.light #appRoot, body.light #appRoot { background: #e8edf3; }
@@ -252,6 +254,8 @@
         body.light .hist-grid td.hist-in { background: #dcfce7; color: #166534; }
         body.light .hist-grid td.hist-under { background: #fef3c7; color: #92400e; }
         body.light .hist-grid td.hist-over { background: #fee2e2; color: #991b1b; }
+        body.light .hist-grid tr.hist-row-in td { background: #dcfce7; color: #166534; }
+        body.light .hist-grid tr.hist-row-over td { background: #fee2e2; color: #991b1b; }
         body.light .pass { background: #dcfce7; color: #166534; }
         body.light .fail { background: #fee2e2; color: #991b1b; }
         body.light .pf-huge.pass { background: #dcfce7; color: #166534; }
@@ -315,6 +319,8 @@
         var handoffTimer = null;
         var handoffBusy = false;
         var histEdit = { file: "", idx: -1 };
+        var histState = { file: "", filtered: [], shown: 0, page: 80 };
+        var profilesStore = { VISALIA: { COEX: { structures: [] } }, GARLAND: { COEX: { structures: [] } } };
         var specTab = 'foam';
         var session = { user: '', admin: false, last: 0, rec: null };
         var authUsers = [];
@@ -904,7 +910,7 @@
             syncAdminChrome();
             lastHomeHtml = "";
             if (currentTab === "checks") renderHome();
-            else if (currentTab === "users" || currentTab === "mspecs" || currentTab === "items" || currentTab === "audit") goHome();
+            else if (currentTab === "users" || currentTab === "mspecs" || currentTab === "items" || currentTab === "audit" || currentTab === "profiles") goHome();
             else if (currentTab === "history") renderAdminHistory();
             dbg(viewAsOperator ? "View as operator on" : "Back to admin");
         }
@@ -1170,6 +1176,9 @@
                     footage: r.Footage,
                     perf: r.Perf,
                     bubbleType: r["Bubble Type"] || r.BubbleType,
+                    color: r.Color || r.color,
+                    barcodeLabel: r["Barcode Label"] || r.BarcodeLabel || r.Barcode,
+                    boxLabel: r["Box Label"] || r.BoxLabel,
                     parent: r["Parent Material"] || r.Parent,
                     mspec: QD.canonMspec(r.MSPEC || r["MSPEC #"]),
                     thickness: r.Thickness,
@@ -1713,6 +1722,7 @@
             if ($("itemsTabBtn")) $("itemsTabBtn").style.display = lock ? "none" : "";
             if ($("auditTabBtn")) $("auditTabBtn").style.display = (!lock && admin) ? "" : "none";
             if ($("histTabBtn")) $("histTabBtn").style.display = (!lock && session.user) ? "" : "none";
+            if ($("profilesTabBtn")) $("profilesTabBtn").style.display = lock ? "none" : "";
             if ($("docsTabBtn")) $("docsTabBtn").style.display = "";
             if ($("plantToggle")) $("plantToggle").style.display = lock ? "none" : "";
             syncInboxBadge();
@@ -1864,7 +1874,7 @@
                 return;
             }
             var last = lastRowFor(currentLine);
-            if (QD.needsStartup(last, it.item, new Date())) {
+            if (QD.needsStartup(last, it.item, new Date(), session.user)) {
                 startupAnswers = {};
                 renderStartup();
                 showScreen("startup");
@@ -1876,7 +1886,8 @@
         function renderStartup() {
             var it = selectedItem();
             var includePerf = startupIncludePerf();
-            var html = "<h2>Start of shift/Changeover checklist</h2><p class='muted'>Required because this is a new item or a new shift (7AM–3PM, 3PM–11PM, 11PM–7AM).</p>", i, row;
+            var includeCoex = startupIncludeCoexSpeeds();
+            var html = "<h2>Changeover checklist</h2><p class='muted'>Required when the item number changes or a different operator starts checks on the same item.</p>", i, row;
             for (i = 0; i < QD.STARTUP_ITEMS.length; i++) {
                 row = QD.STARTUP_ITEMS[i];
                 html += "<label class='f'>" + esc(row.text);
@@ -1887,6 +1898,13 @@
                 html += "<label class='f'>" + esc(row.text);
                 html += " <select id='su_" + row.id + "' onchange='startupChanged()'><option value=''></option><option value='PASS'>Pass</option><option value='FAIL'>Fail</option></select></label>";
             }
+            if (includeCoex) {
+                html += "<h3>COEX speeds for new bubble type</h3><p class='muted'>Enter line and extruder speeds for " + esc(it && it.bubbleType ? it.bubbleType : "this bubble") + ".</p>";
+                for (i = 0; i < QD.COEX_CHANGEOVER_FIELDS.length; i++) {
+                    row = QD.COEX_CHANGEOVER_FIELDS[i];
+                    html += "<label class='f'>" + esc(row.text) + " <input id='su_" + row.id + "' onkeyup='startupChanged()'></label>";
+                }
+            }
             html += "<button type='button' class='ok' id='startupNext' disabled onclick='finishStartup()'>Continue to check</button>";
             $("startupBox").innerHTML = html;
             startupChanged();
@@ -1896,6 +1914,11 @@
             var it = selectedItem();
             if ((currentLine === "S1" || currentLine === "S3") && QD.itemHasPerf(it)) return true;
             return QD.bubbleStartupIncludePerf(currentLine, it);
+        }
+
+        function startupIncludeCoexSpeeds() {
+            var last = lastRowFor(currentLine);
+            return QD.needsCoexSpeeds(currentLine, last, selectedItem(), aio.items);
         }
 
         function startupChanged() {
@@ -1909,11 +1932,18 @@
                 el = $("su_" + QD.STARTUP_PERF_ITEM.id);
                 startupAnswers[QD.STARTUP_PERF_ITEM.id] = el ? el.value : "";
             }
-            if ($("startupNext")) $("startupNext").disabled = !QD.startupComplete(startupAnswers, startupIncludePerf());
+            if (startupIncludeCoexSpeeds()) {
+                for (i = 0; i < QD.COEX_CHANGEOVER_FIELDS.length; i++) {
+                    row = QD.COEX_CHANGEOVER_FIELDS[i];
+                    el = $("su_" + row.id);
+                    startupAnswers[row.id] = el ? el.value : "";
+                }
+            }
+            if ($("startupNext")) $("startupNext").disabled = !QD.startupComplete(startupAnswers, startupIncludePerf(), startupIncludeCoexSpeeds());
         }
 
         function finishStartup() {
-            if (!QD.startupComplete(startupAnswers, startupIncludePerf())) { setStatus("Answer every startup question.", true); return; }
+            if (!QD.startupComplete(startupAnswers, startupIncludePerf(), startupIncludeCoexSpeeds())) { setStatus("Answer every changeover question.", true); return; }
             proceedToCheckForm();
         }
 
@@ -2491,6 +2521,16 @@
                 "Notes": (reason === "NO CHECK" ? "noNotes" : (reason === "LINE UP" ? "upNotes" : "checkNotes")),
                 "Item #": "item",
                 "Gram Weight": "bweight",
+                "Basis Weight": "bweight",
+                "Slit Width": "bwidth",
+                "Web Width": "bweb",
+                "Dead Cells and Air Transfers Post Vacuum Test": "bdeadPost",
+                "Perf Strength Left": "bperfLeft",
+                "Perf Strength Right": "bperfRight",
+                "Delam Check": "bdelam",
+                "Production #": "bprod",
+                "Roll #": "broll",
+                "Color": "bcolor",
                 "Weight (g)": "s4weight",
                 "Sheet Length": "s4sheet",
                 "Delamination": "rdelam",
@@ -2683,6 +2723,7 @@
             if ($("tabDocs")) $("tabDocs").className = "tabpanel" + (id === "docs" ? " on" : "");
             if ($("tabAudit")) $("tabAudit").className = "tabpanel" + (id === "audit" ? " on" : "");
             if ($("tabHistory")) $("tabHistory").className = "tabpanel" + (id === "history" ? " on" : "");
+            if ($("tabProfiles")) $("tabProfiles").className = "tabpanel" + (id === "profiles" ? " on" : "");
             if (id === "mspecs" && currentSite === "GARLAND") specTab = "bubble";
             renderCurrentTab();
             if ($("submitBar") && id !== "checks") $("submitBar").className = "submit-bar";
@@ -2695,6 +2736,7 @@
             else if (currentTab === "docs") renderDocsTab(docsLocked());
             else if (currentTab === "audit") renderAuditTable();
             else if (currentTab === "history") renderAdminHistory();
+            else if (currentTab === "profiles") renderProfiles();
             else if (currentTab === "checks" && currentScreen === "home") renderHome();
         }
 
@@ -2718,7 +2760,8 @@
             if (by === "Description") return String(it.description || "").toLowerCase().indexOf(q) >= 0;
             if (by === "Type") return String(QD.itemType(it) || "").toLowerCase().indexOf(q) >= 0;
             if (by === "MSPEC") return String(it.mspec || "").toLowerCase().indexOf(q) >= 0;
-            if (by === "Width") return String(it.width || "").toLowerCase().indexOf(q) >= 0;
+            if (by === "Width" || by === "Slit Width") return String(it.width || "").toLowerCase().indexOf(q) >= 0;
+            if (by === "Color") return String(it.color || "").toLowerCase().indexOf(q) >= 0;
             if (by === "Footage") return String(it.footage || "").toLowerCase().indexOf(q) >= 0;
             if (by === "Perf") return String(it.perf || "").toLowerCase().indexOf(q) >= 0;
             if (by === "Bubble type") return String(it.bubbleType || "").toLowerCase().indexOf(q) >= 0;
@@ -2745,7 +2788,7 @@
             var sel = $("itemFilterBy");
             if (!sel) return;
             var opts = itemTab === "foam" ? ["Item #", "Description", "MSPEC", "Width", "Footage", "Perf"]
-                : (itemTab === "bubble" ? ["Item #", "Description", "Width", "Footage", "Perf", "Bubble type"]
+                : (itemTab === "bubble" ? ["Item #", "Description", "Slit Width", "Footage", "Perf", "Bubble type", "Color"]
                 : (itemTab === "p1" ? ["Item #", "Description", "Length", "Width", "Density", "Shots"]
                 : ["Item #", "Description", "Parents", "Length", "Width", "Thickness"]));
             var cur = sel.value, i;
@@ -2990,7 +3033,7 @@
                     html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.mspec) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td>" + itemActions(it) + "</tr>";
                 }
             } else if (itemTab === "bubble") {
-                html += "<tr><th>Item #</th><th>Description</th><th>Width</th><th>Footage</th><th>Perf</th><th>Bubble type</th><th></th></tr>";
+                html += "<tr><th>Item #</th><th>Description</th><th>Slit Width</th><th>Footage</th><th>Perf</th><th>Bubble type</th><th>Color</th><th></th></tr>";
                 for (i = 0; i < aio.items.length; i++) {
                     it = aio.items[i];
                     if (it.deleted) continue;
@@ -3001,7 +3044,7 @@
                     n += 1;
                     if (shown >= cap) continue;
                     shown += 1;
-                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td><td>" + esc(it.bubbleType) + "</td>" + itemActions(it) + "</tr>";
+                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td><td>" + esc(it.bubbleType) + "</td><td>" + esc(it.color || "") + "</td>" + itemActions(it) + "</tr>";
                 }
             } else if (itemTab === "p1") {
                 html += "<tr><th>Item #</th><th>Description</th><th>Length</th><th>Width</th><th>Density</th><th>Shots</th><th></th></tr>";
@@ -3404,7 +3447,7 @@
             setv("newLengthL", ""); setv("newLengthP", "");
             setv("newFootageB", ""); setv("newFootageF", "");
             setv("newPerfB", ""); setv("newPerfF", "");
-            setv("newSlits", ""); setv("newBubble", ""); setv("newParent", "");
+            setv("newSlits", ""); setv("newBubble", ""); setv("newColorB", ""); setv("newBarcode", ""); setv("newBoxLabel", ""); setv("newParent", "");
             setv("newThk", ""); setv("newDens", ""); setv("newShots", ""); setv("newSoft", "");
             $("newType").value = editing ? "" : (QD.lineItemType(QD.resolveLineId(currentSite, currentLine)) || "");
             $("itemModalTitle").innerText = editing ? "Edit item #" : "Add item #";
@@ -3418,7 +3461,8 @@
                     setv("newLengthL", it.length); setv("newLengthP", it.length);
                     setv("newFootageB", it.footage); setv("newFootageF", it.footage);
                     setv("newPerfB", it.perf); setv("newPerfF", it.perf);
-                    setv("newSlits", it.slits); setv("newBubble", it.bubbleType); setv("newParent", it.parent);
+                    setv("newSlits", it.slits); setv("newBubble", it.bubbleType); setv("newColorB", it.color || "");
+                    setv("newBarcode", it.barcodeLabel || ""); setv("newBoxLabel", it.boxLabel || ""); setv("newParent", it.parent);
                     setv("newThk", it.thickness); setv("newDens", it.density); setv("newShots", it.shots); setv("newSoft", it.soft);
                 }
             }
@@ -3458,6 +3502,9 @@
                 perf: typ === "BUBBLE" ? getv("newPerfB") : typ === "FOAM" ? getv("newPerfF") : "",
                 slits: typ === "BUBBLE" ? getv("newSlits") : "",
                 bubbleType: typ === "BUBBLE" ? getv("newBubble") : "",
+                color: typ === "BUBBLE" ? getv("newColorB") : "",
+                barcodeLabel: typ === "BUBBLE" ? getv("newBarcode") : "",
+                boxLabel: typ === "BUBBLE" ? getv("newBoxLabel") : "",
                 parent: typ === "LAM" ? getv("newParent") : "",
                 thickness: typ === "LAM" ? getv("newThk") : "",
                 density: typ === "PLANK" ? getv("newDens") : "",
@@ -3635,6 +3682,9 @@
             html += specLine("Description", it.description);
             if (typ === "BUBBLE" || form === "bubble") {
                 html += specLine("Bubble type", it.bubbleType);
+                html += specLine("Color", it.color);
+                html += specLine("Barcode label", it.barcodeLabel);
+                html += specLine("Box label", it.boxLabel);
                 return html;
             }
             if (typ === "PLANK" || form === "p1") {
@@ -3709,26 +3759,25 @@
                     row("Sheet Length", QD.num(it.length), "—", "—", val("s4sheet"), calc.sheetPf);
                 }
             } else if (form === "bubble") {
-                var pair = QD.bubbleWeightPair(aio.bubble, it.bubbleType);
                 var fam = QD.bubbleFamily(currentLine);
                 var liveW = specPaintTarget ? "" : val("bweight");
                 var liveOk = calc.weightPf === "Fail" ? false : (liveW ? true : null);
-                var coexW = pair.coex || QD.matchBubbleWeight("COEX", it.bubbleType);
-                var monoW = pair.mono || QD.matchBubbleWeight("MONO", it.bubbleType);
-                var showCoex = QD.bubbleFamilyAllowed("COEX", currentSite);
-                var showMono = QD.bubbleFamilyAllowed("MONO", currentSite);
-                if (showCoex) row("COEX weight", coexW ? coexW.min : "—", coexW ? coexW.target : "—", coexW ? coexW.max : "—", fam === "MONO" ? "—" : liveW, fam === "MONO" ? null : liveOk);
-                if (showMono) row("MONO weight", monoW ? monoW.min : "—", monoW ? monoW.target : "—", monoW ? monoW.max : "—", fam === "MONO" ? liveW : "—", fam === "MONO" ? liveOk : null);
+                var bw = QD.bubbleWeightForLine(aio.bubble, currentLine, it.bubbleType);
+                if (fam === "COEX") row("COEX weight", bw ? bw.min : "—", bw ? bw.target : "—", bw ? bw.max : "—", liveW, liveOk);
+                else if (fam === "MONO") row("MONO weight", bw ? bw.min : "—", bw ? bw.target : "—", bw ? bw.max : "—", liveW, liveOk);
                 var dead = QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType);
                 if (!isFinite(dead)) dead = QD.deadCellMax(it.bubbleType);
-                if (isFinite(dead)) row("Max dead cells", "—", "—", dead, val("bdeadPost"), calc.postPf === "Fail" ? false : (val("bdeadPost") ? true : null));
+                if (isFinite(dead)) row("Dead Cells and Air Transfers Post Vacuum Test", "—", "—", dead, val("bdeadPost"), calc.postPf === "Fail" ? false : (val("bdeadPost") ? true : null));
                 var wT = QD.num(it.width);
-                if (isFinite(wT)) row("Width", (wT - 0.25).toFixed(2), wT, (wT + 0.25).toFixed(2), val("bwidth"), calc.widthPf === "Fail" ? false : (val("bwidth") ? true : null));
+                if (isFinite(wT)) row("Slit width", (wT - 0.25).toFixed(2), wT, (wT + 0.25).toFixed(2), val("bwidth"), calc.widthPf === "Fail" ? false : (val("bwidth") ? true : null));
+                row("Web width", (QD.WEB_WIDTH_TARGET - QD.WEB_WIDTH_TOL).toFixed(1), QD.WEB_WIDTH_TARGET, (QD.WEB_WIDTH_TARGET + QD.WEB_WIDTH_TOL).toFixed(1), val("bweb"), calc.webWidthPf === "Fail" ? false : (val("bweb") ? true : null));
                 var fT = QD.num(it.footage);
                 if (isFinite(fT)) row("Footage", fT, "—", "—", val("bfootage"), calc.footagePf === "Fail" ? false : (val("bfootage") ? true : null));
                 if (QD.itemHasPerf(it)) {
                     var pT = QD.num(it.perf);
                     row("Perf", isFinite(pT) ? pT - 0.25 : "—", pT, isFinite(pT) ? pT + 0.25 : "—", val("bperfw"), calc.perfWidthPf === "Fail" ? false : (val("bperfw") ? true : null));
+                    row("Perf Strength Left", QD.PERF_STRENGTH_MIN, "—", QD.PERF_STRENGTH_MAX, val("bperfLeft"), calc.perfLeftPf === "Fail" ? false : (val("bperfLeft") ? true : null));
+                    row("Perf Strength Right", QD.PERF_STRENGTH_MIN, "—", QD.PERF_STRENGTH_MAX, val("bperfRight"), calc.perfRightPf === "Fail" ? false : (val("bperfRight") ? true : null));
                 }
                 if (QD.itemIsUline(it)) row("Diameter (ULINE)", QD.ULINE_DIAM_MIN, "—", QD.ULINE_DIAM_MAX, val("bdiam"), val("bdiam") ? true : null);
             } else if (form === "p1") {
@@ -3920,11 +3969,15 @@
         function syncBubbleFields(it) {
             if ($("bcohWrap")) $("bcohWrap").style.display = QD.itemDescHasCohAdh(it) ? "" : "none";
             if ($("bdiamWrap")) $("bdiamWrap").style.display = QD.itemIsUline(it) ? "" : "none";
-            var deadDone = QD.trim(val("bdeadPre")) !== "" && QD.trim(val("bdeadPost")) !== "";
+            var deadDone = QD.trim(val("bdeadPost")) !== "";
             if ($("bpostvWrap")) $("bpostvWrap").style.display = deadDone ? "" : "none";
             var showPerf = QD.itemHasPerf(it);
             if ($("bperfwWrap")) $("bperfwWrap").style.display = showPerf ? "" : "none";
-            if ($("btesterWrap")) $("btesterWrap").style.display = showPerf ? "" : "none";
+            if ($("bperfStrWrap")) $("bperfStrWrap").style.display = showPerf ? "" : "none";
+            if ($("bbarcodeWrap")) $("bbarcodeWrap").style.display = (it && QD.trim(it.barcodeLabel)) ? "" : "none";
+            if ($("bboxWrap")) $("bboxWrap").style.display = (it && QD.trim(it.boxLabel)) ? "" : "none";
+            if ($("bbarcodeShow") && it) $("bbarcodeShow").innerText = it.barcodeLabel || "";
+            if ($("bboxShow") && it) $("bboxShow").innerText = it.boxLabel || "";
         }
 
         function syncS1Fields(it) {
@@ -3939,7 +3992,7 @@
             var form = info ? info.form : "";
             if (form === "s4") return { bundle: "s4bundle", width: "s4width", footage: "s4foot", weight: "s4weight", cellMd: "s4md", cellCd: "s4cd", points: "s4t1" };
             if (form === "s1s3") return { bundle: "s1bundle", width: "s1width", footage: "s1foot", perf: "s1perf", weight: "s1weight", cellMd: "s1md", cellCd: "s1cd", winderTension: "s1winder", bumperPressure: "s1bumper", diameter: "s1diam", points: "s1t1" };
-            if (form === "bubble") return { cohAdh: "bcoh", postVisual: "bpostv", deadPre: "bdeadPre", deadPost: "bdeadPost", width: "bwidth", footage: "bfootage", perfWidth: "bperfw", perfTester: "btester", weight: "bweight", diameter: "bdiam" };
+            if (form === "bubble") return { cohAdh: "bcoh", postVisual: "bpostv", deadPost: "bdeadPost", width: "bwidth", webWidth: "bweb", footage: "bfootage", perfWidth: "bperfw", perfLeft: "bperfLeft", perfRight: "bperfRight", weight: "bweight", color: "bcolor", delam: "bdelam", prodNo: "bprod", rollNo: "broll", diameter: "bdiam" };
             if (form === "p1") return { length: "plength", width: "pwidth", cellMd: "pmd", cellCd: "pcd", weight: "pweight", headPoints: "pht1", tailPoints: "ptt1" };
             if (form === "rts") return { parent: "rparent", parentDate: "rdate", shift: "rshift", width: "rwidth", length: "rlength", color: "rcolor", delam: "rdelam", alligator: "rallig", tattoo: "rtattoo" };
             return {};
@@ -4350,32 +4403,31 @@
                 var deadMax = it ? QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType) : NaN;
                 if (!isFinite(deadMax) && it) deadMax = QD.deadCellMax(it.bubbleType);
                 var wPf = it && it.width ? QD.inRange(val("bwidth"), QD.num(it.width) - 0.25, QD.num(it.width) + 0.25) : null;
+                var webPf = QD.inRange(val("bweb"), QD.WEB_WIDTH_TARGET - QD.WEB_WIDTH_TOL, QD.WEB_WIDTH_TARGET + QD.WEB_WIDTH_TOL);
                 var fPf = it && it.footage ? QD.inRange(val("bfootage"), QD.num(it.footage), Infinity) : null;
                 var pTarget = it ? QD.num(it.perf) : NaN;
                 var pPf = !isFinite(pTarget) ? "N/A" : QD.pf(QD.inRange(val("bperfw"), pTarget - 0.25, pTarget + 0.25));
-                var tester = QD.num(val("btester"));
-                var tPf = val("btester") === "" ? "" : QD.pf(!(tester < 11 || tester > 15));
+                var leftPf = val("bperfLeft") === "" ? "" : QD.pf(QD.inRange(val("bperfLeft"), QD.PERF_STRENGTH_MIN, QD.PERF_STRENGTH_MAX));
+                var rightPf = val("bperfRight") === "" ? "" : QD.pf(QD.inRange(val("bperfRight"), QD.PERF_STRENGTH_MIN, QD.PERF_STRENGTH_MAX));
                 var wtPf = (bw && QD.trim(val("bweight")) !== "")
                     ? QD.pf(QD.inRange(val("bweight"), bw.min, isFinite(bw.max) ? bw.max : Infinity))
                     : "";
-                var pre = QD.num(val("bdeadPre")) || 0;
                 var post = QD.num(val("bdeadPost")) || 0;
-                var prePf = isFinite(deadMax) ? QD.pf(pre <= deadMax) : "";
                 var postPf = isFinite(deadMax) ? QD.pf(post <= deadMax) : "";
                 var diamPf = "";
                 if (QD.itemIsUline(it) && QD.trim(val("bdiam")) !== "") {
                     diamPf = QD.pf(QD.inRange(val("bdiam"), QD.ULINE_DIAM_MIN, QD.ULINE_DIAM_MAX));
                 }
                 syncBubbleFields(it);
-                flags = [QD.pf(wPf), QD.pf(fPf), pPf, tPf, wtPf, prePf, postPf];
+                flags = [QD.pf(wPf), QD.pf(webPf), QD.pf(fPf), pPf, leftPf, rightPf, wtPf, postPf, val("bdelam")];
                 if (QD.itemDescHasCohAdh(it)) flags.push(val("bcoh"));
-                if (QD.trim(val("bdeadPre")) !== "" && QD.trim(val("bdeadPost")) !== "") flags.push(val("bpostv"));
+                if (QD.trim(val("bdeadPost")) !== "") flags.push(val("bpostv"));
                 if (diamPf) flags.push(diamPf);
                 pf = QD.overallFromFlags(currentLine, val("reason"), flags);
-                var bubbleIds = ["bwidth", "bfootage", "bweight", "bdeadPre", "bdeadPost"];
+                var bubbleIds = ["bwidth", "bweb", "bfootage", "bweight", "bdeadPost", "bcolor", "bdelam", "bprod", "broll"];
                 if (QD.itemDescHasCohAdh(it)) bubbleIds.push("bcoh");
-                if (QD.itemHasPerf(it)) { bubbleIds.push("bperfw"); bubbleIds.push("btester"); }
-                if (QD.trim(val("bdeadPre")) !== "" && QD.trim(val("bdeadPost")) !== "") bubbleIds.push("bpostv");
+                if (QD.itemHasPerf(it)) { bubbleIds.push("bperfw"); bubbleIds.push("bperfLeft"); bubbleIds.push("bperfRight"); }
+                if (QD.trim(val("bdeadPost")) !== "") bubbleIds.push("bpostv");
                 if (QD.itemIsUline(it)) bubbleIds.push("bdiam");
                 var readyBubble = true, bi;
                 for (bi = 0; bi < bubbleIds.length; bi++) {
@@ -4383,13 +4435,15 @@
                 }
                 setOverallPf(pf, readyBubble);
                 mark("bwidthMark", QD.pf(wPf));
+                mark("bwebMark", QD.pf(webPf));
                 mark("bfootMark", QD.pf(fPf));
                 mark("bperfMark", pPf);
-                mark("btestMark", tPf);
+                mark("bperfLeftMark", leftPf);
+                mark("bperfRightMark", rightPf);
                 mark("bwtMark", wtPf);
-                var bubbleCalc = { widthPf: QD.pf(wPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, weightPf: wtPf, prePf: prePf, postPf: postPf };
+                var bubbleCalc = { widthPf: QD.pf(wPf), webWidthPf: QD.pf(webPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfLeftPf: leftPf, perfRightPf: rightPf, weightPf: wtPf, postPf: postPf };
                 paintSpecTable(it, spec, bubbleCalc);
-                return { passFail: pf, widthPf: QD.pf(wPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfTesterPf: tPf, weightPf: wtPf, prePf: prePf, postPf: postPf, deadMax: deadMax };
+                return { passFail: pf, widthPf: QD.pf(wPf), webWidthPf: QD.pf(webPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfLeftPf: leftPf, perfRightPf: rightPf, weightPf: wtPf, postPf: postPf, deadMax: deadMax };
             }
             if (info.form === "p1") {
                 var headPoints = collectPoints("pht", 12);
@@ -4506,12 +4560,23 @@
                 input.winderTension = val("s1winder"); input.bumperPressure = val("s1bumper");
             } else if (info.form === "bubble") {
                 input.cohAdh = val("bcoh"); input.postVisual = val("bpostv");
-                input.width = val("bwidth"); input.footage = val("bfootage");
-                input.perfWidth = val("bperfw"); input.perfTester = val("btester"); input.weight = val("bweight");
+                input.width = val("bwidth"); input.webWidth = val("bweb"); input.footage = val("bfootage");
+                input.perfWidth = val("bperfw"); input.perfLeft = val("bperfLeft"); input.perfRight = val("bperfRight");
+                input.weight = val("bweight");
                 input.diameter = val("bdiam");
-                input.deadPre = val("bdeadPre"); input.deadPost = val("bdeadPost");
-                input.widthPf = calc.widthPf; input.footagePf = calc.footagePf; input.perfWidthPf = calc.perfWidthPf;
-                input.perfTesterPf = calc.perfTesterPf; input.weightPf = calc.weightPf; input.prePf = calc.prePf; input.postPf = calc.postPf;
+                input.deadPost = val("bdeadPost");
+                input.color = val("bcolor"); input.delam = val("bdelam");
+                input.prodNo = val("bprod"); input.rollNo = val("broll");
+                input.bubbleType = it ? it.bubbleType : "";
+                input.barcodeLabel = it ? (it.barcodeLabel || "") : "";
+                input.boxLabel = it ? (it.boxLabel || "") : "";
+                input.lineSpeed = startupAnswers.lineSpeed || "";
+                input.extruderSpeed = startupAnswers.extruderSpeed || "";
+                input.meltPump1 = startupAnswers.meltPump1 || "";
+                input.meltPump2 = startupAnswers.meltPump2 || "";
+                input.widthPf = calc.widthPf; input.webWidthPf = calc.webWidthPf; input.footagePf = calc.footagePf;
+                input.perfWidthPf = calc.perfWidthPf; input.perfLeftPf = calc.perfLeftPf; input.perfRightPf = calc.perfRightPf;
+                input.weightPf = calc.weightPf; input.postPf = calc.postPf;
                 input.deadMax = calc.deadMax;
             } else if (info.form === "p1") {
                 input.length = val("plength"); input.width = val("pwidth"); input.cellMd = val("pmd"); input.cellCd = val("pcd");
@@ -4538,7 +4603,7 @@
             checkEnteredAt = 0;
             var ids = ["item", "mspec", "notes", "checkNotes", "s4bundle", "s4width", "s4foot", "s4md", "s4cd", "s4weight", "s4sheet",
                 "s1bundle", "s1width", "s1foot", "s1perf", "s1md", "s1cd", "s1weight", "s1diam", "s1winder", "s1bumper",
-                "bwidth", "bfootage", "bperfw", "btester", "bweight", "bdiam", "bdeadPre", "bdeadPost",
+                "bwidth", "bweb", "bfootage", "bperfw", "bperfLeft", "bperfRight", "bweight", "bdiam", "bdeadPost", "bcolor", "bdelam", "bprod", "broll",
                 "plength", "pwidth", "pmd", "pcd", "pweight", "ptailLength", "ptailWidth",
                 "rparent", "rdate", "rwidth", "rlength", "rt1", "rt2", "rt3"];
             var i, el;
@@ -4613,6 +4678,7 @@
             clearCheckForm();
             checkReason = "";
             noCheckReason = "";
+            startupAnswers = {};
             setStatus("Saved " + QD.lineLabel(currentLine, currentSite) + " check.");
             if (failed) {
                 pendingFailContext = { line: failLine, item: failItem, plant: currentSite, at: (new Date()).toISOString() };
@@ -5009,30 +5075,16 @@
             return QD.userCanSeeLine({ admin: false, plant: user.plant, lines: user.lines }, info.id, info.site);
         }
 
-        function histLineOptions() {
-            var html = "<option value=''>All lines</option>";
-            var i, info, list = QD.LINES;
+        function histLineButtons() {
+            var html = "", i, info, list = QD.LINES, file, label;
             for (i = 0; i < list.length; i++) {
                 info = list[i];
                 if (!userCanSeeHistFile(info.file)) continue;
-                html += "<option value='" + info.file + "'>" + esc(info.site === "GARLAND" ? "Garland " + info.label : info.label) + "</option>";
+                label = info.site === "GARLAND" ? "Garland " + info.label : info.label;
+                file = info.file;
+                html += "<button type='button'" + (histState.file === file ? " class='on'" : "") + " onclick=\"selectHistLine('" + file + "')\">" + esc(label) + "</button>";
             }
-            return html;
-        }
-
-        function collectAdminHistory() {
-            var out = [], i, key, rows, j, r;
-            for (i = 0; i < QD.LINE_FILES.length; i++) {
-                key = QD.LINE_FILES[i];
-                if (!userCanSeeHistFile(key)) continue;
-                rows = readLineRows(key);
-                for (j = 0; j < rows.length; j++) {
-                    r = rows[j];
-                    if (!r) continue;
-                    out.push({ file: key, idx: j, row: r });
-                }
-            }
-            return out;
+            return html || "<span class='muted'>No lines assigned.</span>";
         }
 
         function histRowChanged(row) {
@@ -5042,90 +5094,131 @@
         function histCellText(row, key) {
             if (!row) return "";
             if (key === "Date/Time") return QD.formatClock(row[key]);
-            if (row[key] == null || row[key] === "") return "";
-            return String(row[key]);
+            return String(QD.histValue(row, key) == null ? "" : QD.histValue(row, key));
         }
 
         function histRowSearchText(row, fileKey, cols) {
-            var parts = [], i, key;
+            var parts = [], i, key, v;
             if (!row) return "";
             parts.push(String(fileKey || ""));
             parts.push(QD.formatClock(row["Date/Time"]));
             for (i = 0; i < (cols || []).length; i++) {
                 key = cols[i];
                 if (key === "Date/Time") continue;
-                if (row[key] == null || row[key] === "") continue;
-                parts.push(String(row[key]));
+                v = QD.histValue(row, key);
+                if (v == null || v === "") continue;
+                parts.push(String(v));
             }
             return parts.join(" ").toLowerCase();
         }
 
         function clearHistFilters() {
-            if ($("histLineFilter")) $("histLineFilter").selectedIndex = 0;
             if ($("histTextFilter")) $("histTextFilter").value = "";
+            if (histState.file) selectHistLine(histState.file);
+            else renderAdminHistory();
+        }
+
+        function selectHistLine(file) {
+            histState.file = file || "";
+            histState.filtered = [];
+            histState.shown = 0;
             renderAdminHistory();
+        }
+
+        function bindHistScroll() {
+            var wrap = $("histAdminWrap");
+            if (!wrap || wrap.getAttribute("data-hist-scroll") === "1") return;
+            wrap.setAttribute("data-hist-scroll", "1");
+            wrap.onscroll = function () {
+                if (wrap.scrollTop + wrap.clientHeight >= wrap.scrollHeight - 80) loadMoreHistRows();
+            };
+        }
+
+        function histRowHtml(rec, cols, admin) {
+            var r = rec.row, cls = [], c, key, actions, rowBand;
+            rowBand = QD.histRowBand(r);
+            if (rowBand) cls.push("hist-row-" + rowBand);
+            if (histRowChanged(r)) cls.push("hist-changed");
+            var html = "<tr" + (cls.length ? " class='" + cls.join(" ") + "'" : "") + ">";
+            for (c = 0; c < cols.length; c++) {
+                key = cols[c];
+                html += "<td>" + esc(histCellText(r, key)) + "</td>";
+            }
+            if (admin) {
+                actions = "<button type='button' class='secondary' onclick=\"openHistEdit('" + rec.file + "'," + rec.idx + ")\">Edit</button>";
+                actions += "<button type='button' class='danger' onclick=\"deleteHistRow('" + rec.file + "'," + rec.idx + ")\">Delete</button>";
+                html += "<td>" + actions + "</td>";
+            }
+            return html + "</tr>";
+        }
+
+        function loadMoreHistRows() {
+            if (!histState.file || !histState.filtered.length) return;
+            if (histState.shown >= histState.filtered.length) return;
+            var admin = isAdmin();
+            var cols = QD.histColumnsForLine(histState.file);
+            var table = $("histAdminTable");
+            if (!table) return;
+            var tbody = table.tBodies.length ? table.tBodies[0] : table;
+            var html = "", i, rec, end = histState.shown + histState.page;
+            if (end > histState.filtered.length) end = histState.filtered.length;
+            for (i = histState.shown; i < end; i++) {
+                rec = histState.filtered[i];
+                html += histRowHtml(rec, cols, admin);
+            }
+            histState.shown = end;
+            tbody.innerHTML = tbody.innerHTML + html;
+            if ($("histAdminCount")) {
+                $("histAdminCount").innerText = histState.filtered.length + " check" + (histState.filtered.length === 1 ? "" : "s")
+                    + (histState.shown < histState.filtered.length ? " (showing " + histState.shown + " — scroll for more)" : "");
+            }
+            if ($("histMoreHint")) {
+                $("histMoreHint").style.display = histState.shown < histState.filtered.length ? "" : "none";
+            }
         }
 
         function renderAdminHistory() {
             if (!session.user) { goHome(); return; }
-            var prevFile = $("histLineFilter") ? $("histLineFilter").value : "";
-            if ($("histLineFilter")) {
-                $("histLineFilter").innerHTML = histLineOptions();
-                $("histLineFilter").value = prevFile;
-                if ($("histLineFilter").value !== prevFile) $("histLineFilter").selectedIndex = 0;
-            }
+            bindHistScroll();
+            if ($("histLineTabs")) $("histLineTabs").innerHTML = histLineButtons();
             if ($("histAdminHelp")) {
                 $("histAdminHelp").innerText = isAdmin()
-                    ? "All columns for lines you can use. Green = in spec / pass, yellow = under spec, red = over spec or fail. Edit or delete requires notes."
-                    : "Checks for the lines you can use. Green = in spec / pass, yellow = under spec, red = over spec or fail.";
+                    ? "Pick a line. Rows load in pages and color from Pass/Fail. Edit or delete requires notes."
+                    : "Pick a line. Rows load in pages as you scroll. Row color follows the Pass/Fail column.";
             }
-            var file = $("histLineFilter") ? $("histLineFilter").value : "";
+            var file = histState.file;
             var q = QD.trim(($("histTextFilter") && $("histTextFilter").value) || "").toLowerCase();
-            var rows = collectAdminHistory();
-            var filtered = [], i, rec, r, cols, html, n = 0, shown = 0, cap = 5000, cls, rowBand, cellBand, ctx, c, key, admin, actions, blob;
+            var cols, html, i, rec, r, blob, admin, rows;
             admin = isAdmin();
-            cols = QD.histColumns(rows);
+            if (!file) {
+                if ($("histAdminTable")) $("histAdminTable").innerHTML = "<tr><td class='muted'>Choose a line to load history.</td></tr>";
+                if ($("histAdminCount")) $("histAdminCount").innerText = "";
+                if ($("histMoreHint")) $("histMoreHint").style.display = "none";
+                return;
+            }
+            cols = QD.histColumnsForLine(file);
+            rows = readLineRows(file);
+            histState.filtered = [];
             for (i = rows.length - 1; i >= 0; i--) {
-                rec = rows[i];
-                r = rec.row;
-                if (file && rec.file !== file) continue;
+                r = rows[i];
+                if (!r) continue;
+                rec = { file: file, idx: i, row: r };
                 if (q) {
-                    blob = histRowSearchText(r, rec.file, cols);
+                    blob = histRowSearchText(r, file, cols);
                     if (blob.indexOf(q) < 0) continue;
                 }
-                filtered.push(rec);
+                histState.filtered.push(rec);
             }
             html = "<tr>";
-            for (c = 0; c < cols.length; c++) html += "<th>" + esc(cols[c]) + "</th>";
+            for (i = 0; i < cols.length; i++) html += "<th>" + esc(cols[i]) + "</th>";
             if (admin) html += "<th></th>";
             html += "</tr>";
-            n = filtered.length;
-            for (i = 0; i < filtered.length; i++) {
-                if (shown >= cap) break;
-                rec = filtered[i];
-                r = rec.row;
-                shown += 1;
-                ctx = QD.histSpecCtx(r, aio);
-                rowBand = QD.histRowBand(r, ctx);
-                cls = [];
-                if (rowBand) cls.push("hist-row-" + rowBand);
-                if (histRowChanged(r)) cls.push("hist-changed");
-                html += "<tr" + (cls.length ? " class='" + cls.join(" ") + "'" : "") + ">";
-                for (c = 0; c < cols.length; c++) {
-                    key = cols[c];
-                    cellBand = QD.histCellBand(r, key, ctx);
-                    html += "<td" + (cellBand ? " class='hist-" + cellBand + "'" : "") + ">" + esc(histCellText(r, key)) + "</td>";
-                }
-                if (admin) {
-                    actions = "<button type='button' class='secondary' onclick=\"openHistEdit('" + rec.file + "'," + rec.idx + ")\">Edit</button>";
-                    actions += "<button type='button' class='danger' onclick=\"deleteHistRow('" + rec.file + "'," + rec.idx + ")\">Delete</button>";
-                    html += "<td>" + actions + "</td>";
-                }
-                html += "</tr>";
-            }
-            if (!shown) html += "<tr><td colspan='" + (cols.length + (admin ? 1 : 0)) + "' class='muted'>No matching checks.</td></tr>";
+            if (!histState.filtered.length) html += "<tr><td colspan='" + (cols.length + (admin ? 1 : 0)) + "' class='muted'>No matching checks.</td></tr>";
             if ($("histAdminTable")) $("histAdminTable").innerHTML = html;
-            if ($("histAdminCount")) $("histAdminCount").innerText = n + " check" + (n === 1 ? "" : "s") + (n > shown ? " (showing latest " + shown + ")" : "");
+            histState.shown = 0;
+            histState.page = QD.HIST_PAGE || 80;
+            if (histState.filtered.length) loadMoreHistRows();
+            else if ($("histAdminCount")) $("histAdminCount").innerText = "0 checks";
         }
 
         function histFieldValue(row, key) {
@@ -5206,6 +5299,110 @@
             setStatus("Deleted history entry. " + notes);
         }
 
+        function profilesPath() {
+            return (new ActiveXObject("Scripting.FileSystemObject")).BuildPath(resultsDir(), "profiles.js");
+        }
+
+        function loadProfiles() {
+            var path = profilesPath();
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            window.QD_DISK_PROFILES = null;
+            if (fso.FileExists(path)) {
+                try { eval(readUtf8(path)); } catch (eP) { dbg("profiles.js: " + eP.message, false); }
+            }
+            profilesStore = QD.normalizeProfiles(window.QD_DISK_PROFILES);
+        }
+
+        function saveProfiles() {
+            writeUtf8(profilesPath(), QD.profileDiskScript(profilesStore));
+            unhidePath(profilesPath());
+        }
+
+        function plantProfiles() {
+            var site = currentSite === "GARLAND" ? "GARLAND" : "VISALIA";
+            if (!profilesStore[site]) profilesStore[site] = QD.emptyPlantProfiles();
+            if (!profilesStore[site].COEX) profilesStore[site].COEX = { structures: [] };
+            if (!profilesStore[site].COEX.structures) profilesStore[site].COEX.structures = [];
+            return profilesStore[site];
+        }
+
+        function renderProfiles() {
+            loadProfiles();
+            var plant = currentSite === "GARLAND" ? "Garland" : "Visalia";
+            if ($("profilePlantLabel")) $("profilePlantLabel").innerText = plant + " · COEX";
+            var list = plantProfiles().COEX.structures;
+            var html = "", i, st, admin = isAdmin();
+            html += "<table class='list'><tr><th>Structure</th><th>Line speed</th><th>Ext A</th><th>MP1 A</th><th>MP2 A</th><th>Ext B</th><th>MP1 B</th><th>MP2 B</th><th>Ext C</th><th>MP1 C</th><th>MP2 C</th>";
+            if (admin) html += "<th></th>";
+            html += "</tr>";
+            if (!list.length) html += "<tr><td colspan='" + (admin ? 12 : 11) + "' class='muted'>No structures yet. Add one to scaffold COEX speeds.</td></tr>";
+            for (i = 0; i < list.length; i++) {
+                st = list[i];
+                html += "<tr>";
+                if (admin) {
+                    html += "<td><input data-ps='" + i + "' data-pk='name' value='" + esc(st.name) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='lineSpeed' value='" + esc(st.lineSpeed) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='A.speed' value='" + esc(st.A.speed) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='A.meltPump1' value='" + esc(st.A.meltPump1) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='A.meltPump2' value='" + esc(st.A.meltPump2) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='B.speed' value='" + esc(st.B.speed) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='B.meltPump1' value='" + esc(st.B.meltPump1) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='B.meltPump2' value='" + esc(st.B.meltPump2) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='C.speed' value='" + esc(st.C.speed) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='C.meltPump1' value='" + esc(st.C.meltPump1) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><input data-ps='" + i + "' data-pk='C.meltPump2' value='" + esc(st.C.meltPump2) + "' onchange='saveProfileField(this)'></td>";
+                    html += "<td><button type='button' class='danger' onclick='removeProfileStructure(" + i + ")'>Delete</button></td>";
+                } else {
+                    html += "<td>" + esc(st.name) + "</td><td>" + esc(st.lineSpeed) + "</td>";
+                    html += "<td>" + esc(st.A.speed) + "</td><td>" + esc(st.A.meltPump1) + "</td><td>" + esc(st.A.meltPump2) + "</td>";
+                    html += "<td>" + esc(st.B.speed) + "</td><td>" + esc(st.B.meltPump1) + "</td><td>" + esc(st.B.meltPump2) + "</td>";
+                    html += "<td>" + esc(st.C.speed) + "</td><td>" + esc(st.C.meltPump1) + "</td><td>" + esc(st.C.meltPump2) + "</td>";
+                }
+                html += "</tr>";
+            }
+            html += "</table>";
+            if ($("profileStructBox")) $("profileStructBox").innerHTML = html;
+            if ($("profileAddWrap")) $("profileAddWrap").style.display = admin ? "" : "none";
+        }
+
+        function saveProfileField(el) {
+            if (!el || !isAdmin()) return;
+            var idx = parseInt(el.getAttribute("data-ps"), 10);
+            var key = el.getAttribute("data-pk") || "";
+            var list = plantProfiles().COEX.structures;
+            var st = list[idx], parts;
+            if (!st) return;
+            if (key === "name" || key === "lineSpeed") st[key] = el.value;
+            else {
+                parts = key.split(".");
+                if (parts.length === 2 && st[parts[0]]) st[parts[0]][parts[1]] = el.value;
+            }
+            saveProfiles();
+            audit("profile-edit", currentSite + " COEX " + (st.name || idx));
+        }
+
+        function addProfileStructure() {
+            if (!isAdmin()) return;
+            var name = QD.trim($("newStructName") ? $("newStructName").value : "");
+            if (!name) { alert("Enter a structure name."); return; }
+            plantProfiles().COEX.structures.push(QD.emptyCoexStructure(name));
+            if ($("newStructName")) $("newStructName").value = "";
+            saveProfiles();
+            audit("profile-add", currentSite + " COEX " + name);
+            renderProfiles();
+        }
+
+        function removeProfileStructure(idx) {
+            if (!isAdmin()) return;
+            var list = plantProfiles().COEX.structures;
+            var name = list[idx] ? list[idx].name : "";
+            if (!confirm("Delete structure " + (name || idx) + "?")) return;
+            list.splice(idx, 1);
+            saveProfiles();
+            audit("profile-delete", currentSite + " COEX " + name);
+            renderProfiles();
+        }
+
         function renderAuditTable() {
             loadAudit();
             var html = "<tr><th>When</th><th>User</th><th>Action</th><th>Detail</th></tr>";
@@ -5237,6 +5434,7 @@
             var steps = [
                 function () { setBoot("Loading users…", 12); loadAuthUsers(); },
                 function () { setBoot("Loading spec history…", 24); loadSpecHistory(); },
+                function () { setBoot("Loading profiles…", 28); loadProfiles(); },
                 function () { setBoot("Loading inbox…", 36); loadInbox(); },
                 function () { setBoot("Loading audit log…", 48); loadAudit(); },
                 function () { setBoot("Preparing forms…", 60); fillPlantChecks("newUserPlantBox", "VISALIA"); fillLineChecks("newUserLineBox", "VISALIA", "*"); },
@@ -5282,7 +5480,7 @@
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.60</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.61</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>
@@ -5310,6 +5508,7 @@
             <button data-tab="mspecs" id="mspecsTabBtn" onclick="showTab('mspecs')">MSPECs</button>
             <button data-tab="items" id="itemsTabBtn" onclick="showTab('items')">Item database</button>
             <button data-tab="history" id="histTabBtn" onclick="showTab('history')">History</button>
+            <button data-tab="profiles" id="profilesTabBtn" onclick="showTab('profiles')">Profiles</button>
             <button data-tab="audit" id="auditTabBtn" class="admin-only" onclick="showTab('audit')">Audit log</button>
             <span class="plant-toggle" id="plantToggle">
                 <button type="button" class="secondary" id="plantSwitchBtn" onclick="goPlantPick()">Switch plant</button>
@@ -5334,6 +5533,7 @@
             <div class="reason-btns">
                 <button type="button" onclick="pickReason('HOURLY')">HOURLY</button>
                 <button type="button" onclick="pickReason('RETEST')">RETEST</button>
+                <button type="button" onclick="pickReason('LPA')">LPA</button>
                 <button type="button" onclick="pickReason('NO CHECK')">NO CHECK</button>
             </div>
             <div id="rtsStartupBtnWrap" style="display:none;margin-top:16px;">
@@ -5491,21 +5691,32 @@
                 <div id="formBubble" class="form">
                     <div class="card">
                         <h2>Bubble entries</h2>
-                        <div class="pair">
-                            <div><label class="f">Dead Cells Pre <input id="bdeadPre" onkeyup="scheduleCompute()"></label></div>
-                            <div><label class="f">Dead Cells Post <input id="bdeadPost" onkeyup="scheduleCompute()"></label></div>
-                        </div>
+                        <label class="f">Dead Cells and Air Transfers Post Vacuum Test <input id="bdeadPost" onkeyup="scheduleCompute()"></label>
                         <div id="bpostvWrap"><label class="f">Post-Visual Inspection <select id="bpostv" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
                         <div id="bcohWrap"><label class="f">COH/ADH Verification <select id="bcoh" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
                         <div class="pair">
-                            <div><label class="f">Width <input id="bwidth" onkeyup="scheduleCompute()"> <span id="bwidthMark"></span></label></div>
-                            <div><label class="f">Footage <input id="bfootage" onkeyup="scheduleCompute()"> <span id="bfootMark"></span></label></div>
+                            <div><label class="f">Slit Width <input id="bwidth" onkeyup="scheduleCompute()"> <span id="bwidthMark"></span></label></div>
+                            <div><label class="f">Web Width <input id="bweb" onkeyup="scheduleCompute()"> <span id="bwebMark"></span></label></div>
                         </div>
                         <div class="pair">
+                            <div><label class="f">Footage <input id="bfootage" onkeyup="scheduleCompute()"> <span id="bfootMark"></span></label></div>
                             <div id="bperfwWrap"><label class="f">Perf Width <input id="bperfw" onkeyup="scheduleCompute()"> <span id="bperfMark"></span></label></div>
-                            <div id="btesterWrap"><label class="f">Perf Tester Results <input id="btester" onkeyup="scheduleCompute()"> <span id="btestMark"></span></label></div>
                         </div>
-                        <label class="f">Gram Weight <input id="bweight" onkeyup="scheduleCompute()"> <span id="bwtMark"></span></label>
+                        <div class="pair" id="bperfStrWrap">
+                            <div><label class="f">Perf Strength Left <input id="bperfLeft" onkeyup="scheduleCompute()"> <span id="bperfLeftMark"></span></label></div>
+                            <div><label class="f">Perf Strength Right <input id="bperfRight" onkeyup="scheduleCompute()"> <span id="bperfRightMark"></span></label></div>
+                        </div>
+                        <label class="f">Basis Weight <input id="bweight" onkeyup="scheduleCompute()"> <span id="bwtMark"></span></label>
+                        <div class="pair">
+                            <div><label class="f">Color <select id="bcolor" onchange="compute()"><option></option><option>Clear</option><option>Green</option><option>Pink</option><option>Gray</option></select></label></div>
+                            <div><label class="f">Delam Check <select id="bdelam" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Production # <input id="bprod" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Roll # <input id="broll" onkeyup="scheduleCompute()"></label></div>
+                        </div>
+                        <div id="bbarcodeWrap" style="display:none"><label class="f">Barcode Label <span id="bbarcodeShow"></span></label></div>
+                        <div id="bboxWrap" style="display:none"><label class="f">Box Label <span id="bboxShow"></span></label></div>
                         <div id="bdiamWrap"><label class="f">Diameter (ULINE only) <input id="bdiam" onkeyup="scheduleCompute()"></label></div>
                     </div>
                 </div>
@@ -5706,13 +5917,35 @@
         <div id="tabHistory" class="tabpanel">
             <div class="card">
                 <h2>History <span class="muted" id="histAdminCount"></span></h2>
-                <p class="muted" id="histAdminHelp">Checks for the lines you can use. Green = in spec / pass, yellow = under spec, red = over spec or fail.</p>
+                <p class="muted" id="histAdminHelp">Pick a line. Rows load in pages as you scroll. Row color follows the Pass/Fail column.</p>
+                <div class="subtabs hist-line-tabs" id="histLineTabs"></div>
                 <div class="filter-row">
-                    <select id="histLineFilter" onchange="renderAdminHistory()"></select>
                     <label class="f">Filter <input id="histTextFilter" onkeyup="scheduleList(renderAdminHistory)"></label>
                     <button type="button" class="secondary" onclick="clearHistFilters()">Clear filters</button>
                 </div>
-                <div class="list-wrap"><table class="list hist-grid" id="histAdminTable"></table></div>
+                <div class="list-wrap" id="histAdminWrap"><table class="list hist-grid" id="histAdminTable"></table></div>
+                <div class="hist-more" id="histMoreHint" style="display:none">Scroll down to load more checks.</div>
+            </div>
+        </div>
+        <div id="tabProfiles" class="tabpanel">
+            <div class="card">
+                <h2>Profiles <span class="muted" id="profilePlantLabel"></span></h2>
+                <p class="muted">Each plant has its own profile. COEX is available now. Front-to-back ratio is a fixed table. Structure speeds are a scaffold — no specs required yet.</p>
+                <h3>COEX — Front to back ratio</h3>
+                <div class="list-wrap">
+                    <table class="list" id="frontToBackTable">
+                        <tr><th>Item</th><th>Ratio</th></tr>
+                        <tr><td>ULINE</td><td>1.75</td></tr>
+                        <tr><td>Non-ULINE</td><td>1.5</td></tr>
+                    </table>
+                </div>
+                <h3>COEX — Structure</h3>
+                <p class="muted">Each structure has line speed plus Extruder A, B, and C (extruder speed, Melt Pump 1, Melt Pump 2).</p>
+                <div id="profileStructBox"></div>
+                <div class="admin-only" id="profileAddWrap">
+                    <label class="f">New structure name <input id="newStructName"></label>
+                    <button type="button" onclick="addProfileStructure()">Add structure</button>
+                </div>
             </div>
         </div>
         <div id="tabAudit" class="tabpanel">
@@ -5758,11 +5991,14 @@
             <label class="f">Item # <input id="newItem"></label>
             <label class="f">Description <input id="newDesc"></label>
             <div id="fieldsBubble" class="type-fields">
-                <label class="f">Width <input id="newWidthB"></label>
+                <label class="f">Slit Width <input id="newWidthB"></label>
                 <label class="f"># Slits <input id="newSlits"></label>
                 <label class="f">Footage <input id="newFootageB"></label>
                 <label class="f">Perf <input id="newPerfB"></label>
                 <label class="f">Bubble Type <input id="newBubble"></label>
+                <label class="f">Color <select id="newColorB"><option></option><option>Clear</option><option>Green</option><option>Pink</option><option>Gray</option></select></label>
+                <label class="f">Barcode Label <input id="newBarcode"></label>
+                <label class="f">Box Label <input id="newBoxLabel"></label>
             </div>
             <div id="fieldsFoam" class="type-fields">
                 <label class="f">Width <input id="newWidthF"></label>

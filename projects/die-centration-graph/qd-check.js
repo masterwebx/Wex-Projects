@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.60';
+  QD.VERSION = '1.7.61';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -21,11 +21,24 @@
     'Date/Time', 'Line', 'User', 'Item #', 'Item Desc', 'MSPEC',
     'Reason for Check', 'No Check Reason', 'Pass/Fail', 'Notes',
     'Bundle #', 'Slit/Width', 'Footage', 'Cell Count MD', 'Cell Count CD',
-    'Thickness Average', 'Thickness Range', 'Density', 'Weight'
+    'Thickness Average', 'Thickness Range', 'Density', 'Weight',
+    'Slit Width', 'Web Width', 'Basis Weight',
+    'Dead Cells and Air Transfers Post Vacuum Test',
+    'Perf Strength Left', 'Perf Strength Right', 'Color', 'Delam Check',
+    'Barcode Label', 'Box Label', 'Production #', 'Roll #', 'Bubble Type',
+    'Line Speed', 'Extruder Speed', 'Melt Pump 1 Speed', 'Melt Pump 2 Speed'
   ];
+  QD.HIST_PAGE = 80;
+  QD.BUBBLE_COLORS = ['Clear', 'Green', 'Pink', 'Gray'];
+  QD.WEB_WIDTH_TARGET = 48;
+  QD.WEB_WIDTH_TOL = 0.5;
+  QD.PERF_STRENGTH_MIN = 11;
+  QD.PERF_STRENGTH_MAX = 15;
+  QD.FRONT_TO_BACK_ULINE = 1.75;
+  QD.FRONT_TO_BACK_OTHER = 1.5;
   QD.SEED_USER = 'GWEXLER';
   QD.SITES = ['VISALIA', 'GARLAND'];
-  QD.CHECK_TYPES = ['HOURLY', 'RETEST', 'NO CHECK'];
+  QD.CHECK_TYPES = ['HOURLY', 'RETEST', 'LPA', 'NO CHECK'];
   QD.NO_CHECK_REASONS = ['EQUIPMENT FAILURE', 'NO ORDERS', 'LINE DOWN', 'PREVENTATIVE MAINTENANCE'];
   QD.DOC_TYPES = ['Work Instruction', 'QAN', 'Construction Card'];
   QD.DOC_REVIEW_MS = 90 * 24 * 60 * 60 * 1000;
@@ -35,6 +48,12 @@
     { id: 'labelsMatch', text: 'Verify new labels match Production Order' }
   ];
   QD.STARTUP_PERF_ITEM = { id: 'perfTear', text: 'Perf teared cleanly and easily' };
+  QD.COEX_CHANGEOVER_FIELDS = [
+    { id: 'lineSpeed', text: 'Line speed' },
+    { id: 'extruderSpeed', text: 'Extruder speed' },
+    { id: 'meltPump1', text: 'Melt Pump 1 speed' },
+    { id: 'meltPump2', text: 'Melt Pump 2 speed' }
+  ];
   QD.RTS_STARTUP_STATIONS = ['0', '1', '2', '3'];
   QD.RTS_STARTUP_ACTIONS = [
     { id: 'heat', text: 'Turn on heater and verify heat is distributed evenly', stations: true },
@@ -62,8 +81,8 @@
   ];
 
   QD.REASONS = {
-    foam: ['HOURLY', 'RETEST', 'NO CHECK'],
-    bubble: ['HOURLY', 'RETEST', 'NO CHECK']
+    foam: ['HOURLY', 'RETEST', 'LPA', 'NO CHECK'],
+    bubble: ['HOURLY', 'RETEST', 'LPA', 'NO CHECK']
   };
 
   QD.SKIP_REASONS = {
@@ -679,29 +698,45 @@
       }
     } else if (info.plant === 'bubble') {
       setIf(row, 'Item', item);
+      setIf(row, 'Item #', item);
       setIf(row, 'Item Description', desc);
+      setIf(row, 'Item Desc', desc);
       setIf(row, 'Product Verification', input.productVf);
       setIf(row, 'COH/ADH Verification', input.cohAdh);
       setIf(row, 'Post-Visual Inspection', input.postVisual);
       setIf(row, '# Slits', input.slits);
+      setIf(row, 'Bubble Type', input.bubbleType);
+      setIf(row, 'Slit Width', input.width);
       setIf(row, 'Width', input.width);
+      setIf(row, 'Web Width', input.webWidth);
       setIf(row, 'Footage', input.footage);
       setIf(row, 'Perf Width', input.perfWidth);
-      setIf(row, 'Perf Tester Results', input.perfTester);
+      setIf(row, 'Perf Strength Left', input.perfLeft);
+      setIf(row, 'Perf Strength Right', input.perfRight);
+      setIf(row, 'Basis Weight', input.weight);
       setIf(row, 'Weight', input.weight);
       setIf(row, 'Density', input.density);
       setIf(row, 'Diameter (ULINE only)', input.diameter);
       setIf(row, 'Diameter Pass/Fail', input.diameterPf);
-      setIf(row, 'Dead Cell Pre', input.deadPre);
-      setIf(row, '# Air Transfers Pre', input.airPre);
+      setIf(row, 'Dead Cells and Air Transfers Post Vacuum Test', input.deadPost);
       setIf(row, 'Dead Cell Post', input.deadPost);
-      setIf(row, '# Air Transfers Post', input.airPost);
+      setIf(row, 'Color', input.color);
+      setIf(row, 'Delam Check', input.delam);
+      setIf(row, 'Barcode Label', input.barcodeLabel);
+      setIf(row, 'Box Label', input.boxLabel);
+      setIf(row, 'Production #', input.prodNo);
+      setIf(row, 'Roll #', input.rollNo);
+      setIf(row, 'Line Speed', input.lineSpeed);
+      setIf(row, 'Extruder Speed', input.extruderSpeed);
+      setIf(row, 'Melt Pump 1 Speed', input.meltPump1);
+      setIf(row, 'Melt Pump 2 Speed', input.meltPump2);
       setIf(row, 'Width Pass', input.widthPf);
+      setIf(row, 'Web Width Pass', input.webWidthPf);
       setIf(row, 'Footage Pass', input.footagePf);
       setIf(row, 'Perf Width Pass', input.perfWidthPf);
-      setIf(row, 'Per Tester Pass', input.perfTesterPf);
+      setIf(row, 'Perf Strength Left Pass', input.perfLeftPf);
+      setIf(row, 'Perf Strength Right Pass', input.perfRightPf);
       setIf(row, 'Weight Pass', input.weightPf);
-      setIf(row, 'Pre Pass', input.prePf);
       setIf(row, 'Post Pass', input.postPf);
       setIf(row, 'Maximum allowed', input.deadMax);
     } else if (info.plant === 'p1') {
@@ -825,7 +860,7 @@
   };
 
   QD.ITEM_TYPES = {
-    BUBBLE: { id: 'BUBBLE', label: 'Bubble', lines: 'COEX and MONO', fields: ['description', 'width', 'slits', 'footage', 'perf', 'bubbleType'] },
+    BUBBLE: { id: 'BUBBLE', label: 'Bubble', lines: 'COEX and MONO', fields: ['description', 'width', 'slits', 'footage', 'perf', 'bubbleType', 'color', 'barcodeLabel', 'boxLabel'] },
     FOAM: { id: 'FOAM', label: 'Foam', lines: 'S1, S3, and S4', fields: ['description', 'width', 'footage', 'perf', 'mspec'] },
     LAM: { id: 'LAM', label: 'Lam', lines: 'RTS', fields: ['description', 'length', 'width', 'parent', 'mspec', 'thickness'] },
     PLANK: { id: 'PLANK', label: 'Plank', lines: 'P1', fields: ['description', 'length', 'width', 'density', 'shots', 'soft'] }
@@ -836,11 +871,14 @@
     { key: 'type', label: 'Type' },
     { key: 'description', label: 'Description' },
     { key: 'length', label: 'Length' },
-    { key: 'width', label: 'Width' },
+    { key: 'width', label: 'Slit Width' },
     { key: 'slits', label: '# Slits' },
     { key: 'footage', label: 'Footage' },
     { key: 'perf', label: 'Perf' },
     { key: 'bubbleType', label: 'Bubble Type' },
+    { key: 'color', label: 'Color' },
+    { key: 'barcodeLabel', label: 'Barcode Label' },
+    { key: 'boxLabel', label: 'Box Label' },
     { key: 'parent', label: 'Parent Material' },
     { key: 'mspec', label: 'MSPEC' },
     { key: 'thickness', label: 'Thickness' },
@@ -901,14 +939,19 @@
     ],
     bubble: [
       { key: 'cohAdh', label: 'COH/ADH Verification', when: 'cohAdh' },
-      { key: 'deadPre', label: 'Dead Cell Pre' },
-      { key: 'deadPost', label: 'Dead Cell Post' },
+      { key: 'deadPost', label: 'Dead Cells and Air Transfers Post Vacuum Test' },
       { key: 'postVisual', label: 'Post-Visual Inspection', when: 'deadDone' },
-      { key: 'width', label: 'Width' },
+      { key: 'width', label: 'Slit Width' },
+      { key: 'webWidth', label: 'Web Width' },
       { key: 'footage', label: 'Footage' },
       { key: 'perfWidth', label: 'Perf Width', when: 'perf' },
-      { key: 'perfTester', label: 'Perf Tester Results', when: 'perf' },
-      { key: 'weight', label: 'Weight' },
+      { key: 'perfLeft', label: 'Perf Strength Left', when: 'perf' },
+      { key: 'perfRight', label: 'Perf Strength Right', when: 'perf' },
+      { key: 'weight', label: 'Basis Weight' },
+      { key: 'color', label: 'Color' },
+      { key: 'delam', label: 'Delam Check' },
+      { key: 'prodNo', label: 'Production #' },
+      { key: 'rollNo', label: 'Roll #' },
       { key: 'diameter', label: 'Diameter (ULINE)', when: 'uline' }
     ],
     p1: [
@@ -943,19 +986,23 @@
 
   QD.CHECK_LINK_FIELDS = [
     { id: 'bundle', label: 'Bundle #' },
-    { id: 'width', label: 'Width' },
+    { id: 'width', label: 'Slit Width' },
+    { id: 'webWidth', label: 'Web Width' },
     { id: 'footage', label: 'Footage' },
-    { id: 'weight', label: 'Weight' },
+    { id: 'weight', label: 'Basis Weight' },
     { id: 'cellMd', label: 'Cell Count MD' },
     { id: 'cellCd', label: 'Cell Count CD' },
     { id: 'perf', label: 'Perf' },
     { id: 'productVf', label: 'Product Verification' },
     { id: 'cohAdh', label: 'COH/ADH Verification' },
     { id: 'postVisual', label: 'Post-Visual Inspection' },
-    { id: 'deadPre', label: 'Dead Cell Pre' },
-    { id: 'deadPost', label: 'Dead Cell Post' },
+    { id: 'deadPost', label: 'Dead Cells and Air Transfers Post Vacuum Test' },
     { id: 'perfWidth', label: 'Perf Width' },
-    { id: 'perfTester', label: 'Perf Tester Results' },
+    { id: 'perfLeft', label: 'Perf Strength Left' },
+    { id: 'perfRight', label: 'Perf Strength Right' },
+    { id: 'delam', label: 'Delam Check' },
+    { id: 'prodNo', label: 'Production #' },
+    { id: 'rollNo', label: 'Roll #' },
     { id: 'diameter', label: 'Diameter (ULINE)' },
     { id: 'parent', label: 'Parent Material' },
     { id: 'parentDate', label: 'Parent MFG Date' },
@@ -981,6 +1028,8 @@
     if (w === 'cohAdh') return !!ctx.hasCohAdh;
     if (w === 's1') return ctx.lineId === 'S1';
     if (w === 'deadDone') return !!ctx.deadDone;
+    if (w === 'barcode') return !!ctx.hasBarcode;
+    if (w === 'box') return !!ctx.hasBox;
     return true;
   };
 
@@ -1033,7 +1082,7 @@
     var hasPerf = QD.itemHasPerf(it);
     var isUline = QD.itemIsUline(it);
     var hasCohAdh = QD.itemDescHasCohAdh(it);
-    var deadDone = QD.trim(src.deadPre) !== '' && QD.trim(src.deadPost) !== '';
+    var deadDone = QD.trim(src.deadPost) !== '';
     var ctx = { lineId: lineId, hasPerf: hasPerf, isUline: isUline, hasCohAdh: hasCohAdh, deadDone: deadDone };
     var fields = (QD.CHECK_FIELDS[form] || []).slice();
     if (form === 'p1' && QD.isDoubleShot(src.shots)) {
@@ -1626,10 +1675,75 @@
     return QD.canonItem(row['Item #'] || row.Item || row.item);
   };
 
-  QD.needsStartup = function (lastRow, itemNo, when) {
+  QD.rowUser = function (row) {
+    if (!row) return '';
+    return String(row.User || row.user || row.Operator || '').toUpperCase();
+  };
+
+  QD.needsStartup = function (lastRow, itemNo, when, userName) {
     if (!lastRow) return true;
     if (QD.canonItem(itemNo) !== QD.rowItem(lastRow)) return true;
-    return QD.shiftAt(lastRow['Date/Time']) !== QD.shiftAt(when || new Date());
+    var nextUser = String(userName || '').toUpperCase();
+    if (nextUser && QD.rowUser(lastRow) && QD.rowUser(lastRow) !== nextUser) return true;
+    return false;
+  };
+
+  QD.lastBubbleType = function (row, items) {
+    if (!row) return '';
+    var stored = trim(row['Bubble Type'] || row.bubbleType || '');
+    if (stored) return stored;
+    var it = items ? QD.findItem(items, QD.rowItem(row)) : null;
+    return it ? trim(it.bubbleType) : '';
+  };
+
+  QD.needsCoexSpeeds = function (lineId, lastRow, item, items) {
+    var fam = QD.bubbleFamily(lineId);
+    if (fam !== 'COEX') return false;
+    var next = item ? trim(item.bubbleType) : '';
+    if (!next) return false;
+    if (!lastRow) return true;
+    return QD.normalizeBubbleType(QD.lastBubbleType(lastRow, items)) !== QD.normalizeBubbleType(next);
+  };
+
+  QD.frontToBackRatio = function (item) {
+    return QD.itemIsUline(item) ? QD.FRONT_TO_BACK_ULINE : QD.FRONT_TO_BACK_OTHER;
+  };
+
+  QD.emptyCoexStructure = function (name) {
+    return {
+      name: trim(name),
+      lineSpeed: '',
+      A: { speed: '', meltPump1: '', meltPump2: '' },
+      B: { speed: '', meltPump1: '', meltPump2: '' },
+      C: { speed: '', meltPump1: '', meltPump2: '' }
+    };
+  };
+
+  QD.emptyPlantProfiles = function () {
+    return { COEX: { structures: [] } };
+  };
+
+  QD.normalizeProfiles = function (raw) {
+    var out = { VISALIA: QD.emptyPlantProfiles(), GARLAND: QD.emptyPlantProfiles() };
+    var site, src, i, st;
+    if (!raw) return out;
+    for (site in out) {
+      if (!out.hasOwnProperty(site)) continue;
+      src = raw[site] && raw[site].COEX ? raw[site].COEX : (raw[site] && raw[site].coex ? raw[site].coex : null);
+      if (!src || !src.structures) continue;
+      out[site].COEX.structures = [];
+      for (i = 0; i < src.structures.length; i++) {
+        st = src.structures[i] || {};
+        out[site].COEX.structures.push({
+          name: trim(st.name),
+          lineSpeed: st.lineSpeed != null ? st.lineSpeed : '',
+          A: { speed: (st.A && st.A.speed) || '', meltPump1: (st.A && st.A.meltPump1) || '', meltPump2: (st.A && st.A.meltPump2) || '' },
+          B: { speed: (st.B && st.B.speed) || '', meltPump1: (st.B && st.B.meltPump1) || '', meltPump2: (st.B && st.B.meltPump2) || '' },
+          C: { speed: (st.C && st.C.speed) || '', meltPump1: (st.C && st.C.meltPump1) || '', meltPump2: (st.C && st.C.meltPump2) || '' }
+        });
+      }
+    }
+    return out;
   };
 
   QD.needsLineUp = function (lastRow) {
@@ -1743,7 +1857,7 @@
     return (fam === 'COEX' || fam === 'MONO') && QD.itemHasPerf(it);
   };
 
-  QD.startupComplete = function (answers, includePerf) {
+  QD.startupComplete = function (answers, includePerf, includeCoexSpeeds) {
     var i, id;
     for (i = 0; i < QD.STARTUP_ITEMS.length; i++) {
       id = QD.STARTUP_ITEMS[i].id;
@@ -1753,6 +1867,12 @@
       id = QD.STARTUP_PERF_ITEM.id;
       var v = String((answers && answers[id]) || '').toUpperCase();
       if (v !== 'PASS' && v !== 'FAIL') return false;
+    }
+    if (includeCoexSpeeds) {
+      for (i = 0; i < QD.COEX_CHANGEOVER_FIELDS.length; i++) {
+        id = QD.COEX_CHANGEOVER_FIELDS[i].id;
+        if (!answers || !trim(answers[id])) return false;
+      }
     }
     return true;
   };
@@ -1800,6 +1920,33 @@
     return QD.HIST_CHECK_FIELDS.concat(QD.histTFields());
   };
 
+  QD.histColumnsForLine = function (fileKey) {
+    var info = null, i;
+    for (i = 0; i < QD.LINES.length; i++) {
+      if (QD.LINES[i].file === fileKey) { info = QD.LINES[i]; break; }
+    }
+    var common = ['Date/Time', 'User', 'Item #', 'Item Desc', 'Reason for Check', 'Pass/Fail', 'Notes'];
+    if (!info) return common;
+    if (info.plant === 'foam') {
+      return common.concat(['MSPEC', 'Bundle #', 'Slit/Width', 'Footage', 'Cell Count MD', 'Cell Count CD', 'Thickness Average', 'Thickness Range', 'Density']);
+    }
+    if (info.plant === 'bubble') {
+      return common.concat([
+        'Slit Width', 'Web Width', 'Footage', 'Basis Weight',
+        'Dead Cells and Air Transfers Post Vacuum Test',
+        'Perf Strength Left', 'Perf Strength Right', 'Color', 'Delam Check',
+        'Production #', 'Roll #', 'Barcode Label', 'Box Label', 'Bubble Type'
+      ]);
+    }
+    if (info.plant === 'p1') {
+      return common.concat(['Length', 'Width', 'Plank Weight', 'Density', '# Shots']);
+    }
+    if (info.plant === 'rts') {
+      return common.concat(['Parent Material', 'Width', 'Length', 'Color', 'Delam Check']);
+    }
+    return common;
+  };
+
   QD.histColumns = function (rows) {
     var seen = {}, out = [], preferred = QD.histPreferredFields(), i, rec, row, k;
     for (i = 0; i < preferred.length; i++) {
@@ -1818,6 +1965,25 @@
       }
     }
     return out;
+  };
+
+  QD.histValue = function (row, key) {
+    if (!row) return '';
+    if (row[key] != null && trim(row[key]) !== '') return row[key];
+    var aliases = {
+      'Item #': ['Item', 'Item Number'],
+      'Item Desc': ['Item Description', 'Description'],
+      'Slit Width': ['Width', 'Slit/Width'],
+      'Basis Weight': ['Weight', 'Gram Weight'],
+      'Dead Cells and Air Transfers Post Vacuum Test': ['Dead Cell Post', '# Dead Cells Post', 'DeadCellCount'],
+      'Delam Check': ['Delam', 'Delamination']
+    };
+    var list = aliases[key], i;
+    if (!list) return row[key] == null ? '' : row[key];
+    for (i = 0; i < list.length; i++) {
+      if (row[list[i]] != null && trim(row[list[i]]) !== '') return row[list[i]];
+    }
+    return '';
   };
 
   QD.histSpecCtx = function (row, aio) {
@@ -1904,30 +2070,27 @@
       if (!isFinite(v) || !isFinite(wt)) return QD.histStoredBand(row, 'Width');
       return QD.pointBand(v, wt - 0.25, wt + 0.25);
     }
-    if (key === '# Dead Cells Post' || key === 'DeadCellCount') {
+    if (key === '# Dead Cells Post' || key === 'DeadCellCount' || key === 'Dead Cells and Air Transfers Post Vacuum Test' || key === 'Dead Cell Post') {
       hi = QD.deadCellMaxFromFile(ctx.bubbleDead, item.bubbleType);
       if (!isFinite(hi)) hi = QD.deadCellMax(item.bubbleType);
-      v = QD.num(row[key]);
+      v = QD.num(QD.histValue(row, 'Dead Cells and Air Transfers Post Vacuum Test') || row[key]);
       if (!isFinite(v) || !isFinite(hi)) return '';
       return v > hi ? 'over' : 'in';
+    }
+    if (key === 'Web Width') {
+      return QD.pointBand(row[key], QD.WEB_WIDTH_TARGET - QD.WEB_WIDTH_TOL, QD.WEB_WIDTH_TARGET + QD.WEB_WIDTH_TOL);
+    }
+    if (key === 'Perf Strength Left' || key === 'Perf Strength Right') {
+      return QD.pointBand(row[key], QD.PERF_STRENGTH_MIN, QD.PERF_STRENGTH_MAX);
     }
     stored = QD.histStoredBand(row, key);
     return stored;
   };
 
-  QD.histRowBand = function (row, ctx) {
-    var keys = ['Pass/Fail', 'Thickness Average', 'Thickness Range', 'Density', 'Cell Count MD', 'Cell Count CD', 'Slit/Width', 'Weight', 'Width'];
-    var i, band, hasOver = false, hasUnder = false, hasIn = false;
-    for (i = 1; i <= 13; i++) keys.push('T' + i);
-    for (i = 0; i < keys.length; i++) {
-      band = QD.histCellBand(row, keys[i], ctx);
-      if (band === 'over') hasOver = true;
-      else if (band === 'under') hasUnder = true;
-      else if (band === 'in') hasIn = true;
-    }
-    if (hasOver) return 'over';
-    if (hasUnder) return 'under';
-    if (hasIn) return 'in';
+  QD.histRowBand = function (row) {
+    var v = String((row && row['Pass/Fail']) || '').toUpperCase();
+    if (v === 'PASS') return 'in';
+    if (v === 'FAIL') return 'over';
     return '';
   };
 
@@ -2186,6 +2349,10 @@
 
   QD.sapDiskScript = function (payload) {
     return 'window.QD_DISK_SAP=' + stringify(payload || {}) + ';\n';
+  };
+
+  QD.profileDiskScript = function (payload) {
+    return 'window.QD_DISK_PROFILES=' + stringify(QD.normalizeProfiles(payload)) + ';\n';
   };
 
   QD.diskManifestScript = function (files) {

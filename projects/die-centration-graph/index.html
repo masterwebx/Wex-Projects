@@ -5056,7 +5056,7 @@
 
     <script src="vendor/chart.umd.min.js"></script>
     <script>
-      const APP_VERSION = "1.7.54";
+      const APP_VERSION = "1.7.55";
       const APP_NAME = "Quality Desk";
       const FILE_PREFIX = "quality-desk";
       const STORE = "dieGraphState.v5";
@@ -8582,7 +8582,7 @@
             line: realLineName(row["Line"]),
             plant,
           };
-          if (onProg && idx % 4000 === 0) {
+          if (onProg && idx % 1500 === 0) {
             onProg(idx, rows.length);
             const now = Date.now();
             if (now - lastYield > 50) {

@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.54';
+  QD.VERSION = '1.7.55';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -188,7 +188,7 @@
 
   QD.nowSerial = function (d) {
     var x = d || new Date();
-    return x.getTime() / 86400000 + 25569;
+    return Date.UTC(x.getFullYear(), x.getMonth(), x.getDate(), x.getHours(), x.getMinutes(), x.getSeconds(), x.getMilliseconds()) / 86400000 + 25569;
   };
 
   QD.avg = function (vals) {
@@ -805,9 +805,12 @@
     if (!it) return '';
     var t = trim(it.type || it.Type || it.TYPE).toUpperCase();
     if (QD.ITEM_TYPES[t]) return t;
-    if (trim(it.bubbleType) || trim(it.slits)) return 'BUBBLE';
+    if (trim(it.bubbleType)) return 'BUBBLE';
     if (trim(it.shots) || (it.soft != null && String(it.soft) !== '')) return 'PLANK';
-    if (trim(it.parent) || (trim(it.thickness) && trim(it.length) && !trim(it.footage))) return 'LAM';
+    if (trim(it.parent) || (it.parents && it.parents.length)) return 'LAM';
+    if (trim(it.thickness) && trim(it.length) && !trim(it.footage) && !trim(it.mspec)) return 'LAM';
+    if (trim(it.mspec) || trim(it.footage)) return 'FOAM';
+    if (trim(it.slits) && !trim(it.mspec)) return 'BUBBLE';
     return 'FOAM';
   };
 
@@ -1537,9 +1540,17 @@
     return isNaN(d.getTime()) ? new Date() : d;
   };
 
-  QD.formatClock = function (serial) {
+  QD.serialWall = function (serial) {
     var d = QD.dateFromSerial(serial);
-    var h = d.getHours(), m = d.getMinutes();
+    if (serial instanceof Date) {
+      return { y: d.getFullYear(), m: d.getMonth(), day: d.getDate(), h: d.getHours(), min: d.getMinutes(), dow: d.getDay() };
+    }
+    return { y: d.getUTCFullYear(), m: d.getUTCMonth(), day: d.getUTCDate(), h: d.getUTCHours(), min: d.getUTCMinutes(), dow: d.getUTCDay() };
+  };
+
+  QD.formatClock = function (serial) {
+    var w = QD.serialWall(serial);
+    var h = w.h, m = w.min;
     var ap = h >= 12 ? 'PM' : 'AM';
     var h12 = h % 12;
     if (!h12) h12 = 12;
@@ -1547,7 +1558,7 @@
   };
 
   QD.shiftAt = function (when) {
-    var h = (when instanceof Date ? when : QD.dateFromSerial(when)).getHours();
+    var h = when instanceof Date ? when.getHours() : QD.serialWall(when).h;
     if (h >= 7 && h < 15) return '1';
     if (h >= 15 && h < 23) return '2';
     return '3';
@@ -1571,14 +1582,14 @@
 
   QD.lastCheckLabel = function (row) {
     if (!row) return 'No checks yet';
-    var d = QD.dateFromSerial(row['Date/Time']);
+    var w = QD.serialWall(row['Date/Time']);
     var now = new Date();
-    var sameDay = d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
+    var sameDay = w.y === now.getFullYear() && w.m === now.getMonth() && w.day === now.getDate();
     var when;
     if (sameDay) when = QD.formatClock(row['Date/Time']);
     else {
       var days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-      when = days[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + ' ' + QD.formatClock(row['Date/Time']);
+      when = days[w.dow] + ' ' + (w.m + 1) + '/' + w.day + ' ' + QD.formatClock(row['Date/Time']);
     }
     var reason = String(row['Reason for Check'] || '').toUpperCase();
     var extra = trim(row['No Check Reason'] || '');
@@ -1866,6 +1877,16 @@
     for (i = 0; i < keys.length; i++) {
       key = keys[i];
       out[key] = QD.pickLegacy(row, key);
+    }
+    for (i = 1; i <= 13; i++) {
+      key = 'T' + i;
+      if (row[key] != null && trim(row[key]) !== '') out[key] = row[key];
+    }
+    for (key in row) {
+      if (!row.hasOwnProperty(key) || !key || key.charAt(0) === '_') continue;
+      if (out[key] != null && trim(out[key]) !== '') continue;
+      if (trim(row[key]) === '') continue;
+      out[key] = row[key];
     }
     reason = trim(out['Reason for Check']).toUpperCase();
     pf = trim(out['Pass/Fail']).toUpperCase().replace(/[_-]+/g, ' ');

@@ -206,6 +206,8 @@
         .login-extra button { margin: 0 6px 0 0; }
         .boot-progress { margin-top: 16px; display: none; }
         .boot-progress.on { display: block; }
+        #loginFields { display: none; }
+        #loginFields.on { display: block; }
         .boot-bar { height: 10px; background: #4b5563; border-radius: 999px; overflow: hidden; border: 1px solid #9ca3af; }
         .boot-bar i { display: block; height: 100%; width: 0; background: #93c5fd; }
         .boot-progress p { margin: 8px 0 0; font-size: 12px; color: #e5e7eb; }
@@ -323,7 +325,8 @@
         <div class="modal">
             <div class="login-kicker">WEX QUALITY</div>
             <h3>Quality Desk Checks</h3>
-            <p class="muted" id="loginStatus">Sign in to look up items and submit floor checks. Open History any time to review results.</p>
+            <p class="muted" id="loginStatus">Starting Quality Desk…</p>
+            <div id="loginFields">
             <label class="f">User <input id="loginUser"></label>
             <label class="f">Password <input id="loginPass" type="password" onkeydown="if(event.keyCode==13)doLogin()"></label>
             <button type="button" class="ok" onclick="doLogin()">Sign in</button>
@@ -333,7 +336,8 @@
                 <button type="button" class="secondary" onclick="openDesk(false)">History</button>
             </div>
             <p class="muted">New accounts wait for an admin to approve. Sessions end after 1 hour idle. Passwords stay hashed on this PC.</p>
-            <div id="bootProgress" class="boot-progress">
+            </div>
+            <div id="bootProgress" class="boot-progress on">
                 <div class="boot-bar"><i id="bootBarFill"></i></div>
                 <p id="bootBarText">Starting…</p>
             </div>
@@ -393,6 +397,7 @@
         var deskHtmlStamp = "";
         var docsLoaded = false;
         var lastHomeHtml = "";
+        var specHistoryLoaded = false;
         var lastResultsHtml = "";
         var specPaintTarget = null;
         var lastRadialKey = "";
@@ -864,13 +869,16 @@
         }
 
         function loadSpecHistory() {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
-            var path = historyPath();
+            var fso, path;
+            if (specHistoryLoaded) return;
+            fso = new ActiveXObject("Scripting.FileSystemObject");
+            path = historyPath();
             window.QD_SPEC_HISTORY = [];
             if (fso.FileExists(path)) {
                 try { eval(readUtf8(path)); } catch (e) {}
             }
             specHistory = window.QD_SPEC_HISTORY || [];
+            specHistoryLoaded = true;
         }
 
         function saveSpecHistory() {
@@ -1138,6 +1146,7 @@
             $("loginOverlay").className = "overlay login on";
             if ($("loginPass")) $("loginPass").value = "";
             if (msg) $("loginStatus").innerText = msg;
+            if ($("bootProgress") && $("bootProgress").className.indexOf(" on") < 0) showLoginFields();
         }
 
         function setBoot(text, pct) {
@@ -1146,8 +1155,29 @@
             if ($("bootBarFill")) $("bootBarFill").style.width = Math.max(0, Math.min(100, pct || 0)) + "%";
         }
 
+        function showLoginFields() {
+            if ($("loginFields")) $("loginFields").className = "on";
+            try { if ($("loginUser")) $("loginUser").focus(); } catch (eF) {}
+        }
+
+        function hideLoginFields() {
+            if ($("loginFields")) $("loginFields").className = "";
+        }
+
         function hideBoot() {
             if ($("bootProgress")) $("bootProgress").className = "boot-progress";
+            if ($("loginStatus")) {
+                var st = $("loginStatus").innerText || "";
+                if (!st || /Starting Quality Desk|Starting…/i.test(st)) {
+                    $("loginStatus").innerText = "Sign in to look up items and submit checks. History is available without a login.";
+                }
+            }
+            showLoginFields();
+            window.setTimeout(function () {
+                try {
+                    if (aio.loaded && aio.items && aio.items.length && !fileExists(cachePath())) saveAioCache();
+                } catch (eCache) {}
+            }, 80);
         }
 
         function showWork(title, text, pct) {
@@ -1200,23 +1230,31 @@
             $("loginOverlay").className = "overlay login";
             showApp();
             setStatus("Welcome, " + rec.name + ".");
-            showWork("Loading Quality Desk", "Reading lookup files…", 12);
-            window.setTimeout(function () {
-                try { if (!aio.loaded) loadAio(false); } catch (e1) {
-                    setStatus("Signed in, but lookup files could not be opened.\n" + e1.message, true);
-                }
+            function finishLogin() {
                 hideWork();
                 if (rec.mustChange) {
                     $("pwOverlay").className = "overlay on";
                     $("pwTitle").innerText = "Set your password";
                 }
+                try { fillUsers(); } catch (eU) {}
                 try { renderLists(); } catch (e2) {}
                 try { setSite(currentSite, true); } catch (e3) {}
                 try { importHandoffIfPresent(true); } catch (eHandoff) {}
                 audit("login", rec.name);
                 if (pendingForUser().length) goDocs(true);
                 else goHome();
-            }, 30);
+            }
+            if (aio.loaded) {
+                finishLogin();
+                return;
+            }
+            showWork("Loading Quality Desk", "Reading lookup files…", 12);
+            window.setTimeout(function () {
+                try { loadAio(false, false); } catch (e1) {
+                    setStatus("Signed in, but lookup files could not be opened.\n" + e1.message, true);
+                }
+                finishLogin();
+            }, 0);
         }
 
         function logout(msg) {
@@ -1504,23 +1542,117 @@
             return fso.BuildPath(resultsDir(), "aio-cache.js");
         }
 
-        function saveAioCache() {
+        function warmLookupDir(create) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var dir = fso.BuildPath(tempDir(), "qd-lookup");
+            if (create && !fso.FolderExists(dir)) fso.CreateFolder(dir);
+            return dir;
+        }
+
+        function warmLookupPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(warmLookupDir(false), "aio.js");
+        }
+
+        function warmLookupStampPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(warmLookupDir(false), "stamp.txt");
+        }
+
+        function extraLookupPath(name) {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), name);
+        }
+
+        function lookupWarmStamp() {
+            return [
+                lookupCsvStamp(),
+                aio.path ? fileMtime(aio.path) : 0,
+                fileMtime(localSpecsPath()),
+                fileMtime(extraLookupPath("local-items.js")),
+                fileMtime(extraLookupPath("local-users.js"))
+            ].join("|");
+        }
+
+        function aioSnapshot() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var mtime = aio.path && fso.FileExists(aio.path) ? String(fso.GetFile(aio.path).DateLastModified) : "";
-            writeUtf8(cachePath(), "window.QD_AIO=" + JSON.stringify({
+            return {
                 path: aio.path, mtime: mtime, items: aio.items, mspecs: aio.mspecs, users: aio.users,
                 bubble: aio.bubble, bubbleDead: aio.bubbleDead, p1: aio.p1, rts: aio.rts
-            }) + ";");
+            };
+        }
+
+        function applyAioSnapshot(data) {
+            if (!data) return false;
+            aio.items = data.items || [];
+            aio.mspecs = data.mspecs || [];
+            aio.users = data.users || [];
+            aio.bubble = data.bubble || [];
+            aio.bubbleDead = data.bubbleDead || [];
+            aio.p1 = data.p1 || [];
+            aio.rts = data.rts || [];
+            if (data.path) aio.path = data.path;
+            aio.loaded = aio.items.length > 0 || aio.mspecs.length > 0 || aio.bubble.length > 0 || aio.p1.length > 0 || aio.rts.length > 0;
+            return aio.loaded;
+        }
+
+        function clearWarmLookup() {
+            var fso, dir, p1, p2;
+            try {
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+                dir = fso.BuildPath(tempDir(), "qd-lookup");
+                p1 = fso.BuildPath(dir, "aio.js");
+                p2 = fso.BuildPath(dir, "stamp.txt");
+                if (fso.FileExists(p1)) fso.DeleteFile(p1, true);
+                if (fso.FileExists(p2)) fso.DeleteFile(p2, true);
+            } catch (e0) {}
+        }
+
+        function saveWarmLookup() {
+            var fso, path, stampPath;
+            fso = new ActiveXObject("Scripting.FileSystemObject");
+            warmLookupDir(true);
+            path = warmLookupPath();
+            stampPath = warmLookupStampPath();
+            writeUtf8(path, JSON.stringify(aioSnapshot()), true);
+            try { fsoWriteAll(stampPath, lookupWarmStamp()); } catch (eW) {}
+        }
+
+        function loadWarmLookup() {
+            var fso, path, stampPath, prev, raw;
+            try {
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+                path = warmLookupPath();
+                stampPath = warmLookupStampPath();
+                if (!fso.FileExists(path) || !fso.FileExists(stampPath)) return false;
+                try { prev = QD.trim(fsoReadAll(stampPath)); } catch (eS) { prev = ""; }
+                if (!prev || prev !== lookupWarmStamp()) return false;
+                raw = readUtf8(path);
+                if (!raw) return false;
+                window.QD_AIO = JSON.parse(raw);
+                if (!window.QD_AIO || !applyAioSnapshot(window.QD_AIO)) return false;
+                aio.warm = true;
+                return true;
+            } catch (e0) {
+                return false;
+            }
+        }
+
+        function saveAioCache() {
+            writeUtf8(cachePath(), "window.QD_AIO=" + JSON.stringify(aioSnapshot()) + ";");
         }
 
         function lookupCsvStamp() {
             var keys = ["items", "mspecs", "users", "rts", "p1", "bubble"], i, p, m = 0, t;
+            if (lookupCsvStamp.cache) return lookupCsvStamp.cache;
             for (i = 0; i < keys.length; i++) {
                 p = findCsvFile(QD.CSV_FILES[keys[i]] || []);
                 if (!p) continue;
                 t = fileMtime(p);
                 if (t > m) m = t;
             }
+            lookupCsvStamp.cache = m;
             return m;
         }
 
@@ -1539,28 +1671,36 @@
             if (aio.path && window.QD_AIO.mtime) {
                 if (fso.FileExists(aio.path) && String(fso.GetFile(aio.path).DateLastModified) !== window.QD_AIO.mtime) return false;
             }
-            aio.items = window.QD_AIO.items;
-            aio.mspecs = window.QD_AIO.mspecs;
-            aio.users = window.QD_AIO.users || [];
-            aio.bubble = window.QD_AIO.bubble || [];
-            aio.bubbleDead = window.QD_AIO.bubbleDead || [];
-            aio.p1 = window.QD_AIO.p1 || [];
-            aio.rts = window.QD_AIO.rts || [];
-            aio.loaded = true;
+            if (!applyAioSnapshot(window.QD_AIO)) return false;
+            aio.warm = false;
             return true;
         }
 
-        function findCsvFile(names) {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
-            var folder = getAppFolder();
-            var dirs = [fso.BuildPath(folder, "aio-csv"), folder];
-            var d, i, p;
+        function csvPathMap() {
+            var fso, folder, dirs, map, d, e, f, name;
+            if (csvPathMap.cache) return csvPathMap.cache;
+            fso = new ActiveXObject("Scripting.FileSystemObject");
+            folder = getAppFolder();
+            dirs = [fso.BuildPath(folder, "aio-csv"), folder];
+            map = {};
             for (d = 0; d < dirs.length; d++) {
                 if (!fso.FolderExists(dirs[d])) continue;
-                for (i = 0; i < names.length; i++) {
-                    p = fso.BuildPath(dirs[d], names[i]);
-                    if (fso.FileExists(p)) return p;
+                e = new Enumerator(fso.GetFolder(dirs[d]).Files);
+                for (; !e.atEnd(); e.moveNext()) {
+                    f = e.item();
+                    name = String(f.Name || "").toLowerCase();
+                    if (name && !map[name]) map[name] = f.Path;
                 }
+            }
+            csvPathMap.cache = map;
+            return map;
+        }
+
+        function findCsvFile(names) {
+            var map = csvPathMap(), i, n;
+            for (i = 0; i < names.length; i++) {
+                n = String(names[i] || "").toLowerCase();
+                if (n && map[n]) return map[n];
             }
             return "";
         }
@@ -1639,7 +1779,7 @@
             aio.rts = (data && data.rts) || aio.rts || [];
         }
 
-        function seedSpecVersions() {
+        function seedSpecVersions(skipWrite) {
             var lists = [aio.mspecs, aio.bubble, aio.p1, aio.rts], i, j, changed = false;
             for (i = 0; i < lists.length; i++) {
                 for (j = 0; j < (lists[i] || []).length; j++) {
@@ -1649,22 +1789,26 @@
                     }
                 }
             }
-            if (changed) {
+            if (changed && !skipWrite) {
                 try { saveLocalSpecs(); } catch (eSeed) {}
             }
         }
 
-        function afterAioLoad(source, skipWrite) {
-            setWork("Merging local extras…", 55);
-            loadLocalExtras();
-            applyLocalSpecs();
-            seedSpecVersions();
+        function afterAioLoad(source, skipWrite, quiet) {
+            if (!quiet) setWork("Merging local extras…", 55);
+            if (!aio.warm) {
+                loadLocalExtras();
+                applyLocalSpecs();
+                seedSpecVersions(!!quiet);
+            }
             loadSpecHistory();
             aio.loaded = aio.items.length > 0 || aio.mspecs.length > 0 || aio.bubble.length > 0 || aio.p1.length > 0 || aio.rts.length > 0;
             rebuildItemIndex();
-            fillUsers();
+            if (!aio.warm) {
+                try { saveWarmLookup(); } catch (eW) {}
+            }
             if (!skipWrite) {
-                setWork("Writing lookup files…", 75);
+                if (!quiet) setWork("Writing lookup files…", 75);
                 writeLookupFile();
                 ensureLineFiles();
                 try { publishSapCsv(); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
@@ -1673,23 +1817,32 @@
                 ensureLineFiles();
             }
             exposeResultsJs();
-            renderCurrentTab();
-            setWork("Ready", 100);
-            setStatus(source);
+            if (!quiet) {
+                fillUsers();
+                renderCurrentTab();
+                setWork("Ready", 100);
+                setStatus(source);
+            }
             dbg(source);
         }
 
-        function loadAio(force) {
+        function loadAio(force, quiet) {
             aio.path = findAio();
             aio.items = []; aio.mspecs = []; aio.users = []; aio.bubble = []; aio.bubbleDead = []; aio.p1 = []; aio.rts = []; aio.loaded = false;
+            aio.warm = false;
             if (force) {
                 try {
                     var fso = new ActiveXObject("Scripting.FileSystemObject");
                     if (fso.FileExists(cachePath())) fso.DeleteFile(cachePath(), true);
                 } catch (e0) {}
+                clearWarmLookup();
+            }
+            if (!force && loadWarmLookup()) {
+                afterAioLoad("Loaded specs from memory cache (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + (aio.path || ""), true, quiet);
+                return true;
             }
             if (!force && loadAioCache()) {
-                afterAioLoad("Loaded specs from cache (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + (aio.path || ""), true);
+                afterAioLoad("Loaded specs from cache (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + (aio.path || ""), true, quiet);
                 return true;
             }
             var csv = loadAioCsv();
@@ -1698,8 +1851,7 @@
                 aio.mspecs = csv.mspecs;
                 aio.users = csv.users;
                 applySpecBundle(csv);
-                try { saveAioCache(); } catch (eC) {}
-                afterAioLoad("Loaded lookup CSVs (" + aio.items.length + " items, " + aio.mspecs.length + " foam, " + aio.bubble.length + " bubble, " + aio.p1.length + " P1, " + aio.rts.length + " RTS).\n" + csv.source);
+                afterAioLoad("Loaded lookup CSVs (" + aio.items.length + " items, " + aio.mspecs.length + " foam, " + aio.bubble.length + " bubble, " + aio.p1.length + " P1, " + aio.rts.length + " RTS).\n" + csv.source, true, quiet);
                 return true;
             }
             if (!aio.path) {
@@ -1707,7 +1859,7 @@
                 if (bubbleOnly.source) {
                     aio.bubble = bubbleOnly.specs;
                     aio.bubbleDead = bubbleOnly.deadCells;
-                    afterAioLoad("Loaded BubbleSpecs.csv only. Export AIO tables for foam/P1/RTS items.\n" + bubbleOnly.source);
+                    afterAioLoad("Loaded BubbleSpecs.csv only. Export AIO tables for foam/P1/RTS items.\n" + bubbleOnly.source, true, quiet);
                     return true;
                 }
                 setStatus("No lookup data. Put Quality AIO.xlsm next to this HTA, or run ExportAioCsv to create aio-csv\\MasterDatabase.csv.\n" + getAppFolder(), true);
@@ -1726,8 +1878,7 @@
                     aio.bubble = extra.specs;
                     aio.bubbleDead = extra.deadCells;
                 }
-                if (aio.items.length) saveAioCache();
-                afterAioLoad("Loaded Quality AIO (" + aio.items.length + " items, " + aio.mspecs.length + " foam MSPECs).\n" + aio.path);
+                afterAioLoad("Loaded Quality AIO (" + aio.items.length + " items, " + aio.mspecs.length + " foam MSPECs).\n" + aio.path, true, quiet);
                 if (!aio.items.length) setStatus("Opened Quality AIO.xlsm but read 0 items. Run ExportAioCsv in the workbook and keep aio-csv next to the HTA.", true);
                 return aio.items.length > 0;
             } catch (e) {
@@ -6462,9 +6613,9 @@ function openHistEdit(file, idx) {
             if (!claimHtaInstance()) return;
             maximizeWindow();
             hideApp("");
-            $("loginStatus").innerText = "Sign in to look up items and submit checks. History is available without a login.";
-            if ($("loginUser")) $("loginUser").focus();
-            window.setTimeout(bootDesk, 40);
+            hideLoginFields();
+            $("loginStatus").innerText = "Starting Quality Desk…";
+            window.setTimeout(bootDesk, 0);
         };
         window.onfocus = function () {
             try { importHandoffIfPresent(true); } catch (eF) {}
@@ -6502,17 +6653,11 @@ function openHistEdit(file, idx) {
 
         function bootDesk() {
             var steps = [
-                function () { setBoot("Sealing local files…", 8); sealLegacyPlainFiles(); },
-                function () { setBoot("Loading users…", 12); loadAuthUsers(); },
-                function () { setBoot("Loading spec history…", 24); loadSpecHistory(); },
-                function () { setBoot("Loading profiles…", 28); loadProfiles(); },
-                function () { setBoot("Loading inbox…", 36); loadInbox(); },
-                function () { setBoot("Loading audit log…", 48); loadAudit(); },
-                function () { setBoot("Preparing forms…", 60); fillPlantChecks("newUserPlantBox", "VISALIA"); fillLineChecks("newUserLineBox", "VISALIA", "*"); },
-                function () { setBoot("Preparing documentation…", 72); fillDocLineChecks("*"); fillDocCheckLinkSelect(); syncDocTypeFields(); fillMspecFilterBy(); fillItemFilterBy(); },
-                function () { setBoot("Checking SAP.csv…", 84); publishSapCsv(); },
-                function () { setBoot("Checking Copy for Graph…", 90); importHandoffIfPresent(true); },
-                function () { setBoot("Binding check form…", 96); bindFormWatch(); setLine("S4"); startHandoffWatch(); }
+                function () { setBoot("Sealing local files…", 10); sealLegacyPlainFiles(); loadAuthUsers(); },
+                function () { setBoot("Reading lookup files…", 32); loadAio(false, true); },
+                function () { setBoot("Loading desk files…", 58); loadProfiles(); loadInbox(); loadAudit(); },
+                function () { setBoot("Preparing forms…", 78); fillPlantChecks("newUserPlantBox", "VISALIA"); fillLineChecks("newUserLineBox", "VISALIA", "*"); fillDocLineChecks("*"); fillDocCheckLinkSelect(); syncDocTypeFields(); fillMspecFilterBy(); fillItemFilterBy(); },
+                function () { setBoot("Finishing…", 92); try { publishSapCsv(); } catch (eSap) {} try { importHandoffIfPresent(true); } catch (eH) {} bindFormWatch(); setLine("S4"); startHandoffWatch(); }
             ];
             var i = 0;
             function next() {
@@ -6523,10 +6668,10 @@ function openHistEdit(file, idx) {
                 }
                 try { steps[i](); } catch (eBoot) { dbg("boot " + i + ": " + eBoot.message); }
                 i += 1;
-                window.setTimeout(next, 20);
+                window.setTimeout(next, 0);
             }
             setBoot("Starting Quality Desk…", 4);
-            window.setTimeout(next, 20);
+            window.setTimeout(next, 0);
         }
         window.onerror = function (msg, url, line, col, err) {
             var detail = "ERROR " + msg + " @" + line + (col != null ? ":" + col : "");
@@ -6551,7 +6696,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.72</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.73</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

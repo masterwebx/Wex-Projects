@@ -2680,7 +2680,7 @@ assert.doesNotMatch(fs.readFileSync(path.join(dir, 'qd-check.js'), 'utf8'), /Qua
 assert.equal(QD.parseCsv('Item #,Description\n3030053,"AF500, 53"""').rows[0]['Item #'], '3030053');
 assert.equal(QD.mergeUsers(['GWEXLER'], ['gwexler', 'AGARCIA']).join(','), 'GWEXLER,AGARCIA');
 assert.equal(QD.mergeItems([{ item: '1', description: 'old' }], [{ item: '1', description: 'new', local: true }])[0].description, 'new');
-assert.equal(QD.VERSION, '1.7.72');
+assert.equal(QD.VERSION, '1.7.73');
 assert.ok(QD.CHECK_TYPES.indexOf('LPA') >= 0);
 assert.ok(QD.REASONS.foam.indexOf('LPA') >= 0);
 assert.ok(QD.REASONS.bubble.indexOf('LPA') >= 0);
@@ -2950,7 +2950,32 @@ assert.match(html, /\\u00d7/);
 assert.doesNotMatch(html, /\/\?\/g/);
 assert.match(hta, /results\\\\" \+ name\), text, true/);
 assert.match(hta, /"index\.html"\), html, true/);
-assert.match(hta, /v1\.7\.72/);
+assert.match(hta, /v1\.7\.73/);
+assert.match(hta, /id="loginFields"/);
+assert.match(hta, /function showLoginFields/);
+assert.match(hta, /function hideLoginFields/);
+assert.match(hta, /function loadWarmLookup/);
+assert.match(hta, /function saveWarmLookup/);
+assert.match(hta, /function loadAio\(force, quiet\)/);
+assert.match(hta, /loadAio\(false, true\)/);
+assert.match(hta, /if \(aio\.loaded\) \{/);
+assert.match(hta, /hideLoginFields\(\)/);
+assert.match(html, /function buildPostingRowsSync/);
+assert.match(html, /function postingFromSapGroup/);
+assert.match(html, /function itemWithTargets\(item, mspec\)/);
+{
+  const t0 = Date.now();
+  const groups = new Map();
+  for (let i = 0; i < 10000; i++) {
+    const key = "2026|8|" + ((i % 28) + 1) + "|I" + (i % 200) + "|S4";
+    const list = groups.get(key);
+    if (list) list.push(i);
+    else groups.set(key, [i]);
+  }
+  const dt = Date.now() - t0;
+  assert.ok(groups.size > 0);
+  assert.ok(dt < 50, "10k posting group " + dt + "ms");
+}
 
 const chartJs = fs.readFileSync(path.join(dir, 'vendor/chart.umd.min.js'), 'utf8');
 assert.match(chartJs, /Chart\.js v4\.4\.1/);
@@ -2971,8 +2996,11 @@ if (fs.existsSync(releaseHtaPath) && fs.existsSync(releaseCorePath)) {
   const releasePack = QD.splitPack(QD.unseal(releaseCore));
   assert.ok(releasePack && releasePack.app && releasePack.web);
   assert.match(releasePack.app, /Quality Desk Checks/);
-  assert.match(releasePack.app, /v1\.7\.72/);
-  assert.match(releasePack.app, /QD\.VERSION = '1\.7\.72'/);
+  assert.match(releasePack.app, /v1\.7\.73/);
+  assert.match(releasePack.app, /QD\.VERSION = '1\.7\.73'/);
+  assert.match(releasePack.app, /function loadWarmLookup/);
+  assert.match(releasePack.app, /id="loginFields"/);
+  assert.match(releasePack.web, /function buildPostingRowsSync/);
   assert.match(releaseCore, /^QDSEAL2/);
   assert.match(releasePack.app, /function doLogin/);
   assert.match(releasePack.app, /function sealLegacyPlainFiles/);

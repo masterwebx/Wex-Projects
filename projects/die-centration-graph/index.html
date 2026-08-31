@@ -7079,8 +7079,8 @@
           viewM: q.m || day.m,
           viewD: q.d || day.d,
           fails: r.fails || [],
-          itemLabel: r.itemLabel,
-          mspecLabel: r.mspecLabel,
+          itemLabel: r.itemLabel || r.item || "",
+          mspecLabel: r.mspecLabel || r.mspec || "",
           tone: {},
           num: {
             Material: numVal(r.item),
@@ -7117,6 +7117,77 @@
           out.push(postingIndexedRow(day, r, out.length));
         }
       }
+      function postingQualityGroup(sap) {
+        const rows = sapHitsOnDay(sap, sap.y, sap.m, sap.d, "");
+        if (!rows.length) return null;
+        return {
+          item: sap.item,
+          desc: rows[0].desc,
+          mspec: rows[0].mspec,
+          first: rows[0].serial,
+          last: rows[rows.length - 1].serial,
+          rows,
+        };
+      }
+      function postingFromSapGroup(list) {
+        const sap = list[0];
+        const g = postingQualityGroup(sap);
+        const dayRows = (g && g.rows) || [];
+        const sapHits = [];
+        for (let i = 0; i < list.length; i++) {
+          const hits = list[i].hits || [];
+          for (let j = 0; j < hits.length; j++) sapHits.push(hits[j]);
+        }
+        const useRows = dayRows.length ? dayRows : sapHits;
+        const sum = complianceGroupSummary(
+          dayRows.length
+            ? g
+            : useRows.length
+              ? {
+                  rows: useRows,
+                  first: useRows[0] && useRows[0].serial,
+                  last: useRows[useRows.length - 1] && useRows[useRows.length - 1].serial,
+                }
+              : g,
+        );
+        const prevOnly =
+          !dayRows.length && sapHits.length && list.every((s) => s.hitWhen === "prev");
+        const item = sap.item || (g && g.item) || "";
+        const mspec = (g && g.mspec) || "";
+        const kind = sum.failed
+          ? "fail"
+          : useRows.length
+            ? prevOnly
+              ? "prev"
+              : "ok"
+            : "miss";
+        const postedMins = list.reduce((best, s) => {
+          const mins = sapPostedMinutes(s);
+          return finiteNum(mins) && (!finiteNum(best) || mins < best) ? mins : best;
+        }, NaN);
+        return {
+          item,
+          itemLabel: item || "—",
+          desc: sap.desc || (g && g.desc) || "",
+          line: sap.line || "",
+          mspec,
+          mspecLabel: mspec || "",
+          qty: sapQtyCombined(list),
+          posted: sapPostedList(list),
+          period: sum.period,
+          result: [prevOnly ? "Checked previous day" : useRows.length ? "Checked" : "No check", sum.result]
+            .filter(Boolean)
+            .join(" · "),
+          fails: sum.fails,
+          kind,
+          hasSap: true,
+          hasCheck: kind !== "miss",
+          sapCount: list.length,
+          firstSerial: g && finiteNum(g.first) ? g.first : NaN,
+          postedMins,
+          viewItem: item,
+        };
+      }
       function buildPostingRowsSync() {
         if (postingRowCache) return postingRowCache;
         if (!sapAudit || !sapAudit.rows.length) {
@@ -7124,8 +7195,31 @@
           return postingRowCache;
         }
         refreshSapHits("");
+        const groups = new Map();
+        const rows = sapAudit.rows;
+        for (let i = 0; i < rows.length; i++) {
+          const sap = rows[i];
+          const key =
+            sap.y +
+            "|" +
+            sap.m +
+            "|" +
+            sap.d +
+            "|" +
+            (sap.itemKey || "") +
+            "|" +
+            sapLineKey(sap.line);
+          const list = groups.get(key);
+          if (list) list.push(sap);
+          else groups.set(key, [sap]);
+        }
         const out = [];
-        postingDaysFromAudit().forEach((day) => appendPostingDay(out, day));
+        groups.forEach((list) => {
+          const sap = list[0];
+          out.push(
+            postingIndexedRow({ y: sap.y, m: sap.m, d: sap.d }, postingFromSapGroup(list), out.length),
+          );
+        });
         postingRowCache = out;
         return postingRowCache;
       }
@@ -7140,28 +7234,11 @@
           return postingRowCache || [];
         }
         postingBusy = true;
-        showProgress("Loading postings", 8, "Matching SAP to quality checks");
-        await yieldUi();
         try {
-          refreshSapHits("");
-          const days = postingDaysFromAudit();
-          const out = [];
-          for (let i = 0; i < days.length; i++) {
-            appendPostingDay(out, days[i]);
-            if (i % 6 === 0 || i === days.length - 1) {
-              showProgress(
-                "Loading postings",
-                12 + Math.round((80 * (i + 1)) / Math.max(days.length, 1)),
-                `${out.length.toLocaleString()} postings`,
-              );
-              await yieldUi();
-            }
-          }
-          postingRowCache = out;
+          postingRowCache = buildPostingRowsSync();
           return postingRowCache;
         } finally {
           postingBusy = false;
-          hideProgress();
         }
       }
       function postingRows() {
@@ -7813,7 +7890,7 @@
       function itemWithTargets(item, mspec) {
         const id = String(item || "").trim();
         if (!id) return "";
-        const t = specTargetsText(mspec || mspecForItem(id));
+        const t = specTargetsText(mspec || "");
         return t ? `${id} (${t})` : id;
       }
       function isNoCheckPf(v) {
@@ -12409,7 +12486,7 @@
           const prevOnly =
             !dayRows.length &&
             sapHits.length &&
-            sapHits.every((h) => h.sapWhen === "prev");
+            (sapList || []).every((s) => s.hitWhen === "prev");
           const item = (sap && sap.item) || (g && g.item) || "";
           const mspec = g && g.mspec ? g.mspec : "";
           const desc =
@@ -13057,11 +13134,16 @@
         const prev = sapPrevYmd(entry.y, entry.m, entry.d);
         const same = sapHitsOnDay(entry, entry.y, entry.m, entry.d, line);
         const prior = sapHitsOnDay(entry, prev.y, prev.m, prev.d, line);
-        if (early && prior.length)
-          return prior.map((r) => Object.assign({ sapWhen: "prev" }, r));
-        if (same.length)
-          return same.map((r) => Object.assign({ sapWhen: "same" }, r));
-        return prior.map((r) => Object.assign({ sapWhen: "prev" }, r));
+        if (early && prior.length) {
+          entry.hitWhen = "prev";
+          return prior;
+        }
+        if (same.length) {
+          entry.hitWhen = "same";
+          return same;
+        }
+        entry.hitWhen = prior.length ? "prev" : "";
+        return prior;
       }
       function refreshSapHits(line) {
         if (!sapAudit) return;
@@ -13164,7 +13246,7 @@
       function sapCheckLabel(hits) {
         if (!hits || !hits.length) return { kind: "miss", text: "No check" };
         const { passed, failed, noCheck } = summarizeChecks(hits);
-        const prev = hits.some((h) => h.sapWhen === "prev");
+        const prev = hits.some((h) => h.sapWhen === "prev" || h.hitWhen === "prev");
         const times = uniqueSorted(
           hits
             .map((h) =>

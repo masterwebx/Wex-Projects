@@ -399,6 +399,7 @@
         var docsLoaded = false;
         var lastHomeHtml = "";
         var specHistoryLoaded = false;
+        var qdProf = { t0: 0, last: 0, flushed: 0, section: "", lines: [], io: { reads: 0, readMs: 0, writes: 0, writeMs: 0, remote: 0, slow: [] } };
         var lastResultsHtml = "";
         var specPaintTarget = null;
         var lastRadialKey = "";
@@ -527,6 +528,183 @@
             return dir;
         }
 
+        function profNow() {
+            return new Date().getTime();
+        }
+
+        function profLocalDir() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var sh, root = "", dir;
+            try {
+                sh = new ActiveXObject("WScript.Shell");
+                root = String(sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") || "");
+            } catch (e0) {}
+            if (!root || root.indexOf("%") >= 0) {
+                try { root = fso.GetSpecialFolder(2).Path; } catch (e1) { root = tempDir(); }
+            }
+            dir = fso.BuildPath(root, "QualityDesk");
+            if (!fso.FolderExists(dir)) fso.CreateFolder(dir);
+            return dir;
+        }
+
+        function profPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(profLocalDir(), "profile.txt");
+        }
+
+        function profPad(n) {
+            var s = String(Math.round(n == null ? 0 : n)) + " ms";
+            while (s.length < 8) s = " " + s;
+            return s;
+        }
+
+        function profEnsure() {
+            if (!qdProf.t0) {
+                qdProf.t0 = profNow();
+                qdProf.last = qdProf.t0;
+            }
+        }
+
+        function profAdd(name, ms) {
+            var now = profNow();
+            profEnsure();
+            if (ms == null) ms = now - qdProf.last;
+            qdProf.last = now;
+            qdProf.lines.push({ name: String(name || ""), step: ms, total: now - qdProf.t0, section: qdProf.section });
+        }
+
+        function profMark(name) {
+            profAdd(name);
+        }
+
+        function profRun(name, fn) {
+            var t = profNow(), out;
+            try { out = fn(); }
+            finally { profAdd(name, profNow() - t); }
+            return out;
+        }
+
+        function profSection(name) {
+            qdProf.section = name;
+            profEnsure();
+            qdProf.last = profNow();
+        }
+
+        function profRecent() {
+            var fso, p;
+            try {
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+                p = profPath();
+                if (!fso.FileExists(p)) return false;
+                return (profNow() - (+new Date(fso.GetFile(p).DateLastModified))) < 120000;
+            } catch (eR) { return false; }
+        }
+
+        function profHeader() {
+            var lines = [], sh, net, when;
+            when = new Date();
+            lines.push("Quality Desk profile v" + (QD && QD.VERSION ? QD.VERSION : "?"));
+            lines.push("When: " + when.toDateString() + " " + when.toTimeString());
+            try {
+                net = new ActiveXObject("WScript.Network");
+                lines.push("PC: " + net.ComputerName + "  user: " + net.UserName);
+            } catch (eN) {}
+            try { sh = new ActiveXObject("WScript.Shell"); lines.push("TEMP: " + sh.ExpandEnvironmentStrings("%TEMP%")); } catch (eT) {}
+            try { lines.push("HTA: " + htaFilePath()); } catch (eH) {}
+            try { lines.push("App folder: " + getAppFolder()); } catch (eA) {}
+            lines.push("QD_NET_HOME: " + (window.QD_NET_HOME || "(none)"));
+            lines.push("QD_RELEASE_CRYPT: " + (window.QD_RELEASE_CRYPT ? "1" : "0"));
+            try { lines.push("File: " + profPath()); } catch (eF) {}
+            lines.push("");
+            return lines.join("\r\n");
+        }
+
+        function profFormatFrom(from) {
+            var i, r, name, out = [];
+            for (i = from; i < qdProf.lines.length; i++) {
+                r = qdProf.lines[i];
+                name = r.name;
+                if (name.length > 46) name = name.substring(0, 46);
+                while (name.length < 46) name += " ";
+                out.push(profPad(r.step) + "  tot " + profPad(r.total) + "  " + name);
+            }
+            return out.join("\r\n");
+        }
+
+        function profNoteIo(op, path, ms) {
+            var io = qdProf.io, remote = false;
+            if (ms == null) return;
+            try { remote = pathIsRemote(path); } catch (eR) {}
+            if (op === "write") {
+                io.writes += 1;
+                io.writeMs += ms;
+            } else {
+                io.reads += 1;
+                io.readMs += ms;
+            }
+            if (remote) io.remote += 1;
+            if (ms >= 50) io.slow.push({ op: op, ms: ms, path: String(path || "") });
+        }
+
+        function profFlush(kind) {
+            var fso, path, ts, start, text, i, r, slow, io;
+            try {
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+                path = profPath();
+                start = qdProf.flushed || 0;
+                if (kind === "begin" && !profRecent()) {
+                    ts = fso.CreateTextFile(path, true);
+                    ts.Write(profHeader() + "\r\n");
+                    ts.Close();
+                    qdProf.flushed = 0;
+                    start = 0;
+                }
+                text = "";
+                if (kind === "section" && qdProf.section) text += "\r\n--- " + qdProf.section + " ---\r\n";
+                if (start < qdProf.lines.length) {
+                    text += profFormatFrom(start);
+                    if (text) text += "\r\n";
+                }
+                if (kind === "end") {
+                    io = qdProf.io;
+                    text += "I/O reads " + io.reads + " / " + Math.round(io.readMs) + " ms";
+                    text += "   writes " + io.writes + " / " + Math.round(io.writeMs) + " ms";
+                    text += "   remote " + io.remote + "\r\n";
+                    if (io.slow.length) {
+                        text += "Slow I/O (>=50ms):\r\n";
+                        for (i = 0; i < io.slow.length; i++) {
+                            r = io.slow[i];
+                            text += "  " + profPad(r.ms) + "  " + r.op + "  " + r.path + "\r\n";
+                        }
+                    }
+                    slow = [];
+                    for (i = 0; i < qdProf.lines.length; i++) {
+                        if (qdProf.lines[i].step >= 50) slow.push(qdProf.lines[i]);
+                    }
+                    slow.sort(function (a, b) { return b.step - a.step; });
+                    text += "\r\nSLOW STEPS (>=50ms):\r\n";
+                    if (!slow.length) text += "  (none)\r\n";
+                    for (i = 0; i < slow.length && i < 25; i++) text += "  " + profPad(slow[i].step) + "  " + slow[i].name + "\r\n";
+                    text += "TOTAL " + Math.round(profNow() - qdProf.t0) + " ms from first mark in this window\r\n";
+                    text += "Share this file: " + path + "\r\n";
+                }
+                if (!text) return path;
+                if (!fso.FileExists(path)) {
+                    ts = fso.CreateTextFile(path, true);
+                    ts.Write(profHeader() + "\r\n" + text);
+                    ts.Close();
+                } else {
+                    ts = fso.OpenTextFile(path, 8, true);
+                    ts.Write(text);
+                    ts.Close();
+                }
+                qdProf.flushed = qdProf.lines.length;
+                return path;
+            } catch (eP) {
+                return "";
+            }
+        }
+
         function tempFile(tag) {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             return fso.BuildPath(tempDir(), "qd-" + (tag || "tmp") + "-" + String((new Date()).getTime()) + "-" + String(Math.floor(Math.random() * 100000)) + ".tmp");
@@ -633,6 +811,7 @@
         function writeUtf8(path, text, plain) {
             var prev = peekAttrs(path);
             var body = text == null ? "" : String(text);
+            var t0 = profNow();
             if ((prev & 6) && fileExists(path)) revealFile(path);
             if (!plain && shouldSealPath(path) && QD && QD.seal) body = QD.seal(body);
             try {
@@ -650,6 +829,7 @@
             }
             if (prev & 6) restoreAttrs(path, prev);
             utfCache[path] = { mtime: fileMtime(path), text: text == null ? "" : String(text) };
+            profNoteIo("write", path, profNow() - t0);
         }
 
         function peekHead(path, n) {
@@ -670,11 +850,12 @@
         }
 
         function readUtf8(path, keepSealed) {
-            var mt, hit, prev, text, tmp;
+            var mt, hit, prev, text, tmp, t0;
             if (!fileExists(path)) return "";
             mt = fileMtime(path);
             hit = utfCache[path];
             if (!keepSealed && hit && hit.mtime === mt) return hit.text;
+            t0 = profNow();
             prev = peekAttrs(path);
             if (prev & 6) revealFile(path);
             text = "";
@@ -694,6 +875,7 @@
             text = QD.stripBom(text);
             if (!keepSealed && QD && QD.isSealed && QD.isSealed(text)) text = QD.unseal(text);
             if (!keepSealed) utfCache[path] = { mtime: mt, text: text };
+            profNoteIo("read", path, profNow() - t0);
             return text;
         }
 
@@ -1227,6 +1409,8 @@
                 }
             }
             showLoginFields();
+            profAdd("boot.loginFieldsShown");
+            try { dbg("profile: " + profFlush()); } catch (ePf) {}
             window.setTimeout(function () {
                 try {
                     if (aio.loaded && aio.items && aio.items.length && !fileExists(cachePath())) saveAioCache();
@@ -1253,7 +1437,10 @@
         function doLogin() {
             var name = QD.trim($("loginUser").value);
             var pass = $("loginPass").value;
+            profSection("login");
+            try { profFlush("section"); } catch (ePs) {}
             try { loadAuthUsers(); } catch (e0) {}
+            profAdd("login.findUser");
             var rec = QD.findUserRecord(authUsers, name);
             if (!rec) {
                 try { loadInbox(); } catch (eIn) {}
@@ -1282,7 +1469,7 @@
             touchSession();
             $("loginStatus").innerText = "";
             $("loginOverlay").className = "overlay login";
-            showApp();
+            profRun("login.showApp", function () { showApp(); });
             setStatus("Welcome, " + rec.name + ".");
             function finishLogin() {
                 hideWork();
@@ -1290,21 +1477,23 @@
                     $("pwOverlay").className = "overlay on";
                     $("pwTitle").innerText = "Set your password";
                 }
-                try { fillUsers(); } catch (eU) {}
-                try { renderLists(); } catch (e2) {}
-                try { setSite(currentSite, true); } catch (e3) {}
-                try { importHandoffIfPresent(true); } catch (eHandoff) {}
+                try { profRun("login.fillUsers", function () { fillUsers(); }); } catch (eU) {}
+                try { profRun("login.renderLists", function () { renderLists(); }); } catch (e2) {}
+                try { profRun("login.setSite", function () { setSite(currentSite, true); }); } catch (e3) {}
+                try { profRun("login.importHandoff", function () { importHandoffIfPresent(true); }); } catch (eHandoff) {}
                 audit("login", rec.name);
-                if (pendingForUser().length) goDocs(true);
-                else goHome();
+                if (pendingForUser().length) profRun("login.goDocs", function () { goDocs(true); });
+                else profRun("login.goHome", function () { goHome(); });
+                try { profFlush("end"); } catch (ePe) {}
             }
             if (aio.loaded) {
+                profAdd("login.aioAlreadyLoaded", 0);
                 finishLogin();
                 return;
             }
             showWork("Loading Quality Desk", "Reading lookup files…", 12);
             window.setTimeout(function () {
-                try { loadAio(false, false); } catch (e1) {
+                try { profRun("login.loadAio", function () { loadAio(false, false); }); } catch (e1) {
                     setStatus("Signed in, but lookup files could not be opened.\n" + e1.message, true);
                 }
                 finishLogin();
@@ -1851,26 +2040,28 @@
         function afterAioLoad(source, skipWrite, quiet) {
             if (!quiet) setWork("Merging local extras…", 55);
             if (!aio.warm) {
-                loadLocalExtras();
-                applyLocalSpecs();
-                seedSpecVersions(!!quiet);
+                profRun("aio.loadLocalExtras", function () { loadLocalExtras(); });
+                profRun("aio.applyLocalSpecs", function () { applyLocalSpecs(); });
+                profRun("aio.seedSpecVersions", function () { seedSpecVersions(!!quiet); });
+            } else {
+                profAdd("aio.warmSkipExtras", 0);
             }
-            loadSpecHistory();
+            profRun("aio.loadSpecHistory", function () { loadSpecHistory(); });
             aio.loaded = aio.items.length > 0 || aio.mspecs.length > 0 || aio.bubble.length > 0 || aio.p1.length > 0 || aio.rts.length > 0;
-            rebuildItemIndex();
+            profRun("aio.rebuildItemIndex", function () { rebuildItemIndex(); });
             if (!aio.warm) {
-                try { saveWarmLookup(); } catch (eW) {}
+                try { profRun("aio.saveWarmLookup", function () { saveWarmLookup(); }); } catch (eW) {}
             }
             if (!skipWrite) {
                 if (!quiet) setWork("Writing lookup files…", 75);
-                writeLookupFile();
-                ensureLineFiles();
-                try { publishSapCsv(); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
-                writeManifest();
+                profRun("aio.writeLookupFile", function () { writeLookupFile(); });
+                profRun("aio.ensureLineFiles", function () { ensureLineFiles(); });
+                try { profRun("aio.publishSapCsv", function () { publishSapCsv(); }); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
+                profRun("aio.writeManifest", function () { writeManifest(); });
             } else {
-                ensureLineFiles();
+                profRun("aio.ensureLineFiles", function () { ensureLineFiles(); });
             }
-            exposeResultsJs();
+            profRun("aio.exposeResultsJs", function () { exposeResultsJs(); });
             if (!quiet) {
                 fillUsers();
                 renderCurrentTab();
@@ -1891,15 +2082,15 @@
                 } catch (e0) {}
                 clearWarmLookup();
             }
-            if (!force && loadWarmLookup()) {
+            if (!force && profRun("aio.loadWarmLookup", function () { return loadWarmLookup(); })) {
                 afterAioLoad("Loaded specs from memory cache (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + (aio.path || ""), true, quiet);
                 return true;
             }
-            if (!force && loadAioCache()) {
+            if (!force && profRun("aio.loadAioCache", function () { return loadAioCache(); })) {
                 afterAioLoad("Loaded specs from cache (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + (aio.path || ""), true, quiet);
                 return true;
             }
-            var csv = loadAioCsv();
+            var csv = profRun("aio.loadAioCsv", function () { return loadAioCsv(); });
             if (csv && (csv.items.length || csv.mspecs.length || csv.users.length || csv.bubble.length || csv.p1.length || csv.rts.length)) {
                 aio.items = csv.items;
                 aio.mspecs = csv.mspecs;
@@ -6664,11 +6855,16 @@ function openHistEdit(file, idx) {
         }
 
         window.onload = function () {
+            profSection("startup");
+            try { profFlush("begin"); } catch (ePb) {}
             if (!claimHtaInstance()) return;
+            profAdd("onload.claimHtaInstance");
             maximizeWindow();
             hideApp("");
             hideLoginFields();
             $("loginStatus").innerText = "Starting Quality Desk…";
+            profAdd("onload.chrome");
+            try { profFlush(); } catch (ePf) {}
             window.setTimeout(bootDesk, 0);
         };
         window.onfocus = function () {
@@ -6707,11 +6903,39 @@ function openHistEdit(file, idx) {
 
         function bootDesk() {
             var steps = [
-                function () { setBoot("Sealing local files…", 10); sealLegacyPlainFiles(); loadAuthUsers(); },
-                function () { setBoot("Reading lookup files…", 32); loadAio(false, true); },
-                function () { setBoot("Loading desk files…", 58); loadProfiles(); loadInbox(); loadAudit(); },
-                function () { setBoot("Preparing forms…", 78); fillPlantChecks("newUserPlantBox", "VISALIA"); fillLineChecks("newUserLineBox", "VISALIA", "*"); fillDocLineChecks("*"); fillDocCheckLinkSelect(); syncDocTypeFields(); fillMspecFilterBy(); fillItemFilterBy(); },
-                function () { setBoot("Finishing…", 92); try { publishSapCsv(); } catch (eSap) {} try { importHandoffIfPresent(true); } catch (eH) {} bindFormWatch(); setLine("S4"); startHandoffWatch(); }
+                function () {
+                    setBoot("Sealing local files…", 10);
+                    profRun("boot.sealLegacyPlainFiles", function () { sealLegacyPlainFiles(); });
+                    profRun("boot.loadAuthUsers", function () { loadAuthUsers(); });
+                },
+                function () {
+                    setBoot("Reading lookup files…", 32);
+                    profRun("boot.loadAio", function () { loadAio(false, true); });
+                },
+                function () {
+                    setBoot("Loading desk files…", 58);
+                    profRun("boot.loadProfiles", function () { loadProfiles(); });
+                    profRun("boot.loadInbox", function () { loadInbox(); });
+                    profRun("boot.loadAudit", function () { loadAudit(); });
+                },
+                function () {
+                    setBoot("Preparing forms…", 78);
+                    profRun("boot.prepareForms", function () {
+                        fillPlantChecks("newUserPlantBox", "VISALIA");
+                        fillLineChecks("newUserLineBox", "VISALIA", "*");
+                        fillDocLineChecks("*");
+                        fillDocCheckLinkSelect();
+                        syncDocTypeFields();
+                        fillMspecFilterBy();
+                        fillItemFilterBy();
+                    });
+                },
+                function () {
+                    setBoot("Finishing…", 92);
+                    try { profRun("boot.publishSapCsv", function () { publishSapCsv(); }); } catch (eSap) {}
+                    try { profRun("boot.importHandoff", function () { importHandoffIfPresent(true); }); } catch (eH) {}
+                    profRun("boot.bindForm", function () { bindFormWatch(); setLine("S4"); startHandoffWatch(); });
+                }
             ];
             var i = 0;
             function next() {
@@ -6722,9 +6946,11 @@ function openHistEdit(file, idx) {
                 }
                 try { steps[i](); } catch (eBoot) { dbg("boot " + i + ": " + eBoot.message); }
                 i += 1;
+                try { profFlush(); } catch (ePf) {}
                 window.setTimeout(next, 0);
             }
             setBoot("Starting Quality Desk…", 4);
+            profAdd("boot.deskStart");
             window.setTimeout(next, 0);
         }
         window.onerror = function (msg, url, line, col, err) {
@@ -6750,7 +6976,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.75</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.76</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

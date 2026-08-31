@@ -2,25 +2,21 @@
 Quality AIO.xlsm
 Quality_AIO.xlsm
 Quality AIO.xlsx
-results/*.js
-results/*.dat
-results/*.txt
-results/users.dat
-!results/.gitkeep
-aio-csv/*.csv
+
+# Sensitive plant data (CSVs, results JS/dat, SAP exports)
+aio-csv/
 !aio-csv/.gitkeep
+results/
+!results/.gitkeep
 BubbleSpecs.csv
 Bubble Specs.csv
-aio-csv/BubbleSpecs.csv
 edge-profile/
 
 # Floor release runtime (keep the encoded HTA)
-release/results/*.js
-release/results/*.dat
-release/results/*.txt
+release/results/
 !release/results/.gitkeep
-
+release/aio-csv/
+!release/aio-csv/.gitkeep
 
 tools/_screnc_extract/
 tools/sce10en.exe
-

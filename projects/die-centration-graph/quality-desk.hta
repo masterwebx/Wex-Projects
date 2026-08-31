@@ -229,6 +229,45 @@
         .hist-grid tr.hist-row-over td:first-child { border-left-width: 6px; }
         .hist-line-tabs { margin: 0 0 10px; }
         .hist-more { padding: 8px; color: #9ca3af; font-size: 12px; }
+        .req { color: #f87171; font-weight: 800; margin-left: 2px; }
+        .req-note { margin: 10px 0 0; font-size: 12px; color: #9ca3af; }
+        .coex-grid { width: 100%; border-collapse: collapse; margin: 8px 0 12px; table-layout: fixed; }
+        .coex-grid th, .coex-grid td { border: 1px solid #2a2f36; padding: 4px 6px; vertical-align: middle; }
+        .coex-grid th { background: #111827; text-align: center; font-size: 12px; }
+        .coex-grid td.lbl { width: 9em; color: #9ca3af; font-size: 12px; font-weight: 700; white-space: nowrap; }
+        .coex-grid input { width: 100%; box-sizing: border-box; padding: 6px; font-size: 13px; margin: 0; }
+        table.specs input, .hist-edit-grid input {
+            width: 100%; max-width: 4.6em; box-sizing: border-box; padding: 3px 4px; font-size: 12px; margin: 0;
+        }
+        table.specs input.wide, .hist-edit-grid input.wide { max-width: 8.5em; }
+        table.specs input.struct { max-width: 4.5em; width: 4.5em; }
+        table.specs th.struct, table.specs td.struct { width: 5em; max-width: 5em; }
+        table.specs th.ver, table.specs td.ver { width: 4em; text-align: center; white-space: nowrap; }
+        table.list input.cell, table.specs input.cell, .hist-grid input.cell {
+            width: 100%; max-width: 7.5em; box-sizing: border-box; padding: 2px 4px; font-size: 12px; margin: 0;
+        }
+        table.list input.cell.wide, table.specs input.cell.wide { max-width: 14em; }
+        table.specs.editing input.cell, table.list.editing input.cell, .hist-grid.editing input.cell {
+            max-width: none; min-width: 5.5em; width: 100%;
+        }
+        table.specs.editing input.cell.wide, table.list.editing input.cell.wide { min-width: 12em; }
+        .home-section { margin: 0 0 18px; }
+        .home-section h3 { margin: 0 0 10px; font-size: 15px; color: #9ca3af; font-weight: 700; }
+        body.light .home-section h3 { color: #4b5563; }
+        .edit-toolbar { margin: 0 0 10px; }
+        .edit-toolbar .muted { margin-left: 8px; font-size: 12px; }
+        .profile-scroll, .hist-scroll { overflow-x: auto; max-width: 100%; }
+        .hist-edit-grid { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .hist-edit-grid th, .hist-edit-grid td { border: 1px solid #2a2f36; padding: 4px 6px; vertical-align: top; }
+        .hist-edit-grid th { background: #1f2937; color: #9ca3af; text-align: left; white-space: nowrap; width: 11em; }
+        .hist-edit-grid input { max-width: none; }
+        .hist-grid th.hist-act, .hist-grid td.hist-act {
+            position: sticky; right: 0; background: #1a1a1a; z-index: 2; white-space: nowrap; text-align: right;
+        }
+        body.light .hist-grid th.hist-act, body.light .hist-grid td.hist-act { background: #fff; }
+        body.light .req { color: #dc2626; }
+        body.light .coex-grid th { background: #e5e7eb; color: #374151; }
+        body.light .coex-grid th, body.light .coex-grid td, body.light .hist-edit-grid th, body.light .hist-edit-grid td { border-color: #e5e7eb; }
 
         html.qd-app.light, body.qd-app.light, body.light { background: #e8edf3; color: #111827; }
         body.qd-app.light #appRoot, body.light #appRoot { background: #e8edf3; }
@@ -319,8 +358,21 @@
         var handoffTimer = null;
         var handoffBusy = false;
         var histEdit = { file: "", idx: -1 };
-        var histState = { file: "", filtered: [], shown: 0, page: 80 };
-        var profilesStore = { VISALIA: { COEX: { structures: [] } }, GARLAND: { COEX: { structures: [] } } };
+        var histState = { file: "", filtered: [], shown: 0, page: 80, cols: [] };
+        var itemModalEditing = false;
+        var profileEditMode = false;
+        var profileDirty = false;
+        var profileLineTab = "";
+        var mspecEditMode = false;
+        var mspecDirty = false;
+        var mspecEditSnapshot = null;
+        var itemEditMode = false;
+        var itemDirty = false;
+        var itemEditSnapshot = null;
+        var histEditMode = false;
+        var histDirty = false;
+        var profileEditSnapshot = null;
+        var profilesStore = { VISALIA: {}, GARLAND: {} };
         var specTab = 'foam';
         var session = { user: '', admin: false, last: 0, rec: null };
         var authUsers = [];
@@ -613,8 +665,88 @@
         function startIdleWatch() {
             if (idleTimer) window.clearInterval(idleTimer);
             idleTimer = window.setInterval(checkIdle, 30000);
-            document.onkeydown = touchCheckActivity;
+            document.onkeydown = function (ev) {
+                touchCheckActivity(ev);
+                handleFieldArrowNav(ev);
+            };
             document.onclick = touchCheckActivity;
+        }
+
+        function visibleNavFields() {
+            var nodes = document.getElementsByTagName("*"), out = [], i, el, tag, typ;
+            for (i = 0; i < nodes.length; i++) {
+                el = nodes[i];
+                tag = String(el.tagName || "").toUpperCase();
+                if (tag !== "INPUT" && tag !== "SELECT" && tag !== "TEXTAREA") continue;
+                if (el.disabled) continue;
+                typ = String(el.type || "").toLowerCase();
+                if (tag === "INPUT" && (typ === "hidden" || typ === "button" || typ === "submit" || typ === "checkbox" || typ === "radio" || typ === "file")) continue;
+                if (el.offsetWidth === 0 && el.offsetHeight === 0) continue;
+                out.push(el);
+            }
+            return out;
+        }
+
+        function handleFieldArrowNav(ev) {
+            ev = ev || window.event;
+            var kc = ev.keyCode || ev.which;
+            if (kc !== 37 && kc !== 38 && kc !== 39 && kc !== 40) return;
+            var t = ev.srcElement || ev.target;
+            if (!t || !t.tagName) return;
+            var tag = String(t.tagName).toUpperCase();
+            if (tag !== "INPUT" && tag !== "SELECT" && tag !== "TEXTAREA") return;
+            if (tag === "TEXTAREA") return;
+            if ((kc === 37 || kc === 39) && tag === "INPUT") {
+                try {
+                    var start = t.selectionStart, endSel = t.selectionEnd, len = String(t.value || "").length;
+                    if (start != null && endSel != null && start === endSel) {
+                        if (kc === 37 && start > 0) return;
+                        if (kc === 39 && start < len) return;
+                    }
+                } catch (eCaret) {}
+            }
+            var fields = visibleNavFields(), idx = -1, i, next;
+            for (i = 0; i < fields.length; i++) {
+                if (fields[i] === t) { idx = i; break; }
+            }
+            if (idx < 0) return;
+            next = (kc === 40 || kc === 39) ? fields[idx + 1] : fields[idx - 1];
+            if (!next) return;
+            if (ev.preventDefault) ev.preventDefault();
+            ev.returnValue = false;
+            try {
+                next.focus();
+                if (next.select && String(next.tagName).toUpperCase() === "INPUT") next.select();
+            } catch (eNav) {}
+        }
+
+        function isThicknessPointInput(el) {
+            if (!el || !el.id) return false;
+            return /^(s4t|s1t|pht|ptt|rt)\d+$/i.test(el.id);
+        }
+
+        function normalizeThicknessField(el) {
+            if (!el || !isThicknessPointInput(el) || !QD.normalizeThicknessEntry) return;
+            var next = QD.normalizeThicknessEntry(el.value);
+            if (String(next) !== String(el.value)) {
+                el.value = next;
+                try { scheduleCompute(); } catch (e1) { try { compute(); } catch (e2) {} }
+            }
+        }
+
+        function bindThicknessConverters() {
+            var ids = [], i, el, n;
+            for (n = 1; n <= 13; n++) { ids.push("s4t" + n); ids.push("s1t" + n); }
+            for (n = 1; n <= 12; n++) { ids.push("pht" + n); ids.push("ptt" + n); }
+            ids.push("rt1"); ids.push("rt2"); ids.push("rt3");
+            for (i = 0; i < ids.length; i++) {
+                el = $(ids[i]);
+                if (!el || el.getAttribute("data-thk") === "1") continue;
+                el.setAttribute("data-thk", "1");
+                el.onblur = (function (node) {
+                    return function () { normalizeThicknessField(node); };
+                })(el);
+            }
         }
 
         function themePath() {
@@ -1704,9 +1836,8 @@
 
         function pendingForUser() {
             loadDocs();
-            var labels = [], ids = assignedLineIds(), i;
-            for (i = 0; i < ids.length; i++) labels.push(QD.lineLabel(ids[i], currentSite));
-            return QD.pendingDocs(docsStore.docs, docsStore.acks, session.user, labels.concat(ids));
+            /* Use line ids only — Garland COEX (G-COEX) must not match Visalia COEX docs via the shared "COEX" label. */
+            return QD.pendingDocs(docsStore.docs, docsStore.acks, session.user, assignedLineIds());
         }
 
         function docsLocked() {
@@ -1735,11 +1866,29 @@
             return rows.length ? rows[rows.length - 1] : null;
         }
 
+        function ensureCurrentLineForSite() {
+            var info = QD.lineInfo(currentLine, currentSite);
+            var list, i;
+            if (info) {
+                currentLine = info.id;
+                return;
+            }
+            list = QD.linesForSite(currentSite) || [];
+            for (i = 0; i < list.length; i++) {
+                if (QD.userCanSeeLine(sessionUser(), list[i].id, currentSite)) {
+                    currentLine = list[i].id;
+                    return;
+                }
+            }
+            currentLine = list.length ? list[0].id : (currentSite === "GARLAND" ? "G-COEX" : "COEX");
+        }
+
         function setSite(site, force) {
             var sit = String(site || 'VISALIA').toUpperCase();
             if (!QD.userCanSeeSite(sessionUser(), sit) && !force) return;
             if (!force && !confirmLeaveCheck()) return;
             currentSite = sit;
+            ensureCurrentLineForSite();
             if ($("plantSwitchBtn")) {
                 $("plantSwitchBtn").style.display = (QD.userCanSeeSite(sessionUser(), "VISALIA") && QD.userCanSeeSite(sessionUser(), "GARLAND")) ? "" : "none";
             }
@@ -1899,11 +2048,22 @@
                 html += " <select id='su_" + row.id + "' onchange='startupChanged()'><option value=''></option><option value='PASS'>Pass</option><option value='FAIL'>Fail</option></select></label>";
             }
             if (includeCoex) {
-                html += "<h3>COEX speeds for new bubble type</h3><p class='muted'>Enter line and extruder speeds for " + esc(it && it.bubbleType ? it.bubbleType : "this bubble") + ".</p>";
-                for (i = 0; i < QD.COEX_CHANGEOVER_FIELDS.length; i++) {
-                    row = QD.COEX_CHANGEOVER_FIELDS[i];
-                    html += "<label class='f'>" + esc(row.text) + " <input id='su_" + row.id + "' onkeyup='startupChanged()'></label>";
-                }
+                html += "<h3>COEX speeds for new bubble type</h3><p class='muted'>Enter line speed and Extruder A/B/C speeds for " + esc(it && it.bubbleType ? it.bubbleType : "this bubble") + ".</p>";
+                html += "<label class='f'>Line speed <input id='su_lineSpeed' onkeyup='startupChanged()'></label>";
+                html += "<table class='coex-grid'><thead><tr><th></th><th>Extruder A</th><th>Extruder B</th><th>Extruder C</th></tr></thead><tbody>";
+                html += "<tr><td class='lbl'>Extruder Speed</td>";
+                html += "<td><input id='su_A_speed' onkeyup='startupChanged()'></td>";
+                html += "<td><input id='su_B_speed' onkeyup='startupChanged()'></td>";
+                html += "<td><input id='su_C_speed' onkeyup='startupChanged()'></td></tr>";
+                html += "<tr><td class='lbl'>Melt Pump 1 speed</td>";
+                html += "<td><input id='su_A_meltPump1' onkeyup='startupChanged()'></td>";
+                html += "<td><input id='su_B_meltPump1' onkeyup='startupChanged()'></td>";
+                html += "<td><input id='su_C_meltPump1' onkeyup='startupChanged()'></td></tr>";
+                html += "<tr><td class='lbl'>Melt Pump 2 speed</td>";
+                html += "<td><input id='su_A_meltPump2' onkeyup='startupChanged()'></td>";
+                html += "<td><input id='su_B_meltPump2' onkeyup='startupChanged()'></td>";
+                html += "<td><input id='su_C_meltPump2' onkeyup='startupChanged()'></td></tr>";
+                html += "</tbody></table>";
             }
             html += "<button type='button' class='ok' id='startupNext' disabled onclick='finishStartup()'>Continue to check</button>";
             $("startupBox").innerHTML = html;
@@ -2105,14 +2265,22 @@
         function renderHome() {
             var box = $("homeLines");
             if (!box) return;
-            var list = QD.linesForSite(currentSite);
-            var html = "", i, info, last, tone;
-            for (i = 0; i < list.length; i++) {
-                info = list[i];
-                if (!QD.userCanSeeLine(sessionUser(), info.id, currentSite)) continue;
-                last = lastRowFor(info.id);
-                tone = QD.homeStatusTone(last);
-                html += "<div class='home-line tone-" + tone + "' onclick=\"openLine('" + info.id + "')\"><h3>" + esc(info.label) + "</h3><p>" + esc(QD.lastCheckLabel(last)) + "</p></div>";
+            var list = QD.linesForSite(currentSite) || [];
+            var groups = QD.HOME_GROUPS || [];
+            var html = "", g, i, info, last, tone, section, shown;
+            for (g = 0; g < groups.length; g++) {
+                section = "";
+                shown = 0;
+                for (i = 0; i < list.length; i++) {
+                    info = list[i];
+                    if ((info.homeGroup || "") !== groups[g].id) continue;
+                    if (!QD.userCanSeeLine(sessionUser(), info.id, currentSite)) continue;
+                    last = lastRowFor(info.id);
+                    tone = QD.homeStatusTone(last);
+                    section += "<div class='home-line tone-" + tone + "' onclick=\"openLine('" + info.id + "')\"><h3>" + esc(info.label) + "</h3><p>" + esc(QD.lastCheckLabel(last)) + "</p></div>";
+                    shown += 1;
+                }
+                if (shown) html += "<div class='home-section'><h3>" + esc(groups[g].title) + "</h3>" + section + "</div>";
             }
             if (!html) html = "<p class='muted'>No lines assigned to you at this plant.</p>";
             if (html === lastHomeHtml) return;
@@ -2528,8 +2696,8 @@
                 "Perf Strength Left": "bperfLeft",
                 "Perf Strength Right": "bperfRight",
                 "Delam Check": "bdelam",
-                "Production #": "bprod",
-                "Roll #": "broll",
+                "Work Order #": "bprod",
+                "Bundle #": "broll",
                 "Color": "bcolor",
                 "Weight (g)": "s4weight",
                 "Sheet Length": "s4sheet",
@@ -2656,6 +2824,16 @@
         function syncSubmitBtn() {
             var btn = $("submitBtn");
             if (!btn) return;
+            if (currentScreen !== "nocheck" && currentScreen !== "lineup" && currentScreen !== "checkform") {
+                btn.className = "ghost";
+                btn.setAttribute("data-ready", "0");
+                return;
+            }
+            if (!QD.lineInfo(currentLine, currentSite)) {
+                btn.className = "ghost";
+                btn.setAttribute("data-ready", "0");
+                return;
+            }
             var info = missingFieldIds();
             var ready = info.miss.length === 0;
             btn.className = ready ? "ok" : "ghost";
@@ -2695,6 +2873,12 @@
             }, 120);
         }
 
+        function clearListFilter(id, fn) {
+            if (listTimer) { window.clearTimeout(listTimer); listTimer = null; }
+            if ($(id)) $(id).value = "";
+            if (typeof fn === "function") fn();
+        }
+
         function bindFormWatch() {
             var root = $("tabChecks");
             if (!root || root.getAttribute("data-watch") === "1") return;
@@ -2703,12 +2887,48 @@
             root.onchange = function () { scheduleCompute(); scheduleSubmit(); };
         }
 
+        function syncEditToolbars() {
+            if ($("mspecEditBtn")) $("mspecEditBtn").style.display = mspecEditMode ? "none" : "";
+            if ($("mspecSaveBtn")) $("mspecSaveBtn").style.display = (mspecEditMode && mspecDirty) ? "" : "none";
+            if ($("mspecCancelBtn")) $("mspecCancelBtn").style.display = mspecEditMode ? "" : "none";
+            if ($("itemEditBtn")) $("itemEditBtn").style.display = itemEditMode ? "none" : "";
+            if ($("itemSaveBtn")) $("itemSaveBtn").style.display = (itemEditMode && itemDirty) ? "" : "none";
+            if ($("itemCancelBtn")) $("itemCancelBtn").style.display = itemEditMode ? "" : "none";
+            if ($("histEditBtn")) $("histEditBtn").style.display = histEditMode ? "none" : "";
+            if ($("histSaveBtn")) $("histSaveBtn").style.display = (histEditMode && histDirty) ? "" : "none";
+            if ($("histCancelBtn")) $("histCancelBtn").style.display = histEditMode ? "" : "none";
+        }
+
+        function exitAllEditModes() {
+            if (profileEditMode) cancelProfileEditMode(true);
+            if (mspecEditMode) {
+                if (mspecEditSnapshot) {
+                    try {
+                        aio.mspecs = mspecEditSnapshot.mspecs;
+                        aio.bubble = mspecEditSnapshot.bubble;
+                        aio.p1 = mspecEditSnapshot.p1;
+                        aio.rts = mspecEditSnapshot.rts;
+                    } catch (eM) {}
+                }
+                mspecEditMode = false; mspecDirty = false; mspecEditSnapshot = null;
+            }
+            if (itemEditMode) {
+                if (itemEditSnapshot) {
+                    try { aio.items = itemEditSnapshot; } catch (eI) {}
+                }
+                itemEditMode = false; itemDirty = false; itemEditSnapshot = null;
+            }
+            if (histEditMode) { histEditMode = false; histDirty = false; }
+            syncEditToolbars();
+        }
+
         function showTab(id) {
             if (id !== currentTab && !confirmLeaveCheck()) return;
             if (docsLocked() && id !== "docs") {
                 leaveGuarded(function () { goDocs(true); });
                 return;
             }
+            if (id !== currentTab) exitAllEditModes();
             currentTab = id;
             var i, tabs = $("mainTabs").getElementsByTagName("button"), tab;
             for (i = 0; i < tabs.length; i++) {
@@ -2749,9 +2969,205 @@
         }
 
         function editBtn(kind, key) {
-            if (!isAdmin()) return "";
-            return "<button type='button' onclick=\"openSpecEdit('" + esc(kind) + "','" + String(key).replace(/'/g, "") + "')\">Edit</button>";
+            return "";
         }
+
+        function markMspecDirty() {
+            mspecDirty = true;
+            if ($("mspecSaveBtn") && mspecEditMode) $("mspecSaveBtn").style.display = "";
+        }
+
+        function markItemDirty() {
+            itemDirty = true;
+            if ($("itemSaveBtn") && itemEditMode) $("itemSaveBtn").style.display = "";
+        }
+
+        function mspecCell(kind, key, field, value, editing) {
+            if (!editing) return esc(value == null ? "" : value);
+            return "<input class='cell' data-mk='" + esc(kind) + "' data-mid='" + String(key).replace(/'/g, "") + "' data-mf='" + String(field).replace(/'/g, "") + "' value='" + esc(value == null ? "" : value) + "' oninput='markMspecDirty()'>";
+        }
+
+        function itemCell(item, field, value, editing, wide) {
+            if (!editing) return esc(value == null ? "" : value);
+            return "<input class='cell" + (wide ? " wide" : "") + "' data-ii='" + String(item).replace(/'/g, "") + "' data-if='" + String(field).replace(/'/g, "") + "' value='" + esc(value == null ? "" : value) + "' oninput='markItemDirty()'>";
+        }
+
+        function setMspecEditMode(on) {
+            if (on && !requireAdmin()) return;
+            if (!on && mspecDirty && !confirm("Discard unsaved MSPEC edits?")) return;
+            if (on) {
+                mspecEditSnapshot = {
+                    mspecs: JSON.parse(JSON.stringify(aio.mspecs || [])),
+                    bubble: JSON.parse(JSON.stringify(aio.bubble || [])),
+                    p1: JSON.parse(JSON.stringify(aio.p1 || [])),
+                    rts: JSON.parse(JSON.stringify(aio.rts || []))
+                };
+            } else if (mspecEditSnapshot) {
+                aio.mspecs = mspecEditSnapshot.mspecs;
+                aio.bubble = mspecEditSnapshot.bubble;
+                aio.p1 = mspecEditSnapshot.p1;
+                aio.rts = mspecEditSnapshot.rts;
+                mspecEditSnapshot = null;
+            }
+            mspecEditMode = !!on;
+            mspecDirty = false;
+            syncEditToolbars();
+            renderMspecTable();
+        }
+
+        function setItemEditMode(on) {
+            if (on && !requireAdmin()) return;
+            if (!on && itemDirty && !confirm("Discard unsaved item edits?")) return;
+            if (on) {
+                itemEditSnapshot = JSON.parse(JSON.stringify(aio.items || []));
+            } else if (itemEditSnapshot) {
+                aio.items = itemEditSnapshot;
+                itemEditSnapshot = null;
+            }
+            itemEditMode = !!on;
+            itemDirty = false;
+            syncEditToolbars();
+            renderItemTable();
+        }
+
+        function saveMspecEdits() {
+            if (!requireAdmin() || !mspecEditMode) return;
+            if (!mspecDirty) { alert("No changes to save."); return; }
+            var why = QD.trim(window.prompt("Why are you changing these specs? (required)", "") || "");
+            if (!why) { alert("Explain why these specs are changing."); return; }
+            var table = $("mspecTable");
+            if (!table) return;
+            var inputs = table.getElementsByTagName("input"), i, el, kind, key, field, row, before, after, changed = 0, touched = {};
+            var groups = {};
+            for (i = 0; i < inputs.length; i++) {
+                el = inputs[i];
+                kind = el.getAttribute("data-mk");
+                key = el.getAttribute("data-mid");
+                field = el.getAttribute("data-mf");
+                if (!kind || !key || !field) continue;
+                if (!groups[kind + "||" + key]) groups[kind + "||" + key] = { kind: kind, key: key, fields: {} };
+                groups[kind + "||" + key].fields[field] = el.value;
+            }
+            for (i in groups) {
+                if (!groups.hasOwnProperty(i)) continue;
+                kind = groups[i].kind; key = groups[i].key;
+                row = findSpecRow(kind, key);
+                if (!row) continue;
+                before = JSON.parse(JSON.stringify(row));
+                after = {};
+                var f, dirty = false;
+                for (f in groups[i].fields) {
+                    if (!groups[i].fields.hasOwnProperty(f)) continue;
+                    if (String(row[f] == null ? "" : row[f]) !== String(groups[i].fields[f])) dirty = true;
+                    row[f] = groups[i].fields[f];
+                    after[f] = row[f];
+                }
+                if (!dirty) continue;
+                QD.ensureSpecVersion(row);
+                row.version = QD.bumpSpecVersion(row.version);
+                after.version = row.version;
+                addHistory(kind, key, why, before, after);
+                audit("spec-edit", kind + " " + key + " v" + row.version);
+                changed += 1;
+            }
+            var bpInputs = table.getElementsByTagName("input"), bpi, bpel, bpKey, bpField, bpRow, bpSt, bpParts, bpCur, bpPi, bpChanged = 0;
+            for (bpi = 0; bpi < bpInputs.length; bpi++) {
+                bpel = bpInputs[bpi];
+                bpKey = bpel.getAttribute("data-bp");
+                bpField = bpel.getAttribute("data-bpf");
+                if (!bpKey || !bpField) continue;
+                bpRow = findSpecRow("bubble", bpKey);
+                if (!bpRow) continue;
+                bpSt = ensureBubbleProfile(bpRow);
+                bpParts = String(bpField).split(".");
+                bpCur = bpSt;
+                for (bpPi = 0; bpPi < bpParts.length - 1; bpPi++) {
+                    if (!bpCur[bpParts[bpPi]]) bpCur[bpParts[bpPi]] = {};
+                    bpCur = bpCur[bpParts[bpPi]];
+                }
+                if (String(bpCur[bpParts[bpParts.length - 1]] == null ? "" : bpCur[bpParts[bpParts.length - 1]]) !== String(bpel.value)) {
+                    bpCur[bpParts[bpParts.length - 1]] = bpel.value;
+                    bpChanged += 1;
+                }
+            }
+            if (bpChanged) {
+                saveProfiles();
+                try { audit("profile-edit", "bubble MSPEC profile fields x" + bpChanged); } catch (eAud) {}
+                changed += bpChanged;
+            }
+            if (changed) saveLocalSpecs();
+            mspecEditMode = false;
+            mspecDirty = false;
+            mspecEditSnapshot = null;
+            syncEditToolbars();
+            renderMspecTable();
+            setStatus(changed ? ("Saved " + changed + " MSPEC change(s).") : "No field values changed.");
+        }
+
+        function saveItemEdits() {
+            if (!requireAdmin() || !itemEditMode) return;
+            if (!itemDirty) { alert("No changes to save."); return; }
+            var why = QD.trim(window.prompt("Why are you changing these items? (required)", "") || "");
+            if (!why) { alert("Explain why these items are changing."); return; }
+            var table = $("itemTable");
+            if (!table) return;
+            var inputs = table.getElementsByTagName("input"), i, el, item, field, groups = {}, it, before, after, changed = 0, f, dirty, parts;
+            for (i = 0; i < inputs.length; i++) {
+                el = inputs[i];
+                item = el.getAttribute("data-ii");
+                field = el.getAttribute("data-if");
+                if (!item || !field) continue;
+                if (!groups[item]) groups[item] = {};
+                groups[item][field] = el.value;
+            }
+            for (item in groups) {
+                if (!groups.hasOwnProperty(item)) continue;
+                it = QD.findItem(aio.items, item);
+                if (!it) continue;
+                before = JSON.parse(JSON.stringify(it));
+                dirty = false;
+                for (f in groups[item]) {
+                    if (!groups[item].hasOwnProperty(f)) continue;
+                    if (f === "parents") {
+                        parts = String(groups[item][f] || "").split(",");
+                        var cleaned = [], p;
+                        for (p = 0; p < parts.length; p++) {
+                            var t = QD.trim(parts[p]);
+                            if (t) cleaned.push(t);
+                        }
+                        var oldP = (it.parents && it.parents.length) ? it.parents.join(", ") : (it.parent || "");
+                        var newP = cleaned.join(", ");
+                        if (QD.trim(oldP) !== QD.trim(newP)) dirty = true;
+                        it.parents = cleaned;
+                        it.parent = cleaned.length ? cleaned[0] : "";
+                    } else {
+                        if (String(it[f] == null ? "" : it[f]) !== String(groups[item][f])) dirty = true;
+                        it[f] = groups[item][f];
+                    }
+                }
+                if (!dirty) continue;
+                it.local = true;
+                QD.ensureSpecVersion(it);
+                it.version = QD.bumpSpecVersion(it.version || "1.0.0");
+                after = JSON.parse(JSON.stringify(it));
+                addHistory("item", item, why, before, after);
+                audit("item-edit", item + " v" + it.version);
+                changed += 1;
+            }
+            if (changed) {
+                aio.items = QD.mergeItems(aio.items, []);
+                rebuildItemIndex();
+                saveLocalItems();
+            }
+            itemEditMode = false;
+            itemDirty = false;
+            itemEditSnapshot = null;
+            syncEditToolbars();
+            renderItemTable();
+            setStatus(changed ? ("Saved " + changed + " item change(s).") : "No field values changed.");
+        }
+
+
 
         function itemFilterMatch(it, q, by) {
             if (!q) return true;
@@ -2876,52 +3292,114 @@
                 }
             }
             if (currentSite === "GARLAND") specTab = "bubble";
+            if ($("mspecProfileExtra")) $("mspecProfileExtra").style.display = (specTab === "bubble") ? "" : "none";
             if (specTab === "bubble") return renderBubbleTable();
             if (specTab === "p1") return renderP1Table();
             if (specTab === "rts") return renderRtsTable();
             var q = QD.trim(($("mspecFilter") && $("mspecFilter").value) || "").toLowerCase();
             var by = ($("mspecFilterBy") && $("mspecFilterBy").value) || "MSPEC";
             var html = "<thead><tr>";
+            html += "<th class='group' colspan='12'>Quality Specs</th><th rowspan='3'></th></tr><tr>";
             html += "<th class='mspec' rowspan='2'>MSPEC</th><th rowspan='2'>AF#</th><th rowspan='2'>Ver</th>";
             html += "<th class='group' colspan='3'>Gauge</th><th rowspan='2'>Range</th>";
-            html += "<th class='group' colspan='2'>Cell</th><th class='group' colspan='3'>Density</th>";
-            html += "<th rowspan='2'></th></tr><tr>";
+            html += "<th class='group' colspan='2'>Cell</th><th class='group' colspan='3'>Density</th></tr><tr>";
             html += "<th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th>";
             html += "<th class='num'>Min</th><th class='num'>Max</th>";
             html += "<th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th></tr></thead><tbody>";
             var i, r, key, n = 0;
             for (i = 0; i < aio.mspecs.length; i++) {
                 r = aio.mspecs[i];
-                key = String(r["MSPEC #"] || "");
+                key = QD.foamKey(r);
                 if (q && !mspecFilterMatch(r, q, by, "foam")) continue;
-                html += "<tr><td class='mspec'>" + esc(key) + "</td><td>" + esc(r["AF#"]) + "</td><td>" + esc(r.version || "1.0.0") + "</td>";
-                html += "<td class='num'>" + esc(r["Lower Control"]) + "</td><td class='num'>" + esc(r.Target) + "</td><td class='num'>" + esc(r["Upper Control"]) + "</td>";
-                html += "<td class='num'>" + esc(r["Thickness Range Max"]) + "</td>";
-                html += "<td class='num'>" + esc(r["Cell Count Min"]) + "</td><td class='num'>" + esc(r["Cell Count Max"]) + "</td>";
-                html += "<td class='num'>" + esc(r["Density Min"]) + "</td><td class='num'>" + esc(r["Density Target"]) + "</td><td class='num'>" + esc(r["Density Max"]) + "</td>";
-                html += "<td>" + editBtn("foam", key) + histBtn("foam", key) + "</td></tr>";
+                var ed = mspecEditMode && isAdmin();
+                html += "<tr><td class='mspec'>" + esc(key) + "</td><td>" + mspecCell("foam", key, "AF#", r["AF#"], ed) + "</td><td>" + esc(r.version || "1.0.0") + "</td>";
+                html += "<td class='num'>" + mspecCell("foam", key, "Lower Control", r["Lower Control"], ed) + "</td><td class='num'>" + mspecCell("foam", key, "Target", r.Target, ed) + "</td><td class='num'>" + mspecCell("foam", key, "Upper Control", r["Upper Control"], ed) + "</td>";
+                html += "<td class='num'>" + mspecCell("foam", key, "Thickness Range Max", r["Thickness Range Max"], ed) + "</td>";
+                html += "<td class='num'>" + mspecCell("foam", key, "Cell Count Min", r["Cell Count Min"], ed) + "</td><td class='num'>" + mspecCell("foam", key, "Cell Count Max", r["Cell Count Max"], ed) + "</td>";
+                html += "<td class='num'>" + mspecCell("foam", key, "Density Min", r["Density Min"], ed) + "</td><td class='num'>" + mspecCell("foam", key, "Density Target", r["Density Target"], ed) + "</td><td class='num'>" + mspecCell("foam", key, "Density Max", r["Density Max"], ed) + "</td>";
+                html += "<td>" + histBtn("foam", key) + "</td></tr>";
                 n += 1;
             }
             html += "</tbody>";
-            if ($("mspecTable")) { $("mspecTable").className = "specs"; $("mspecTable").innerHTML = html; }
+            if ($("mspecTable")) { $("mspecTable").className = "specs" + (mspecEditMode ? " editing" : ""); $("mspecTable").innerHTML = html; }
             if ($("mspecCount")) $("mspecCount").innerText = n + " foam MSPEC" + (n === 1 ? "" : "s");
+        }
+
+        function bubbleLineIdForFamily(family) {
+            var f = String(family || "").toUpperCase();
+            if (currentSite === "GARLAND") return "G-COEX";
+            if (f === "MONO") return "MONO";
+            return "COEX";
+        }
+
+        function bubbleProfileForRow(r) {
+            var plant = plantProfiles(), lineId = bubbleLineIdForFamily(r.family), lp, list, i, name;
+            if (!plant[lineId]) return null;
+            lp = plant[lineId];
+            list = lp.structures || [];
+            name = String(r.abbreviation || r.product || "").toUpperCase();
+            for (i = 0; i < list.length; i++) {
+                if (String(list[i].name || "").toUpperCase() === name) return list[i];
+            }
+            return null;
+        }
+
+        function ensureBubbleProfile(r) {
+            var plant = plantProfiles(), lineId = bubbleLineIdForFamily(r.family), lp, st, name;
+            if (!plant[lineId]) plant[lineId] = QD.emptyLineProfile();
+            lp = plant[lineId];
+            st = bubbleProfileForRow(r);
+            if (st) return st;
+            name = String(r.abbreviation || r.product || "").replace(/^\s+|\s+$/g, "") || "Structure";
+            st = QD.emptyCoexStructure(name);
+            lp.structures.push(st);
+            return st;
+        }
+
+        function profileCell(st, path, editing, key) {
+            var parts, cur, i, val = "";
+            if (!st) st = { A: {}, B: {}, C: {} };
+            parts = String(path).split(".");
+            cur = st;
+            for (i = 0; i < parts.length; i++) {
+                if (cur == null) { cur = null; break; }
+                cur = cur[parts[i]];
+            }
+            val = cur == null ? "" : cur;
+            if (!editing) return esc(val);
+            return "<input class='cell' data-bp='" + esc(key) + "' data-bpf='" + esc(path) + "' value='" + esc(val) + "' oninput='markMspecDirty()'>";
         }
 
         function renderBubbleTable() {
             var q = QD.trim(($("mspecFilter") && $("mspecFilter").value) || "").toLowerCase();
             var by = ($("mspecFilterBy") && $("mspecFilterBy").value) || "Product";
-            var html = "<thead><tr><th>Line</th><th>Abbr</th><th>Product</th><th>Ver</th><th>Calc gauge</th>";
-            html += "<th class='group' colspan='3'>Weight</th><th></th></tr>";
-            html += "<tr><th></th><th></th><th></th><th></th><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
-            var i, r, key, n = 0, blob;
+            var html = "<thead><tr>";
+            html += "<th class='group' colspan='8'>Quality Specs</th>";
+            html += "<th class='group' colspan='10'>Basic Profile Settings</th><th rowspan='3'></th></tr><tr>";
+            html += "<th rowspan='2'>Line</th><th rowspan='2'>Abbr</th><th rowspan='2'>Product</th><th rowspan='2'>Ver</th><th rowspan='2'>Calc gauge</th>";
+            html += "<th class='group' colspan='3'>Weight</th>";
+            html += "<th rowspan='2'>Line speed</th>";
+            html += "<th class='group' colspan='3'>Extruder A</th><th class='group' colspan='3'>Extruder B</th><th class='group' colspan='3'>Extruder C</th></tr><tr>";
+            html += "<th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th>";
+            html += "<th class='num'>Spd</th><th class='num'>MP1</th><th class='num'>MP2</th>";
+            html += "<th class='num'>Spd</th><th class='num'>MP1</th><th class='num'>MP2</th>";
+            html += "<th class='num'>Spd</th><th class='num'>MP1</th><th class='num'>MP2</th></tr></thead><tbody>";
+            var i, r, key, n = 0, st;
+            try { loadProfiles(); } catch (eLp) {}
             for (i = 0; i < aio.bubble.length; i++) {
                 r = aio.bubble[i];
                 key = QD.bubbleKey(r);
                 if (!QD.bubbleFamilyAllowed(r.family, currentSite)) continue;
                 if (q && !mspecFilterMatch(r, q, by, "bubble")) continue;
-                html += "<tr><td>" + esc(r.family) + "</td><td>" + esc(r.abbreviation) + "</td><td>" + esc(r.product) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + esc(r.calcGauge) + "</td>";
-                html += "<td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.target) + "</td><td class='num'>" + esc(r.max) + "</td>";
-                html += "<td>" + editBtn("bubble", key) + histBtn("bubble", key) + "</td></tr>";
+                var edB = mspecEditMode && isAdmin();
+                st = bubbleProfileForRow(r) || { lineSpeed: "", A: {}, B: {}, C: {} };
+                html += "<tr><td>" + esc(r.family) + "</td><td>" + esc(r.abbreviation) + "</td><td>" + mspecCell("bubble", key, "product", r.product, edB) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + mspecCell("bubble", key, "calcGauge", r.calcGauge, edB) + "</td>";
+                html += "<td class='num'>" + mspecCell("bubble", key, "min", r.min, edB) + "</td><td class='num'>" + mspecCell("bubble", key, "target", r.target, edB) + "</td><td class='num'>" + mspecCell("bubble", key, "max", r.max, edB) + "</td>";
+                html += "<td class='num'>" + profileCell(st, "lineSpeed", edB, key) + "</td>";
+                html += "<td class='num'>" + profileCell(st, "A.speed", edB, key) + "</td><td class='num'>" + profileCell(st, "A.meltPump1", edB, key) + "</td><td class='num'>" + profileCell(st, "A.meltPump2", edB, key) + "</td>";
+                html += "<td class='num'>" + profileCell(st, "B.speed", edB, key) + "</td><td class='num'>" + profileCell(st, "B.meltPump1", edB, key) + "</td><td class='num'>" + profileCell(st, "B.meltPump2", edB, key) + "</td>";
+                html += "<td class='num'>" + profileCell(st, "C.speed", edB, key) + "</td><td class='num'>" + profileCell(st, "C.meltPump1", edB, key) + "</td><td class='num'>" + profileCell(st, "C.meltPump2", edB, key) + "</td>";
+                html += "<td>" + histBtn("bubble", key) + "</td></tr>";
                 n += 1;
             }
             html += "</tbody>";
@@ -2933,47 +3411,49 @@
                 }
                 html += "</tbody>";
             }
-            if ($("mspecTable")) { $("mspecTable").className = "specs"; $("mspecTable").innerHTML = html; }
+            if ($("mspecTable")) { $("mspecTable").className = "specs" + (mspecEditMode ? " editing" : ""); $("mspecTable").innerHTML = html; }
             if ($("mspecCount")) $("mspecCount").innerText = n + " bubble spec" + (n === 1 ? "" : "s");
         }
 
         function renderP1Table() {
             var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
             var by = ($("mspecFilterBy") && $("mspecFilterBy").value) || "Thickness";
-            var html = "<thead><tr><th>Thickness</th><th>Ver</th><th class='group' colspan='3'>Density</th><th class='group' colspan='2'>Cell</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
+            var html = "<thead><tr><th class='group' colspan='11'>Quality Specs</th></tr><tr><th>Thickness</th><th>Ver</th><th class='group' colspan='3'>Density</th><th class='group' colspan='2'>Cell</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
             html += "<tr><th></th><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th class='num'>Min</th><th class='num'>Max</th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
             var i, r, key, n = 0;
             for (i = 0; i < aio.p1.length; i++) {
                 r = aio.p1[i];
                 key = QD.p1Key(r);
                 if (q && !mspecFilterMatch(r, q, by, "p1")) continue;
-                html += "<tr><td>" + esc(r.thickness) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.density) + "</td><td class='num'>" + esc(r.max) + "</td>";
-                html += "<td class='num'>" + esc(r.ccMin) + "</td><td class='num'>" + esc(r.ccMax) + "</td>";
-                html += "<td class='num'>" + esc(r.thickMin) + "</td><td class='num'>" + esc(r.thickTarget) + "</td><td class='num'>" + esc(r.thickMax) + "</td>";
-                html += "<td>" + editBtn("p1", key) + histBtn("p1", key) + "</td></tr>";
+                var edP = mspecEditMode && isAdmin();
+                html += "<tr><td>" + esc(r.thickness) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + mspecCell("p1", key, "min", r.min, edP) + "</td><td class='num'>" + mspecCell("p1", key, "density", r.density, edP) + "</td><td class='num'>" + mspecCell("p1", key, "max", r.max, edP) + "</td>";
+                html += "<td class='num'>" + mspecCell("p1", key, "ccMin", r.ccMin, edP) + "</td><td class='num'>" + mspecCell("p1", key, "ccMax", r.ccMax, edP) + "</td>";
+                html += "<td class='num'>" + mspecCell("p1", key, "thickMin", r.thickMin, edP) + "</td><td class='num'>" + mspecCell("p1", key, "thickTarget", r.thickTarget, edP) + "</td><td class='num'>" + mspecCell("p1", key, "thickMax", r.thickMax, edP) + "</td>";
+                html += "<td>" + histBtn("p1", key) + "</td></tr>";
                 n += 1;
             }
             html += "</tbody>";
-            if ($("mspecTable")) { $("mspecTable").className = "specs"; $("mspecTable").innerHTML = html; }
+            if ($("mspecTable")) { $("mspecTable").className = "specs" + (mspecEditMode ? " editing" : ""); $("mspecTable").innerHTML = html; }
             if ($("mspecCount")) $("mspecCount").innerText = n + " P1 spec" + (n === 1 ? "" : "s");
         }
 
         function renderRtsTable() {
             var q = ($("mspecFilter") && $("mspecFilter").value || "").toLowerCase();
             var by = ($("mspecFilterBy") && $("mspecFilterBy").value) || "Product";
-            var html = "<thead><tr><th>Product</th><th>Ver</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
+            var html = "<thead><tr><th class='group' colspan='5'>Quality Specs</th></tr><tr><th>Product</th><th>Ver</th><th class='group' colspan='3'>Thickness</th><th></th></tr>";
             html += "<tr><th></th><th></th><th class='num'>Min</th><th class='num'>Target</th><th class='num'>Max</th><th></th></tr></thead><tbody>";
             var i, r, key, n = 0;
             for (i = 0; i < aio.rts.length; i++) {
                 r = aio.rts[i];
                 key = QD.rtsKey(r);
                 if (q && !mspecFilterMatch(r, q, by, "rts")) continue;
-                html += "<tr><td>" + esc(r.product) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + esc(r.min) + "</td><td class='num'>" + esc(r.target) + "</td><td class='num'>" + esc(r.max) + "</td>";
-                html += "<td>" + editBtn("rts", key) + histBtn("rts", key) + "</td></tr>";
+                var edR = mspecEditMode && isAdmin();
+                html += "<tr><td>" + esc(r.product) + "</td><td>" + esc(r.version || "1.0.0") + "</td><td class='num'>" + mspecCell("rts", key, "min", r.min, edR) + "</td><td class='num'>" + mspecCell("rts", key, "target", r.target, edR) + "</td><td class='num'>" + mspecCell("rts", key, "max", r.max, edR) + "</td>";
+                html += "<td>" + histBtn("rts", key) + "</td></tr>";
                 n += 1;
             }
             html += "</tbody>";
-            if ($("mspecTable")) { $("mspecTable").className = "specs"; $("mspecTable").innerHTML = html; }
+            if ($("mspecTable")) { $("mspecTable").className = "specs" + (mspecEditMode ? " editing" : ""); $("mspecTable").innerHTML = html; }
             if ($("mspecCount")) $("mspecCount").innerText = n + " RTS spec" + (n === 1 ? "" : "s");
         }
 
@@ -3012,8 +3492,7 @@
             function itemActions(rec) {
                 var safe = String(rec.item).replace(/'/g, "");
                 var cell = "<td><button type='button' class='secondary' onclick=\"viewItem('" + safe + "')\">View</button>";
-                if (isAdmin()) {
-                    cell += "<button type='button' onclick=\"openItemModal('" + safe + "',true)\">Edit</button>";
+                if (isAdmin() && itemEditMode) {
                     cell += "<button type='button' class='danger' onclick=\"deleteItem('" + safe + "')\">Delete</button>";
                 }
                 return cell + "</td>";
@@ -3030,7 +3509,8 @@
                     n += 1;
                     if (shown >= cap) continue;
                     shown += 1;
-                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.mspec) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td>" + itemActions(it) + "</tr>";
+                    var edI = itemEditMode && isAdmin();
+                    html += "<tr><td>" + esc(it.item) + "</td><td>" + itemCell(it.item, "description", it.description, edI, true) + "</td><td>" + itemCell(it.item, "mspec", it.mspec, edI) + "</td><td>" + itemCell(it.item, "width", it.width, edI) + "</td><td>" + itemCell(it.item, "footage", it.footage, edI) + "</td><td>" + itemCell(it.item, "perf", it.perf, edI) + "</td>" + itemActions(it) + "</tr>";
                 }
             } else if (itemTab === "bubble") {
                 html += "<tr><th>Item #</th><th>Description</th><th>Slit Width</th><th>Footage</th><th>Perf</th><th>Bubble type</th><th>Color</th><th></th></tr>";
@@ -3044,7 +3524,8 @@
                     n += 1;
                     if (shown >= cap) continue;
                     shown += 1;
-                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.footage) + "</td><td>" + esc(it.perf) + "</td><td>" + esc(it.bubbleType) + "</td><td>" + esc(it.color || "") + "</td>" + itemActions(it) + "</tr>";
+                    var edI = itemEditMode && isAdmin();
+                    html += "<tr><td>" + esc(it.item) + "</td><td>" + itemCell(it.item, "description", it.description, edI, true) + "</td><td>" + itemCell(it.item, "width", it.width, edI) + "</td><td>" + itemCell(it.item, "footage", it.footage, edI) + "</td><td>" + itemCell(it.item, "perf", it.perf, edI) + "</td><td>" + itemCell(it.item, "bubbleType", it.bubbleType, edI) + "</td><td>" + itemCell(it.item, "color", it.color || "", edI) + "</td>" + itemActions(it) + "</tr>";
                 }
             } else if (itemTab === "p1") {
                 html += "<tr><th>Item #</th><th>Description</th><th>Length</th><th>Width</th><th>Density</th><th>Shots</th><th></th></tr>";
@@ -3057,7 +3538,8 @@
                     n += 1;
                     if (shown >= cap) continue;
                     shown += 1;
-                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.density) + "</td><td>" + esc(it.shots) + "</td>" + itemActions(it) + "</tr>";
+                    var edI = itemEditMode && isAdmin();
+                    html += "<tr><td>" + esc(it.item) + "</td><td>" + itemCell(it.item, "description", it.description, edI, true) + "</td><td>" + itemCell(it.item, "length", it.length, edI) + "</td><td>" + itemCell(it.item, "width", it.width, edI) + "</td><td>" + itemCell(it.item, "density", it.density, edI) + "</td><td>" + itemCell(it.item, "shots", it.shots, edI) + "</td>" + itemActions(it) + "</tr>";
                 }
             } else {
                 html += "<tr><th>Item #</th><th>Description</th><th>Parents</th><th>Length</th><th>Width</th><th>Thickness</th><th></th></tr>";
@@ -3070,12 +3552,32 @@
                     n += 1;
                     if (shown >= cap) continue;
                     shown += 1;
-                    html += "<tr><td>" + esc(it.item) + "</td><td>" + esc(it.description) + "</td><td>" + esc((it.parents && it.parents.length) ? it.parents.join(", ") : (it.parent || "")) + "</td><td>" + esc(it.length) + "</td><td>" + esc(it.width) + "</td><td>" + esc(it.thickness) + "</td>" + itemActions(it) + "</tr>";
+                    var edI = itemEditMode && isAdmin();
+                    var parentsTxt = (it.parents && it.parents.length) ? it.parents.join(", ") : (it.parent || "");
+                    html += "<tr><td>" + esc(it.item) + "</td><td>" + itemCell(it.item, "description", it.description, edI, true) + "</td><td>" + itemCell(it.item, "parents", parentsTxt, edI, true) + "</td><td>" + itemCell(it.item, "length", it.length, edI) + "</td><td>" + itemCell(it.item, "width", it.width, edI) + "</td><td>" + itemCell(it.item, "thickness", it.thickness, edI) + "</td>" + itemActions(it) + "</tr>";
                 }
             }
             if (!shown) html += "<tr><td colspan='8' class='muted'>No matching items.</td></tr>";
             if ($("itemTable")) $("itemTable").innerHTML = html;
             if ($("itemCount")) $("itemCount").innerText = n + " item" + (n === 1 ? "" : "s") + (n > shown ? " (showing first " + shown + ")" : "");
+        }
+
+        function openAddUserScreen() {
+            if (!requireAdmin()) return;
+            if ($("newUser")) $("newUser").value = "";
+            if ($("newUserPass")) $("newUserPass").value = "";
+            if ($("newUserOperator")) $("newUserOperator").checked = true;
+            if ($("newUserAdmin")) $("newUserAdmin").checked = false;
+            if ($("newUserSupervisor")) $("newUserSupervisor").checked = false;
+            if ($("newUserLead")) $("newUserLead").checked = false;
+            fillPlantChecks("newUserPlantBox", "VISALIA");
+            fillLineChecks("newUserLineBox", "VISALIA", "*");
+            $("addUserOverlay").className = "overlay on";
+            if ($("newUser")) $("newUser").focus();
+        }
+
+        function closeAddUserScreen() {
+            if ($("addUserOverlay")) $("addUserOverlay").className = "overlay";
         }
 
         function addUser() {
@@ -3104,6 +3606,7 @@
             saveLocalUsers();
             audit("user-add", name);
             renderUserTable();
+            closeAddUserScreen();
             setStatus("Added user " + name + ". They can sign in now.");
         }
 
@@ -3354,20 +3857,24 @@
 
         var specEdit = { kind: "", key: "", before: null };
 
-        function openSpecEdit(kind, key) {
+                function openSpecEdit(kind, key) {
             if (!requireAdmin()) return;
+            if (!mspecEditMode) { alert("Turn on Edit mode on the MSPECs tab first."); return; }
             var row = findSpecRow(kind, key);
             if (!row) return;
             specEdit.kind = kind;
             specEdit.key = key;
             specEdit.before = JSON.parse(JSON.stringify(row));
             var fields = specFields(kind);
-            var html = "<p class='muted'>Editing " + esc(kind) + " " + esc(key) + "</p>", i, f;
+            var html = "<p class='muted'>Editing " + esc(kind) + " " + esc(key) + " · compact table (same style as Profiles)</p>";
+            html += "<div class='profile-scroll'><table class='hist-edit-grid'>";
+            var i, f;
             for (i = 0; i < fields.length; i++) {
                 f = fields[i];
-                html += "<label class='f'>" + esc(f.label) + " <input id='se_" + f.key.replace(/\s+/g, "_") + "' value='" + esc(row[f.key]) + "'></label>";
+                html += "<tr><th>" + esc(f.label) + "</th><td><input id='se_" + f.key.replace(/\s+/g, "_") + "' value='" + esc(row[f.key]) + "'></td></tr>";
             }
-            html += "<label class='f'>Why are you changing this? <textarea id='se_why'></textarea></label>";
+            html += "<tr><th>Why are you changing this?</th><td><textarea id='se_why'></textarea></td></tr>";
+            html += "</table></div>";
             $("specEditFields").innerHTML = html;
             $("specEditOverlay").className = "overlay on";
         }
@@ -3440,14 +3947,17 @@
         function closeHistory() { $("histOverlay").className = "overlay"; }
 
         function openItemModal(preset, editing) {
+            if (editing && !itemEditMode) { alert("Turn on Edit mode on the Item database tab first."); return; }
+            itemModalEditing = !!editing;
             $("newItem").value = preset || $("item").value || "";
+            $("newItem").disabled = !!editing;
             $("newDesc").value = "";
             setv("newMspecF", ""); setv("newMspecL", "");
             setv("newWidthB", ""); setv("newWidthF", ""); setv("newWidthL", ""); setv("newWidthP", "");
             setv("newLengthL", ""); setv("newLengthP", "");
             setv("newFootageB", ""); setv("newFootageF", "");
             setv("newPerfB", ""); setv("newPerfF", "");
-            setv("newSlits", ""); setv("newBubble", ""); setv("newColorB", ""); setv("newBarcode", ""); setv("newBoxLabel", ""); setv("newParent", "");
+            setv("newSlits", ""); setv("newSlitsF", ""); setv("newBubble", ""); setv("newColorB", ""); setv("newBarcode", ""); setv("newBoxLabel", ""); setv("newParent", "");
             setv("newThk", ""); setv("newDens", ""); setv("newShots", ""); setv("newSoft", "");
             $("newType").value = editing ? "" : (QD.lineItemType(QD.resolveLineId(currentSite, currentLine)) || "");
             $("itemModalTitle").innerText = editing ? "Edit item #" : "Add item #";
@@ -3461,7 +3971,7 @@
                     setv("newLengthL", it.length); setv("newLengthP", it.length);
                     setv("newFootageB", it.footage); setv("newFootageF", it.footage);
                     setv("newPerfB", it.perf); setv("newPerfF", it.perf);
-                    setv("newSlits", it.slits); setv("newBubble", it.bubbleType); setv("newColorB", it.color || "");
+                    setv("newSlits", it.slits); setv("newSlitsF", it.slits); setv("newBubble", it.bubbleType); setv("newColorB", it.color || "");
                     setv("newBarcode", it.barcodeLabel || ""); setv("newBoxLabel", it.boxLabel || ""); setv("newParent", it.parent);
                     setv("newThk", it.thickness); setv("newDens", it.density); setv("newShots", it.shots); setv("newSoft", it.soft);
                 }
@@ -3483,13 +3993,27 @@
         function setv(id, v) { var el = $(id); if (el) el.value = v == null ? "" : v; }
         function getv(id) { var el = $(id); return el ? el.value : ""; }
 
-        function closeItemModal() { $("itemOverlay").className = "overlay"; }
+        function closeItemModal() {
+            if ($("newItem")) $("newItem").disabled = false;
+            $("itemOverlay").className = "overlay";
+        }
 
         function saveNewItem() {
             var item = QD.canonItem($("newItem").value);
             var typ = $("newType").value;
             if (!typ) { alert("Pick a type first."); return; }
             if (!item) { alert("Item # is required."); return; }
+            if (!itemModalEditing && QD.findItem(aio.items, item)) {
+                alert("Item # " + item + " already exists. Use a different number.");
+                return;
+            }
+            var whyItem = "";
+            var beforeItem = null;
+            if (itemModalEditing) {
+                whyItem = QD.trim(window.prompt("Why are you changing this item?", "") || "");
+                if (!whyItem) { alert("Explain why this item is changing."); return; }
+                beforeItem = JSON.parse(JSON.stringify(QD.findItem(aio.items, item) || {}));
+            }
             var existed = !!QD.findItem(aio.items, item);
             var rec = {
                 item: item,
@@ -3500,7 +4024,7 @@
                 length: typ === "LAM" ? getv("newLengthL") : typ === "PLANK" ? getv("newLengthP") : "",
                 footage: typ === "BUBBLE" ? getv("newFootageB") : typ === "FOAM" ? getv("newFootageF") : "",
                 perf: typ === "BUBBLE" ? getv("newPerfB") : typ === "FOAM" ? getv("newPerfF") : "",
-                slits: typ === "BUBBLE" ? getv("newSlits") : "",
+                slits: typ === "BUBBLE" ? getv("newSlits") : typ === "FOAM" ? getv("newSlitsF") : "",
                 bubbleType: typ === "BUBBLE" ? getv("newBubble") : "",
                 color: typ === "BUBBLE" ? getv("newColorB") : "",
                 barcodeLabel: typ === "BUBBLE" ? getv("newBarcode") : "",
@@ -3526,6 +4050,13 @@
                 req.itemType = typ;
                 inboxStore.requests.push(req);
                 saveInbox();
+            }
+            if (itemModalEditing) {
+                var afterItem = QD.findItem(aio.items, item) || rec;
+                QD.ensureSpecVersion(afterItem);
+                afterItem.version = QD.bumpSpecVersion(afterItem.version || "1.0.0");
+                addHistory("item", item, whyItem, beforeItem, afterItem);
+                audit("item-edit", item + " v" + afterItem.version);
             }
             closeItemModal();
             $("item").value = item;
@@ -3616,6 +4147,7 @@
             if ($("radialCard")) $("radialCard").style.display = (info && (info.id === "S4" || info.id === "S1" || info.id === "S3")) ? "block" : "none";
             syncS1Fields(selectedItem());
             syncBubbleFields(selectedItem());
+            syncFoamSlits(selectedItem());
             if (form !== "s4" && form !== "s1s3") {
                 lastResultsHtml = "";
                 if ($("resultsBox")) $("resultsBox").innerHTML = "";
@@ -3683,6 +4215,7 @@
             if (typ === "BUBBLE" || form === "bubble") {
                 html += specLine("Bubble type", it.bubbleType);
                 html += specLine("Color", it.color);
+                if (QD.itemHasSlits(it)) html += specLine("# Slits", it.slits);
                 html += specLine("Barcode label", it.barcodeLabel);
                 html += specLine("Box label", it.boxLabel);
                 return html;
@@ -3700,6 +4233,7 @@
                 var sp = selectedSpec();
                 if (sp && sp["MSPEC #"]) html += specLine("MSPEC", sp["MSPEC #"]);
             }
+            if (QD.itemHasSlits(it)) html += specLine("# Slits", it.slits);
             return html;
         }
 
@@ -3762,14 +4296,26 @@
                 var fam = QD.bubbleFamily(currentLine);
                 var liveW = specPaintTarget ? "" : val("bweight");
                 var liveOk = calc.weightPf === "Fail" ? false : (liveW ? true : null);
-                var bw = QD.bubbleWeightForLine(aio.bubble, currentLine, it.bubbleType);
-                if (fam === "COEX") row("COEX weight", bw ? bw.min : "—", bw ? bw.target : "—", bw ? bw.max : "—", liveW, liveOk);
-                else if (fam === "MONO") row("MONO weight", bw ? bw.min : "—", bw ? bw.target : "—", bw ? bw.max : "—", liveW, liveOk);
+                var pair = QD.bubbleWeightPair(aio.bubble, it.bubbleType);
+                var co = pair.coex || QD.bubbleWeightForLine(aio.bubble, "COEX", it.bubbleType);
+                var mo = pair.mono || QD.bubbleWeightForLine(aio.bubble, "MONO", it.bubbleType);
+                function wCell(bw, field) {
+                    if (!bw || bw[field] == null || bw[field] === "") return "—";
+                    if (typeof bw[field] === "number" && !isFinite(bw[field])) return "—";
+                    return bw[field];
+                }
+                if (QD.bubbleFamilyAllowed("COEX", currentSite)) {
+                    row("COEX weight", wCell(co, "min"), wCell(co, "target"), wCell(co, "max"), fam === "COEX" ? liveW : "", fam === "COEX" ? liveOk : null);
+                }
+                if (QD.bubbleFamilyAllowed("MONO", currentSite)) {
+                    row("MONO weight", wCell(mo, "min"), wCell(mo, "target"), wCell(mo, "max"), fam === "MONO" ? liveW : "", fam === "MONO" ? liveOk : null);
+                }
                 var dead = QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType);
                 if (!isFinite(dead)) dead = QD.deadCellMax(it.bubbleType);
                 if (isFinite(dead)) row("Dead Cells and Air Transfers Post Vacuum Test", "—", "—", dead, val("bdeadPost"), calc.postPf === "Fail" ? false : (val("bdeadPost") ? true : null));
                 var wT = QD.num(it.width);
-                if (isFinite(wT)) row("Slit width", (wT - 0.25).toFixed(2), wT, (wT + 0.25).toFixed(2), val("bwidth"), calc.widthPf === "Fail" ? false : (val("bwidth") ? true : null));
+                if (QD.itemNeedsSlitWidth(it) && isFinite(wT)) row("Slit width", (wT - 0.25).toFixed(2), wT, (wT + 0.25).toFixed(2), val("bwidth"), calc.widthPf === "Fail" ? false : (val("bwidth") ? true : null));
+                if (QD.itemHasSlits(it)) row("# Slits", it.slits, it.slits, it.slits, val("bslits"), calc.slitsPf === "Fail" ? false : (val("bslits") ? true : null));
                 row("Web width", (QD.WEB_WIDTH_TARGET - QD.WEB_WIDTH_TOL).toFixed(1), QD.WEB_WIDTH_TARGET, (QD.WEB_WIDTH_TARGET + QD.WEB_WIDTH_TOL).toFixed(1), val("bweb"), calc.webWidthPf === "Fail" ? false : (val("bweb") ? true : null));
                 var fT = QD.num(it.footage);
                 if (isFinite(fT)) row("Footage", fT, "—", "—", val("bfootage"), calc.footagePf === "Fail" ? false : (val("bfootage") ? true : null));
@@ -3969,20 +4515,66 @@
         function syncBubbleFields(it) {
             if ($("bcohWrap")) $("bcohWrap").style.display = QD.itemDescHasCohAdh(it) ? "" : "none";
             if ($("bdiamWrap")) $("bdiamWrap").style.display = QD.itemIsUline(it) ? "" : "none";
-            var deadDone = QD.trim(val("bdeadPost")) !== "";
-            if ($("bpostvWrap")) $("bpostvWrap").style.display = deadDone ? "" : "none";
+            var showSlit = QD.itemNeedsSlitWidth(it);
+            var showSlits = QD.itemHasSlits(it);
             var showPerf = QD.itemHasPerf(it);
+            if ($("bwidthWrap")) $("bwidthWrap").style.display = showSlit ? "" : "none";
+            if ($("bslitsWrap")) $("bslitsWrap").style.display = showSlits ? "" : "none";
             if ($("bperfwWrap")) $("bperfwWrap").style.display = showPerf ? "" : "none";
             if ($("bperfStrWrap")) $("bperfStrWrap").style.display = showPerf ? "" : "none";
             if ($("bbarcodeWrap")) $("bbarcodeWrap").style.display = (it && QD.trim(it.barcodeLabel)) ? "" : "none";
             if ($("bboxWrap")) $("bboxWrap").style.display = (it && QD.trim(it.boxLabel)) ? "" : "none";
             if ($("bbarcodeShow") && it) $("bbarcodeShow").innerText = it.barcodeLabel || "";
             if ($("bboxShow") && it) $("bboxShow").innerText = it.boxLabel || "";
+            layoutBubblePairs(it, showSlit, showSlits, showPerf);
+            syncBubbleColor();
+        }
+
+        function layoutBubblePairs(it, showSlit, showSlits, showPerf) {
+            var top = $("bpairTop"), mid = $("bpairMid"), slits = $("bslitsWrap"), web = $("bwebWrap");
+            var width = $("bwidthWrap"), foot = $("bfootageWrap"), perf = $("bperfwWrap"), pad = $("bperfPad");
+            if (!top || !mid || !web || !foot) return;
+            if (showSlits && !showSlit) {
+                /* pic1: # Slits + Footage on one row; Web Width alone below */
+                top.appendChild(slits);
+                top.appendChild(foot);
+                mid.appendChild(web);
+                if (pad) mid.appendChild(pad);
+                if (width) width.style.display = "none";
+            } else {
+                /* # Slits + Web Width; Slit Width + Footage when slit width shown */
+                if (showSlits && slits) top.appendChild(slits);
+                top.appendChild(web);
+                if (showSlit && width) {
+                    width.style.display = "";
+                    mid.appendChild(width);
+                }
+                mid.appendChild(foot);
+                if (pad && $("bpairPerfMeta")) $("bpairPerfMeta").appendChild(pad);
+            }
+            if (perf && $("bpairPerfMeta")) {
+                $("bpairPerfMeta").style.display = showPerf ? "" : "none";
+                $("bpairPerfMeta").insertBefore(perf, $("bpairPerfMeta").firstChild);
+            }
+        }
+
+        function syncBubbleColor() {
+            var el = $("bcolor");
+            if (!el) return;
+            var v = String(el.value || "").toUpperCase();
+            var map = { CLEAR: "#e5e7eb", GREEN: "#4ade80", PINK: "#f9a8d4", GRAY: "#9ca3af", GREY: "#9ca3af" };
+            el.style.color = map[v] || "";
+        }
+
+        function syncFoamSlits(it) {
+            var show = QD.itemHasSlits(it);
+            if ($("s4slitsWrap")) $("s4slitsWrap").style.display = show ? "" : "none";
+            if ($("s1slitsWrap")) $("s1slitsWrap").style.display = show ? "" : "none";
         }
 
         function syncS1Fields(it) {
-            if ($("s1winderWrap")) $("s1winderWrap").style.display = currentLine === "S1" ? "" : "none";
-            if ($("s1bumperWrap")) $("s1bumperWrap").style.display = currentLine === "S1" ? "" : "none";
+            if ($("s1winderWrap")) $("s1winderWrap").style.display = (currentLine === "S1" || currentLine === "S3") ? "" : "none";
+            if ($("s1bumperWrap")) $("s1bumperWrap").style.display = (currentLine === "S1" || currentLine === "S3") ? "" : "none";
             if ($("s1diamWrap")) $("s1diamWrap").style.display = QD.itemIsUline(it) ? "" : "none";
             if ($("s1perfWrap")) $("s1perfWrap").style.display = QD.itemHasPerf(it) ? "" : "none";
         }
@@ -3992,7 +4584,7 @@
             var form = info ? info.form : "";
             if (form === "s4") return { bundle: "s4bundle", width: "s4width", footage: "s4foot", weight: "s4weight", cellMd: "s4md", cellCd: "s4cd", points: "s4t1" };
             if (form === "s1s3") return { bundle: "s1bundle", width: "s1width", footage: "s1foot", perf: "s1perf", weight: "s1weight", cellMd: "s1md", cellCd: "s1cd", winderTension: "s1winder", bumperPressure: "s1bumper", diameter: "s1diam", points: "s1t1" };
-            if (form === "bubble") return { cohAdh: "bcoh", postVisual: "bpostv", deadPost: "bdeadPost", width: "bwidth", webWidth: "bweb", footage: "bfootage", perfWidth: "bperfw", perfLeft: "bperfLeft", perfRight: "bperfRight", weight: "bweight", color: "bcolor", delam: "bdelam", prodNo: "bprod", rollNo: "broll", diameter: "bdiam" };
+            if (form === "bubble") return { cohAdh: "bcoh", deadPost: "bdeadPost", width: "bwidth", webWidth: "bweb", footage: "bfootage", perfWidth: "bperfw", perfLeft: "bperfLeft", perfRight: "bperfRight", weight: "bweight", color: "bcolor", delam: "bdelam", prodNo: "bprod", rollNo: "broll", diameter: "bdiam" };
             if (form === "p1") return { length: "plength", width: "pwidth", cellMd: "pmd", cellCd: "pcd", weight: "pweight", headPoints: "pht1", tailPoints: "ptt1" };
             if (form === "rts") return { parent: "rparent", parentDate: "rdate", shift: "rshift", width: "rwidth", length: "rlength", color: "rcolor", delam: "rdelam", alligator: "rallig", tattoo: "rtattoo" };
             return {};
@@ -4024,10 +4616,9 @@
             var links = document.getElementsByClassName("wi-link"), i;
             while (links.length) links[0].parentNode.removeChild(links[0]);
             loadDocs();
-            var fmap = checkLinkFieldMap(), docs = docsStore.docs, d, el, lab, fid, lineLabel = QD.lineLabel(currentLine, currentSite);
+            var fmap = checkLinkFieldMap(), docs = docsStore.docs, d, el, lab, fid;
             var link, url, h2, matchLines;
-            matchLines = [currentLine, lineLabel];
-            if (currentLine === "G-COEX") matchLines.push("COEX");
+            matchLines = [currentLine];
             for (i = 0; i < docs.length; i++) {
                 d = docs[i];
                 if (!d || !d.checkLink) continue;
@@ -4081,6 +4672,7 @@
             syncP1Double(it);
             syncBubbleFields(it);
             syncS1Fields(it);
+            syncFoamSlits(it);
             if ($("checkNotes") && $("notes")) $("checkNotes").value = $("notes").value;
             appendCheckLinks();
             compute();
@@ -4295,6 +4887,7 @@
         }
 
         function compute() {
+            try { bindThicknessConverters(); } catch (eBindTh) {}
             if (computing) return lastCalc || {};
             computing = true;
             try {
@@ -4314,6 +4907,7 @@
             var avg, range, dens, pf;
             if (!info) return {};
             if (info.form === "s4" || info.form === "s1s3") {
+                syncFoamSlits(it);
                 var pts = collectPoints(info.form === "s4" ? "s4t" : "s1t", 13);
                 avg = QD.avg(pts);
                 range = QD.rangeMil(pts);
@@ -4349,7 +4943,7 @@
                     flags.push(QD.pf(perfPf));
                     mark("perfMark", QD.pf(perfPf));
                     if (val("s1bundleFit") === "FAIL") flags.push("Fail");
-                    if (currentLine === "S1") {
+                    if (currentLine === "S1" || currentLine === "S3") {
                         var wMin = QD.itemHasPerf(it) ? 20 : 25;
                         winderPf = QD.inRange(val("s1winder"), wMin, Infinity);
                         bumperPf = QD.inRange(val("s1bumper"), 20, Infinity);
@@ -4360,6 +4954,12 @@
                         var diam = QD.num(val("s1diam"));
                         s1DiamPf = QD.inRange(diam, QD.ULINE_DIAM_MIN, QD.ULINE_DIAM_MAX);
                         flags.push(QD.pf(s1DiamPf));
+                    }
+                }
+                if (QD.itemHasSlits(it)) {
+                    var slitsIdFoam = info.form === "s4" ? "s4slits" : "s1slits";
+                    if (QD.trim(val(slitsIdFoam)) !== "") {
+                        flags.push(QD.pf(QD.slitsExactMatch(val(slitsIdFoam), it.slits)));
                     }
                 }
                 pf = QD.overallFromFlags(currentLine, val("reason") || checkReason, flags);
@@ -4373,7 +4973,10 @@
                     && QD.trim(val(widthId)) !== ""
                     && QD.trim(val(weightId)) !== ""
                     && (!sheetNeeded || QD.trim(val("s4sheet")) !== "");
-                if (info.form === "s1s3" && currentLine === "S1") {
+                if (QD.itemHasSlits(it)) {
+                    readyFoam = readyFoam && QD.trim(val(info.form === "s4" ? "s4slits" : "s1slits")) !== "";
+                }
+                if (info.form === "s1s3" && (currentLine === "S1" || currentLine === "S3")) {
                     readyFoam = readyFoam && QD.trim(val("s1winder")) !== "" && QD.trim(val("s1bumper")) !== "";
                 }
                 if (info.form === "s1s3" && QD.itemIsUline(it)) {
@@ -4391,8 +4994,8 @@
                     sheetPf: info.form === "s4" ? (lenPf !== false) : true,
                     perfPf: info.form === "s1s3" ? (perfPf !== false) : true,
                     diamPf: info.form === "s1s3" && QD.itemIsUline(it) ? (s1DiamPf !== false) : true,
-                    winderPf: currentLine === "S1" ? (winderPf === false ? false : (QD.trim(val("s1winder")) ? true : null)) : null,
-                    bumperPf: currentLine === "S1" ? (bumperPf === false ? false : (QD.trim(val("s1bumper")) ? true : null)) : null
+                    winderPf: (currentLine === "S1" || currentLine === "S3") ? (winderPf === false ? false : (QD.trim(val("s1winder")) ? true : null)) : null,
+                    bumperPf: (currentLine === "S1" || currentLine === "S3") ? (bumperPf === false ? false : (QD.trim(val("s1bumper")) ? true : null)) : null
                 };
                 paintSpecTable(it, spec, foamCalc);
                 return { avg: avg, range: range, density: dens, passFail: pf, points: pts, widthPf: QD.pf(widthPf) };
@@ -4402,7 +5005,8 @@
                 var bw = bs ? { min: QD.num(bs.min), target: QD.num(bs.target), max: QD.num(bs.max) } : null;
                 var deadMax = it ? QD.deadCellMaxFromFile(aio.bubbleDead, it.bubbleType) : NaN;
                 if (!isFinite(deadMax) && it) deadMax = QD.deadCellMax(it.bubbleType);
-                var wPf = it && it.width ? QD.inRange(val("bwidth"), QD.num(it.width) - 0.25, QD.num(it.width) + 0.25) : null;
+                var needsSlit = QD.itemNeedsSlitWidth(it);
+                var wPf = needsSlit && it && it.width ? QD.inRange(val("bwidth"), QD.num(it.width) - 0.25, QD.num(it.width) + 0.25) : null;
                 var webPf = QD.inRange(val("bweb"), QD.WEB_WIDTH_TARGET - QD.WEB_WIDTH_TOL, QD.WEB_WIDTH_TARGET + QD.WEB_WIDTH_TOL);
                 var fPf = it && it.footage ? QD.inRange(val("bfootage"), QD.num(it.footage), Infinity) : null;
                 var pTarget = it ? QD.num(it.perf) : NaN;
@@ -4419,31 +5023,38 @@
                     diamPf = QD.pf(QD.inRange(val("bdiam"), QD.ULINE_DIAM_MIN, QD.ULINE_DIAM_MAX));
                 }
                 syncBubbleFields(it);
-                flags = [QD.pf(wPf), QD.pf(webPf), QD.pf(fPf), pPf, leftPf, rightPf, wtPf, postPf, val("bdelam")];
+                var slitsPf = "";
+                if (QD.itemHasSlits(it) && QD.trim(val("bslits")) !== "") {
+                    slitsPf = QD.pf(QD.slitsExactMatch(val("bslits"), it.slits));
+                }
+                flags = [QD.pf(webPf), QD.pf(fPf), pPf, leftPf, rightPf, wtPf, postPf, val("bdelam")];
+                if (needsSlit) flags.unshift(QD.pf(wPf));
+                if (slitsPf) flags.push(slitsPf);
                 if (QD.itemDescHasCohAdh(it)) flags.push(val("bcoh"));
-                if (QD.trim(val("bdeadPost")) !== "") flags.push(val("bpostv"));
                 if (diamPf) flags.push(diamPf);
                 pf = QD.overallFromFlags(currentLine, val("reason"), flags);
-                var bubbleIds = ["bwidth", "bweb", "bfootage", "bweight", "bdeadPost", "bcolor", "bdelam", "bprod", "broll"];
+                var bubbleIds = ["bweb", "bfootage", "bweight", "bdeadPost", "bcolor", "bdelam", "bprod", "broll"];
+                if (needsSlit) bubbleIds.push("bwidth");
+                if (QD.itemHasSlits(it)) bubbleIds.push("bslits");
                 if (QD.itemDescHasCohAdh(it)) bubbleIds.push("bcoh");
                 if (QD.itemHasPerf(it)) { bubbleIds.push("bperfw"); bubbleIds.push("bperfLeft"); bubbleIds.push("bperfRight"); }
-                if (QD.trim(val("bdeadPost")) !== "") bubbleIds.push("bpostv");
                 if (QD.itemIsUline(it)) bubbleIds.push("bdiam");
                 var readyBubble = true, bi;
                 for (bi = 0; bi < bubbleIds.length; bi++) {
                     if (QD.trim(val(bubbleIds[bi])) === "") readyBubble = false;
                 }
                 setOverallPf(pf, readyBubble);
-                mark("bwidthMark", QD.pf(wPf));
+                mark("bwidthMark", needsSlit ? QD.pf(wPf) : "");
                 mark("bwebMark", QD.pf(webPf));
                 mark("bfootMark", QD.pf(fPf));
+                mark("bslitsMark", slitsPf);
                 mark("bperfMark", pPf);
                 mark("bperfLeftMark", leftPf);
                 mark("bperfRightMark", rightPf);
                 mark("bwtMark", wtPf);
-                var bubbleCalc = { widthPf: QD.pf(wPf), webWidthPf: QD.pf(webPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfLeftPf: leftPf, perfRightPf: rightPf, weightPf: wtPf, postPf: postPf };
+                var bubbleCalc = { widthPf: needsSlit ? QD.pf(wPf) : "", webWidthPf: QD.pf(webPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfLeftPf: leftPf, perfRightPf: rightPf, weightPf: wtPf, postPf: postPf, slitsPf: slitsPf };
                 paintSpecTable(it, spec, bubbleCalc);
-                return { passFail: pf, widthPf: QD.pf(wPf), webWidthPf: QD.pf(webPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfLeftPf: leftPf, perfRightPf: rightPf, weightPf: wtPf, postPf: postPf, deadMax: deadMax };
+                return { passFail: pf, widthPf: needsSlit ? QD.pf(wPf) : "", webWidthPf: QD.pf(webPf), footagePf: QD.pf(fPf), perfWidthPf: pPf, perfLeftPf: leftPf, perfRightPf: rightPf, weightPf: wtPf, postPf: postPf, deadMax: deadMax };
             }
             if (info.form === "p1") {
                 var headPoints = collectPoints("pht", 12);
@@ -4527,6 +5138,7 @@
         }
 
         function collectCheckInput(calc) {
+            calc = calc || {};
             var info = QD.lineInfo(currentLine, currentSite);
             var it = selectedItem();
             var spec = selectedSpec();
@@ -4534,22 +5146,24 @@
             var input = {
                 line: currentLine,
                 item: val("item"),
-                description: it ? it.description : $("desc").innerText,
+                description: it ? it.description : ($("desc") ? $("desc").innerText : ""),
                 mspec: spec ? spec["MSPEC #"] : val("mspec"),
                 user: session.user || val("user"),
                 reason: reason,
                 notes: val("notes"),
-                passFail: calc.passFail,
+                passFail: calc ? calc.passFail : "",
                 itemLength: it ? it.length : "",
                 itemObj: it,
                 shots: it ? it.shots : ""
             };
+            if (!info) return input;
             if (info.form === "s4") {
                 input.bundle = val("s4bundle"); input.width = val("s4width"); input.footage = val("s4foot");
                 input.weight = val("s4weight");
                 input.perfOn = val("s4perfOn"); input.cellMd = val("s4md"); input.cellCd = val("s4cd");
                 input.avg = calc.avg; input.range = calc.range; input.density = calc.density;
-                input.points = calc.points; input.sheetLength = val("s4sheet");
+                input.points = calc.points;                 input.sheetLength = val("s4sheet");
+                input.slits = QD.itemHasSlits(it) ? val("s4slits") : "";
             } else if (info.form === "s1s3") {
                 input.bundle = val("s1bundle"); input.width = val("s1width"); input.footage = val("s1foot");
                 input.weight = val("s1weight");
@@ -4558,9 +5172,11 @@
                 input.avg = calc.avg; input.range = calc.range; input.density = calc.density;
                 input.points = calc.points; input.diameter = val("s1diam");
                 input.winderTension = val("s1winder"); input.bumperPressure = val("s1bumper");
+                input.slits = QD.itemHasSlits(it) ? val("s1slits") : "";
             } else if (info.form === "bubble") {
-                input.cohAdh = val("bcoh"); input.postVisual = val("bpostv");
-                input.width = val("bwidth"); input.webWidth = val("bweb"); input.footage = val("bfootage");
+                input.cohAdh = val("bcoh");
+                input.width = QD.itemNeedsSlitWidth(it) ? val("bwidth") : (it ? (it.width || "") : "");
+                input.webWidth = val("bweb"); input.footage = val("bfootage");
                 input.perfWidth = val("bperfw"); input.perfLeft = val("bperfLeft"); input.perfRight = val("bperfRight");
                 input.weight = val("bweight");
                 input.diameter = val("bdiam");
@@ -4568,12 +5184,19 @@
                 input.color = val("bcolor"); input.delam = val("bdelam");
                 input.prodNo = val("bprod"); input.rollNo = val("broll");
                 input.bubbleType = it ? it.bubbleType : "";
+                input.slits = QD.itemHasSlits(it) ? val("bslits") : "";
                 input.barcodeLabel = it ? (it.barcodeLabel || "") : "";
                 input.boxLabel = it ? (it.boxLabel || "") : "";
                 input.lineSpeed = startupAnswers.lineSpeed || "";
-                input.extruderSpeed = startupAnswers.extruderSpeed || "";
-                input.meltPump1 = startupAnswers.meltPump1 || "";
-                input.meltPump2 = startupAnswers.meltPump2 || "";
+                input.A_speed = startupAnswers.A_speed || "";
+                input.A_meltPump1 = startupAnswers.A_meltPump1 || "";
+                input.A_meltPump2 = startupAnswers.A_meltPump2 || "";
+                input.B_speed = startupAnswers.B_speed || "";
+                input.B_meltPump1 = startupAnswers.B_meltPump1 || "";
+                input.B_meltPump2 = startupAnswers.B_meltPump2 || "";
+                input.C_speed = startupAnswers.C_speed || "";
+                input.C_meltPump1 = startupAnswers.C_meltPump1 || "";
+                input.C_meltPump2 = startupAnswers.C_meltPump2 || "";
                 input.widthPf = calc.widthPf; input.webWidthPf = calc.webWidthPf; input.footagePf = calc.footagePf;
                 input.perfWidthPf = calc.perfWidthPf; input.perfLeftPf = calc.perfLeftPf; input.perfRightPf = calc.perfRightPf;
                 input.weightPf = calc.weightPf; input.postPf = calc.postPf;
@@ -4622,7 +5245,7 @@
             resetChipLabels("s1t", 13);
             resetChipLabels("pht", 12);
             resetChipLabels("ptt", 12);
-            var sels = ["s4perfOn", "s1bundleFit", "s1tape", "bcoh", "bpostv", "rshift", "rdelam", "rallig", "rtattoo", "rcolor"];
+            var sels = ["s4perfOn", "s1bundleFit", "s1tape", "bcoh", "rshift", "rdelam", "rallig", "rtattoo", "rcolor"];
             for (i = 0; i < sels.length; i++) { el = $(sels[i]); if (el) el.selectedIndex = 0; }
             if ($("mspecText")) $("mspecText").innerText = "";
             if ($("thkMinMax")) $("thkMinMax").innerHTML = "";
@@ -5093,8 +5716,34 @@
 
         function histCellText(row, key) {
             if (!row) return "";
-            if (key === "Date/Time") return QD.formatClock(row[key]);
+            if (key === "Date/Time") {
+                var when = QD.formatDateTime ? QD.formatDateTime(row[key]) : QD.formatClock(row[key]);
+                if (histRowChanged(row)) when += " *edited";
+                return when;
+            }
             return String(QD.histValue(row, key) == null ? "" : QD.histValue(row, key));
+        }
+
+        function histViewColumns(file, rows) {
+            var base = QD.histColumnsForLine(file) || [], seen = {}, out = [], i, r, k, v;
+            for (i = 0; i < base.length; i++) {
+                if (!base[i] || seen[base[i]]) continue;
+                seen[base[i]] = 1;
+                out.push(base[i]);
+            }
+            for (i = 0; i < (rows || []).length; i++) {
+                r = rows[i];
+                if (!r) continue;
+                for (k in r) {
+                    if (!r.hasOwnProperty(k) || !k || k.charAt(0) === "_") continue;
+                    if (seen[k]) continue;
+                    v = r[k];
+                    if (v == null || String(v) === "") continue;
+                    seen[k] = 1;
+                    out.push(k);
+                }
+            }
+            return out;
         }
 
         function histRowSearchText(row, fileKey, cols) {
@@ -5142,12 +5791,15 @@
             var html = "<tr" + (cls.length ? " class='" + cls.join(" ") + "'" : "") + ">";
             for (c = 0; c < cols.length; c++) {
                 key = cols[c];
-                html += "<td>" + esc(histCellText(r, key)) + "</td>";
+                if (admin && histEditMode) {
+                    html += "<td><input class='cell' data-hf='" + rec.file + "' data-hi='" + rec.idx + "' data-hk='" + String(key).replace(/'/g, "") + "' value='" + esc(histCellText(r, key)) + "' oninput='markHistDirty()'></td>";
+                } else {
+                    html += "<td>" + esc(histCellText(r, key)) + "</td>";
+                }
             }
             if (admin) {
-                actions = "<button type='button' class='secondary' onclick=\"openHistEdit('" + rec.file + "'," + rec.idx + ")\">Edit</button>";
-                actions += "<button type='button' class='danger' onclick=\"deleteHistRow('" + rec.file + "'," + rec.idx + ")\">Delete</button>";
-                html += "<td>" + actions + "</td>";
+                actions = histEditMode ? ("<button type='button' class='danger' onclick=\"deleteHistRow('" + rec.file + "'," + rec.idx + ")\">Delete</button>") : "";
+                html += "<td class='hist-act'>" + actions + "</td>";
             }
             return html + "</tr>";
         }
@@ -5156,7 +5808,7 @@
             if (!histState.file || !histState.filtered.length) return;
             if (histState.shown >= histState.filtered.length) return;
             var admin = isAdmin();
-            var cols = QD.histColumnsForLine(histState.file);
+            var cols = histState.cols || histViewColumns(histState.file, readLineRows(histState.file));
             var table = $("histAdminTable");
             if (!table) return;
             var tbody = table.tBodies.length ? table.tBodies[0] : table;
@@ -5183,7 +5835,7 @@
             if ($("histLineTabs")) $("histLineTabs").innerHTML = histLineButtons();
             if ($("histAdminHelp")) {
                 $("histAdminHelp").innerText = isAdmin()
-                    ? "Pick a line. Rows load in pages and color from Pass/Fail. Edit or delete requires notes."
+                    ? "Pick a line. Use Edit mode to change values in the table. Save asks for notes."
                     : "Pick a line. Rows load in pages as you scroll. Row color follows the Pass/Fail column.";
             }
             var file = histState.file;
@@ -5196,8 +5848,8 @@
                 if ($("histMoreHint")) $("histMoreHint").style.display = "none";
                 return;
             }
-            cols = QD.histColumnsForLine(file);
-            rows = readLineRows(file);
+            cols = histViewColumns(file, rows = readLineRows(file));
+            histState.cols = cols;
             histState.filtered = [];
             for (i = rows.length - 1; i >= 0; i--) {
                 r = rows[i];
@@ -5211,7 +5863,7 @@
             }
             html = "<tr>";
             for (i = 0; i < cols.length; i++) html += "<th>" + esc(cols[i]) + "</th>";
-            if (admin) html += "<th></th>";
+            if (admin) html += "<th class='hist-act'></th>";
             html += "</tr>";
             if (!histState.filtered.length) html += "<tr><td colspan='" + (cols.length + (admin ? 1 : 0)) + "' class='muted'>No matching checks.</td></tr>";
             if ($("histAdminTable")) $("histAdminTable").innerHTML = html;
@@ -5223,25 +5875,82 @@
 
         function histFieldValue(row, key) {
             if (!row) return "";
-            if (key === "Date/Time") return QD.formatClock(row[key]);
+            if (key === "Date/Time") return QD.formatDateTime ? QD.formatDateTime(row[key]) : QD.formatClock(row[key]);
             return row[key] == null ? "" : String(row[key]);
         }
 
-        function openHistEdit(file, idx) {
+                function markHistDirty() {
+            histDirty = true;
+            if ($("histSaveBtn") && histEditMode) $("histSaveBtn").style.display = "";
+        }
+
+        function setHistEditMode(on) {
+            if (on && !requireAdmin()) return;
+            if (!on && histDirty && !confirm("Discard unsaved history edits?")) return;
+            histEditMode = !!on;
+            histDirty = false;
+            if ($("histEditToolbar")) $("histEditToolbar").style.display = isAdmin() ? "" : "none";
+            syncEditToolbars();
+            renderAdminHistory();
+        }
+
+        function saveHistEdits() {
+            if (!requireAdmin() || !histEditMode) return;
+            if (!histDirty) { alert("No changes to save."); return; }
+            var notes = QD.trim(window.prompt("Notes for these history edits (required):", "") || "");
+            if (!notes) { alert("Notes are required."); return; }
+            var table = $("histAdminTable");
+            if (!table) return;
+            var inputs = table.getElementsByTagName("input"), i, el, file, idx, key, val, row, changed = 0, files = {};
+            for (i = 0; i < inputs.length; i++) {
+                el = inputs[i];
+                file = el.getAttribute("data-hf");
+                idx = parseInt(el.getAttribute("data-hi"), 10);
+                key = el.getAttribute("data-hk");
+                if (!file || !key || isNaN(idx)) continue;
+                if (!files[file]) files[file] = readLineRows(file, true);
+                row = files[file][idx];
+                if (!row) continue;
+                val = el.value;
+                if (String(row[key] == null ? "" : row[key]) !== String(val)) {
+                    row[key] = val;
+                    row.__edited = 1;
+                    row.__editNotes = notes;
+                    row.__editBy = session.user;
+                    row.__editAt = (new Date()).toISOString();
+                    changed += 1;
+                }
+            }
+            for (file in files) if (files.hasOwnProperty(file)) writeLineRows(file, files[file]);
+            if (changed) audit("hist-edit", "inline " + changed + " field(s) — " + notes);
+            histEditMode = false;
+            histDirty = false;
+            syncEditToolbars();
+            renderAdminHistory();
+            setStatus(changed ? ("Saved " + changed + " history field change(s).") : "No field values changed.");
+        }
+
+function openHistEdit(file, idx) {
             if (!requireAdmin()) return;
             var rows = readLineRows(file);
             var row = rows[idx];
             if (!row) return;
             histEdit = { file: file, idx: idx };
-            var html = "", i, key, fields = QD.HIST_CHECK_FIELDS;
-            for (i = 0; i < fields.length; i++) {
-                key = fields[i];
-                html += "<label class='f'>" + esc(key) + " <input data-hist=\"" + esc(key) + "\" value=\"" + esc(histFieldValue(row, key)) + "\"></label>";
+            var cols = histViewColumns(file, rows), html = "", i, key, seen = {}, v;
+            html += "<div class='hist-scroll'><table class='hist-edit-grid'>";
+            for (i = 0; i < cols.length; i++) {
+                key = cols[i];
+                seen[key] = 1;
+                html += "<tr><th>" + esc(key) + "</th><td><input data-hist=\"" + esc(key) + "\" value=\"" + esc(histFieldValue(row, key)) + "\"></td></tr>";
             }
             for (i = 1; i <= 13; i++) {
                 key = "T" + i;
-                html += "<label class='f'>" + key + " <input data-hist=\"" + key + "\" value=\"" + esc(row[key] == null ? "" : row[key]) + "\"></label>";
+                if (seen[key]) continue;
+                v = row[key];
+                if (v == null || String(v) === "") continue;
+                html += "<tr><th>" + key + "</th><td><input data-hist=\"" + key + "\" value=\"" + esc(v) + "\"></td></tr>";
             }
+            html += "</table></div>";
             if ($("histEditFields")) $("histEditFields").innerHTML = html;
             if ($("histEditNotes")) $("histEditNotes").value = "";
             if ($("histEditOverlay")) $("histEditOverlay").className = "overlay on";
@@ -5321,87 +6030,254 @@
         function plantProfiles() {
             var site = currentSite === "GARLAND" ? "GARLAND" : "VISALIA";
             if (!profilesStore[site]) profilesStore[site] = QD.emptyPlantProfiles();
-            if (!profilesStore[site].COEX) profilesStore[site].COEX = { structures: [] };
-            if (!profilesStore[site].COEX.structures) profilesStore[site].COEX.structures = [];
             return profilesStore[site];
+        }
+
+        function profileLines() {
+            return QD.linesForSite(currentSite === "GARLAND" ? "GARLAND" : "VISALIA") || [];
+        }
+
+        function ensureProfileLineTab() {
+            var lines = profileLines(), i, ok = false;
+            if (!lines.length) {
+                profileLineTab = currentSite === "GARLAND" ? "G-COEX" : "COEX";
+                return;
+            }
+            for (i = 0; i < lines.length; i++) if (lines[i].id === profileLineTab) ok = true;
+            if (!ok) profileLineTab = lines[0].id;
+        }
+
+        function lineProfile() {
+            var plant = plantProfiles();
+            ensureProfileLineTab();
+            if (!plant[profileLineTab]) plant[profileLineTab] = QD.emptyLineProfile();
+            if (!plant[profileLineTab].structures) plant[profileLineTab].structures = [];
+            if (!plant[profileLineTab].version) plant[profileLineTab].version = "1.0.0";
+            return plant[profileLineTab];
+        }
+
+        function profileKey() {
+            return (currentSite === "GARLAND" ? "GARLAND" : "VISALIA") + "-" + (profileLineTab || "COEX");
+        }
+
+        function profileIsBubbleLine() {
+            var lines = profileLines(), i;
+            for (i = 0; i < lines.length; i++) {
+                if (lines[i].id === profileLineTab) return lines[i].plant === "bubble";
+            }
+            return false;
+        }
+
+        function markProfileDirty() {
+            profileDirty = true;
+            if ($("profileSaveBtn") && profileEditMode) $("profileSaveBtn").style.display = "";
+        }
+
+        function renderProfileLineTabs() {
+            var box = $("profileLineTabs"), lines = profileLines(), i, html = "";
+            if (!box) return;
+            ensureProfileLineTab();
+            for (i = 0; i < lines.length; i++) {
+                html += "<button type='button'" + (lines[i].id === profileLineTab ? " class='on'" : "") + " onclick=\"setProfileLineTab('" + lines[i].id + "')\">" + esc(lines[i].label || lines[i].id) + "</button>";
+            }
+            box.innerHTML = html;
+        }
+
+        function setProfileLineTab(id) {
+            if (profileEditMode) {
+                if (profileDirty && !confirm("Discard unsaved profile edits?")) return;
+                cancelProfileEditMode(true);
+            }
+            profileLineTab = id;
+            renderProfiles();
         }
 
         function renderProfiles() {
             loadProfiles();
-            var plant = currentSite === "GARLAND" ? "Garland" : "Visalia";
-            if ($("profilePlantLabel")) $("profilePlantLabel").innerText = plant + " · COEX";
-            var list = plantProfiles().COEX.structures;
-            var html = "", i, st, admin = isAdmin();
-            html += "<table class='list'><tr><th>Structure</th><th>Line speed</th><th>Ext A</th><th>MP1 A</th><th>MP2 A</th><th>Ext B</th><th>MP1 B</th><th>MP2 B</th><th>Ext C</th><th>MP1 C</th><th>MP2 C</th>";
-            if (admin) html += "<th></th>";
-            html += "</tr>";
-            if (!list.length) html += "<tr><td colspan='" + (admin ? 12 : 11) + "' class='muted'>No structures yet. Add one to scaffold COEX speeds.</td></tr>";
-            for (i = 0; i < list.length; i++) {
-                st = list[i];
+            var plantName = currentSite === "GARLAND" ? "Garland" : "Visalia";
+            ensureProfileLineTab();
+            var lp = lineProfile();
+            var lineLbl = profileLineTab, lines = profileLines(), i;
+            for (i = 0; i < lines.length; i++) if (lines[i].id === profileLineTab) lineLbl = lines[i].label || lines[i].id;
+            if ($("profilePlantLabel")) $("profilePlantLabel").innerText = plantName + " · " + lineLbl;
+            if ($("profileVersionLabel")) $("profileVersionLabel").innerText = "v" + (lp.version || "1.0.0");
+            renderProfileLineTabs();
+            if ($("profileFrontWrap")) $("profileFrontWrap").style.display = profileIsBubbleLine() ? "" : "none";
+            var list = lp.structures;
+            var html = "", n, st, admin = isAdmin(), editing = admin && profileEditMode;
+            html += "<table class='specs'><thead><tr>";
+            html += "<th rowspan='2' class='struct'>Structure</th><th rowspan='2' class='ver'>Ver</th><th rowspan='2'>Line speed</th>";
+            html += "<th class='group' colspan='3'>Extruder A</th><th class='group' colspan='3'>Extruder B</th><th class='group' colspan='3'>Extruder C</th>";
+            if (editing) html += "<th rowspan='2'></th>";
+            html += "</tr><tr>";
+            html += "<th class='num'>Speed</th><th class='num'>MP1</th><th class='num'>MP2</th>";
+            html += "<th class='num'>Speed</th><th class='num'>MP1</th><th class='num'>MP2</th>";
+            html += "<th class='num'>Speed</th><th class='num'>MP1</th><th class='num'>MP2</th>";
+            html += "</tr></thead><tbody>";
+            if (!list.length) html += "<tr><td colspan='" + (editing ? 13 : 12) + "' class='muted'>No structures yet. Add one to scaffold speeds.</td></tr>";
+            for (n = 0; n < list.length; n++) {
+                st = list[n];
+                if (!st.version) st.version = "1.0.0";
+                if (!st.A) st.A = { speed: "", meltPump1: "", meltPump2: "" };
+                if (!st.B) st.B = { speed: "", meltPump1: "", meltPump2: "" };
+                if (!st.C) st.C = { speed: "", meltPump1: "", meltPump2: "" };
                 html += "<tr>";
-                if (admin) {
-                    html += "<td><input data-ps='" + i + "' data-pk='name' value='" + esc(st.name) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='lineSpeed' value='" + esc(st.lineSpeed) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='A.speed' value='" + esc(st.A.speed) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='A.meltPump1' value='" + esc(st.A.meltPump1) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='A.meltPump2' value='" + esc(st.A.meltPump2) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='B.speed' value='" + esc(st.B.speed) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='B.meltPump1' value='" + esc(st.B.meltPump1) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='B.meltPump2' value='" + esc(st.B.meltPump2) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='C.speed' value='" + esc(st.C.speed) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='C.meltPump1' value='" + esc(st.C.meltPump1) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><input data-ps='" + i + "' data-pk='C.meltPump2' value='" + esc(st.C.meltPump2) + "' onchange='saveProfileField(this)'></td>";
-                    html += "<td><button type='button' class='danger' onclick='removeProfileStructure(" + i + ")'>Delete</button></td>";
+                if (editing) {
+                    html += "<td class='struct'><input class='struct' data-ps='" + n + "' data-pk='name' value='" + esc(st.name) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td class='ver'>" + esc(st.version) + "</td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='lineSpeed' value='" + esc(st.lineSpeed) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='A.speed' value='" + esc(st.A.speed) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='A.meltPump1' value='" + esc(st.A.meltPump1) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='A.meltPump2' value='" + esc(st.A.meltPump2) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='B.speed' value='" + esc(st.B.speed) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='B.meltPump1' value='" + esc(st.B.meltPump1) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='B.meltPump2' value='" + esc(st.B.meltPump2) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='C.speed' value='" + esc(st.C.speed) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='C.meltPump1' value='" + esc(st.C.meltPump1) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><input data-ps='" + n + "' data-pk='C.meltPump2' value='" + esc(st.C.meltPump2) + "' oninput='markProfileDirty()'></td>";
+                    html += "<td><button type='button' class='danger' onclick='removeProfileStructure(" + n + ")'>Delete</button></td>";
                 } else {
-                    html += "<td>" + esc(st.name) + "</td><td>" + esc(st.lineSpeed) + "</td>";
-                    html += "<td>" + esc(st.A.speed) + "</td><td>" + esc(st.A.meltPump1) + "</td><td>" + esc(st.A.meltPump2) + "</td>";
-                    html += "<td>" + esc(st.B.speed) + "</td><td>" + esc(st.B.meltPump1) + "</td><td>" + esc(st.B.meltPump2) + "</td>";
-                    html += "<td>" + esc(st.C.speed) + "</td><td>" + esc(st.C.meltPump1) + "</td><td>" + esc(st.C.meltPump2) + "</td>";
+                    html += "<td class='struct'>" + esc(st.name) + "</td><td class='ver'>" + esc(st.version) + "</td><td>" + esc(st.lineSpeed) + "</td>";
+                    html += "<td class='num'>" + esc(st.A.speed) + "</td><td class='num'>" + esc(st.A.meltPump1) + "</td><td class='num'>" + esc(st.A.meltPump2) + "</td>";
+                    html += "<td class='num'>" + esc(st.B.speed) + "</td><td class='num'>" + esc(st.B.meltPump1) + "</td><td class='num'>" + esc(st.B.meltPump2) + "</td>";
+                    html += "<td class='num'>" + esc(st.C.speed) + "</td><td class='num'>" + esc(st.C.meltPump1) + "</td><td class='num'>" + esc(st.C.meltPump2) + "</td>";
                 }
                 html += "</tr>";
             }
-            html += "</table>";
-            if ($("profileStructBox")) $("profileStructBox").innerHTML = html;
-            if ($("profileAddWrap")) $("profileAddWrap").style.display = admin ? "" : "none";
+            html += "</tbody></table>";
+            if ($("profileStructBox")) $("profileStructBox").innerHTML = "<div class='profile-scroll'>" + html + "</div>";
+            if ($("profileAddWrap")) $("profileAddWrap").style.display = editing ? "" : "none";
+            if ($("profileEditBtn")) $("profileEditBtn").style.display = (admin && !profileEditMode) ? "" : "none";
+            if ($("profileSaveBtn")) $("profileSaveBtn").style.display = (editing && profileDirty) ? "" : "none";
+            if ($("profileCancelBtn")) $("profileCancelBtn").style.display = editing ? "" : "none";
+            if ($("profileEditToolbar")) $("profileEditToolbar").style.display = admin ? "" : "none";
         }
 
-        function saveProfileField(el) {
-            if (!el || !isAdmin()) return;
-            var idx = parseInt(el.getAttribute("data-ps"), 10);
-            var key = el.getAttribute("data-pk") || "";
-            var list = plantProfiles().COEX.structures;
-            var st = list[idx], parts;
-            if (!st) return;
-            if (key === "name" || key === "lineSpeed") st[key] = el.value;
-            else {
-                parts = key.split(".");
-                if (parts.length === 2 && st[parts[0]]) st[parts[0]][parts[1]] = el.value;
+        function toggleProfileEditMode() {
+            if (!requireAdmin()) return;
+            profileEditMode = true;
+            profileDirty = false;
+            profileEditSnapshot = JSON.parse(JSON.stringify(lineProfile()));
+            renderProfiles();
+        }
+
+        function cancelProfileEditMode(silent) {
+            if (profileEditSnapshot) plantProfiles()[profileLineTab] = JSON.parse(JSON.stringify(profileEditSnapshot));
+            profileEditMode = false;
+            profileDirty = false;
+            profileEditSnapshot = null;
+            if (!silent) renderProfiles();
+        }
+
+        function collectProfileEditsFromDom() {
+            var box = $("profileStructBox");
+            if (!box) return;
+            var inputs = box.getElementsByTagName("input"), n, el, idx, key, st, parts, list = lineProfile().structures;
+            for (n = 0; n < inputs.length; n++) {
+                el = inputs[n];
+                idx = parseInt(el.getAttribute("data-ps"), 10);
+                key = el.getAttribute("data-pk") || "";
+                st = list[idx];
+                if (!st || !key) continue;
+                if (key === "name" || key === "lineSpeed") st[key] = el.value;
+                else {
+                    parts = key.split(".");
+                    if (parts.length === 2 && st[parts[0]]) st[parts[0]][parts[1]] = el.value;
+                }
             }
+        }
+
+        function structureChanged(before, after) {
+            if (!before || !after) return true;
+            if (String(before.name) !== String(after.name) || String(before.lineSpeed) !== String(after.lineSpeed)) return true;
+            var axes = ["A", "B", "C"], fields = ["speed", "meltPump1", "meltPump2"], i, j;
+            for (i = 0; i < axes.length; i++) for (j = 0; j < fields.length; j++) {
+                if (String((before[axes[i]] && before[axes[i]][fields[j]]) || "") !== String((after[axes[i]] && after[axes[i]][fields[j]]) || "")) return true;
+            }
+            return false;
+        }
+
+        function saveProfilesWithReason() {
+            if (!requireAdmin()) return;
+            if (!profileEditMode) { alert("Turn on Edit mode first."); return; }
+            if (!profileDirty) { alert("No changes to save."); return; }
+            var why = QD.trim(window.prompt("Why are you changing this profile?", "") || "");
+            if (!why) { alert("Explain why this profile is changing."); return; }
+            collectProfileEditsFromDom();
+            var before = profileEditSnapshot || {};
+            var after = JSON.parse(JSON.stringify(lineProfile()));
+            var i, bs = before.structures || [], asList = after.structures || [];
+            for (i = 0; i < asList.length; i++) {
+                if (!bs[i] || structureChanged(bs[i], asList[i])) {
+                    asList[i].version = QD.bumpSpecVersion((bs[i] && bs[i].version) || asList[i].version || "1.0.0");
+                }
+            }
+            after.version = QD.bumpSpecVersion(after.version || before.version || "1.0.0");
+            plantProfiles()[profileLineTab] = after;
+            addHistory("profile", profileKey(), why, before, after);
             saveProfiles();
-            audit("profile-edit", currentSite + " COEX " + (st.name || idx));
+            audit("profile-edit", profileKey() + " v" + after.version);
+            profileEditMode = false;
+            profileDirty = false;
+            profileEditSnapshot = null;
+            renderProfiles();
+            setStatus("Saved profile " + profileKey() + " as v" + after.version + ".");
+        }
+
+        function viewProfileHistory() {
+            var key = profileKey();
+            var lp = lineProfile();
+            var rows = QD.historyForSpec(specHistory, "profile", key);
+            var html = "<h3>Profile " + esc(key) + " · v" + esc(lp.version || "1.0.0") + "</h3>";
+            html += "<div class='card'><div><b>Current structures</b></div>" + profileSnapshotHtml(lp) + "</div>";
+            if (!rows.length) html += "<p class='muted'>No edits yet.</p>";
+            var i, r;
+            for (i = rows.length - 1; i >= 0; i--) {
+                r = rows[i];
+                html += "<div class='card'><div><b>" + esc(r.at) + "</b> — " + esc(r.user);
+                if (r.after && r.after.version) html += " · v" + esc(r.after.version);
+                html += "</div><div>Why: " + esc(r.why) + "</div>" + profileSnapshotHtml(r.after || {}) + "</div>";
+            }
+            $("histBody").innerHTML = html;
+            $("histOverlay").className = "overlay on";
+        }
+
+        function profileSnapshotHtml(lp) {
+            var list = (lp && lp.structures) || [], html = "<div class='profile-scroll'><table class='specs'><thead><tr>";
+            html += "<th>Structure</th><th>Ver</th><th>Line speed</th><th>A</th><th>B</th><th>C</th></tr></thead><tbody>";
+            var i, st;
+            if (!list.length) html += "<tr><td colspan='6' class='muted'>No structures</td></tr>";
+            for (i = 0; i < list.length; i++) {
+                st = list[i] || {};
+                html += "<tr><td>" + esc(st.name) + "</td><td class='ver'>" + esc(st.version || "1.0.0") + "</td><td>" + esc(st.lineSpeed) + "</td>";
+                html += "<td class='num'>" + esc(st.A && st.A.speed) + "/" + esc(st.A && st.A.meltPump1) + "/" + esc(st.A && st.A.meltPump2) + "</td>";
+                html += "<td class='num'>" + esc(st.B && st.B.speed) + "/" + esc(st.B && st.B.meltPump1) + "/" + esc(st.B && st.B.meltPump2) + "</td>";
+                html += "<td class='num'>" + esc(st.C && st.C.speed) + "/" + esc(st.C && st.C.meltPump1) + "/" + esc(st.C && st.C.meltPump2) + "</td></tr>";
+            }
+            html += "</tbody></table></div>";
+            return html;
         }
 
         function addProfileStructure() {
-            if (!isAdmin()) return;
-            var name = QD.trim($("newStructName") ? $("newStructName").value : "");
+            if (!isAdmin() || !profileEditMode) { alert("Turn on Edit mode to add structures."); return; }
+            var name = QD.trim(($("newStructName") && $("newStructName").value) || "");
             if (!name) { alert("Enter a structure name."); return; }
-            plantProfiles().COEX.structures.push(QD.emptyCoexStructure(name));
+            lineProfile().structures.push(QD.emptyCoexStructure(name));
             if ($("newStructName")) $("newStructName").value = "";
-            saveProfiles();
-            audit("profile-add", currentSite + " COEX " + name);
+            markProfileDirty();
             renderProfiles();
         }
 
         function removeProfileStructure(idx) {
-            if (!isAdmin()) return;
-            var list = plantProfiles().COEX.structures;
+            if (!isAdmin() || !profileEditMode) { alert("Turn on Edit mode to delete structures."); return; }
+            var list = lineProfile().structures;
             var name = list[idx] ? list[idx].name : "";
             if (!confirm("Delete structure " + (name || idx) + "?")) return;
             list.splice(idx, 1);
-            saveProfiles();
-            audit("profile-delete", currentSite + " COEX " + name);
+            markProfileDirty();
             renderProfiles();
         }
+
 
         function renderAuditTable() {
             loadAudit();
@@ -5480,7 +6356,7 @@
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.61</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.65</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>
@@ -5508,7 +6384,7 @@
             <button data-tab="mspecs" id="mspecsTabBtn" onclick="showTab('mspecs')">MSPECs</button>
             <button data-tab="items" id="itemsTabBtn" onclick="showTab('items')">Item database</button>
             <button data-tab="history" id="histTabBtn" onclick="showTab('history')">History</button>
-            <button data-tab="profiles" id="profilesTabBtn" onclick="showTab('profiles')">Profiles</button>
+            <!-- Profiles merged into MSPECs Bubble -->
             <button data-tab="audit" id="auditTabBtn" class="admin-only" onclick="showTab('audit')">Audit log</button>
             <span class="plant-toggle" id="plantToggle">
                 <button type="button" class="secondary" id="plantSwitchBtn" onclick="goPlantPick()">Switch plant</button>
@@ -5536,7 +6412,7 @@
                 <button type="button" onclick="pickReason('LPA')">LPA</button>
                 <button type="button" onclick="pickReason('NO CHECK')">NO CHECK</button>
             </div>
-            <div id="rtsStartupBtnWrap" style="display:none;margin-top:16px;">
+            <div id="rtsStartupBtnWrap" class="reason-btns" style="display:none;margin-top:16px;">
                 <button type="button" onclick="openRtsStartup()">Startup Checklist</button>
             </div>
         </div>
@@ -5603,7 +6479,7 @@
                     <p id="thkMinMax" class="muted"></p>
                     <div class="graph-card" id="radialCard" style="display:none">
                         <h2>Centration</h2>
-                        <canvas id="radialCanvas" class="radial" width="260" height="260"></canvas>
+                        <canvas id="radialCanvas" class="radial" width="320" height="320"></canvas>
                     </div>
                     <div id="overallPf" class="pf-huge"></div>
                 </div>
@@ -5613,19 +6489,20 @@
                     <div class="card">
                         <h2>S4 entries</h2>
                         <div class="pair">
-                            <div><label class="f">Bundle # <input id="s4bundle"></label></div>
-                            <div><label class="f">Width <input id="s4width" onkeyup="scheduleCompute()"> <span id="widthMark"></span></label></div>
+                            <div><label class="f">Bundle # <span class="req">*</span> <input id="s4bundle"></label></div>
+                            <div><label class="f">Width <span class="req">*</span> <input id="s4width" onkeyup="scheduleCompute()"> <span id="widthMark"></span></label></div>
                         </div>
+                        <div id="s4slitsWrap" style="display:none"><label class="f"># Slits <span class="req">*</span> <input id="s4slits" onkeyup="scheduleCompute()"></label></div>
                         <div class="pair">
-                            <div><label class="f">Footage <input id="s4foot"></label></div>
+                            <div><label class="f">Footage <span class="req">*</span> <input id="s4foot"></label></div>
                             <div><label class="f">Perf Roller On <select id="s4perfOn"><option></option><option>Yes</option><option>No</option></select></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Cell Count MD <input id="s4md"></label></div>
-                            <div><label class="f">Cell Count CD <input id="s4cd"></label></div>
+                            <div><label class="f">Cell Count MD <span class="req">*</span> <input id="s4md"></label></div>
+                            <div><label class="f">Cell Count CD <span class="req">*</span> <input id="s4cd"></label></div>
                         </div>
-                        <label class="f">Weight (g) <input id="s4weight" onkeyup="scheduleCompute()"></label>
-                        <label class="f">Thickness T1–T13</label>
+                        <label class="f">Weight (g) <span class="req">*</span> <input id="s4weight" onkeyup="scheduleCompute()"></label>
+                        <label class="f">Thickness T1–T13 <span class="req">*</span></label>
                         <div class="chips" id="s4chips">
                             <label class="chip"><span>T1</span><input id="s4t1" onkeyup="scheduleCompute()"></label>
                             <label class="chip"><span>T2</span><input id="s4t2" onkeyup="scheduleCompute()"></label>
@@ -5643,29 +6520,31 @@
                         </div>
                         <div>Average <b id="avgOut"></b> <span id="avgMark"></span> &nbsp; Range <b id="rangeOut"></b> <span id="rangeMark"></span> &nbsp; Density <b id="densOut"></b></div>
                         <div id="s4sheetWrap"><label class="f">Sheet Length <input id="s4sheet" onkeyup="scheduleCompute()"> <span id="sheetMark"></span></label></div>
+                        <p class="req-note"><span class="req">*</span> = required</p>
                     </div>
                 </div>
                 <div id="formS1" class="form">
                     <div class="card">
                         <h2>S1 / S3 entries</h2>
                         <div class="pair">
-                            <div><label class="f">Bundle # <input id="s1bundle"></label></div>
-                            <div><label class="f">Width <input id="s1width" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Bundle # <span class="req">*</span> <input id="s1bundle"></label></div>
+                            <div><label class="f">Width <span class="req">*</span> <input id="s1width" onkeyup="scheduleCompute()"></label></div>
                         </div>
+                        <div id="s1slitsWrap" style="display:none"><label class="f"># Slits <span class="req">*</span> <input id="s1slits" onkeyup="scheduleCompute()"></label></div>
                         <div class="pair">
-                            <div><label class="f">Footage <input id="s1foot"></label></div>
-                            <div id="s1perfWrap"><label class="f">Perf <input id="s1perf" onkeyup="scheduleCompute()"> <span id="perfMark"></span></label></div>
+                            <div><label class="f">Footage <span class="req">*</span> <input id="s1foot"></label></div>
+                            <div id="s1perfWrap"><label class="f">Perf <span class="req">*</span> <input id="s1perf" onkeyup="scheduleCompute()"> <span id="perfMark"></span></label></div>
                         </div>
                         <div class="pair">
                             <div><label class="f">Bundle Tight/Loose <select id="s1bundleFit" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
                             <div><label class="f">Tape Color <select id="s1tape"><option></option><option>RED</option><option>YELLOW</option><option>GREEN</option><option>BLUE</option><option>BROWN</option><option>TAN</option><option>CLEAR</option><option>ULINE</option><option>BLACK</option></select></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Cell Count MD <input id="s1md"></label></div>
-                            <div><label class="f">Cell Count CD <input id="s1cd"></label></div>
+                            <div><label class="f">Cell Count MD <span class="req">*</span> <input id="s1md"></label></div>
+                            <div><label class="f">Cell Count CD <span class="req">*</span> <input id="s1cd"></label></div>
                         </div>
-                        <label class="f">Weight <input id="s1weight" onkeyup="scheduleCompute()"></label>
-                        <label class="f">Thickness T1–T13</label>
+                        <label class="f">Weight <span class="req">*</span> <input id="s1weight" onkeyup="scheduleCompute()"></label>
+                        <label class="f">Thickness T1–T13 <span class="req">*</span></label>
                         <div class="chips">
                             <label class="chip"><span>T1</span><input id="s1t1" onkeyup="scheduleCompute()"></label>
                             <label class="chip"><span>T2</span><input id="s1t2" onkeyup="scheduleCompute()"></label>
@@ -5682,57 +6561,64 @@
                             <label class="chip"><span>T13</span><input id="s1t13" onkeyup="scheduleCompute()"></label>
                         </div>
                         <div class="pair" id="s1winderWrap">
-                            <div><label class="f">Winder tension <input id="s1winder" onkeyup="scheduleCompute()"></label></div>
-                            <div id="s1bumperWrap"><label class="f">Bumper roll pressure <input id="s1bumper" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Winder tension <span class="req">*</span> <input id="s1winder" onkeyup="scheduleCompute()"></label></div>
+                            <div id="s1bumperWrap"><label class="f">Bumper roll pressure <span class="req">*</span> <input id="s1bumper" onkeyup="scheduleCompute()"></label></div>
                         </div>
-                        <div id="s1diamWrap"><label class="f">Diameter (ULINE only) <input id="s1diam" onkeyup="scheduleCompute()"></label></div>
+                        <div id="s1diamWrap"><label class="f">Diameter (ULINE only) <span class="req">*</span> <input id="s1diam" onkeyup="scheduleCompute()"></label></div>
+                        <p class="req-note"><span class="req">*</span> = required</p>
                     </div>
                 </div>
                 <div id="formBubble" class="form">
                     <div class="card">
                         <h2>Bubble entries</h2>
-                        <label class="f">Dead Cells and Air Transfers Post Vacuum Test <input id="bdeadPost" onkeyup="scheduleCompute()"></label>
-                        <div id="bpostvWrap"><label class="f">Post-Visual Inspection <select id="bpostv" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
-                        <div id="bcohWrap"><label class="f">COH/ADH Verification <select id="bcoh" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
-                        <div class="pair">
-                            <div><label class="f">Slit Width <input id="bwidth" onkeyup="scheduleCompute()"> <span id="bwidthMark"></span></label></div>
-                            <div><label class="f">Web Width <input id="bweb" onkeyup="scheduleCompute()"> <span id="bwebMark"></span></label></div>
+                        <div id="bcohWrap"><label class="f">COH/ADH Verification <span class="req">*</span> <select id="bcoh" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
+                        <div class="pair" id="bpairTop">
+                            <div id="bslitsWrap" style="display:none"><label class="f"># Slits <span class="req">*</span> <input id="bslits" onkeyup="scheduleCompute()"> <span id="bslitsMark"></span></label></div>
+                            <div id="bwebWrap"><label class="f">Web Width <span class="req">*</span> <input id="bweb" onkeyup="scheduleCompute()"> <span id="bwebMark"></span></label></div>
                         </div>
-                        <div class="pair">
-                            <div><label class="f">Footage <input id="bfootage" onkeyup="scheduleCompute()"> <span id="bfootMark"></span></label></div>
-                            <div id="bperfwWrap"><label class="f">Perf Width <input id="bperfw" onkeyup="scheduleCompute()"> <span id="bperfMark"></span></label></div>
+                        <div class="pair" id="bpairMid">
+                            <div id="bwidthWrap"><label class="f">Slit Width <span class="req">*</span> <input id="bwidth" onkeyup="scheduleCompute()"> <span id="bwidthMark"></span></label></div>
+                            <div id="bfootageWrap"><label class="f">Footage <span class="req">*</span> <input id="bfootage" onkeyup="scheduleCompute()"> <span id="bfootMark"></span></label></div>
+                        </div>
+                        <div class="pair" id="bpairPerfMeta">
+                            <div id="bperfwWrap"><label class="f">Perf Distance <span class="req">*</span> <input id="bperfw" onkeyup="scheduleCompute()"> <span id="bperfMark"></span></label></div>
+                            <div id="bperfPad"></div>
                         </div>
                         <div class="pair" id="bperfStrWrap">
-                            <div><label class="f">Perf Strength Left <input id="bperfLeft" onkeyup="scheduleCompute()"> <span id="bperfLeftMark"></span></label></div>
-                            <div><label class="f">Perf Strength Right <input id="bperfRight" onkeyup="scheduleCompute()"> <span id="bperfRightMark"></span></label></div>
-                        </div>
-                        <label class="f">Basis Weight <input id="bweight" onkeyup="scheduleCompute()"> <span id="bwtMark"></span></label>
-                        <div class="pair">
-                            <div><label class="f">Color <select id="bcolor" onchange="compute()"><option></option><option>Clear</option><option>Green</option><option>Pink</option><option>Gray</option></select></label></div>
-                            <div><label class="f">Delam Check <select id="bdelam" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
+                            <div><label class="f">Perf Strength Left <span class="req">*</span> <input id="bperfLeft" onkeyup="scheduleCompute()"> <span id="bperfLeftMark"></span></label></div>
+                            <div><label class="f">Perf Strength Right <span class="req">*</span> <input id="bperfRight" onkeyup="scheduleCompute()"> <span id="bperfRightMark"></span></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Production # <input id="bprod" onkeyup="scheduleCompute()"></label></div>
-                            <div><label class="f">Roll # <input id="broll" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Dead Cells and Air Transfers Post Vacuum Test <span class="req">*</span> <input id="bdeadPost" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Basis Weight <span class="req">*</span> <input id="bweight" onkeyup="scheduleCompute()"> <span id="bwtMark"></span></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Color <span class="req">*</span> <select id="bcolor" onchange="syncBubbleColor();compute()"><option></option><option value="Clear" style="color:#e5e7eb">Clear</option><option value="Green" style="color:#4ade80">Green</option><option value="Pink" style="color:#f9a8d4">Pink</option><option value="Gray" style="color:#9ca3af">Gray</option></select></label></div>
+                            <div><label class="f">Delam Check <span class="req">*</span> <select id="bdelam" onchange="compute()"><option></option><option>PASS</option><option>FAIL</option></select></label></div>
+                        </div>
+                        <div class="pair">
+                            <div><label class="f">Work Order # <span class="req">*</span> <input id="bprod" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Bundle # <span class="req">*</span> <input id="broll" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div id="bbarcodeWrap" style="display:none"><label class="f">Barcode Label <span id="bbarcodeShow"></span></label></div>
                         <div id="bboxWrap" style="display:none"><label class="f">Box Label <span id="bboxShow"></span></label></div>
-                        <div id="bdiamWrap"><label class="f">Diameter (ULINE only) <input id="bdiam" onkeyup="scheduleCompute()"></label></div>
+                        <div id="bdiamWrap"><label class="f">Diameter (ULINE only) <span class="req">*</span> <input id="bdiam" onkeyup="scheduleCompute()"></label></div>
+                        <p class="req-note"><span class="req">*</span> = required</p>
                     </div>
                 </div>
                 <div id="formP1" class="form">
                     <div class="card">
                         <h2>P1 entries — head piece</h2>
                         <div class="pair">
-                            <div><label class="f">Length <input id="plength" onkeyup="scheduleCompute()"></label></div>
-                            <div><label class="f">Width <input id="pwidth" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Length <span class="req">*</span> <input id="plength" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Width <span class="req">*</span> <input id="pwidth" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Cell Count MD <input id="pmd"></label></div>
-                            <div><label class="f">Cell Count CD <input id="pcd"></label></div>
+                            <div><label class="f">Cell Count MD <span class="req">*</span> <input id="pmd"></label></div>
+                            <div><label class="f">Cell Count CD <span class="req">*</span> <input id="pcd"></label></div>
                         </div>
-                        <label class="f">Plank Weight <input id="pweight" onkeyup="scheduleCompute()"></label>
-                        <label class="f">Head thickness T1–T12</label>
+                        <label class="f">Plank Weight <span class="req">*</span> <input id="pweight" onkeyup="scheduleCompute()"></label>
+                        <label class="f">Head thickness T1–T12 <span class="req">*</span></label>
                         <div class="chips" id="p1HeadChips">
                             <label class="chip"><span>T1</span><input id="pht1" onkeyup="scheduleCompute()"></label>
                             <label class="chip"><span>T2</span><input id="pht2" onkeyup="scheduleCompute()"></label>
@@ -5748,14 +6634,15 @@
                             <label class="chip"><span>T12</span><input id="pht12" onkeyup="scheduleCompute()"></label>
                         </div>
                         <div>Average <b id="pavgOut"></b> &nbsp; Volume <b id="pvolOut"></b> &nbsp; Density <b id="pdensOut"></b></div>
+                        <p class="req-note"><span class="req">*</span> = required</p>
                     </div>
                     <div class="card" id="p1TailWrap" style="display:none">
                         <h2>P1 entries — tail piece (double shot)</h2>
                         <div class="pair">
-                            <div><label class="f">Tail Length <input id="ptailLength" onkeyup="scheduleCompute()"></label></div>
-                            <div><label class="f">Tail Width <input id="ptailWidth" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Tail Length <span class="req">*</span> <input id="ptailLength" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Tail Width <span class="req">*</span> <input id="ptailWidth" onkeyup="scheduleCompute()"></label></div>
                         </div>
-                        <label class="f">Tail thickness T1–T12</label>
+                        <label class="f">Tail thickness T1–T12 <span class="req">*</span></label>
                         <div class="chips" id="p1TailChips">
                             <label class="chip"><span>T1</span><input id="ptt1" onkeyup="scheduleCompute()"></label>
                             <label class="chip"><span>T2</span><input id="ptt2" onkeyup="scheduleCompute()"></label>
@@ -5777,12 +6664,12 @@
                         <h2>RTS entries</h2>
                         <div class="pair">
                             <div>
-                                <label class="f">Parent Material
+                                <label class="f">Parent Material <span class="req">*</span>
                                     <select id="rparent" onchange="onRtsParentChange()"></select>
                                 </label>
                                 <a href="#" onclick="addRtsParent();return false;" style="color:#93c5fd;text-decoration:underline;font-size:12px;">Add parent material</a>
                             </div>
-                            <div><label class="f date-field">Parent MFG Date
+                            <div><label class="f date-field">Parent MFG Date <span class="req">*</span>
                                 <span class="date-wrap">
                                     <input id="rdate" class="date-input" placeholder="MM/DD/YYYY" onkeyup="onRdateTyped()" onchange="onRdateTyped()" onfocus="toggleDatePicker(true)">
                                     <button type="button" class="date-btn" title="Open calendar" onclick="toggleDatePicker();return false;">Cal</button>
@@ -5791,23 +6678,24 @@
                                 <span id="rmfgMark"></span></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Parent Shift <select id="rshift"><option></option><option>A</option><option>B</option><option>C</option><option>D</option></select></label></div>
-                            <div><label class="f">Color <select id="rcolor" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
+                            <div><label class="f">Parent Shift <span class="req">*</span> <select id="rshift"><option></option><option>A</option><option>B</option><option>C</option><option>D</option></select></label></div>
+                            <div><label class="f">Color <span class="req">*</span> <select id="rcolor" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Width <input id="rwidth" onkeyup="scheduleCompute()"></label></div>
-                            <div><label class="f">Length <input id="rlength" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Width <span class="req">*</span> <input id="rwidth" onkeyup="scheduleCompute()"></label></div>
+                            <div><label class="f">Length <span class="req">*</span> <input id="rlength" onkeyup="scheduleCompute()"></label></div>
                         </div>
                         <div class="pair">
-                            <div><label class="f">Blister / Delam <select id="rdelam" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
-                            <div><label class="f">Alligator Skin <select id="rallig" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
+                            <div><label class="f">Blister / Delam <span class="req">*</span> <select id="rdelam" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
+                            <div><label class="f">Alligator Skin <span class="req">*</span> <select id="rallig" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label></div>
                         </div>
-                        <label class="f">Verify side tattoo exists <select id="rtattoo" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label>
-                        <label class="f">Thickness points</label>
+                        <label class="f">Verify side tattoo exists <span class="req">*</span> <select id="rtattoo" onchange="compute()"><option></option><option>Pass</option><option>Fail</option></select></label>
+                        <label class="f">Thickness points <span class="req">*</span></label>
                         <div class="pts">
                             <input id="rt1" onkeyup="scheduleCompute()"><input id="rt2" onkeyup="scheduleCompute()"><input id="rt3" onkeyup="scheduleCompute()">
                             <span id="rthkMark"></span>
                         </div>
+                        <p class="req-note"><span class="req">*</span> = required</p>
                     </div>
                 </div>
                 <div class="card" id="checkNotesCard">
@@ -5822,22 +6710,11 @@
                 <h2>Users <span class="muted" id="userCount"></span></h2>
                 <div class="pair">
                     <div class="filter-row">
-                        <label class="f">Filter <input id="userFilter" onkeyup="scheduleList(renderUserTable)"></label>
+                        <label class="f">Filter <input id="userFilter" onkeyup="scheduleList(renderUserTable)" oninput="scheduleList(renderUserTable)" onchange="scheduleList(renderUserTable)"></label>
                         <select id="userFilterBy" onchange="renderUserTable()"><option value="User">User</option><option value="Plant">Plant</option><option value="Lines">Lines</option></select>
                     </div>
                     <div class="admin-only">
-                        <label class="f">New user <input id="newUser"></label>
-                        <label class="f">Password <input id="newUserPass" type="password"></label>
-                        <div class="role-checks">
-                            <label><input id="newUserOperator" type="checkbox" checked> Operator</label>
-                            <label><input id="newUserAdmin" type="checkbox"> Admin</label>
-                            <label><input id="newUserSupervisor" type="checkbox"> Supervisor</label>
-                            <label><input id="newUserLead" type="checkbox"> Lead</label>
-                        </div>
-                        <label class="f">Plant</label>
-                        <div class="plant-checks" id="newUserPlantBox"></div>
-                        <div class="line-checks" id="newUserLineBox"></div>
-                        <button type="button" onclick="addUser()">Add user</button>
+                        <button type="button" onclick="openAddUserScreen()">Add user</button>
                     </div>
                 </div>
                 <div class="list-wrap"><table class="list" id="userTable"></table></div>
@@ -5852,12 +6729,28 @@
                     <button data-spec="p1" onclick="setSpecTab('p1')">P1</button>
                     <button data-spec="rts" onclick="setSpecTab('rts')">RTS</button>
                 </div>
+                <div class="admin-only edit-toolbar" id="mspecEditToolbar">
+                    <button type="button" id="mspecEditBtn" onclick="setMspecEditMode(true)">Edit mode</button>
+                    <button type="button" id="mspecSaveBtn" class="ok" style="display:none" onclick="saveMspecEdits()">Save</button>
+                    <button type="button" id="mspecCancelBtn" class="secondary" style="display:none" onclick="setMspecEditMode(false)">Cancel</button>
+                    <span class="muted">Edit values in the table. Save asks why and bumps version.</span>
+                </div>
                 <div class="filter-row">
-                    <label class="f">Filter <input id="mspecFilter" onkeyup="scheduleList(renderMspecTable)"></label>
+                    <label class="f">Filter <input id="mspecFilter" onkeyup="scheduleList(renderMspecTable)" oninput="scheduleList(renderMspecTable)" onchange="scheduleList(renderMspecTable)"></label>
                     <select id="mspecFilterBy" onchange="renderMspecTable()"></select>
-                    <button type="button" class="secondary" onclick="if($('mspecFilter'))$('mspecFilter').value='';renderMspecTable()">Clear filter</button>
+                    <button type="button" class="secondary" onclick="clearListFilter('mspecFilter', renderMspecTable)">Clear filter</button>
                 </div>
                 <div class="list-wrap"><table class="specs" id="mspecTable"></table></div>
+                <div id="mspecProfileExtra" style="display:none;margin-top:16px;">
+                    <h3>Front to back ratio</h3>
+                    <div class="list-wrap">
+                        <table class="list">
+                            <tr><th>Item</th><th>Ratio</th></tr>
+                            <tr><td>ULINE</td><td>1.75</td></tr>
+                            <tr><td>Non-ULINE</td><td>1.5</td></tr>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
         <div id="tabItems" class="tabpanel">
@@ -5872,10 +6765,16 @@
                     </div>
                     <button type="button" class="admin-only" onclick="openItemModal()">Add item #</button>
                 </div>
+                <div class="admin-only edit-toolbar" id="itemEditToolbar">
+                    <button type="button" id="itemEditBtn" onclick="setItemEditMode(true)">Edit mode</button>
+                    <button type="button" id="itemSaveBtn" class="ok" style="display:none" onclick="saveItemEdits()">Save</button>
+                    <button type="button" id="itemCancelBtn" class="secondary" style="display:none" onclick="setItemEditMode(false)">Cancel</button>
+                    <span class="muted">Edit values in the table. Save asks why and versions changed items.</span>
+                </div>
                 <div class="filter-row">
-                    <label class="f">Filter <input id="itemFilter" onkeyup="scheduleList(renderItemTable)"></label>
+                    <label class="f">Filter <input id="itemFilter" onkeyup="scheduleList(renderItemTable)" oninput="scheduleList(renderItemTable)" onchange="scheduleList(renderItemTable)"></label>
                     <select id="itemFilterBy" onchange="renderItemTable()"></select>
-                    <button type="button" class="secondary" onclick="if($('itemFilter'))$('itemFilter').value='';renderItemTable()">Clear filter</button>
+                    <button type="button" class="secondary" onclick="clearListFilter('itemFilter', renderItemTable)">Clear filter</button>
                 </div>
                 <div class="list-wrap"><table class="list" id="itemTable"></table></div>
             </div>
@@ -5919,19 +6818,26 @@
                 <h2>History <span class="muted" id="histAdminCount"></span></h2>
                 <p class="muted" id="histAdminHelp">Pick a line. Rows load in pages as you scroll. Row color follows the Pass/Fail column.</p>
                 <div class="subtabs hist-line-tabs" id="histLineTabs"></div>
+                <div class="admin-only edit-toolbar" id="histEditToolbar">
+                    <button type="button" id="histEditBtn" onclick="setHistEditMode(true)">Edit mode</button>
+                    <button type="button" id="histSaveBtn" class="ok" style="display:none" onclick="saveHistEdits()">Save</button>
+                    <button type="button" id="histCancelBtn" class="secondary" style="display:none" onclick="setHistEditMode(false)">Cancel</button>
+                    <span class="muted">Edit checks in the table. Save asks for notes.</span>
+                </div>
                 <div class="filter-row">
-                    <label class="f">Filter <input id="histTextFilter" onkeyup="scheduleList(renderAdminHistory)"></label>
+                    <label class="f">Filter <input id="histTextFilter" onkeyup="scheduleList(renderAdminHistory)" oninput="scheduleList(renderAdminHistory)" onchange="scheduleList(renderAdminHistory)"></label>
                     <button type="button" class="secondary" onclick="clearHistFilters()">Clear filters</button>
                 </div>
-                <div class="list-wrap" id="histAdminWrap"><table class="list hist-grid" id="histAdminTable"></table></div>
+                <div class="list-wrap hist-scroll" id="histAdminWrap"><table class="list hist-grid" id="histAdminTable"></table></div>
                 <div class="hist-more" id="histMoreHint" style="display:none">Scroll down to load more checks.</div>
             </div>
         </div>
         <div id="tabProfiles" class="tabpanel">
             <div class="card">
                 <h2>Profiles <span class="muted" id="profilePlantLabel"></span></h2>
-                <p class="muted">Each plant has its own profile. COEX is available now. Front-to-back ratio is a fixed table. Structure speeds are a scaffold — no specs required yet.</p>
-                <h3>COEX — Front to back ratio</h3>
+                <div class="subtabs" id="profileLineTabs"></div>
+                <div id="profileFrontWrap">
+                <h3>Front to back ratio</h3>
                 <div class="list-wrap">
                     <table class="list" id="frontToBackTable">
                         <tr><th>Item</th><th>Ratio</th></tr>
@@ -5939,10 +6845,16 @@
                         <tr><td>Non-ULINE</td><td>1.5</td></tr>
                     </table>
                 </div>
-                <h3>COEX — Structure</h3>
-                <p class="muted">Each structure has line speed plus Extruder A, B, and C (extruder speed, Melt Pump 1, Melt Pump 2).</p>
+                </div>
+                <h3>Structure speeds <span class="muted" id="profileVersionLabel"></span></h3>
+<div class="admin-only edit-toolbar" id="profileEditToolbar">
+                    <button type="button" id="profileEditBtn" onclick="toggleProfileEditMode()">Edit mode</button>
+                    <button type="button" id="profileSaveBtn" class="ok" style="display:none" onclick="saveProfilesWithReason()">Save</button>
+                    <button type="button" id="profileCancelBtn" class="secondary" style="display:none" onclick="cancelProfileEditMode()">Cancel</button>
+                    <button type="button" class="secondary" onclick="viewProfileHistory()">History</button>
+                </div>
                 <div id="profileStructBox"></div>
-                <div class="admin-only" id="profileAddWrap">
+                <div class="admin-only" id="profileAddWrap" style="display:none">
                     <label class="f">New structure name <input id="newStructName"></label>
                     <button type="button" onclick="addProfileStructure()">Add structure</button>
                 </div>
@@ -5978,7 +6890,7 @@
     <div class="overlay" id="itemOverlay">
         <div class="modal">
             <h3 id="itemModalTitle">Add item #</h3>
-            <label class="f">Type
+            <label class="f">Type <span class="req">*</span>
                 <select id="newType" onchange="syncItemTypeFields()">
                     <option value="">Select type…</option>
                     <option value="BUBBLE">BUBBLE — COEX / MONO</option>
@@ -5988,40 +6900,60 @@
                 </select>
             </label>
             <p class="muted" id="itemTypeHint">Pick a type first.</p>
-            <label class="f">Item # <input id="newItem"></label>
-            <label class="f">Description <input id="newDesc"></label>
+            <label class="f">Item # <span class="req">*</span> <input id="newItem"></label>
+            <label class="f">Description <span class="req">*</span> <input id="newDesc"></label>
             <div id="fieldsBubble" class="type-fields">
-                <label class="f">Slit Width <input id="newWidthB"></label>
+                <label class="f">Slit Width <span class="req">*</span> <input id="newWidthB"></label>
                 <label class="f"># Slits <input id="newSlits"></label>
-                <label class="f">Footage <input id="newFootageB"></label>
+                <label class="f">Footage <span class="req">*</span> <input id="newFootageB"></label>
                 <label class="f">Perf <input id="newPerfB"></label>
-                <label class="f">Bubble Type <input id="newBubble"></label>
-                <label class="f">Color <select id="newColorB"><option></option><option>Clear</option><option>Green</option><option>Pink</option><option>Gray</option></select></label>
+                <label class="f">Bubble Type <span class="req">*</span> <input id="newBubble"></label>
+                <label class="f">Color <select id="newColorB"><option></option><option value="Clear" style="color:#e5e7eb">Clear</option><option value="Green" style="color:#4ade80">Green</option><option value="Pink" style="color:#f9a8d4">Pink</option><option value="Gray" style="color:#9ca3af">Gray</option></select></label>
                 <label class="f">Barcode Label <input id="newBarcode"></label>
                 <label class="f">Box Label <input id="newBoxLabel"></label>
             </div>
             <div id="fieldsFoam" class="type-fields">
-                <label class="f">Width <input id="newWidthF"></label>
-                <label class="f">Footage <input id="newFootageF"></label>
+                <label class="f">Width <span class="req">*</span> <input id="newWidthF"></label>
+                <label class="f"># Slits <input id="newSlitsF"></label>
+                <label class="f">Footage <span class="req">*</span> <input id="newFootageF"></label>
                 <label class="f">Perf <input id="newPerfF"></label>
-                <label class="f">MSPEC <input id="newMspecF"></label>
+                <label class="f">MSPEC <span class="req">*</span> <input id="newMspecF"></label>
             </div>
             <div id="fieldsLam" class="type-fields">
-                <label class="f">Length <input id="newLengthL"></label>
-                <label class="f">Width <input id="newWidthL"></label>
+                <label class="f">Length <span class="req">*</span> <input id="newLengthL"></label>
+                <label class="f">Width <span class="req">*</span> <input id="newWidthL"></label>
                 <label class="f">Parent Material <input id="newParent"></label>
                 <label class="f">MSPEC <input id="newMspecL"></label>
                 <label class="f">Thickness <input id="newThk"></label>
             </div>
             <div id="fieldsPlank" class="type-fields">
-                <label class="f">Length <input id="newLengthP"></label>
-                <label class="f">Width <input id="newWidthP"></label>
-                <label class="f">Density <input id="newDens"></label>
-                <label class="f"># Shots <input id="newShots"></label>
+                <label class="f">Length <span class="req">*</span> <input id="newLengthP"></label>
+                <label class="f">Width <span class="req">*</span> <input id="newWidthP"></label>
+                <label class="f">Density <span class="req">*</span> <input id="newDens"></label>
+                <label class="f"># Shots <span class="req">*</span> <input id="newShots"></label>
                 <label class="f">Soft <input id="newSoft"></label>
             </div>
+            <p class="req-note"><span class="req">*</span> = required</p>
             <button type="button" class="ok" onclick="saveNewItem()">Save item</button>
             <button type="button" class="secondary" onclick="closeItemModal()">Cancel</button>
+        </div>
+    </div>
+    <div class="overlay" id="addUserOverlay">
+        <div class="modal">
+            <h3>Add user</h3>
+            <label class="f">New user <input id="newUser"></label>
+            <label class="f">Password <input id="newUserPass" type="password"></label>
+            <div class="role-checks">
+                <label><input id="newUserOperator" type="checkbox" checked> Operator</label>
+                <label><input id="newUserAdmin" type="checkbox"> Admin</label>
+                <label><input id="newUserSupervisor" type="checkbox"> Supervisor</label>
+                <label><input id="newUserLead" type="checkbox"> Lead</label>
+            </div>
+            <label class="f">Plant</label>
+            <div class="plant-checks" id="newUserPlantBox"></div>
+            <div class="line-checks" id="newUserLineBox"></div>
+            <button type="button" class="ok" onclick="addUser()">Save user</button>
+            <button type="button" class="secondary" onclick="closeAddUserScreen()">Cancel</button>
         </div>
     </div>
     <div class="overlay" id="specEditOverlay">

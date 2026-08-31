@@ -2491,7 +2491,7 @@ assert.match(hta, /scheduleCompute/);
 assert.match(hta, /function computeNow/);
 assert.match(hta, /radialCard/);
 assert.match(hta, /body\.light/);
-assert.match(hta, /v1\.7\.61/);
+assert.match(hta, /v1\.7\.62/);
 assert.match(hta, /function userCanSeeHistFile/);
 assert.match(hta, /QD\.histColumnsForLine\(file\)/);
 assert.match(hta, /function clearHistFilters/);
@@ -2510,6 +2510,13 @@ assert.match(hta, /id="newBarcode"/);
 assert.match(hta, /id="bweb"/);
 assert.match(hta, /id="bperfLeft"/);
 assert.match(hta, /id="bperfRight"/);
+assert.match(hta, /id="bwidthWrap"/);
+assert.match(hta, /id="bslitsWrap"/);
+assert.match(hta, /id="newSlitsF"/);
+assert.match(hta, /syncFoamSlits/);
+assert.doesNotMatch(hta, /id="bpostv"/);
+assert.match(hta, /Extruder A/);
+assert.match(hta, /th class='group' colspan='3'>Extruder A/);
 assert.doesNotMatch(hta, /id="bdeadPre"/);
 assert.doesNotMatch(hta, /id="btester"/);
 assert.doesNotMatch(hta, /Start of shift\/Changeover/);
@@ -2687,14 +2694,25 @@ assert.ok(QD.needsCoexSpeeds('COEX', null, { bubbleType: 'VAB' }, []));
 assert.ok(!QD.needsCoexSpeeds('COEX', { 'Bubble Type': 'VAB' }, { bubbleType: 'VAB' }, []));
 assert.ok(QD.needsCoexSpeeds('COEX', { 'Bubble Type': 'VAB' }, { bubbleType: 'SAB' }, []));
 assert.ok(!QD.needsCoexSpeeds('MONO', null, { bubbleType: 'VAB' }, []));
-assert.ok(QD.startupComplete({ labelsOut: 'YES', poVerify: 'YES', labelsMatch: 'YES', lineSpeed: '200', extruderSpeed: '40', meltPump1: '10', meltPump2: '12' }, false, true));
+assert.ok(QD.startupComplete({
+  labelsOut: 'YES', poVerify: 'YES', labelsMatch: 'YES', lineSpeed: '200',
+  A_speed: '40', A_meltPump1: '10', A_meltPump2: '12',
+  B_speed: '41', B_meltPump1: '11', B_meltPump2: '13',
+  C_speed: '42', C_meltPump1: '12', C_meltPump2: '14'
+}, false, true));
+assert.ok(!QD.startupComplete({ labelsOut: 'YES', poVerify: 'YES', labelsMatch: 'YES', lineSpeed: '200', A_speed: '40' }, false, true));
 assert.ok(!QD.startupComplete({ labelsOut: 'YES', poVerify: 'YES', labelsMatch: 'YES' }, false, true));
 assert.ok(!QD.skipReason('COEX', 'LPA'));
 assert.equal(QD.missingCheckFields('COEX', 'HOURLY', {
   user: 'GWEXLER', item: '1', itemObj: { width: '48', footage: '750', bubbleType: 'VAB' },
   width: '48', webWidth: '48', footage: '750', weight: '12', deadPost: '0',
-  color: 'Clear', delam: 'PASS', prodNo: '1', rollNo: '2', postVisual: 'PASS'
+  color: 'Clear', delam: 'PASS', prodNo: '1', rollNo: '2'
 }).length, 0);
+assert.ok(QD.itemNeedsSlitWidth({ width: '24' }));
+assert.ok(!QD.itemNeedsSlitWidth({ width: '48' }));
+assert.ok(QD.itemHasSlits({ slits: '2' }));
+assert.ok(!QD.itemHasSlits({ slits: '' }));
+assert.equal(QD.COEX_CHANGEOVER_FIELDS.filter((f) => f.extruder).length, 9);
 assert.deepEqual(QD.bubbleFamiliesForSite('GARLAND'), ['COEX']);
 assert.deepEqual(QD.bubbleFamiliesForSite('VISALIA'), ['COEX', 'MONO']);
 assert.ok(QD.bubbleFamilyAllowed('COEX', 'GARLAND'));
@@ -2765,6 +2783,15 @@ assert.equal(QD.lineLabel('COEX', 'GARLAND'), 'COEX');
 assert.equal(QD.linesForSite('GARLAND').length, 1);
 assert.equal(QD.linesForSite('GARLAND')[0].id, 'G-COEX');
 assert.equal(QD.lineInfo('MONO', 'GARLAND'), null);
+assert.equal(QD.canonDocLine('COEX'), 'COEX');
+assert.equal(QD.canonDocLine('G-COEX'), 'G-COEX');
+assert.equal(QD.canonDocLine('Garland COEX'), 'G-COEX');
+assert.ok(QD.docMatchesUserLines('COEX', ['COEX']));
+assert.ok(!QD.docMatchesUserLines('COEX', ['G-COEX']));
+assert.ok(QD.docMatchesUserLines('G-COEX', ['G-COEX']));
+assert.ok(!QD.docMatchesUserLines('G-COEX', ['COEX']));
+assert.ok(QD.docMatchesUserLines('*', ['G-COEX']));
+assert.ok(QD.docMatchesUserLines('COEX,G-COEX', ['G-COEX']));
 assert.match(QD.sapDiskScript({ name: 'SAP.csv', csv: 'a,b' }), /QD_DISK_SAP/);
 assert.equal(QD.hasMspec('S4'), true);
 assert.equal(QD.hasMspec('COEX'), false);
@@ -2775,6 +2802,18 @@ assert.ok(QD.needsStartup(null, '35613', new Date()));
 assert.ok(QD.needsStartup({ 'Item #': '1', User: 'GWEXLER', 'Date/Time': QD.nowSerial(new Date('2026-08-27T08:00:00')) }, '2', new Date('2026-08-27T09:00:00'), 'GWEXLER'));
 assert.ok(QD.needsLineUp({ 'Reason for Check': 'NO CHECK' }));
 assert.match(QD.lastCheckLabel({ 'Date/Time': QD.nowSerial(new Date('2026-08-27T08:38:00')), 'Pass/Fail': 'Pass', 'Reason for Check': 'HOURLY' }), /PASS @/i);
+assert.match(QD.lastCheckLabel({
+  'Date/Time': QD.nowSerial(new Date('2026-08-27T08:38:00')), 'Pass/Fail': 'Pass', 'Reason for Check': 'HOURLY',
+  'Item #': '35613', 'Item Desc': 'VAB CLEAR'
+}), /35613 VAB CLEAR @/i);
+assert.match(QD.lastCheckLabel({
+  'Date/Time': QD.nowSerial(new Date('2026-08-27T08:38:00')), 'Pass/Fail': 'Fail', 'Reason for Check': 'HOURLY',
+  Notes: 'weight high', 'Item #': '9'
+}), /Fail: weight high · 9 @/i);
+assert.match(QD.lastCheckLabel({
+  'Date/Time': QD.nowSerial(new Date('2026-08-27T08:38:00')), 'Reason for Check': 'NO CHECK',
+  'No Check Reason': 'LINE DOWN', Notes: 'drive fault'
+}), /LINE DOWN — drive fault @/i);
 assert.ok(QD.docNeedsReview({ version: '2' }, { version: '1', at: new Date().toISOString() }));
 assert.ok(!QD.docNeedsReview({ version: '1' }, { version: '1', at: new Date().toISOString() }));
 assert.ok(QD.pendingDocs([{ id: 'd1', name: 'WI', line: 'S4', version: '1' }], [], 'GWEXLER', ['S4']).length === 1);
@@ -2793,7 +2832,7 @@ assert.equal(QD.lineItemType('S4'), 'FOAM');
 assert.equal(QD.lineItemType('RTS'), 'LAM');
 assert.equal(QD.lineItemType('P1'), 'PLANK');
 assert.equal(QD.itemType({ bubbleType: 'VAB', slits: 2 }), 'BUBBLE');
-assert.deepEqual(QD.fieldsForType('FOAM'), ['item', 'description', 'width', 'footage', 'perf', 'mspec']);
+assert.deepEqual(QD.fieldsForType('FOAM'), ['item', 'description', 'width', 'slits', 'footage', 'perf', 'mspec']);
 assert.deepEqual(QD.fieldsForType('BUBBLE'), ['item', 'description', 'width', 'slits', 'footage', 'perf', 'bubbleType', 'color', 'barcodeLabel', 'boxLabel']);
 const lpaRow = QD.buildRow({
   line: 'COEX', item: '9', description: 'VAB', user: 'GWEXLER', reason: 'LPA', passFail: 'Pass',

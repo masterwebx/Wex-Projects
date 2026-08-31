@@ -5055,7 +5055,6 @@
       </div>
     </div>
 
-    <script src="vendor/chart.umd.min.js"></script>
     <script>
       const APP_VERSION = "1.7.61";
       const APP_NAME = "Quality Desk";
@@ -5602,6 +5601,18 @@
       function yieldUi() {
         return new Promise((resolve) => setTimeout(resolve, 16));
       }
+      function loadChartJs() {
+        if (typeof Chart !== "undefined") return Promise.resolve(true);
+        if (loadChartJs._p) return loadChartJs._p;
+        loadChartJs._p = new Promise((resolve) => {
+          const s = document.createElement("script");
+          s.src = "vendor/chart.umd.min.js";
+          s.onload = () => resolve(true);
+          s.onerror = () => resolve(false);
+          document.head.appendChild(s);
+        });
+        return loadChartJs._p;
+      }
       function showProgress(title, pct, detail) {
         const ov = document.getElementById("progressOverlay");
         if (!ov) return;
@@ -5880,6 +5891,21 @@
       let diskMetaReady = false;
       let diskHasLineFiles = false;
       let diskSapLoaded = false;
+      let diskLookupReady = false;
+      let diskMetaPromise = null;
+      const KNOWN_LINES = [
+        "S4",
+        "S1",
+        "S3",
+        "COEX",
+        "MONO",
+        "P1",
+        "RTS",
+        "G-COEX",
+        "G-MONO",
+        "Garland COEX",
+        "Garland MONO",
+      ];
       function fileUrl(rel) {
         const loc = location.href.split("?")[0].split("#")[0];
         const slash = loc.lastIndexOf("/");
@@ -5986,33 +6012,56 @@
           historyPack.lookupByMspec = buildLookupMap(lookupRows);
         }
       }
+      async function ensureLookupLoaded() {
+        if (diskLookupReady) return true;
+        const t = Date.now();
+        await loadHtaScript("results/lookup.js?t=" + t, 20000);
+        applyDiskLookup();
+        diskLookupReady = true;
+        syncWelcome();
+        return !!(historyPack && (historyPack.lookupRows || []).length);
+      }
       async function loadDiskMeta(opts) {
         const force = !!(opts && opts.force);
-        if (diskMetaReady && !force) return diskHasLineFiles;
-        window.QD_DISK = window.QD_DISK || { lines: {}, lookupRows: [], users: [] };
-        if (force || !window.QD_DISK.lines) window.QD_DISK.lines = {};
-        window.QD_DISK_MANIFEST = null;
-        const t = Date.now();
-        await loadHtaScript("results/manifest.js?t=" + t, 20000);
-        const listed =
-          (window.QD_DISK_MANIFEST && window.QD_DISK_MANIFEST.files) || [];
-        if (listed.length) {
-          diskManifestNames = listed
-            .map((f) => String(f).replace(/\.js$/i, ""))
-            .filter((n) => n && n !== "manifest" && n !== "last-check");
-          diskHasLineFiles = diskLineKeys().length > 0;
-        } else {
-          diskManifestNames = HTA_DISK_FILES.slice();
-          diskHasLineFiles = false;
+        const wantLookup = !!(opts && opts.lookup);
+        if (diskMetaReady && !force) {
+          if (wantLookup) await ensureLookupLoaded();
+          return diskHasLineFiles;
         }
-        if (diskManifestNames.indexOf("lookup") >= 0 || !listed.length) {
-          await loadHtaScript("results/lookup.js?t=" + t, 20000);
+        if (diskMetaPromise && !force) {
+          await diskMetaPromise;
+          if (wantLookup) await ensureLookupLoaded();
+          return diskHasLineFiles;
         }
-        applyDiskLookup();
-        diskMetaReady = true;
-        if (diskHasLineFiles) markHasHistory(true);
-        syncWelcome();
-        return diskHasLineFiles;
+        diskMetaPromise = (async () => {
+          window.QD_DISK = window.QD_DISK || { lines: {}, lookupRows: [], users: [] };
+          if (force || !window.QD_DISK.lines) window.QD_DISK.lines = {};
+          window.QD_DISK_MANIFEST = null;
+          const t = Date.now();
+          await loadHtaScript("results/manifest.js?t=" + t, 20000);
+          const listed =
+            (window.QD_DISK_MANIFEST && window.QD_DISK_MANIFEST.files) || [];
+          if (listed.length) {
+            diskManifestNames = listed
+              .map((f) => String(f).replace(/\.js$/i, ""))
+              .filter((n) => n && n !== "manifest" && n !== "last-check");
+            diskHasLineFiles = diskLineKeys().length > 0;
+          } else {
+            diskManifestNames = HTA_DISK_FILES.slice();
+            diskHasLineFiles = false;
+          }
+          diskMetaReady = true;
+          if (diskHasLineFiles) markHasHistory(true);
+          syncWelcome();
+          if (wantLookup) await ensureLookupLoaded();
+          else window.setTimeout(() => { ensureLookupLoaded(); }, 0);
+          return diskHasLineFiles;
+        })();
+        try {
+          return await diskMetaPromise;
+        } finally {
+          if (force) diskMetaPromise = null;
+        }
       }
       function rowsFromDiskLine(key) {
         const pack =
@@ -6033,9 +6082,15 @@
       }
       async function loadDiskLineFile(key) {
         if (!key || loadedLineFiles.has(key)) return 0;
+        let ok = false;
+        for (let attempt = 0; attempt < 8 && !ok; attempt++) {
+          ok = await loadHtaScript(
+            "results/" + key + ".js?t=" + Date.now(),
+            attempt ? 4000 : 8000,
+          );
+          if (!ok && attempt < 7) await new Promise((r) => setTimeout(r, 220 + attempt * 160));
+        }
         loadedLineFiles.add(key);
-        const t = Date.now();
-        const ok = await loadHtaScript("results/" + key + ".js?t=" + t, 20000);
         if (!ok) return 0;
         const rows = rowsFromDiskLine(key);
         if (!rows.length) return 0;
@@ -9078,14 +9133,12 @@
         return s && !isHeaderishLine(s) ? s : "";
       }
       function allLineChoices() {
-        return uniqueSorted(
-          [
-            ...new Set(
-              indexedRows.map((r) => realLineName(r.line)).filter(Boolean),
-            ),
-          ],
-          false,
-        );
+        const set = new Set(KNOWN_LINES);
+        for (const r of indexedRows) {
+          const line = realLineName(r.line);
+          if (line) set.add(line);
+        }
+        return uniqueSorted([...set], false);
       }
       function lineChoices() {
         return uniqueSorted(
@@ -10367,6 +10420,7 @@
           return;
         }
         try {
+          await loadChartJs();
           await ensureAllHistoryLoaded({ progress: true, title: "Loading trends" });
         } finally {
           hideProgress();
@@ -11696,7 +11750,7 @@
         syncMspecHeaderGutter();
       }
       async function openMspecs() {
-        await loadDiskMeta();
+        await loadDiskMeta({ lookup: true });
         if (!historyPack || !(historyPack.lookupRows || []).length) {
           toast("Paste results first");
           return;

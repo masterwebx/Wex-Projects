@@ -30,7 +30,19 @@
         .tools button, button { border: 0; border-radius: 10px; padding: 8px 14px; font-weight: 700; cursor: pointer; background: #2563eb; color: #fff; font-family: inherit; margin-left: 6px; }
         button.secondary { background: #262626; color: #f3f4f6; border: 2px solid #3f3f46; }
         button.ok { background: #15803d; }
+        button.danger { background: #991b1b; }
+        button:hover { background: #1d4ed8; }
+        button:active { background: #1e3a8a; }
+        button.secondary:hover { background: #3f3f46; }
+        button.secondary:active { background: #52525b; }
+        button.ok:hover { background: #16a34a; }
+        button.ok:active { background: #14532d; }
+        button.danger:hover { background: #b91c1c; }
+        button.danger:active { background: #7f1d1d; }
+        button.on:hover { background: #1d4ed8; }
+        button.on:active { background: #1e3a8a; }
         button:disabled, button.ghost { filter: alpha(opacity=40); opacity: .4; cursor: default; background: #3f3f46; color: #d4d4d8; }
+        button:disabled:hover, button.ghost:hover { background: #3f3f46; }
         .wrap { padding: 14px 18px 72px; }
         .status { margin: 0 0 12px; padding: 10px 12px; background: #1f2937; border: 1px solid #334155; border-radius: 8px; white-space: pre-wrap; font-size: 13px; }
         .status.bad { background: #3f1d1d; border-color: #7f1d1d; }
@@ -101,6 +113,7 @@
         .home-grid { display: block; }
         .home-line { display: inline-block; width: 220px; min-height: 110px; margin: 0 12px 12px 0; padding: 18px; vertical-align: top; background: #1e1e1e; border: 1px solid #2a2f36; border-radius: 14px; cursor: pointer; text-align: left; }
         .home-line:hover { border-color: #2563eb; }
+        .home-line:active { background: #1e3a8a; border-color: #1d4ed8; }
         .home-line h3 { margin: 0 0 8px; font-size: 28px; }
         .home-line p { margin: 0; color: #9ca3af; font-size: 13px; font-weight: 400; }
         .reason-btns button { display: block; width: 320px; max-width: 100%; margin: 0 0 12px; padding: 16px; font-size: 18px; }
@@ -279,6 +292,13 @@
         body.light .crumbs b, body.light .who { color: #111827; }
         body.light .crumbs a { color: #1d4ed8; }
         body.light button.secondary { background: #e5e7eb; color: #111827; border-color: #d1d5db; }
+        body.light button:hover { background: #1d4ed8; color: #fff; }
+        body.light button:active { background: #1e3a8a; color: #fff; }
+        body.light button.secondary:hover { background: #d1d5db; color: #111827; }
+        body.light button.secondary:active { background: #9ca3af; color: #111827; }
+        body.light button.ok:hover { background: #16a34a; color: #fff; }
+        body.light button.ok:active { background: #14532d; color: #fff; }
+        body.light .home-line:active { background: #dbeafe; border-color: #2563eb; }
         body.light .status { background: #eff6ff; border-color: #93c5fd; color: #1e3a8a; }
         body.light .status.bad { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
         body.light .card, body.light .home-line, body.light .modal { background: #fff; border-color: #d1d5db; color: #111827; }
@@ -401,6 +421,7 @@
         var specHistoryLoaded = false;
         var lastCheckByFile = {};
         var lastChecksLoaded = false;
+        var deskReady = false;
         var qdProf = { t0: 0, last: 0, flushed: 0, section: "", lines: [], io: { reads: 0, readMs: 0, writes: 0, writeMs: 0, remote: 0, slow: [] } };
         var lastResultsHtml = "";
         var specPaintTarget = null;
@@ -1256,6 +1277,7 @@
 
         function importHandoffIfPresent(quiet) {
             var path;
+            if (!deskReady) return false;
             if (handoffBusy) return false;
             try { path = handoffPath(); } catch (eP) { return false; }
             if (!path) return false;
@@ -1411,9 +1433,11 @@
                 }
             }
             showLoginFields();
+            deskReady = true;
             profAdd("boot.loginFieldsShown");
             try { dbg("profile: " + profFlush()); } catch (ePf) {}
             window.setTimeout(function () {
+                try { importHandoffIfPresent(true); } catch (eH) {}
                 try {
                     if (aio.loaded && aio.items && aio.items.length && !fileExists(cachePath())) saveAioCache();
                 } catch (eCache) {}
@@ -1570,11 +1594,53 @@
             return max;
         }
 
-        function materializeDeskHtml() {
-            var pack, fso, dest, html, srcVendor, destVendor, folder, e, f, name, text, src, dst, stamp, stampPath, prev;
+        function deskHtmlStamp() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var dir = resultsDir();
+            return fileMtime(fso.BuildPath(getAppFolder(), QD.CORE_FILE)) + "|" +
+                fileMtime(fso.BuildPath(dir, "manifest.js")) + "|" +
+                fileMtime(fso.BuildPath(dir, "lookup.js"));
+        }
+
+        function deskResultDest() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(tempDir(), "qd-desk");
+        }
+
+        function copyDeskResultFile(name) {
+            var fso, src, dst, dest, text;
             fso = new ActiveXObject("Scripting.FileSystemObject");
-            dest = fso.BuildPath(tempDir(), "qd-desk");
-            stamp = fileMtime(fso.BuildPath(getAppFolder(), QD.CORE_FILE)) + "|" + resultsStamp();
+            dest = deskResultDest();
+            if (!fso.FolderExists(fso.BuildPath(dest, "results"))) fso.CreateFolder(fso.BuildPath(dest, "results"));
+            src = fso.BuildPath(resultsDir(), name);
+            dst = fso.BuildPath(dest, "results\\" + name);
+            if (!fso.FileExists(src)) return false;
+            if (fso.FileExists(dst) && fileMtime(dst) >= fileMtime(src)) return true;
+            text = readUtf8(src);
+            writeUtf8(dst, text, true);
+            return true;
+        }
+
+        function warmDeskLineFiles() {
+            var names = ["sap.js"].concat((function () {
+                var out = [], i;
+                for (i = 0; i < QD.LINE_FILES.length; i++) out.push(QD.LINE_FILES[i] + ".js");
+                return out;
+            })()), i = 0;
+            function next() {
+                if (i >= names.length) return;
+                try { copyDeskResultFile(names[i]); } catch (eC) {}
+                i += 1;
+                window.setTimeout(next, 0);
+            }
+            window.setTimeout(next, 40);
+        }
+
+        function materializeDeskHtml() {
+            var pack, fso, dest, html, srcVendor, destVendor, stamp, stampPath, prev, names, i;
+            fso = new ActiveXObject("Scripting.FileSystemObject");
+            dest = deskResultDest();
+            stamp = deskHtmlStamp();
             stampPath = fso.BuildPath(dest, "qd-stamp.txt");
             if (fso.FileExists(fso.BuildPath(dest, "index.html"))) {
                 try { prev = fsoReadAll(stampPath); } catch (eSt) { prev = ""; }
@@ -1588,19 +1654,9 @@
             srcVendor = fso.BuildPath(getAppFolder(), "vendor\\chart.umd.min.js");
             destVendor = fso.BuildPath(dest, "vendor\\chart.umd.min.js");
             if (fso.FileExists(srcVendor) && !fso.FileExists(destVendor)) copyFile(srcVendor, destVendor);
-            if (fso.FolderExists(resultsDir())) {
-                folder = fso.GetFolder(resultsDir());
-                e = new Enumerator(folder.Files);
-                for (; !e.atEnd(); e.moveNext()) {
-                    f = e.item();
-                    name = String(f.Name || "");
-                    if (/^(users\.dat|theme\.txt)$/i.test(name)) continue;
-                    src = f.Path;
-                    dst = fso.BuildPath(dest, "results\\" + name);
-                    if (fso.FileExists(dst) && fileMtime(dst) >= fileMtime(src)) continue;
-                    text = readUtf8(src);
-                    writeUtf8(dst, text, true);
-                }
+            names = ["manifest.js", "lookup.js", "last-check.js"];
+            for (i = 0; i < names.length; i++) {
+                try { copyDeskResultFile(names[i]); } catch (eC) {}
             }
             html = pack.web;
             if (!fso.FileExists(fso.BuildPath(dest, "index.html"))) {
@@ -2184,9 +2240,10 @@
             return rows;
         }
 
-        function writeLineRows(fileKey, rows) {
+        function writeLineRows(fileKey, rows, opts) {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var path = fso.BuildPath(resultsDir(), fileKey + ".js");
+            opts = opts || {};
             writeUtf8(path, QD.diskScript(fileKey, {
                 file: fileKey,
                 rows: rows || []
@@ -2194,8 +2251,10 @@
             unhidePath(path);
             lineCache[fileKey] = { mtime: fileMtime(path), rows: rows || [] };
             noteLastRow(fileKey, rows || []);
-            try { saveLastChecks(); } catch (eLc) {}
-            writeManifest();
+            if (!opts.skipMeta) {
+                try { saveLastChecks(); } catch (eLc) {}
+                writeManifest();
+            }
             if (fileKey === "gcoex") {
                 try { backupGarlandCoex(rows || []); } catch (eBk) { dbg("garland backup: " + eBk.message, false); }
             }
@@ -2244,27 +2303,40 @@
         }
 
         function importLegacyWrite(pack, path, keys, idx, added, total, done) {
-            var key, incoming, existing, seen, i, r, k, map, changed;
+            var key, incoming, existing, seen, i, r, k, map, fileChanged, before;
             if (idx >= keys.length) {
                 setWork("Updating lookup…", 96);
+                try { saveLastChecks(); } catch (eLc) {}
+                try { writeManifest(); } catch (eM) {}
                 try { writeLookupFile(); } catch (eL) {}
                 hideWork();
                 lastHomeHtml = "";
                 try { renderHome(); } catch (eH) {}
                 if (currentTab === "history") try { renderAdminHistory(); } catch (eHist) {}
                 audit("legacy-import", added + " new of " + total + " from " + path);
-                setStatus("Imported " + added + " new check" + (added === 1 ? "" : "s") + " (" + total + " in file). Existing rows missing T1–T13 were filled in.");
+                if (added)
+                    setStatus("Imported " + added + " new check" + (added === 1 ? "" : "s") + " (" + total + " in file). Existing rows missing T1–T13 were filled in.");
+                else
+                    setStatus("Copy for Graph had " + total + " check" + (total === 1 ? "" : "s") + " already on file. Nothing new to write.");
                 if (done) done();
                 return;
             }
             key = keys[idx];
             incoming = pack[key] || [];
-            setWork("Writing " + key + " (" + incoming.length + " rows)…", 30 + Math.round((idx / keys.length) * 60));
+            setWork((incoming.length ? "Merging " : "Skipping ") + key + " (" + incoming.length + " rows)…", 30 + Math.round((idx / keys.length) * 60));
             window.setTimeout(function () {
                 if (incoming.length) {
+                    loadLastChecks();
+                    r = incoming[incoming.length - 1];
+                    k = lastCheckByFile[key];
+                    if (k && r && Number(k.n) >= incoming.length && legacyRowKey(k) === legacyRowKey(r)) {
+                        total += incoming.length;
+                    } else {
                     existing = readLineRows(key).slice();
                     seen = {};
                     map = {};
+                    fileChanged = false;
+                    before = added;
                     for (i = 0; i < existing.length; i++) {
                         k = legacyRowKey(existing[i]);
                         seen[k] = true;
@@ -2275,14 +2347,15 @@
                         k = legacyRowKey(r);
                         total += 1;
                         if (seen[k]) {
-                            fillMissingLegacyFields(map[k], r);
+                            if (fillMissingLegacyFields(map[k], r)) fileChanged = true;
                             continue;
                         }
                         seen[k] = true;
                         existing.push(r);
                         added += 1;
                     }
-                    writeLineRows(key, existing);
+                    if (added !== before || fileChanged) writeLineRows(key, existing, { skipMeta: true });
+                    }
                 }
                 importLegacyWrite(pack, path, keys, idx + 1, added, total, done);
             }, 20);
@@ -2428,7 +2501,7 @@
             return fso.BuildPath(resultsDir(), "last-check.js");
         }
 
-        function slimLastCheck(row) {
+        function slimLastCheck(row, count) {
             if (!row) return null;
             return {
                 "Date/Time": row["Date/Time"],
@@ -2438,7 +2511,8 @@
                 Notes: row.Notes,
                 "Item #": row["Item #"] || row.Item,
                 Line: row.Line,
-                User: row.User
+                User: row.User,
+                n: count
             };
         }
 
@@ -2461,7 +2535,7 @@
         function noteLastRow(fileKey, rows) {
             if (!fileKey) return;
             loadLastChecks();
-            if (rows && rows.length) lastCheckByFile[fileKey] = slimLastCheck(rows[rows.length - 1]);
+            if (rows && rows.length) lastCheckByFile[fileKey] = slimLastCheck(rows[rows.length - 1], rows.length);
             else delete lastCheckByFile[fileKey];
         }
 
@@ -2474,6 +2548,10 @@
 
         function fillLastChecksLazy() {
             var keys = QD.LINE_FILES.slice(), i = 0, changed = false;
+            if (handoffBusy) {
+                window.setTimeout(fillLastChecksLazy, 400);
+                return;
+            }
             loadLastChecks();
             function next() {
                 var key, rows;
@@ -6054,6 +6132,7 @@
             if (!htmlPath) { setStatus("index.html or centration.html not found next to this HTA.", true); return; }
             try { publishSapCsv(); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
             if (deskIsOpen(htmlPath) || focusExistingDesk()) {
+                window.setTimeout(function () { warmDeskLineFiles(); }, 0);
                 if (!quietIfOpen) setStatus("Quality Desk is already open. Use Reload from disk on that window.");
                 focusExistingDesk();
                 return;
@@ -6067,6 +6146,7 @@
                 try { shell.Run('cmd /c start "" "' + htmlPath + '"', 3, false); }
                 catch (e2) { setStatus("Could not open Quality Desk.\n" + htmlPath, true); }
             }
+            window.setTimeout(function () { warmDeskLineFiles(); }, 0);
         }
 
         function findInboxReq(id) {
@@ -7014,7 +7094,6 @@ function openHistEdit(file, idx) {
                 function () {
                     setBoot("Finishing…", 92);
                     try { profRun("boot.publishSapCsv", function () { publishSapCsv(); }); } catch (eSap) {}
-                    try { profRun("boot.importHandoff", function () { importHandoffIfPresent(true); }); } catch (eH) {}
                     profRun("boot.bindForm", function () { bindFormWatch(); setLine("S4"); startHandoffWatch(); });
                 }
             ];
@@ -7057,7 +7136,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.77</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.78</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

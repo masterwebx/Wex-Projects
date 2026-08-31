@@ -232,7 +232,10 @@ function main() {
   if (!fs.existsSync(path.join(root, 'vendor', 'chart.umd.min.js'))) {
     throw new Error('vendor/chart.umd.min.js missing');
   }
-  const web = asciiFold(read('index.html').replace(/\r\n/g, '\n'));
+  const web = read('index.html').replace(/\r\n/g, '\n').replace(/\uFEFF/g, '');
+  if (/\/\?\/[gimuy]*/.test(web)) {
+    throw new Error('index.html would throw Invalid regular expression /?/g in History');
+  }
 
   const pack = QD.makePack(hta, web);
   const sealed = QD.seal(pack);
@@ -304,9 +307,12 @@ function main() {
       '  qd.core           Sealed app + History HTML. Keep beside the HTA.',
       '  vendor/           Chart.js (History graphs)',
       '  results/          Runtime data (sealed on this PC when the booter is used)',
+      '  aio-csv/          Lookup CSVs (sealed on first boot if you drop a plaintext copy here)',
       '',
       'How to run: copy this folder to the shop PC, open QualityDesk.hta.',
       'Do not copy the development quality-desk.hta as the floor launcher.',
+      'On first boot the release desk seals plaintext files in results/ and aio-csv/',
+      'and deletes the old unencrypted copies (same filenames, sealed contents).',
       '',
       'Do not edit qd.core. There is no plaintext index.html in this folder.',
       'History opens a decrypted copy under the Windows temp folder.',

@@ -564,6 +564,7 @@
             n = String(path).toLowerCase().replace(/\//g, "\\");
             if (n.substring(n.length - 9) === "users.dat") return true;
             if (n.indexOf("\\results\\") >= 0) return true;
+            if (n.indexOf("\\aio-csv\\") >= 0) return true;
             return false;
         }
 
@@ -587,7 +588,7 @@
             restoreAttrs(path, prev);
         }
 
-        function readUtf8(path) {
+        function readUtf8(path, keepSealed) {
             if (!fileExists(path)) return "";
             var prev = revealFile(path);
             var tmp = tempFile("r");
@@ -601,7 +602,7 @@
             deleteTemp(tmp);
             restoreAttrs(path, prev);
             text = QD.stripBom(text);
-            if (QD && QD.isSealed && QD.isSealed(text)) text = QD.unseal(text);
+            if (!keepSealed && QD && QD.isSealed && QD.isSealed(text)) text = QD.unseal(text);
             return text;
         }
 
@@ -6382,8 +6383,45 @@ function openHistEdit(file, idx) {
         window.onfocus = function () {
             try { importHandoffIfPresent(true); } catch (eF) {}
         };
+        function sealPlainFilesInFolder(relDir) {
+            var fso, dir, e, f, path, name, raw, sealed, tmp, n = 0;
+            if (!window.QD_RELEASE_CRYPT || !QD || !QD.seal) return 0;
+            fso = new ActiveXObject("Scripting.FileSystemObject");
+            dir = fso.BuildPath(getAppFolder(), relDir);
+            if (!fso.FolderExists(dir)) return 0;
+            e = new Enumerator(fso.GetFolder(dir).Files);
+            for (; !e.atEnd(); e.moveNext()) {
+                f = e.item();
+                name = String(f.Name || "");
+                if (!name || name.charAt(0) === ".") continue;
+                path = f.Path;
+                try { raw = readUtf8(path, true); } catch (eR) { raw = ""; }
+                if (!raw || QD.isSealed(raw)) continue;
+                sealed = QD.seal(raw);
+                tmp = path + ".qdnew";
+                try {
+                    writeUtf8(tmp, sealed, true);
+                    unlockPath(path);
+                    if (fso.FileExists(path)) fso.DeleteFile(path, true);
+                    if (!copyFile(tmp, path)) throw new Error("replace failed");
+                    n += 1;
+                } catch (eS) {
+                    dbg("seal " + name + ": " + eS.message, false);
+                }
+                try { if (fso.FileExists(tmp)) fso.DeleteFile(tmp, true); } catch (eT) {}
+            }
+            return n;
+        }
+
+        function sealLegacyPlainFiles() {
+            var n = sealPlainFilesInFolder("results") + sealPlainFilesInFolder("aio-csv");
+            if (n) dbg("Sealed " + n + " plaintext file(s) in results/aio-csv");
+            return n;
+        }
+
         function bootDesk() {
             var steps = [
+                function () { setBoot("Sealing local files…", 8); sealLegacyPlainFiles(); },
                 function () { setBoot("Loading users…", 12); loadAuthUsers(); },
                 function () { setBoot("Loading spec history…", 24); loadSpecHistory(); },
                 function () { setBoot("Loading profiles…", 28); loadProfiles(); },
@@ -6432,7 +6470,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.70</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.71</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

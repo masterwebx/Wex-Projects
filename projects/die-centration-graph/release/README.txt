@@ -7,9 +7,12 @@ Contents
   qd.core           Sealed app + History HTML. Keep beside the HTA.
   vendor/           Chart.js (History graphs)
   results/          Runtime data (sealed on this PC when the booter is used)
+  aio-csv/          Lookup CSVs (sealed on first boot if you drop a plaintext copy here)
 
 How to run: copy this folder to the shop PC, open QualityDesk.hta.
 Do not copy the development quality-desk.hta as the floor launcher.
+On first boot the release desk seals plaintext files in results/ and aio-csv/
+and deletes the old unencrypted copies (same filenames, sealed contents).
 
 Do not edit qd.core. There is no plaintext index.html in this folder.
 History opens a decrypted copy under the Windows temp folder.

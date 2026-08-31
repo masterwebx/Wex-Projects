@@ -12,7 +12,9 @@ Contents
 How to run: copy this folder to the shop PC, open QualityDesk.hta.
 Do not copy the development quality-desk.hta as the floor launcher.
 On first boot the release desk seals plaintext files in results/ and aio-csv/
-and deletes the old unencrypted copies (same filenames, sealed contents).
+(peek-only on later boots — already-sealed files are skipped).
+Lookup uses aio-cache.js when CSVs have not changed. History reuses %TEMP%\qd-desk
+when results have not changed.
 
 Do not edit qd.core. There is no plaintext index.html in this folder.
 History opens a decrypted copy under the Windows temp folder.

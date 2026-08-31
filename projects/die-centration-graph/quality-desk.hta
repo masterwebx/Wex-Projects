@@ -388,6 +388,9 @@
         var listTimer = null;
         var itemByNo = {};
         var lineCache = {};
+        var utfCache = {};
+        var deskPackCache = null;
+        var deskHtmlStamp = "";
         var docsLoaded = false;
         var lastHomeHtml = "";
         var lastResultsHtml = "";
@@ -569,40 +572,69 @@
         }
 
         function writeUtf8(path, text, plain) {
-            var prev = revealFile(path);
-            var tmp = tempFile("w");
+            var prev = peekAttrs(path);
             var body = text == null ? "" : String(text);
+            if ((prev & 6) && fileExists(path)) revealFile(path);
             if (!plain && shouldSealPath(path) && QD && QD.seal) body = QD.seal(body);
             try {
-                streamWriteLocal(tmp, body);
-                if (!copyFile(tmp, path)) throw new Error("copy failed");
+                streamWriteLocal(path, body);
             } catch (e1) {
+                var tmp = tempFile("w");
                 try {
+                    streamWriteLocal(tmp, body);
                     unlockPath(path);
                     if (!copyFile(tmp, path)) throw e1;
                 } catch (e2) {
                     fsoWriteAll(path, body);
                 }
+                deleteTemp(tmp);
             }
-            deleteTemp(tmp);
-            restoreAttrs(path, prev);
+            if (prev & 6) restoreAttrs(path, prev);
+            utfCache[path] = { mtime: fileMtime(path), text: text == null ? "" : String(text) };
+        }
+
+        function peekHead(path, n) {
+            var fso, ts, s = "";
+            try {
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FileExists(path)) return "";
+                ts = fso.OpenTextFile(path, 1);
+                if (!ts.AtEndOfStream) s = ts.Read(n || 8);
+                ts.Close();
+            } catch (e) { s = ""; }
+            return s;
+        }
+
+        function fileIsSealed(path) {
+            var h = peekHead(path, 8);
+            return h.indexOf("QDSEAL") === 0;
         }
 
         function readUtf8(path, keepSealed) {
+            var mt, hit, prev, text, tmp;
             if (!fileExists(path)) return "";
-            var prev = revealFile(path);
-            var tmp = tempFile("r");
-            var text = "";
+            mt = fileMtime(path);
+            hit = utfCache[path];
+            if (!keepSealed && hit && hit.mtime === mt) return hit.text;
+            prev = peekAttrs(path);
+            if (prev & 6) revealFile(path);
+            text = "";
             try {
-                if (!copyFile(path, tmp)) throw new Error("copy failed");
-                text = streamReadLocal(tmp);
+                text = streamReadLocal(path);
             } catch (e1) {
-                try { text = fsoReadAll(path); } catch (e2) { text = ""; }
+                tmp = tempFile("r");
+                try {
+                    if (!copyFile(path, tmp)) throw e1;
+                    text = streamReadLocal(tmp);
+                } catch (e2) {
+                    try { text = fsoReadAll(path); } catch (e3) { text = ""; }
+                }
+                deleteTemp(tmp);
             }
-            deleteTemp(tmp);
-            restoreAttrs(path, prev);
+            if (prev & 6) restoreAttrs(path, prev);
             text = QD.stripBom(text);
             if (!keepSealed && QD && QD.isSealed && QD.isSealed(text)) text = QD.unseal(text);
+            if (!keepSealed) utfCache[path] = { mtime: mt, text: text };
             return text;
         }
 
@@ -1221,29 +1253,57 @@
         }
 
         function loadReleasePack() {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
-            var path = fso.BuildPath(getAppFolder(), QD.CORE_FILE);
-            var raw, pack;
+            var fso, path, raw, pack, mt;
+            if (deskPackCache) return deskPackCache;
+            fso = new ActiveXObject("Scripting.FileSystemObject");
+            path = fso.BuildPath(getAppFolder(), QD.CORE_FILE);
             if (!fso.FileExists(path)) return null;
             raw = readUtf8(path);
             if (!raw) return null;
             if (QD.isSealed(raw)) raw = QD.unseal(raw);
             pack = QD.splitPack(raw);
+            if (pack) {
+                mt = fileMtime(path);
+                deskPackCache = pack;
+                deskHtmlStamp = String(mt);
+            }
             return pack;
         }
 
+        function resultsStamp() {
+            var fso, folder, e, f, max = 0, t;
+            try {
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (!fso.FolderExists(resultsDir())) return 0;
+                folder = fso.GetFolder(resultsDir());
+                e = new Enumerator(folder.Files);
+                for (; !e.atEnd(); e.moveNext()) {
+                    f = e.item();
+                    t = +new Date(f.DateLastModified);
+                    if (t > max) max = t;
+                }
+            } catch (e0) {}
+            return max;
+        }
+
         function materializeDeskHtml() {
-            var pack = loadReleasePack();
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
-            var dest = fso.BuildPath(tempDir(), "qd-desk");
-            var html, srcVendor, destVendor, folder, e, f, name, text;
+            var pack, fso, dest, html, srcVendor, destVendor, folder, e, f, name, text, src, dst, stamp, stampPath, prev;
+            fso = new ActiveXObject("Scripting.FileSystemObject");
+            dest = fso.BuildPath(tempDir(), "qd-desk");
+            stamp = fileMtime(fso.BuildPath(getAppFolder(), QD.CORE_FILE)) + "|" + resultsStamp();
+            stampPath = fso.BuildPath(dest, "qd-stamp.txt");
+            if (fso.FileExists(fso.BuildPath(dest, "index.html"))) {
+                try { prev = fsoReadAll(stampPath); } catch (eSt) { prev = ""; }
+                if (prev === stamp) return fso.BuildPath(dest, "index.html");
+            }
+            pack = loadReleasePack();
             if (!pack || !pack.web) return "";
             if (!fso.FolderExists(dest)) fso.CreateFolder(dest);
             if (!fso.FolderExists(fso.BuildPath(dest, "results"))) fso.CreateFolder(fso.BuildPath(dest, "results"));
             if (!fso.FolderExists(fso.BuildPath(dest, "vendor"))) fso.CreateFolder(fso.BuildPath(dest, "vendor"));
             srcVendor = fso.BuildPath(getAppFolder(), "vendor\\chart.umd.min.js");
             destVendor = fso.BuildPath(dest, "vendor\\chart.umd.min.js");
-            if (fso.FileExists(srcVendor)) copyFile(srcVendor, destVendor);
+            if (fso.FileExists(srcVendor) && !fso.FileExists(destVendor)) copyFile(srcVendor, destVendor);
             if (fso.FolderExists(resultsDir())) {
                 folder = fso.GetFolder(resultsDir());
                 e = new Enumerator(folder.Files);
@@ -1251,12 +1311,18 @@
                     f = e.item();
                     name = String(f.Name || "");
                     if (/^(users\.dat|theme\.txt)$/i.test(name)) continue;
-                    text = readUtf8(f.Path);
-                    writeUtf8(fso.BuildPath(dest, "results\\" + name), text, true);
+                    src = f.Path;
+                    dst = fso.BuildPath(dest, "results\\" + name);
+                    if (fso.FileExists(dst) && fileMtime(dst) >= fileMtime(src)) continue;
+                    text = readUtf8(src);
+                    writeUtf8(dst, text, true);
                 }
             }
             html = pack.web;
-            writeUtf8(fso.BuildPath(dest, "index.html"), html, true);
+            if (!fso.FileExists(fso.BuildPath(dest, "index.html"))) {
+                writeUtf8(fso.BuildPath(dest, "index.html"), html, true);
+            }
+            try { fsoWriteAll(stampPath, stamp); } catch (eW) {}
             return fso.BuildPath(dest, "index.html");
         }
 
@@ -1447,10 +1513,25 @@
             }) + ";");
         }
 
+        function lookupCsvStamp() {
+            var keys = ["items", "mspecs", "users", "rts", "p1", "bubble"], i, p, m = 0, t;
+            for (i = 0; i < keys.length; i++) {
+                p = findCsvFile(QD.CSV_FILES[keys[i]] || []);
+                if (!p) continue;
+                t = fileMtime(p);
+                if (t > m) m = t;
+            }
+            return m;
+        }
+
         function loadAioCache() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var path = cachePath();
+            var csvM, cacheM;
             if (!fso.FileExists(path)) return false;
+            cacheM = fileMtime(path);
+            csvM = lookupCsvStamp();
+            if (csvM && cacheM && csvM > cacheM) return false;
             window.QD_AIO = null;
             eval(readUtf8(path));
             if (!window.QD_AIO || !window.QD_AIO.items || !window.QD_AIO.items.length) return false;
@@ -1573,7 +1654,7 @@
             }
         }
 
-        function afterAioLoad(source) {
+        function afterAioLoad(source, skipWrite) {
             setWork("Merging local extras…", 55);
             loadLocalExtras();
             applyLocalSpecs();
@@ -1582,11 +1663,15 @@
             aio.loaded = aio.items.length > 0 || aio.mspecs.length > 0 || aio.bubble.length > 0 || aio.p1.length > 0 || aio.rts.length > 0;
             rebuildItemIndex();
             fillUsers();
-            setWork("Writing lookup files…", 75);
-            writeLookupFile();
-            ensureLineFiles();
-            try { publishSapCsv(); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
-            writeManifest();
+            if (!skipWrite) {
+                setWork("Writing lookup files…", 75);
+                writeLookupFile();
+                ensureLineFiles();
+                try { publishSapCsv(); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
+                writeManifest();
+            } else {
+                ensureLineFiles();
+            }
             exposeResultsJs();
             renderCurrentTab();
             setWork("Ready", 100);
@@ -1603,17 +1688,18 @@
                     if (fso.FileExists(cachePath())) fso.DeleteFile(cachePath(), true);
                 } catch (e0) {}
             }
+            if (!force && loadAioCache()) {
+                afterAioLoad("Loaded specs from cache (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + (aio.path || ""), true);
+                return true;
+            }
             var csv = loadAioCsv();
             if (csv && (csv.items.length || csv.mspecs.length || csv.users.length || csv.bubble.length || csv.p1.length || csv.rts.length)) {
                 aio.items = csv.items;
                 aio.mspecs = csv.mspecs;
                 aio.users = csv.users;
                 applySpecBundle(csv);
+                try { saveAioCache(); } catch (eC) {}
                 afterAioLoad("Loaded lookup CSVs (" + aio.items.length + " items, " + aio.mspecs.length + " foam, " + aio.bubble.length + " bubble, " + aio.p1.length + " P1, " + aio.rts.length + " RTS).\n" + csv.source);
-                return true;
-            }
-            if (!force && loadAioCache()) {
-                afterAioLoad("Loaded specs from cache (" + aio.items.length + " items, " + aio.mspecs.length + " MSPECs).\n" + (aio.path || ""));
                 return true;
             }
             if (!aio.path) {
@@ -6384,7 +6470,7 @@ function openHistEdit(file, idx) {
             try { importHandoffIfPresent(true); } catch (eF) {}
         };
         function sealPlainFilesInFolder(relDir) {
-            var fso, dir, e, f, path, name, raw, sealed, tmp, n = 0;
+            var fso, dir, e, f, path, name, raw, n = 0;
             if (!window.QD_RELEASE_CRYPT || !QD || !QD.seal) return 0;
             fso = new ActiveXObject("Scripting.FileSystemObject");
             dir = fso.BuildPath(getAppFolder(), relDir);
@@ -6395,20 +6481,15 @@ function openHistEdit(file, idx) {
                 name = String(f.Name || "");
                 if (!name || name.charAt(0) === ".") continue;
                 path = f.Path;
+                if (fileIsSealed(path)) continue;
                 try { raw = readUtf8(path, true); } catch (eR) { raw = ""; }
                 if (!raw || QD.isSealed(raw)) continue;
-                sealed = QD.seal(raw);
-                tmp = path + ".qdnew";
                 try {
-                    writeUtf8(tmp, sealed, true);
-                    unlockPath(path);
-                    if (fso.FileExists(path)) fso.DeleteFile(path, true);
-                    if (!copyFile(tmp, path)) throw new Error("replace failed");
+                    writeUtf8(path, raw);
                     n += 1;
                 } catch (eS) {
                     dbg("seal " + name + ": " + eS.message, false);
                 }
-                try { if (fso.FileExists(tmp)) fso.DeleteFile(tmp, true); } catch (eT) {}
             }
             return n;
         }
@@ -6470,7 +6551,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.71</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.72</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

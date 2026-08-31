@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.71';
+  QD.VERSION = '1.7.72';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -2583,18 +2583,24 @@
 
   // <QD-CRYPT-BEGIN>
   QD.SEAL_MAGIC = 'QDSEAL1';
+  QD.SEAL2_MAGIC = 'QDSEAL2';
   QD.PACK_MAGIC = 'QDPACK1';
   QD.CORE_FILE = 'qd.core';
+  var _sealKeyCache = null;
 
   QD.sealKeyBytes = function () {
-    var seed = [0x5A, 0x17, 0xC3, 0x8E, 0x41, 0xB9, 0x02, 0x6D, 0xE4, 0x33, 0x90, 0x7F, 0x1C, 0xA8, 0x55, 0xD2];
-    var out = [], i, x = 0xA5C37E19, a;
+    var seed, out, i, x, a;
+    if (_sealKeyCache) return _sealKeyCache;
+    seed = [0x5A, 0x17, 0xC3, 0x8E, 0x41, 0xB9, 0x02, 0x6D, 0xE4, 0x33, 0x90, 0x7F, 0x1C, 0xA8, 0x55, 0xD2];
+    out = [];
+    x = 0xA5C37E19;
     for (i = 0; i < 48; i++) {
       x = (Math.imul ? Math.imul(x, 1664525) : (x * 1664525)) >>> 0;
       x = (x + 1013904223) >>> 0;
       a = seed[i % seed.length];
       out.push((x ^ a ^ ((i * 19 + 47) & 255) ^ (out.length ? out[i - 1] : 0x5C)) & 255);
     }
+    _sealKeyCache = out;
     return out;
   };
 
@@ -2745,21 +2751,78 @@
   };
 
   QD.isSealed = function (text) {
-    return String(text || '').indexOf(QD.SEAL_MAGIC) === 0;
+    var s = String(text || '');
+    return s.indexOf(QD.SEAL2_MAGIC) === 0 || s.indexOf(QD.SEAL_MAGIC) === 0;
   };
 
-  QD.seal = function (text) {
+  QD.flushChars = function (buf, out) {
+    if (buf.length) {
+      out.push(String.fromCharCode.apply(String, buf));
+      buf.length = 0;
+    }
+  };
+
+  QD.seal2 = function (text) {
+    var key = QD.sealKeyBytes();
+    var s = String(text == null ? '' : text);
+    var i, n = s.length, c, x, buf = [], out = [], klen = key.length;
+    for (i = 0; i < n; i++) {
+      c = s.charCodeAt(i);
+      x = key[i % klen] ^ ((i * 13 + 47) & 255);
+      if (c < 128) buf.push(0x100 + (c ^ x));
+      else {
+        buf.push(0x200, 0x100 + (((c >> 8) ^ x) & 255), 0x100 + ((c ^ x) & 255));
+      }
+      if (buf.length >= 256) QD.flushChars(buf, out);
+    }
+    QD.flushChars(buf, out);
+    return QD.SEAL2_MAGIC + out.join('');
+  };
+
+  QD.unseal2 = function (text) {
+    var key = QD.sealKeyBytes();
+    var s = String(text || '').substring(QD.SEAL2_MAGIC.length);
+    var i = 0, pos = 0, n = s.length, c, x, hi, lo, buf = [], out = [], klen = key.length;
+    while (pos < n) {
+      c = s.charCodeAt(pos++);
+      x = key[i % klen] ^ ((i * 13 + 47) & 255);
+      if (c === 0x200 && pos + 1 < n) {
+        hi = (s.charCodeAt(pos++) - 0x100) ^ x;
+        lo = (s.charCodeAt(pos++) - 0x100) ^ x;
+        buf.push(((hi & 255) << 8) | (lo & 255));
+      } else {
+        buf.push((c - 0x100) ^ x);
+      }
+      i += 1;
+      if (buf.length >= 256) QD.flushChars(buf, out);
+    }
+    QD.flushChars(buf, out);
+    return out.join('');
+  };
+
+  QD.seal1 = function (text) {
     var bytes = QD.utf8Bytes(text);
     var mix = QD.scrambleBytes(bytes);
     return QD.SEAL_MAGIC + QD.encodeSeal(mix);
   };
 
-  QD.unseal = function (text) {
+  QD.unseal1 = function (text) {
     var s = String(text == null ? '' : text);
-    if (!QD.isSealed(s)) return s;
+    if (s.indexOf(QD.SEAL_MAGIC) !== 0) return s;
     var bytes = QD.decodeSeal(s.substring(QD.SEAL_MAGIC.length));
     if (!bytes) return '';
     return QD.utf8String(QD.unscrambleBytes(bytes));
+  };
+
+  QD.seal = function (text) {
+    return QD.seal2(text);
+  };
+
+  QD.unseal = function (text) {
+    var s = String(text == null ? '' : text);
+    if (s.indexOf(QD.SEAL2_MAGIC) === 0) return QD.unseal2(s);
+    if (s.indexOf(QD.SEAL_MAGIC) === 0) return QD.unseal1(s);
+    return s;
   };
 
   QD.pad10 = function (n) {

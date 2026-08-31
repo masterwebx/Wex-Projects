@@ -25,6 +25,8 @@ Obfuscation
 -----------
 The booter is packed. App source, History HTML, users.dat, and results
 are sealed (not Notepad / not a one-page base64 decoder).
+Scripts inside qd.core are not eval-packed: mshta cannot eval >100KB, and
+splitting qd-check.js broke the desk with Expected } / QD is undefined.
 This is not unbreakable: the booter must be able to open qd.core.
 Microsoft screnc.exe is NOT used: modern mshta will not run JScript.Encode.
 

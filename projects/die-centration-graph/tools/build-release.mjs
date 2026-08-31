@@ -5,6 +5,11 @@
  * sealed qd.core (custom alphabet, not base64). Runtime data (users.dat,
  * results/*.js) is sealed on disk when the booter sets QD_RELEASE_CRYPT.
  *
+ * Scripts inside qd.core are NOT eval-packed. mshta rejects a single eval
+ * larger than ~100KB, and splitting qd-check.js (one IIFE) mid-function
+ * yields "Expected '}'" then "'QD' is undefined". The seal hides source;
+ * after decrypt, mshta parses normal script tags (same as the dev HTA).
+ *
  * Microsoft screnc.exe / JScript.Encode does not run under modern mshta.
  *
  * Usage: node tools/build-release.mjs
@@ -211,25 +216,29 @@ function main() {
   const cryptJs = extractCrypt(checkJs);
   const QD = require(path.join(root, 'qd-check.js'));
 
-  let hta = read('quality-desk.hta').replace(/\r\n/g, '\n');
+  let hta = asciiFold(read('quality-desk.hta').replace(/\r\n/g, '\n'));
   hta = hta.replace(
     /<script\b[^>]*\bsrc\s*=\s*["']qd-check\.js["'][^>]*>\s*<\/script>/i,
-    () => `<script language="JScript">\n${checkJs}\n</script>`
+    () => `<script language="JScript">\n${asciiFold(checkJs)}\n</script>`
   );
-  const htaPack = packHtmlScripts(hta);
-  if (htaPack.chunks < 1) throw new Error('No HTA scripts packed');
+  if (!/QD\.VERSION/.test(hta) || !/function doLogin/.test(hta)) {
+    throw new Error('Sealed HTA is missing QD or doLogin — inline failed');
+  }
+  if (/\(0,eval\)\(o\)\}/.test(hta)) {
+    throw new Error('Sealed HTA must not eval-pack scripts (mshta 100KB eval limit)');
+  }
 
   if (!fs.existsSync(path.join(root, 'index.html'))) throw new Error('index.html missing');
   if (!fs.existsSync(path.join(root, 'vendor', 'chart.umd.min.js'))) {
     throw new Error('vendor/chart.umd.min.js missing');
   }
-  const idxPack = packHtmlScripts(read('index.html').replace(/\r\n/g, '\n'));
+  const web = asciiFold(read('index.html').replace(/\r\n/g, '\n'));
 
-  const pack = QD.makePack(htaPack.html, idxPack.html);
+  const pack = QD.makePack(hta, web);
   const sealed = QD.seal(pack);
   if (!QD.isSealed(sealed)) throw new Error('seal() did not mark qd.core');
   const round = QD.splitPack(QD.unseal(sealed));
-  if (!round || round.app !== htaPack.html || round.web !== idxPack.html) {
+  if (!round || round.app !== hta || round.web !== web) {
     throw new Error('qd.core pack round-trip failed');
   }
   fs.writeFileSync(path.join(outDir, QD.CORE_FILE), sealed, 'utf8');
@@ -313,6 +322,8 @@ function main() {
       '-----------',
       'The booter is packed. App source, History HTML, users.dat, and results',
       'are sealed (not Notepad / not a one-page base64 decoder).',
+      'Scripts inside qd.core are not eval-packed: mshta cannot eval >100KB, and',
+      'splitting qd-check.js broke the desk with Expected } / QD is undefined.',
       'This is not unbreakable: the booter must be able to open qd.core.',
       'Microsoft screnc.exe is NOT used: modern mshta will not run JScript.Encode.',
       '',
@@ -321,9 +332,8 @@ function main() {
     ].join('\r\n')
   );
 
-  console.log('HTA logical scripts:', htaPack.blocks, 'packed chunks:', htaPack.chunks);
-  console.log('index logical scripts:', idxPack.blocks, 'packed chunks:', idxPack.chunks);
-  console.log('qd.core bytes:', Buffer.byteLength(sealed, 'utf8'));
+  console.log('qd.core app bytes:', Buffer.byteLength(hta, 'utf8'), 'web bytes:', Buffer.byteLength(web, 'utf8'));
+  console.log('qd.core sealed bytes:', Buffer.byteLength(sealed, 'utf8'));
   console.log('Release ready:', outDir);
 }
 

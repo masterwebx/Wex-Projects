@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.69';
+  QD.VERSION = '1.7.70';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);

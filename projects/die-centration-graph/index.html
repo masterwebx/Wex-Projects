@@ -5808,7 +5808,10 @@
             const tx = db.transaction(PACK_STORE, "readwrite");
             tx.objectStore(PACK_STORE).put(
               {
-                rows: (historyPack && historyPack.rows) || [],
+                rows:
+                  (location.protocol || "").toLowerCase() === "file:"
+                    ? []
+                    : (historyPack && historyPack.rows) || [],
                 lookupRows: (historyPack && historyPack.lookupRows) || [],
                 specPatches: (historyPack && historyPack.specPatches) || {},
                 snapshot: currentSnapshot,
@@ -5854,6 +5857,29 @@
         "gcoex",
         "gmono",
       ];
+      const PLANT_LINE_FILES = {
+        foam: ["s4", "s1", "s3"],
+        bubble: ["coex", "mono"],
+        garland: ["gcoex", "gmono"],
+        p1: ["p1"],
+        rts: ["rts"],
+      };
+      const LINE_FILE_KEYS = [
+        "s4",
+        "s1",
+        "s3",
+        "coex",
+        "mono",
+        "p1",
+        "rts",
+        "gcoex",
+        "gmono",
+      ];
+      const loadedLineFiles = new Set();
+      let diskManifestNames = [];
+      let diskMetaReady = false;
+      let diskHasLineFiles = false;
+      let diskSapLoaded = false;
       function fileUrl(rel) {
         const loc = location.href.split("?")[0].split("#")[0];
         const slash = loc.lastIndexOf("/");
@@ -5916,67 +5942,234 @@
       }
       function plantForHtaFile(key) {
         if (key === "s4" || key === "s1" || key === "s3") return "foam";
-        if (
-          key === "coex" ||
-          key === "mono" ||
-          key === "gcoex" ||
-          key === "gmono"
-        )
-          return "bubble";
+        if (key === "gcoex" || key === "gmono") return "garland";
+        if (key === "coex" || key === "mono") return "bubble";
         if (key === "p1" || key === "rts") return key;
         return "foam";
       }
-      async function readDiskHandoff() {
-        window.QD_DISK = { lines: {}, lookupRows: [], users: [] };
+      function diskLineKeys() {
+        const listed = diskManifestNames.length
+          ? diskManifestNames
+          : HTA_DISK_FILES.slice();
+        return listed.filter((n) => LINE_FILE_KEYS.indexOf(n) >= 0);
+      }
+      function plantHasDisk(plant) {
+        const keys = PLANT_LINE_FILES[plant] || [];
+        return keys.some(
+          (k) => diskManifestNames.indexOf(k) >= 0 || loadedLineFiles.has(k),
+        );
+      }
+      function hasHistoryAvailable() {
+        if (indexedRows.length) return true;
+        if (diskHasLineFiles) return true;
+        if (historyPack && historyPack.rows && historyPack.rows.length)
+          return true;
+        try {
+          return !!loadState().hasHistory;
+        } catch {
+          return false;
+        }
+      }
+      function applyDiskLookup() {
+        const lookupRows = (window.QD_DISK && window.QD_DISK.lookupRows) || [];
+        if (!historyPack) {
+          historyPack = {
+            item: "",
+            mspec: "",
+            rows: [],
+            lookupRows,
+            lookupByMspec: buildLookupMap(lookupRows),
+            specPatches: {},
+          };
+        } else if (lookupRows.length) {
+          historyPack.lookupRows = lookupRows;
+          historyPack.lookupByMspec = buildLookupMap(lookupRows);
+        }
+      }
+      async function loadDiskMeta(opts) {
+        const force = !!(opts && opts.force);
+        if (diskMetaReady && !force) return diskHasLineFiles;
+        window.QD_DISK = window.QD_DISK || { lines: {}, lookupRows: [], users: [] };
+        if (force || !window.QD_DISK.lines) window.QD_DISK.lines = {};
         window.QD_DISK_MANIFEST = null;
         const t = Date.now();
-        let loaded = 0;
         await loadHtaScript("results/manifest.js?t=" + t, 20000);
         const listed =
           (window.QD_DISK_MANIFEST && window.QD_DISK_MANIFEST.files) || [];
-        const names = listed.length
-          ? listed
-              .map((f) => String(f).replace(/\.js$/i, ""))
-              .filter((n) => n && n !== "manifest")
-          : HTA_DISK_FILES.slice();
-        for (const name of names) {
-          if (await loadHtaScript("results/" + name + ".js?t=" + t, 20000))
-            loaded += 1;
+        if (listed.length) {
+          diskManifestNames = listed
+            .map((f) => String(f).replace(/\.js$/i, ""))
+            .filter((n) => n && n !== "manifest" && n !== "last-check");
+          diskHasLineFiles = diskLineKeys().length > 0;
+        } else {
+          diskManifestNames = HTA_DISK_FILES.slice();
+          diskHasLineFiles = false;
         }
-        const rows = [];
-        const lines = (window.QD_DISK && window.QD_DISK.lines) || {};
-        for (const key of [
-          "s4",
-          "s1",
-          "s3",
-          "coex",
-          "mono",
-          "p1",
-          "rts",
-          "gcoex",
-          "gmono",
-        ]) {
-          const pack = lines[key];
-          if (!pack || !pack.rows) continue;
-          for (const row of pack.rows) {
-            const copy = Object.assign({}, row, {
-              __source: "hta",
-              __lineFile: key,
-            });
-            if (!copy.__plant) copy.__plant = plantForHtaFile(key);
-            rows.push(copy);
+        if (diskManifestNames.indexOf("lookup") >= 0 || !listed.length) {
+          await loadHtaScript("results/lookup.js?t=" + t, 20000);
+        }
+        applyDiskLookup();
+        diskMetaReady = true;
+        if (diskHasLineFiles) markHasHistory(true);
+        syncWelcome();
+        return diskHasLineFiles;
+      }
+      function rowsFromDiskLine(key) {
+        const pack =
+          (window.QD_DISK && window.QD_DISK.lines && window.QD_DISK.lines[key]) ||
+          null;
+        if (!pack || !pack.rows) return [];
+        const plant = plantForHtaFile(key);
+        const out = [];
+        for (const row of pack.rows) {
+          const copy = Object.assign({}, row, {
+            __source: "hta",
+            __lineFile: key,
+          });
+          if (!copy.__plant) copy.__plant = plant;
+          out.push(copy);
+        }
+        return out;
+      }
+      async function loadDiskLineFile(key) {
+        if (!key || loadedLineFiles.has(key)) return 0;
+        loadedLineFiles.add(key);
+        const t = Date.now();
+        const ok = await loadHtaScript("results/" + key + ".js?t=" + t, 20000);
+        if (!ok) return 0;
+        const rows = rowsFromDiskLine(key);
+        if (!rows.length) return 0;
+        if (!historyPack) {
+          historyPack = {
+            item: "",
+            mspec: "",
+            rows: [],
+            lookupRows: [],
+            lookupByMspec: {},
+            specPatches: {},
+          };
+        }
+        const kept = (historyPack.rows || []).filter(
+          (r) => !r || r.__lineFile !== key,
+        );
+        historyPack.rows = kept.concat(rows);
+        return rows.length;
+      }
+      async function ensurePlantLoaded(plant, opts) {
+        const progress = !!(opts && opts.progress);
+        const force = !!(opts && opts.force);
+        const title =
+          (opts && opts.title) ||
+          (plant === "postings" ? "Loading postings" : "Loading history");
+        if (plant === "postings") {
+          if (progress) showProgress(title, 8, "SAP export");
+          await ensureSapFromDisk({ silent: true });
+          await ensureAllHistoryLoaded({
+            progress,
+            title,
+            force,
+          });
+          return;
+        }
+        await loadDiskMeta();
+        const keys = (PLANT_LINE_FILES[plant] || []).filter((k) => {
+          if (force) return true;
+          if (loadedLineFiles.has(k)) return false;
+          return !diskManifestNames.length || diskManifestNames.indexOf(k) >= 0;
+        });
+        if (!keys.length) return;
+        const fromIdx = (historyPack && historyPack.rows && historyPack.rows.length) || 0;
+        let added = 0;
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
+          if (force) loadedLineFiles.delete(key);
+          if (progress) {
+            showProgress(
+              title,
+              12 + Math.round((70 * i) / Math.max(keys.length, 1)),
+              key + ".js",
+            );
+            await yieldUi();
           }
+          added += await loadDiskLineFile(key);
+        }
+        if (added || force) {
+          await indexHistory(
+            progress
+              ? (i, n) => {
+                  showProgress(
+                    title,
+                    82 + Math.round((16 * i) / Math.max(n, 1)),
+                    i.toLocaleString() + " / " + n.toLocaleString(),
+                  );
+                }
+              : null,
+            force ? 0 : fromIdx,
+          );
+          markHasHistory(true);
+        }
+      }
+      async function ensureAllHistoryLoaded(opts) {
+        const progress = !!(opts && opts.progress);
+        const force = !!(opts && opts.force);
+        const title = (opts && opts.title) || "Loading history";
+        await loadDiskMeta();
+        const keys = diskLineKeys().filter((k) => force || !loadedLineFiles.has(k));
+        if (!keys.length) return;
+        const fromIdx = (historyPack && historyPack.rows && historyPack.rows.length) || 0;
+        let added = 0;
+        for (let i = 0; i < keys.length; i++) {
+          const key = keys[i];
+          if (force) loadedLineFiles.delete(key);
+          if (progress) {
+            showProgress(
+              title,
+              10 + Math.round((70 * i) / Math.max(keys.length, 1)),
+              key + ".js",
+            );
+            await yieldUi();
+          }
+          added += await loadDiskLineFile(key);
+        }
+        if (added || force) {
+          await indexHistory(
+            progress
+              ? (i, n) => {
+                  showProgress(
+                    title,
+                    82 + Math.round((16 * i) / Math.max(n, 1)),
+                    i.toLocaleString() + " / " + n.toLocaleString(),
+                  );
+                }
+              : null,
+            force ? 0 : fromIdx,
+          );
+          markHasHistory(true);
+        }
+      }
+      async function readDiskHandoff() {
+        loadedLineFiles.clear();
+        diskMetaReady = false;
+        await loadDiskMeta({ force: true });
+        let loaded = 0;
+        const rows = [];
+        for (const name of diskLineKeys()) {
+          loadedLineFiles.delete(name);
+          const n = await loadDiskLineFile(name);
+          if (n) loaded += 1;
+          for (const row of rowsFromDiskLine(name)) rows.push(row);
         }
         if (!loaded && !rows.length) return null;
         return {
           rows,
-          lookupRows: (window.QD_DISK && window.QD_DISK.lookupRows) || [],
+          lookupRows: (historyPack && historyPack.lookupRows) || [],
         };
       }
       async function applySapFromDisk(opts) {
         const silent = !!(opts && opts.silent);
         window.QD_DISK_SAP = null;
         const t = Date.now();
+        diskSapLoaded = true;
         if (!(await loadHtaScript("results/sap.js?t=" + t, 20000))) return false;
         const pack = window.QD_DISK_SAP;
         if (!pack || !pack.csv) return false;
@@ -5999,84 +6192,88 @@
         clearPostingRows();
         try {
           refreshSapHits(activeLine);
-          renderCompliance();
+          if (screenName === "compliance") renderCompliance();
         } catch {}
-        if (screenName === "history" && isPostingsPlant()) {
+        if (
+          screenName === "history" &&
+          isPostingsPlant() &&
+          !(opts && opts.skipPostings)
+        ) {
           await ensurePostingRows();
           renderHistoryTable();
         }
         return rows.length;
       }
+      async function ensureSapFromDisk(opts) {
+        if (diskSapLoaded) return sapAudit && sapAudit.rows ? sapAudit.rows.length : 0;
+        return (
+          (await applySapFromDisk(
+            Object.assign({ silent: true, skipPostings: true }, opts || {}),
+          )) || 0
+        );
+      }
 
       async function applyDiskHandoff(opts) {
         const silent = !!(opts && opts.silent);
         try {
-          showProgress(
-            silent ? "Loading HTA results" : "Reload from disk",
-            12,
-            "Reading HTA results",
-          );
+          if (silent) {
+            await loadDiskMeta();
+            syncWelcome();
+            return diskHasLineFiles || !!(historyPack && (historyPack.lookupRows || []).length);
+          }
+          showProgress("Reload from disk", 12, "Reading manifest");
           await yieldUi();
-          const disk = await readDiskHandoff();
-          let loadedHist = false;
-          if (disk && disk.rows.length) {
-            const kept = ((historyPack && historyPack.rows) || []).filter(
-              (r) => r && r.__source !== "hta",
+          loadedLineFiles.clear();
+          diskMetaReady = false;
+          diskSapLoaded = false;
+          sapAudit = null;
+          clearQualityDayIndex();
+          clearSapDayIndex();
+          clearPostingRows();
+          if (historyPack) {
+            historyPack.rows = (historyPack.rows || []).filter(
+              (r) => r && r.__source !== 'hta',
             );
-            const rows = dedupeHistoryRows(kept.concat(disk.rows));
-            const lookupRows =
-              disk.lookupRows && disk.lookupRows.length
-                ? disk.lookupRows
-                : (historyPack && historyPack.lookupRows) || [];
-            historyPack = {
-              item: (historyPack && historyPack.item) || "",
-              mspec: (historyPack && historyPack.mspec) || "",
-              rows,
-              lookupRows,
-              lookupByMspec: buildLookupMap(lookupRows),
-              specPatches: (historyPack && historyPack.specPatches) || {},
-            };
-            await indexHistory((i, n) => {
-              showProgress(
-                silent ? "Loading HTA results" : "Reload from disk",
-                20 + Math.round((70 * i) / Math.max(n, 1)),
-                `${i.toLocaleString()} / ${n.toLocaleString()}`,
-              );
-            });
-            if (!plantRows().length) {
-              const next = Object.keys(PLANTS).find((k) => plantRows(k).length);
-              if (next) activePlant = next;
+          }
+          await loadDiskMeta({ force: true });
+          const plant = isPostingsPlant() ? "postings" : activePlant;
+          await ensurePlantLoaded(plant, {
+            progress: true,
+            force: true,
+            title: "Reload from disk",
+          });
+          let loadedHist = indexedRows.length > 0;
+          if (!plantRows().length && !isPostingsPlant()) {
+            const next = Object.keys(PLANTS).find(
+              (k) => k !== "postings" && (plantRows(k).length || plantHasDisk(k)),
+            );
+            if (next) {
+              activePlant = next;
+              await ensurePlantLoaded(next, { progress: true, force: true });
             }
-            fillLineSelects();
-            syncPlantChrome();
+          }
+          fillLineSelects();
+          syncPlantChrome();
+          if (indexedRows.length) {
             markHasHistory(true);
             loadedHist = true;
           }
-          let sapCount = 0;
-          try {
-            sapCount = (await applySapFromDisk({ silent: true })) || 0;
-          } catch {}
-          if (!loadedHist && !sapCount) {
-            if (!silent)
-              toast(
-                "No HTA results on disk. Submit a check from quality-desk.hta first. For SAP, put SAP.csv next to the HTA.",
-              );
+          if (!loadedHist && !diskHasLineFiles && !sapAudit) {
+            toast(
+              "No HTA results on disk. Submit a check from quality-desk.hta first. For SAP, put SAP.csv next to the HTA.",
+            );
             return false;
           }
-          if (!silent) {
-            const bits = [];
-            if (loadedHist)
-              bits.push(
-                `${disk.rows.length} HTA check${disk.rows.length === 1 ? "" : "s"}`,
-              );
-            if (sapCount)
-              bits.push(`${sapCount} SAP row${sapCount === 1 ? "" : "s"}`);
-            toast("Loaded " + bits.join(" · ") + " from disk");
-            if (screenName === "history") renderHistoryTable();
-            else if (loadedHist) goTo("history");
-          } else {
-            syncWelcome();
-          }
+          const n = indexedRows.length;
+          toast(
+            "Loaded " +
+              (n
+                ? n.toLocaleString() + " check" + (n === 1 ? "" : "s")
+                : "disk files") +
+              " from disk",
+          );
+          if (screenName === "history") renderHistoryTable();
+          else if (loadedHist) goTo("history");
           return true;
         } finally {
           hideProgress();
@@ -6088,7 +6285,7 @@
         }
       }
       function syncWelcome() {
-        const has = indexedRows.length > 0;
+        const has = hasHistoryAvailable();
         document.documentElement.setAttribute(
           "data-has-history",
           has ? "1" : "0",
@@ -7022,9 +7219,10 @@
         return p === "foam" || isBwSpcPlant(p);
       }
       function firstSpcPlant() {
-        if (isSpcPlant() && plantRows().length) return activePlant;
+        if (isSpcPlant() && (plantRows().length || plantHasDisk(activePlant)))
+          return activePlant;
         for (const p of ["foam", "bubble", "garland"]) {
-          if (plantRows(p).length) return p;
+          if (plantRows(p).length || plantHasDisk(p)) return p;
         }
         return "";
       }
@@ -7225,6 +7423,13 @@
       }
       async function ensurePostingRows() {
         if (postingRowCache) return postingRowCache;
+        await ensureSapFromDisk({ silent: true });
+        if (diskHasLineFiles && loadedLineFiles.size < diskLineKeys().length) {
+          await ensureAllHistoryLoaded({
+            progress: true,
+            title: "Loading postings",
+          });
+        }
         if (!sapAudit || !sapAudit.rows.length) {
           postingRowCache = [];
           return postingRowCache;
@@ -7426,11 +7631,18 @@
         syncPlantChrome();
         saveState();
         filteredDirty = true;
-        if (next === "postings" && sapAudit && !postingRowCache) {
-          const meta = document.getElementById("histMeta");
-          if (meta) meta.textContent = "Loading postings…";
-          await ensurePostingRows();
-          filteredDirty = true;
+        try {
+          if (next === "postings") {
+            const meta = document.getElementById("histMeta");
+            if (meta) meta.textContent = "Loading postings…";
+            await ensurePlantLoaded("postings", { progress: true });
+            await ensurePostingRows();
+            filteredDirty = true;
+          } else {
+            await ensurePlantLoaded(next, { progress: true });
+          }
+        } finally {
+          hideProgress();
         }
         if (screenName === "history") renderHistoryTable();
         if (screenName === "compliance") renderCompliance();
@@ -8701,14 +8913,16 @@
         }
         return tones;
       }
-      async function indexHistory(onProg) {
+      async function indexHistory(onProg, fromIdx) {
         const rows = (historyPack && historyPack.rows) || [];
-        indexedRows = new Array(rows.length);
+        const start = fromIdx > 0 ? Math.max(0, Math.min(fromIdx, rows.length)) : 0;
+        if (start === 0) indexedRows = new Array(rows.length);
+        else indexedRows.length = rows.length;
         plantRowCache = null;
         clearPostingRows();
         histColsMemo = { plant: "", n: -1, cols: null };
         let lastYield = 0;
-        for (let idx = 0; idx < rows.length; idx++) {
+        for (let idx = start; idx < rows.length; idx++) {
           let row = rows[idx];
           if ((row.__plant || "foam") === "foam") {
             const fixed = normalizeFoamRow(row);
@@ -10017,13 +10231,19 @@
         if (viewMode === "spc") selectSpcPoint(idx);
         else viewResult(idx);
       }
-      function openSpc() {
+      async function openSpc() {
+        await loadDiskMeta();
         const plant = firstSpcPlant();
         if (!plant || enterMode) {
           toast("Paste quality results first");
           return;
         }
-        if (activePlant !== plant) setActivePlant(plant, { keepFilters: true });
+        try {
+          await ensurePlantLoaded(plant, { progress: true });
+        } finally {
+          hideProgress();
+        }
+        if (activePlant !== plant) await setActivePlant(plant, { keepFilters: true });
         spcPointSelected = false;
         const lines = uniqueSorted(
           [
@@ -10064,12 +10284,17 @@
       function seriesPointRows() {
         return takeLast(spcPointRows().filter(seriesHasShape), seriesLimitN());
       }
-      function openSeriesGraph() {
+      async function openSeriesGraph() {
+        try {
+          await ensurePlantLoaded("foam", { progress: true });
+        } finally {
+          hideProgress();
+        }
         if (!plantRows("foam").length || enterMode) {
           toast("Paste TableS4 results first");
           return;
         }
-        if (!isFoamPlant()) setActivePlant("foam", { keepFilters: true });
+        if (!isFoamPlant()) await setActivePlant("foam", { keepFilters: true });
         const foam = uniqueSorted(
           [
             ...new Set(
@@ -10097,14 +10322,24 @@
         }
         viewResult(last.idx);
       }
-      function openCompliance(from) {
-        if (!indexedRows.length) {
+      async function openCompliance(from) {
+        if (!hasHistoryAvailable()) {
           toast("Paste results first");
           return;
         }
         complianceBackTo = from === "history" ? "history" : "welcome";
         complianceMonday = mondayOfLocalDate(new Date());
-        if (isPostingsPlant()) setActivePlant("foam", { keepFilters: true });
+        try {
+          if (isPostingsPlant()) await setActivePlant("foam", { keepFilters: true });
+          await ensurePlantLoaded(activePlant, { progress: true });
+          await ensureSapFromDisk({ silent: true });
+        } finally {
+          hideProgress();
+        }
+        if (!indexedRows.length) {
+          toast("Paste results first");
+          return;
+        }
         fillLineSelects();
         goTo("compliance", { mode: "centration" });
         renderCompliance();
@@ -10126,7 +10361,16 @@
         const main = document.getElementById("docsMain");
         if (main) main.scrollTop = 0;
       }
-      function openTrends() {
+      async function openTrends() {
+        if (!hasHistoryAvailable()) {
+          toast("Paste results first");
+          return;
+        }
+        try {
+          await ensureAllHistoryLoaded({ progress: true, title: "Loading trends" });
+        } finally {
+          hideProgress();
+        }
         if (!indexedRows.length) {
           toast("Paste results first");
           return;
@@ -11451,12 +11695,13 @@
         applyMspecColgroup(document.getElementById("mspecTable"));
         syncMspecHeaderGutter();
       }
-      function openMspecs() {
+      async function openMspecs() {
+        await loadDiskMeta();
         if (!historyPack || !(historyPack.lookupRows || []).length) {
           toast("Paste results first");
           return;
         }
-        if (!isFoamPlant()) setActivePlant("foam", { keepFilters: true });
+        if (!isFoamPlant()) await setActivePlant("foam", { keepFilters: true });
         goTo("mspecs");
         renderMspecTable();
       }
@@ -15982,13 +16227,30 @@
         applyDiskHandoff();
       document.getElementById("histReloadDisk").onclick = () =>
         applyDiskHandoff();
-      document.getElementById("welcomeHistory").onclick = () => {
-        if (!indexedRows.length) {
+      document.getElementById("welcomeHistory").onclick = async () => {
+        if (!hasHistoryAvailable()) {
           toast("Paste results first");
           return;
         }
-        goTo("history");
-        requestAnimationFrame(() => renderHistoryTable());
+        try {
+          showProgress("Loading history", 8, PLANTS[activePlant] || "");
+          await ensurePlantLoaded(activePlant, { progress: true });
+          if (isPostingsPlant()) await ensurePostingRows();
+          if (!isPostingsPlant() && !plantRows().length) {
+            const next = ["foam", "bubble", "garland", "p1", "rts"].find(
+              (p) => plantHasDisk(p) || plantRows(p).length,
+            );
+            if (next) await setActivePlant(next, { force: true });
+          }
+          if (!isPostingsPlant() && !indexedRows.length) {
+            toast("Paste results first");
+            return;
+          }
+          goTo("history");
+          requestAnimationFrame(() => renderHistoryTable());
+        } finally {
+          hideProgress();
+        }
       };
       document.getElementById("welcomeCompliance").onclick = () =>
         openCompliance("welcome");
@@ -16477,11 +16739,25 @@
       setScreen("welcome");
       document.getElementById("appVersion").textContent = "v" + APP_VERSION;
       restorePack().then(async (data) => {
+        if ((location.protocol || "").toLowerCase() === "file:") {
+          if (data && (data.lookupRows || []).length) {
+            historyPack = {
+              item: (data.snapshot && data.snapshot.item) || "",
+              mspec: canonMspec(data.snapshot && data.snapshot.mspec),
+              rows: [],
+              lookupRows: data.lookupRows || [],
+              lookupByMspec: buildLookupMap(data.lookupRows || []),
+            };
+            if (data.specPatches) historyPack.specPatches = data.specPatches;
+          }
+          await loadDiskMeta();
+          syncWelcome();
+          if (screenName !== "welcome") setScreen("welcome");
+          return;
+        }
         if (!data || !Array.isArray(data.rows) || !data.rows.length) {
           markHasHistory(false);
           if (screenName !== "welcome") setScreen("welcome");
-          if (location.protocol === "file:")
-            await applyDiskHandoff({ silent: true });
           return;
         }
         showProgress("Loading saved results", 12, "");
@@ -16516,9 +16792,6 @@
           syncWelcome();
           markHasHistory(true);
           setScreen("welcome");
-          hideProgress();
-          if (location.protocol === "file:")
-            await applyDiskHandoff({ silent: true });
           window.setTimeout(() => {
             try {
               persistPack();

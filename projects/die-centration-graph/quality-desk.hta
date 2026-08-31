@@ -399,6 +399,8 @@
         var docsLoaded = false;
         var lastHomeHtml = "";
         var specHistoryLoaded = false;
+        var lastCheckByFile = {};
+        var lastChecksLoaded = false;
         var qdProf = { t0: 0, last: 0, flushed: 0, section: "", lines: [], io: { reads: 0, readMs: 0, writes: 0, writeMs: 0, remote: 0, slow: [] } };
         var lastResultsHtml = "";
         var specPaintTarget = null;
@@ -1484,6 +1486,7 @@
                 audit("login", rec.name);
                 if (pendingForUser().length) profRun("login.goDocs", function () { goDocs(true); });
                 else profRun("login.goHome", function () { goHome(); });
+                window.setTimeout(function () { fillLastChecksLazy(); }, 0);
                 try { profFlush("end"); } catch (ePe) {}
             }
             if (aio.loaded) {
@@ -2190,6 +2193,8 @@
             }));
             unhidePath(path);
             lineCache[fileKey] = { mtime: fileMtime(path), rows: rows || [] };
+            noteLastRow(fileKey, rows || []);
+            try { saveLastChecks(); } catch (eLc) {}
             writeManifest();
             if (fileKey === "gcoex") {
                 try { backupGarlandCoex(rows || []); } catch (eBk) { dbg("garland backup: " + eBk.message, false); }
@@ -2418,11 +2423,86 @@
             syncInboxBadge();
         }
 
+        function lastCheckPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(resultsDir(), "last-check.js");
+        }
+
+        function slimLastCheck(row) {
+            if (!row) return null;
+            return {
+                "Date/Time": row["Date/Time"],
+                "Reason for Check": row["Reason for Check"],
+                "No Check Reason": row["No Check Reason"],
+                "Pass/Fail": row["Pass/Fail"],
+                Notes: row.Notes,
+                "Item #": row["Item #"] || row.Item,
+                Line: row.Line,
+                User: row.User
+            };
+        }
+
+        function loadLastChecks() {
+            if (lastChecksLoaded) return;
+            lastChecksLoaded = true;
+            window.QD_LAST_CHECK = null;
+            try {
+                var fso = new ActiveXObject("Scripting.FileSystemObject");
+                if (fso.FileExists(lastCheckPath())) eval(readUtf8(lastCheckPath()));
+            } catch (eL) {}
+            lastCheckByFile = window.QD_LAST_CHECK || lastCheckByFile || {};
+        }
+
+        function saveLastChecks() {
+            loadLastChecks();
+            writeUtf8(lastCheckPath(), "window.QD_LAST_CHECK=" + JSON.stringify(lastCheckByFile || {}) + ";");
+        }
+
+        function noteLastRow(fileKey, rows) {
+            if (!fileKey) return;
+            loadLastChecks();
+            if (rows && rows.length) lastCheckByFile[fileKey] = slimLastCheck(rows[rows.length - 1]);
+            else delete lastCheckByFile[fileKey];
+        }
+
         function lastRowFor(lineId) {
             var info = QD.lineInfo(lineId, currentSite);
             if (!info) return null;
-            var rows = readLineRows(info.file);
-            return rows.length ? rows[rows.length - 1] : null;
+            loadLastChecks();
+            return lastCheckByFile[info.file] || null;
+        }
+
+        function fillLastChecksLazy() {
+            var keys = QD.LINE_FILES.slice(), i = 0, changed = false;
+            loadLastChecks();
+            function next() {
+                var key, rows;
+                if (i >= keys.length) {
+                    if (changed) {
+                        try { saveLastChecks(); } catch (eS) {}
+                        lastHomeHtml = "";
+                        if (currentTab === "checks" && currentScreen === "home") renderHome();
+                    }
+                    return;
+                }
+                key = keys[i];
+                i += 1;
+                if (lastCheckByFile[key]) {
+                    window.setTimeout(next, 0);
+                    return;
+                }
+                try {
+                    rows = readLineRows(key);
+                    if (rows && rows.length) {
+                        noteLastRow(key, rows);
+                        changed = true;
+                        lastHomeHtml = "";
+                        if (currentTab === "checks" && currentScreen === "home") renderHome();
+                    }
+                } catch (eR) {}
+                window.setTimeout(next, 0);
+            }
+            window.setTimeout(next, 0);
         }
 
         function ensureCurrentLineForSite() {
@@ -6907,6 +6987,7 @@ function openHistEdit(file, idx) {
                     setBoot("Sealing local files…", 10);
                     profRun("boot.sealLegacyPlainFiles", function () { sealLegacyPlainFiles(); });
                     profRun("boot.loadAuthUsers", function () { loadAuthUsers(); });
+                    profRun("boot.loadLastChecks", function () { loadLastChecks(); });
                 },
                 function () {
                     setBoot("Reading lookup files…", 32);
@@ -6976,7 +7057,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.76</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.77</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

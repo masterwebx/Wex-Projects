@@ -558,10 +558,20 @@
             ts.Close();
         }
 
-        function writeUtf8(path, text) {
+        function shouldSealPath(path) {
+            var n;
+            if (!window.QD_RELEASE_CRYPT || !path) return false;
+            n = String(path).toLowerCase().replace(/\//g, "\\");
+            if (n.substring(n.length - 9) === "users.dat") return true;
+            if (n.indexOf("\\results\\") >= 0) return true;
+            return false;
+        }
+
+        function writeUtf8(path, text, plain) {
             var prev = revealFile(path);
             var tmp = tempFile("w");
             var body = text == null ? "" : String(text);
+            if (!plain && shouldSealPath(path) && QD && QD.seal) body = QD.seal(body);
             try {
                 streamWriteLocal(tmp, body);
                 if (!copyFile(tmp, path)) throw new Error("copy failed");
@@ -590,7 +600,9 @@
             }
             deleteTemp(tmp);
             restoreAttrs(path, prev);
-            return QD.stripBom(text);
+            text = QD.stripBom(text);
+            if (QD && QD.isSealed && QD.isSealed(text)) text = QD.unseal(text);
+            return text;
         }
 
         function protectPath(path) {
@@ -1196,11 +1208,55 @@
             var folder = getAppFolder();
             var names = ["index.html", "centration.html", "qualitydesk.html"];
             var i, p;
+            if (window.QD_RELEASE_CRYPT) {
+                p = materializeDeskHtml();
+                if (p) return p;
+            }
             for (i = 0; i < names.length; i++) {
                 p = fso.BuildPath(folder, names[i]);
                 if (fso.FileExists(p)) return p;
             }
             return "";
+        }
+
+        function loadReleasePack() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path = fso.BuildPath(getAppFolder(), QD.CORE_FILE);
+            var raw, pack;
+            if (!fso.FileExists(path)) return null;
+            raw = readUtf8(path);
+            if (!raw) return null;
+            if (QD.isSealed(raw)) raw = QD.unseal(raw);
+            pack = QD.splitPack(raw);
+            return pack;
+        }
+
+        function materializeDeskHtml() {
+            var pack = loadReleasePack();
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var dest = fso.BuildPath(tempDir(), "qd-desk");
+            var html, srcVendor, destVendor, folder, e, f, name, text;
+            if (!pack || !pack.web) return "";
+            if (!fso.FolderExists(dest)) fso.CreateFolder(dest);
+            if (!fso.FolderExists(fso.BuildPath(dest, "results"))) fso.CreateFolder(fso.BuildPath(dest, "results"));
+            if (!fso.FolderExists(fso.BuildPath(dest, "vendor"))) fso.CreateFolder(fso.BuildPath(dest, "vendor"));
+            srcVendor = fso.BuildPath(getAppFolder(), "vendor\\chart.umd.min.js");
+            destVendor = fso.BuildPath(dest, "vendor\\chart.umd.min.js");
+            if (fso.FileExists(srcVendor)) copyFile(srcVendor, destVendor);
+            if (fso.FolderExists(resultsDir())) {
+                folder = fso.GetFolder(resultsDir());
+                e = new Enumerator(folder.Files);
+                for (; !e.atEnd(); e.moveNext()) {
+                    f = e.item();
+                    name = String(f.Name || "");
+                    if (/^(users\.dat|theme\.txt)$/i.test(name)) continue;
+                    text = readUtf8(f.Path);
+                    writeUtf8(fso.BuildPath(dest, "results\\" + name), text, true);
+                }
+            }
+            html = pack.web;
+            writeUtf8(fso.BuildPath(dest, "index.html"), html, true);
+            return fso.BuildPath(dest, "index.html");
         }
 
         function rangeValues(rng) {
@@ -1652,6 +1708,26 @@
             unhidePath(path);
             lineCache[fileKey] = { mtime: fileMtime(path), rows: rows || [] };
             writeManifest();
+            if (fileKey === "gcoex") {
+                try { backupGarlandCoex(rows || []); } catch (eBk) { dbg("garland backup: " + eBk.message, false); }
+            }
+        }
+
+        function backupGarlandCoex(rows) {
+            var folder = QD.GARLAND_BACKUP_DIR;
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var path, prev = "", merged;
+            if (!fso.FolderExists(folder)) return false;
+            path = fso.BuildPath(folder, QD.GARLAND_BACKUP_FILE);
+            if (fso.FileExists(path)) {
+                try { prev = readUtf8(path); } catch (eR) { prev = ""; }
+                if (QD.isSealed(prev)) prev = QD.unseal(prev);
+            }
+            merged = QD.garlandBackupMerge(prev, rows);
+            if (!merged || !merged.added) return false;
+            writeUtf8(path, merged.csv);
+            dbg("Garland COEX backup +" + merged.added + " to OneDrive");
+            return true;
         }
 
         function legacyRowKey(r) {
@@ -6356,7 +6432,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.65</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.69</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

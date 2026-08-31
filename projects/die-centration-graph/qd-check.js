@@ -2,7 +2,7 @@
 (function (global) {
   var QD = global.QD || {};
 
-  QD.VERSION = '1.7.68';
+  QD.VERSION = '1.7.69';
   QD.DISK_DIR = 'results';
   QD.LINE_FILES = ['s4', 's1', 's3', 'coex', 'mono', 'p1', 'rts', 'gcoex', 'gmono'];
   QD.DISK_FILES = ['lookup'].concat(QD.LINE_FILES);
@@ -2576,6 +2576,300 @@
       writtenAt: (new Date()).toISOString(),
       version: QD.VERSION
     }) + ';\n';
+  };
+
+  QD.GARLAND_BACKUP_DIR = 'C:\\Users\\csccoex1\\OneDrive - Pregis LLC\\Quality\\';
+  QD.GARLAND_BACKUP_FILE = 'COEX data.csv';
+
+  // <QD-CRYPT-BEGIN>
+  QD.SEAL_MAGIC = 'QDSEAL1';
+  QD.PACK_MAGIC = 'QDPACK1';
+  QD.CORE_FILE = 'qd.core';
+
+  QD.sealKeyBytes = function () {
+    var seed = [0x5A, 0x17, 0xC3, 0x8E, 0x41, 0xB9, 0x02, 0x6D, 0xE4, 0x33, 0x90, 0x7F, 0x1C, 0xA8, 0x55, 0xD2];
+    var out = [], i, x = 0xA5C37E19, a;
+    for (i = 0; i < 48; i++) {
+      x = (Math.imul ? Math.imul(x, 1664525) : (x * 1664525)) >>> 0;
+      x = (x + 1013904223) >>> 0;
+      a = seed[i % seed.length];
+      out.push((x ^ a ^ ((i * 19 + 47) & 255) ^ (out.length ? out[i - 1] : 0x5C)) & 255);
+    }
+    return out;
+  };
+
+  QD.utf8Bytes = function (s) {
+    var out = [], i, c, c2, cp;
+    s = String(s == null ? '' : s);
+    for (i = 0; i < s.length; i++) {
+      c = s.charCodeAt(i);
+      if (c < 0x80) out.push(c);
+      else if (c < 0x800) {
+        out.push(0xC0 | (c >> 6), 0x80 | (c & 63));
+      } else if (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length) {
+        c2 = s.charCodeAt(i + 1);
+        if (c2 >= 0xDC00 && c2 <= 0xDFFF) {
+          cp = 0x10000 + ((c - 0xD800) << 10) + (c2 - 0xDC00);
+          i += 1;
+          out.push(0xF0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+          continue;
+        }
+        out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+      } else {
+        out.push(0xE0 | (c >> 12), 0x80 | ((c >> 6) & 63), 0x80 | (c & 63));
+      }
+    }
+    return out;
+  };
+
+  QD.utf8String = function (bytes) {
+    var out = '', i = 0, c, c2, c3, c4, cp;
+    bytes = bytes || [];
+    while (i < bytes.length) {
+      c = bytes[i++];
+      if (c < 0x80) out += String.fromCharCode(c);
+      else if (c >= 0xC0 && c < 0xE0 && i < bytes.length) {
+        c2 = bytes[i++];
+        out += String.fromCharCode(((c & 31) << 6) | (c2 & 63));
+      } else if (c >= 0xE0 && c < 0xF0 && i + 1 < bytes.length) {
+        c2 = bytes[i++];
+        c3 = bytes[i++];
+        out += String.fromCharCode(((c & 15) << 12) | ((c2 & 63) << 6) | (c3 & 63));
+      } else if (c >= 0xF0 && i + 2 < bytes.length) {
+        c2 = bytes[i++];
+        c3 = bytes[i++];
+        c4 = bytes[i++];
+        cp = ((c & 7) << 18) | ((c2 & 63) << 12) | ((c3 & 63) << 6) | (c4 & 63);
+        cp -= 0x10000;
+        out += String.fromCharCode(0xD800 + (cp >> 10), 0xDC00 + (cp & 1023));
+      }
+    }
+    return out;
+  };
+
+  QD.scrambleBytes = function (bytes) {
+    var key = QD.sealKeyBytes();
+    var s = [], i, j = 0, t, n, out = [], drop, k;
+    for (i = 0; i < 256; i++) s[i] = i;
+    for (i = 0; i < 256; i++) {
+      j = (j + s[i] + key[i % key.length] + ((i * 13) & 255)) & 255;
+      t = s[i]; s[i] = s[j]; s[j] = t;
+    }
+    n = bytes.length;
+    for (i = 0; i < n; i++) {
+      if ((i % 7) === 6 && i > 0) {
+        t = bytes[i];
+        bytes[i] = bytes[i - 1];
+        bytes[i - 1] = t;
+      }
+    }
+    i = 0; j = 0;
+    drop = 768;
+    for (k = 0; k < drop + n; k++) {
+      i = (i + 1) & 255;
+      j = (j + s[i]) & 255;
+      t = s[i]; s[i] = s[j]; s[j] = t;
+      if (k >= drop) out.push(bytes[k - drop] ^ s[(s[i] + s[j]) & 255] ^ key[k % key.length]);
+    }
+    return out;
+  };
+
+  QD.unscrambleBytes = function (bytes) {
+    var key = QD.sealKeyBytes();
+    var s = [], i, j = 0, t, n, out = [], drop, k;
+    for (i = 0; i < 256; i++) s[i] = i;
+    for (i = 0; i < 256; i++) {
+      j = (j + s[i] + key[i % key.length] + ((i * 13) & 255)) & 255;
+      t = s[i]; s[i] = s[j]; s[j] = t;
+    }
+    n = bytes.length;
+    i = 0; j = 0;
+    drop = 768;
+    for (k = 0; k < drop + n; k++) {
+      i = (i + 1) & 255;
+      j = (j + s[i]) & 255;
+      t = s[i]; s[i] = s[j]; s[j] = t;
+      if (k >= drop) out.push(bytes[k - drop] ^ s[(s[i] + s[j]) & 255] ^ key[k % key.length]);
+    }
+    for (i = 0; i < n; i++) {
+      if ((i % 7) === 6 && i > 0) {
+        t = out[i];
+        out[i] = out[i - 1];
+        out[i - 1] = t;
+      }
+    }
+    return out;
+  };
+
+  QD.SEAL_ABC = '#$%&()*+,-.0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[]^_abcdefghijklmnopqrstuvwxyz{|}~';
+
+  QD.encodeSeal = function (bytes) {
+    var abc = QD.SEAL_ABC, out = '', i, n = bytes.length, v, a, b, c, d;
+    for (i = 0; i < n; i += 4) {
+      a = bytes[i] || 0;
+      b = i + 1 < n ? bytes[i + 1] : 0;
+      c = i + 2 < n ? bytes[i + 2] : 0;
+      d = i + 3 < n ? bytes[i + 3] : 0;
+      v = ((a * 16777216) + (b * 65536) + (c * 256) + d) >>> 0;
+      out += abc.charAt(Math.floor(v / 52200625) % 85);
+      out += abc.charAt(Math.floor(v / 614125) % 85);
+      out += abc.charAt(Math.floor(v / 7225) % 85);
+      out += abc.charAt(Math.floor(v / 85) % 85);
+      out += abc.charAt(v % 85);
+      if (((i / 4) % 9) === 8) out += '~';
+    }
+    return out + '.' + n;
+  };
+
+  QD.decodeSeal = function (text) {
+    var abc = QD.SEAL_ABC, map = {}, i, raw, parts, n, out = [], pos, ch, v, block;
+    for (i = 0; i < abc.length; i++) map[abc.charAt(i)] = i;
+    text = String(text || '');
+    parts = text.split('.');
+    n = parseInt(parts[parts.length - 1], 10);
+    if (!isFinite(n) || n < 0) return null;
+    raw = parts.slice(0, parts.length - 1).join('.');
+    block = '';
+    for (i = 0; i < raw.length; i++) {
+      ch = raw.charAt(i);
+      if (ch === '~') continue;
+      if (map[ch] == null) continue;
+      block += ch;
+      if (block.length === 5) {
+        v = map[block.charAt(0)] * 52200625 + map[block.charAt(1)] * 614125 + map[block.charAt(2)] * 7225 + map[block.charAt(3)] * 85 + map[block.charAt(4)];
+        out.push(Math.floor(v / 16777216) & 255, Math.floor(v / 65536) & 255, Math.floor(v / 256) & 255, v & 255);
+        block = '';
+      }
+    }
+    return out.slice(0, n);
+  };
+
+  QD.isSealed = function (text) {
+    return String(text || '').indexOf(QD.SEAL_MAGIC) === 0;
+  };
+
+  QD.seal = function (text) {
+    var bytes = QD.utf8Bytes(text);
+    var mix = QD.scrambleBytes(bytes);
+    return QD.SEAL_MAGIC + QD.encodeSeal(mix);
+  };
+
+  QD.unseal = function (text) {
+    var s = String(text == null ? '' : text);
+    if (!QD.isSealed(s)) return s;
+    var bytes = QD.decodeSeal(s.substring(QD.SEAL_MAGIC.length));
+    if (!bytes) return '';
+    return QD.utf8String(QD.unscrambleBytes(bytes));
+  };
+
+  QD.pad10 = function (n) {
+    var s = String(n);
+    while (s.length < 10) s = '0' + s;
+    return s;
+  };
+
+  QD.makePack = function (app, web) {
+    app = String(app == null ? '' : app);
+    web = String(web == null ? '' : web);
+    return QD.PACK_MAGIC + '\nA' + QD.pad10(app.length) + '\n' + app + 'W' + QD.pad10(web.length) + '\n' + web;
+  };
+
+  QD.splitPack = function (raw) {
+    var s = String(raw || '');
+    var aMark, wMark, aLen, wLen, app, web;
+    if (s.substring(0, QD.PACK_MAGIC.length) !== QD.PACK_MAGIC) return null;
+    aMark = s.indexOf('\nA');
+    if (aMark < 0) return null;
+    aLen = parseInt(s.substring(aMark + 2, aMark + 12), 10);
+    if (!isFinite(aLen) || aLen < 0) return null;
+    app = s.substring(aMark + 13, aMark + 13 + aLen);
+    wMark = aMark + 13 + aLen;
+    if (s.charAt(wMark) !== 'W') return null;
+    wLen = parseInt(s.substring(wMark + 1, wMark + 11), 10);
+    if (!isFinite(wLen) || wLen < 0) return null;
+    web = s.substring(wMark + 12, wMark + 12 + wLen);
+    return { app: app, web: web };
+  };
+  // <QD-CRYPT-END>
+
+  QD.csvCell = function (v) {
+    var s = v == null ? '' : String(v);
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  };
+
+  QD.garlandBackupKey = function (row) {
+    if (!row) return '';
+    return [
+      row['Date/Time'] || '',
+      row['Item #'] || row.Item || '',
+      row.User || '',
+      row['Pass/Fail'] || '',
+      row['Reason for Check'] || ''
+    ].join('|');
+  };
+
+  QD.garlandBackupHeaders = function () {
+    return [
+      'Timestamp', 'Operator', 'Line', 'Item #', 'Item Desc', 'Reason for Check', 'Pass/Fail',
+      'Slit Width', 'Web Width', 'Footage', 'Basis Weight', 'Perf Strength Left', 'Perf Strength Right',
+      'Color', 'Delam Check', 'Production #', 'Roll #', 'Notes'
+    ];
+  };
+
+  QD.garlandBackupCells = function (row) {
+    if (!row) return [];
+    return [
+      row['Date/Time'], row.User, row.Line || 'G-COEX',
+      row['Item #'] || row.Item, row['Item Desc'] || row['Item Description'],
+      row['Reason for Check'], row['Pass/Fail'],
+      row['Slit Width'] || row.Width, row['Web Width'], row.Footage,
+      row['Basis Weight'] || row.Weight,
+      row['Perf Strength Left'], row['Perf Strength Right'],
+      row.Color, row['Delam Check'], row['Production #'], row['Roll #'], row.Notes
+    ];
+  };
+
+  QD.garlandBackupLine = function (row) {
+    var cells = QD.garlandBackupCells(row), i, out = [];
+    for (i = 0; i < cells.length; i++) out.push(QD.csvCell(cells[i]));
+    return out.join(',');
+  };
+
+  QD.parseBackupKeys = function (csv) {
+    var seen = {}, lines, i, parts;
+    lines = String(csv || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    for (i = 1; i < lines.length; i++) {
+      if (!trim(lines[i])) continue;
+      parts = lines[i].split(',');
+      if (parts.length) seen[trim(parts[0]) + '|' + trim(parts[3] || '') + '|' + trim(parts[1] || '')] = 1;
+    }
+    return seen;
+  };
+
+  QD.garlandBackupMerge = function (existingCsv, rows) {
+    var headers = QD.garlandBackupHeaders().join(',');
+    var have = {}, lines, i, row, key, added = 0, out = [];
+    lines = String(existingCsv || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+    if (!lines.length || !trim(lines[0])) out.push(headers);
+    else {
+      out.push(lines[0]);
+      for (i = 1; i < lines.length; i++) {
+        if (!trim(lines[i])) continue;
+        out.push(lines[i]);
+        have[trim(lines[i])] = 1;
+      }
+    }
+    for (i = 0; i < (rows || []).length; i++) {
+      row = rows[i];
+      if (!row) continue;
+      key = QD.garlandBackupLine(row);
+      if (have[key]) continue;
+      out.push(key);
+      have[key] = 1;
+      added += 1;
+    }
+    return { csv: out.join('\r\n') + '\r\n', added: added };
   };
 
   function stringify(v) {

@@ -3,18 +3,29 @@ Quality Desk — Floor Release
 
 Contents
 --------
-  QualityDesk.hta   Checks app (double-click)
-  index.html        History / die graph (keep beside HTA)
-  vendor/           Chart.js
-  results/          Runtime data
+  QualityDesk.hta   Booter (double-click). Decrypts qd.core and opens the desk.
+  qd.core           Sealed app + History HTML. Keep beside the HTA.
+  vendor/           Chart.js (History graphs)
+  results/          Runtime data (sealed on this PC when the booter is used)
 
-How to run: copy this folder to the shop PC, open QualityDesk.hta
+How to run: copy this folder to the shop PC, open QualityDesk.hta.
+Do not copy the development quality-desk.hta as the floor launcher.
+
+Do not edit qd.core. There is no plaintext index.html in this folder.
+History opens a decrypted copy under the Windows temp folder.
+
+Garland COEX backup
+-------------------
+When this PC has the folder
+  C:\Users\csccoex1\OneDrive - Pregis LLC\Quality\
+each Garland COEX save appends new rows to COEX data.csv there.
+If that folder is missing, checks still save locally and backup is skipped.
 
 Obfuscation
 -----------
-Scripts are packed (base64) so casual editing is hard.
-Microsoft screnc.exe is NOT used in this build: modern mshta will not
-run JScript.Encode (that caused "doLogin is undefined").
-tools/screnc.exe remains for legacy reference only.
+The booter is packed. App source, History HTML, users.dat, and results
+are sealed (not Notepad / not a one-page base64 decoder).
+This is not unbreakable: the booter must be able to open qd.core.
+Microsoft screnc.exe is NOT used: modern mshta will not run JScript.Encode.
 
 Rebuild: node tools/build-release.mjs

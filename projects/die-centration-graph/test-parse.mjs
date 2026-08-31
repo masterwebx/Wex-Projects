@@ -2680,7 +2680,7 @@ assert.doesNotMatch(fs.readFileSync(path.join(dir, 'qd-check.js'), 'utf8'), /Qua
 assert.equal(QD.parseCsv('Item #,Description\n3030053,"AF500, 53"""').rows[0]['Item #'], '3030053');
 assert.equal(QD.mergeUsers(['GWEXLER'], ['gwexler', 'AGARCIA']).join(','), 'GWEXLER,AGARCIA');
 assert.equal(QD.mergeItems([{ item: '1', description: 'old' }], [{ item: '1', description: 'new', local: true }])[0].description, 'new');
-assert.equal(QD.VERSION, '1.7.61');
+assert.equal(QD.VERSION, '1.7.69');
 assert.ok(QD.CHECK_TYPES.indexOf('LPA') >= 0);
 assert.ok(QD.REASONS.foam.indexOf('LPA') >= 0);
 assert.ok(QD.REASONS.bubble.indexOf('LPA') >= 0);
@@ -2894,8 +2894,75 @@ assert.match(vbaCsv, /Table97/);
 assert.match(vbaCsv, /Table18/);
 assert.match(vbaCsv, /do not import FromQuality/);
 
+const sealedHello = QD.seal('hello café — π\nline2');
+assert.ok(QD.isSealed(sealedHello));
+assert.match(sealedHello, /^QDSEAL1/);
+assert.doesNotMatch(sealedHello, /hello/);
+assert.doesNotMatch(sealedHello, /café/);
+assert.equal(QD.unseal(sealedHello), 'hello café — π\nline2');
+assert.equal(QD.unseal('plain text'), 'plain text');
+const packed = QD.makePack('<hta>APP</hta>', '<html>WEB</html>');
+assert.match(packed, /^QDPACK1/);
+const split = QD.splitPack(packed);
+assert.equal(split.app, '<hta>APP</hta>');
+assert.equal(split.web, '<html>WEB</html>');
+const sealedPack = QD.seal(packed);
+assert.equal(QD.splitPack(QD.unseal(sealedPack)).web, '<html>WEB</html>');
+
+const gRow = {
+  'Date/Time': '8/31/2026 8:00 AM', User: 'JSMITH', Line: 'G-COEX',
+  'Item #': '9', 'Item Desc': 'VAB', 'Reason for Check': 'HOURLY', 'Pass/Fail': 'Pass',
+  'Slit Width': '24', 'Web Width': '48', Footage: '750', 'Basis Weight': '12',
+  'Perf Strength Left': '12', 'Perf Strength Right': '13',
+  Color: 'Clear', 'Delam Check': 'PASS', 'Production #': '1', 'Roll #': '2', Notes: 'ok'
+};
+const firstBackup = QD.garlandBackupMerge('', [gRow]);
+assert.equal(firstBackup.added, 1);
+assert.match(firstBackup.csv, /JSMITH/);
+assert.match(firstBackup.csv, /G-COEX/);
+const secondBackup = QD.garlandBackupMerge(firstBackup.csv, [gRow, Object.assign({}, gRow, { Notes: 'new' })]);
+assert.equal(secondBackup.added, 1);
+assert.match(secondBackup.csv, /new/);
+assert.equal(QD.GARLAND_BACKUP_DIR, 'C:\\Users\\csccoex1\\OneDrive - Pregis LLC\\Quality\\');
+assert.equal(QD.GARLAND_BACKUP_FILE, 'COEX data.csv');
+assert.equal(QD.CORE_FILE, 'qd.core');
+const checkSrc = fs.readFileSync(path.join(dir, 'qd-check.js'), 'utf8');
+assert.match(checkSrc, /<QD-CRYPT-BEGIN>/);
+assert.match(checkSrc, /<QD-CRYPT-END>/);
+assert.match(hta, /function backupGarlandCoex/);
+assert.match(hta, /function materializeDeskHtml/);
+assert.match(hta, /function loadReleasePack/);
+assert.match(hta, /shouldSealPath/);
+assert.match(hta, /QD_RELEASE_CRYPT/);
+assert.match(hta, /results\\\\" \+ name\), text, true/);
+assert.match(hta, /"index\.html"\), html, true/);
+assert.match(hta, /v1\.7\.69/);
+
 const chartJs = fs.readFileSync(path.join(dir, 'vendor/chart.umd.min.js'), 'utf8');
 assert.match(chartJs, /Chart\.js v4\.4\.1/);
 assert.match(chartJs, /t="undefined"!=typeof globalThis\?globalThis:t\|\|self\)\.Chart=/);
+
+const releaseHtaPath = path.join(dir, 'release/QualityDesk.hta');
+const releaseCorePath = path.join(dir, 'release/qd.core');
+if (fs.existsSync(releaseHtaPath) && fs.existsSync(releaseCorePath)) {
+  const releaseHta = fs.readFileSync(releaseHtaPath, 'utf8');
+  const releaseCore = fs.readFileSync(releaseCorePath, 'utf8');
+  assert.doesNotMatch(releaseHta, /function doLogin/);
+  assert.doesNotMatch(releaseHta, /SEED_USER/);
+  assert.doesNotMatch(releaseHta, /hashPassword/);
+  assert.doesNotMatch(releaseHta, /=>/);
+  assert.match(releaseHta, /qd\.core/);
+  assert.match(releaseHta, /Opening sealed desk/);
+  assert.ok(QD.isSealed(releaseCore));
+  const releasePack = QD.splitPack(QD.unseal(releaseCore));
+  assert.ok(releasePack && releasePack.app && releasePack.web);
+  assert.match(releasePack.app, /Quality Desk Checks/);
+  assert.match(releasePack.app, /v1\.7\.69/);
+  assert.match(releasePack.app, /loginOverlay/);
+  assert.match(releasePack.web, /<!DOCTYPE html>|<html/i);
+  assert.doesNotMatch(releaseCore, /function doLogin/);
+  assert.doesNotMatch(releaseCore, /SEED_USER/);
+  assert.ok(!fs.existsSync(path.join(dir, 'release/index.html')));
+}
 
 console.log('parse-diegraph tests passed');

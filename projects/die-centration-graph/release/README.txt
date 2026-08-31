@@ -4,6 +4,7 @@ Quality Desk — Floor Release
 Contents
 --------
   QualityDesk.hta   Booter (double-click). Decrypts qd.core and opens the desk.
+  QualityDesk.ico   Window / taskbar icon. Keep beside the HTA.
   qd.core           Sealed app + History HTML. Keep beside the HTA.
   vendor/           Chart.js (History graphs)
   results/          Runtime data (sealed on this PC when the booter is used)

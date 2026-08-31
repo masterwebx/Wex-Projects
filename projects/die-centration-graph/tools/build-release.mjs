@@ -257,6 +257,7 @@ function main() {
     '    <HTA:APPLICATION',
     '        ID="QualityDeskChecks"',
     '        APPLICATIONNAME="Quality Desk Checks"',
+    '        ICON="QualityDesk.ico"',
     '        BORDER="thick"',
     '        CAPTION="yes"',
     '        SHOWINTASKBAR="yes"',
@@ -291,6 +292,10 @@ function main() {
   if (fs.existsSync(leftoverIndex)) fs.unlinkSync(leftoverIndex);
 
   copyFile('vendor/chart.umd.min.js', 'vendor/chart.umd.min.js');
+  if (!fs.existsSync(path.join(root, 'QualityDesk.ico'))) {
+    throw new Error('QualityDesk.ico missing');
+  }
+  copyFile('QualityDesk.ico', 'QualityDesk.ico');
 
   fs.mkdirSync(path.join(outDir, 'results'), { recursive: true });
   fs.writeFileSync(path.join(outDir, 'results', '.gitkeep'), 'Runtime data folder.\n', 'utf8');
@@ -304,6 +309,7 @@ function main() {
       'Contents',
       '--------',
       '  QualityDesk.hta   Booter (double-click). Decrypts qd.core and opens the desk.',
+      '  QualityDesk.ico   Window / taskbar icon. Keep beside the HTA.',
       '  qd.core           Sealed app + History HTML. Keep beside the HTA.',
       '  vendor/           Chart.js (History graphs)',
       '  results/          Runtime data (sealed on this PC when the booter is used)',

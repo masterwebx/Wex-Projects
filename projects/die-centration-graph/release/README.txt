@@ -13,6 +13,7 @@ Contents
 How to run: copy this folder to the shop PC or a network drive, open QualityDesk.hta.
 On a locked-down network share the booter copies the launcher to
 %LOCALAPPDATA%\QualityDesk and keeps lookup/results on the share.
+Timing log: %LOCALAPPDATA%\QualityDesk\profile.txt (startup + login).
 Do not copy the development quality-desk.hta as the floor launcher.
 On first boot the release desk seals plaintext files in results/ and aio-csv/
 (peek-only on later boots — already-sealed files are skipped).

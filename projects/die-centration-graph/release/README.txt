@@ -10,7 +10,9 @@ Contents
   results/          Runtime data (sealed on this PC when the booter is used)
   aio-csv/          Lookup CSVs (sealed on first boot if you drop a plaintext copy here)
 
-How to run: copy this folder to the shop PC, open QualityDesk.hta.
+How to run: copy this folder to the shop PC or a network drive, open QualityDesk.hta.
+On a locked-down network share the booter copies the launcher to
+%LOCALAPPDATA%\QualityDesk and keeps lookup/results on the share.
 Do not copy the development quality-desk.hta as the floor launcher.
 On first boot the release desk seals plaintext files in results/ and aio-csv/
 (peek-only on later boots — already-sealed files are skipped).

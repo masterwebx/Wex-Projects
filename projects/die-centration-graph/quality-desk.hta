@@ -428,7 +428,12 @@
         }
 
         function getAppFolder() {
-            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            var fso, home;
+            if (window.QD_NET_HOME) {
+                home = String(window.QD_NET_HOME).replace(/^\s+|\s+$/g, "");
+                if (home) return home;
+            }
+            fso = new ActiveXObject("Scripting.FileSystemObject");
             return fso.GetParentFolderName(htaFilePath());
         }
 
@@ -441,8 +446,26 @@
             raw = raw.replace(/^\/+/, "");
             try { raw = decodeURIComponent(raw); } catch (e) {}
             raw = raw.replace(/\//g, "\\");
+            if (raw.length >= 2 && raw.charAt(1) !== ":" && raw.indexOf("\\\\") !== 0) raw = "\\\\" + raw;
             if (raw.toLowerCase().indexOf("localhost\\") === 0) raw = raw.substring(10);
             return raw;
+        }
+
+        function pathIsRemote(path) {
+            var p = String(path || "").replace(/\//g, "\\"), fso, drive, key;
+            if (p.indexOf("\\\\") === 0) return true;
+            if (p.length >= 2 && p.charAt(1) === ":") {
+                key = p.charAt(0).toUpperCase();
+                if (pathIsRemote.cache && pathIsRemote.cache[key] != null) return pathIsRemote.cache[key];
+                try {
+                    fso = new ActiveXObject("Scripting.FileSystemObject");
+                    drive = fso.GetDrive(p.substring(0, 2));
+                    if (!pathIsRemote.cache) pathIsRemote.cache = {};
+                    pathIsRemote.cache[key] = !!(drive && drive.DriveType === 3);
+                    return pathIsRemote.cache[key];
+                } catch (e) {}
+            }
+            return false;
         }
 
         function resultsDir() {
@@ -523,7 +546,7 @@
             return fso.FileExists(dest);
         }
 
-        function streamReadLocal(path) {
+        function streamReadFile(path) {
             var stream = new ActiveXObject("ADODB.Stream");
             stream.Type = 2;
             stream.Charset = "utf-8";
@@ -534,7 +557,7 @@
             return text;
         }
 
-        function streamWriteLocal(path, text) {
+        function streamWriteFile(path, text) {
             var stream = new ActiveXObject("ADODB.Stream");
             var bin = new ActiveXObject("ADODB.Stream");
             stream.Type = 2;
@@ -550,6 +573,36 @@
             bin.SaveToFile(path, 2);
             bin.Close();
             stream.Close();
+        }
+
+        function streamReadLocal(path) {
+            var src = path, tmp = "";
+            if (pathIsRemote(path)) {
+                tmp = tempFile("nr");
+                if (!copyFile(path, tmp)) throw new Error("Could not copy " + path);
+                src = tmp;
+            }
+            try {
+                return streamReadFile(src);
+            } finally {
+                if (tmp) deleteTemp(tmp);
+            }
+        }
+
+        function streamWriteLocal(path, text) {
+            var dest = path, tmp = "";
+            if (pathIsRemote(path)) {
+                tmp = tempFile("nw");
+                dest = tmp;
+            }
+            streamWriteFile(dest, text);
+            if (tmp) {
+                try {
+                    if (!copyFile(tmp, path)) throw new Error("Could not copy to " + path);
+                } finally {
+                    deleteTemp(tmp);
+                }
+            }
         }
 
         function fsoReadAll(path) {
@@ -6697,7 +6750,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.74</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.75</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

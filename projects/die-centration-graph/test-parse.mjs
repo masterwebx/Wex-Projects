@@ -2691,7 +2691,7 @@ assert.doesNotMatch(fs.readFileSync(path.join(dir, 'qd-check.js'), 'utf8'), /Qua
 assert.equal(QD.parseCsv('Item #,Description\n3030053,"AF500, 53"""').rows[0]['Item #'], '3030053');
 assert.equal(QD.mergeUsers(['GWEXLER'], ['gwexler', 'AGARCIA']).join(','), 'GWEXLER,AGARCIA');
 assert.equal(QD.mergeItems([{ item: '1', description: 'old' }], [{ item: '1', description: 'new', local: true }])[0].description, 'new');
-assert.equal(QD.VERSION, '1.7.81');
+assert.equal(QD.VERSION, '1.7.82');
 assert.ok(QD.CHECK_TYPES.indexOf('LPA') >= 0);
 assert.ok(QD.REASONS.foam.indexOf('LPA') >= 0);
 assert.ok(QD.REASONS.bubble.indexOf('LPA') >= 0);
@@ -3029,6 +3029,8 @@ assert.match(hta, /function profFlush/);
 assert.match(hta, /function profRun/);
 assert.match(hta, /function profHarvestHtml/);
 assert.match(hta, /function writeHtmlProfSink/);
+assert.doesNotMatch(hta, /"[^"\n]*<\/script>/);
+assert.match(hta, /"<\/scr" \+ "ipt/);
 assert.match(hta, /function scheduleSaveAudit/);
 assert.match(hta, /function sealKnownResultFiles/);
 assert.match(hta, /idle.sealLegacyPlainFiles/);
@@ -3089,8 +3091,8 @@ if (fs.existsSync(releaseHtaPath) && fs.existsSync(releaseCorePath)) {
   assert.match(releasePack.app, /Quality Desk Checks/);
   assert.match(releaseHta, /ICON="QualityDesk\.ico"/);
   assert.ok(fs.existsSync(path.join(dir, 'release/QualityDesk.ico')));
-  assert.match(releasePack.app, /v1\.7\.81/);
-  assert.match(releasePack.app, /QD\.VERSION = '1\.7\.81'/);
+  assert.match(releasePack.app, /v1\.7\.82/);
+  assert.match(releasePack.app, /QD\.VERSION = '1\.7\.82'/);
   assert.match(releasePack.app, /function fillLastChecksLazy/);
   assert.match(releasePack.app, /last-check\.js/);
   assert.match(releasePack.app, /function deskWebStamp/);

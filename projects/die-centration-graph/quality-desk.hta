@@ -754,7 +754,7 @@
                 "}catch(e){}" +
                 "window.close();" +
                 "};" +
-                "</script></head><body></body></html>";
+                "</scr" + "ipt></head><body></body></html>";
             writeUtf8(path, html, true);
             return path;
         }
@@ -766,7 +766,7 @@
             try { sink = writeHtmlProfSink(); } catch (eS) { sink = ""; }
             try { prof = profPath(); } catch (eP) { prof = ""; }
             tag = "<script>window.QD_HTML_SINK=\"" + String(sink).replace(/\\/g, "\\\\").replace(/\"/g, "") +
-                "\";window.QD_PROF_FILE=\"" + String(prof).replace(/\\/g, "\\\\").replace(/\"/g, "") + "\";</script>";
+                "\";window.QD_PROF_FILE=\"" + String(prof).replace(/\\/g, "\\\\").replace(/\"/g, "") + "\";</scr" + "ipt>";
             return s.replace(/<head\b[^>]*>/i, function (m) { return m + tag; });
         }
 
@@ -7321,7 +7321,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.81</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.82</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

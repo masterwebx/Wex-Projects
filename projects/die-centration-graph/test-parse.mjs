@@ -3029,8 +3029,8 @@ assert.match(hta, /function profFlush/);
 assert.match(hta, /function profRun/);
 assert.match(hta, /function profHarvestHtml/);
 assert.match(hta, /function writeHtmlProfSink/);
-assert.doesNotMatch(hta, /"[^"\n]*<\/script>/);
 assert.match(hta, /"<\/scr" \+ "ipt/);
+assert.doesNotMatch(hta, /"<\/script>/);
 assert.match(hta, /function scheduleSaveAudit/);
 assert.match(hta, /function sealKnownResultFiles/);
 assert.match(hta, /idle.sealLegacyPlainFiles/);
@@ -3119,6 +3119,8 @@ if (fs.existsSync(releaseHtaPath) && fs.existsSync(releaseCorePath)) {
   assert.match(releasePack.app, /function doLogin/);
   assert.match(releasePack.app, /function sealLegacyPlainFiles/);
   assert.match(releasePack.app, /function profHarvestHtml/);
+  assert.doesNotMatch(releasePack.app, /"<\/script>/);
+  assert.match(releasePack.app, /"<\/scr" \+ "ipt/);
   assert.match(releasePack.app, /function scheduleSaveAudit/);
   assert.match(releasePack.web, /function profSendToHta/);
   assert.match(releasePack.web, /QDPROF_LINE/);

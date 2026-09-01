@@ -2691,7 +2691,7 @@ assert.doesNotMatch(fs.readFileSync(path.join(dir, 'qd-check.js'), 'utf8'), /Qua
 assert.equal(QD.parseCsv('Item #,Description\n3030053,"AF500, 53"""').rows[0]['Item #'], '3030053');
 assert.equal(QD.mergeUsers(['GWEXLER'], ['gwexler', 'AGARCIA']).join(','), 'GWEXLER,AGARCIA');
 assert.equal(QD.mergeItems([{ item: '1', description: 'old' }], [{ item: '1', description: 'new', local: true }])[0].description, 'new');
-assert.equal(QD.VERSION, '1.7.79');
+assert.equal(QD.VERSION, '1.7.80');
 assert.ok(QD.CHECK_TYPES.indexOf('LPA') >= 0);
 assert.ok(QD.REASONS.foam.indexOf('LPA') >= 0);
 assert.ok(QD.REASONS.bubble.indexOf('LPA') >= 0);
@@ -2986,6 +2986,26 @@ assert.match(hta, /fillLastChecksLazy\(\)/);
 }
 assert.match(html, /const PLANT_LINE_FILES/);
 assert.match(html, /async function ensurePlantLoaded/);
+{
+  const plantFn = html.match(
+    /async function ensurePlantLoaded\(plant, opts\) \{[\s\S]*?\n      async function ensureAllHistoryLoaded/,
+  );
+  assert.ok(plantFn, "ensurePlantLoaded body");
+  const postBlock = plantFn[0].match(/if \(plant === "postings"\) \{[\s\S]*?return;\s*\}/);
+  assert.ok(postBlock, "postings plant branch");
+  assert.match(postBlock[0], /ensureSapFromDisk/);
+  assert.doesNotMatch(postBlock[0], /ensureAllHistoryLoaded/);
+}
+{
+  const postFn = html.match(/async function ensurePostingRows\(\) \{[\s\S]*?\n      function postingRows/);
+  assert.ok(postFn, "ensurePostingRows body");
+  assert.doesNotMatch(postFn[0], /ensureAllHistoryLoaded/);
+}
+assert.match(html, /function ensurePostingsDateScope/);
+assert.match(html, /function sapRowMatchesDateFilter/);
+assert.match(html, /saved\.plant !== "postings"/);
+assert.doesNotMatch(html, /\.ps1/);
+assert.doesNotMatch(hta, /\.ps1/);
 assert.match(html, /async function loadDiskMeta/);
 assert.match(html, /async function loadDiskLineFile/);
 assert.match(html, /function hasHistoryAvailable/);
@@ -3058,8 +3078,8 @@ if (fs.existsSync(releaseHtaPath) && fs.existsSync(releaseCorePath)) {
   assert.match(releasePack.app, /Quality Desk Checks/);
   assert.match(releaseHta, /ICON="QualityDesk\.ico"/);
   assert.ok(fs.existsSync(path.join(dir, 'release/QualityDesk.ico')));
-  assert.match(releasePack.app, /v1\.7\.79/);
-  assert.match(releasePack.app, /QD\.VERSION = '1\.7\.79'/);
+  assert.match(releasePack.app, /v1\.7\.80/);
+  assert.match(releasePack.app, /QD\.VERSION = '1\.7\.80'/);
   assert.match(releasePack.app, /function fillLastChecksLazy/);
   assert.match(releasePack.app, /last-check\.js/);
   assert.match(releasePack.app, /function deskWebStamp/);
@@ -3077,6 +3097,11 @@ if (fs.existsSync(releaseHtaPath) && fs.existsSync(releaseCorePath)) {
   assert.match(releasePack.app, /function loadWarmLookup/);
   assert.match(releasePack.app, /id="loginFields"/);
   assert.match(releasePack.web, /function buildPostingRowsSync/);
+  assert.match(releasePack.web, /function ensurePostingsDateScope/);
+  assert.match(releasePack.web, /function sapRowMatchesDateFilter/);
+  assert.match(releasePack.web, /saved\.plant !== "postings"/);
+  assert.doesNotMatch(releasePack.web, /\.ps1/);
+  assert.doesNotMatch(releaseHta, /\.ps1/);
   assert.match(releaseCore, /^QDSEAL2/);
   assert.match(releasePack.app, /function doLogin/);
   assert.match(releasePack.app, /function sealLegacyPlainFiles/);

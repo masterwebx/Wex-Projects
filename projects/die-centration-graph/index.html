@@ -5550,6 +5550,7 @@
       let filteredDirty = true;
       let plantRowCache = null;
       let postingRowCache = null;
+      let postingCacheKey = "";
       let pasteIntent = false;
       let applyingClipboard = false;
       let spcHideOutliers = true;
@@ -6119,11 +6120,6 @@
         if (plant === "postings") {
           if (progress) showProgress(title, 8, "SAP export");
           await ensureSapFromDisk({ silent: true });
-          await ensureAllHistoryLoaded({
-            progress,
-            title,
-            force,
-          });
           return;
         }
         await loadDiskMeta();
@@ -7296,6 +7292,7 @@
       }
       function clearPostingRows() {
         postingRowCache = null;
+        postingCacheKey = "";
         if (plantRowCache) plantRowCache.postings = null;
       }
       function postingIndexedRow(day, r, idx) {
@@ -7441,17 +7438,49 @@
           viewItem: item,
         };
       }
+      function postingDateKey() {
+        const df = dateFilter();
+        return [df.year || "", df.month || "", df.day || "", df.from || "", df.to || ""].join("|");
+      }
+      function postingDateIsOpen() {
+        const df = dateFilter();
+        return !(df.year || df.month || df.day || df.from || df.to);
+      }
+      function ensurePostingsDateScope() {
+        if (!isPostingsPlant() || !postingDateIsOpen()) return;
+        const today = localTodayParts();
+        tableFilters["Date/Time"] = {
+          year: String(today.y),
+          month: String(today.m),
+          day: "",
+        };
+      }
+      function sapRowMatchesDateFilter(sap) {
+        const df = dateFilter();
+        if (df.from || df.to) {
+          const ymd = sap.y && sap.m && sap.d ? ymdStamp(sap.y, sap.m, sap.d) : "";
+          if (df.from && (!ymd || ymd < df.from)) return false;
+          if (df.to && (!ymd || ymd > df.to)) return false;
+        }
+        if (df.year && sap.y !== +df.year) return false;
+        if (df.month && sap.m !== +df.month) return false;
+        if (df.day && sap.d !== +df.day) return false;
+        return true;
+      }
       function buildPostingRowsSync() {
-        if (postingRowCache) return postingRowCache;
+        ensurePostingsDateScope();
+        const cacheKey = postingDateKey();
+        if (postingRowCache && postingCacheKey === cacheKey) return postingRowCache;
         if (!sapAudit || !sapAudit.rows.length) {
           postingRowCache = [];
+          postingCacheKey = cacheKey;
           return postingRowCache;
         }
-        refreshSapHits("");
         const groups = new Map();
         const rows = sapAudit.rows;
         for (let i = 0; i < rows.length; i++) {
           const sap = rows[i];
+          if (!sapRowMatchesDateFilter(sap)) continue;
           const key =
             sap.y +
             "|" +
@@ -7474,19 +7503,17 @@
           );
         });
         postingRowCache = out;
+        postingCacheKey = cacheKey;
         return postingRowCache;
       }
       async function ensurePostingRows() {
-        if (postingRowCache) return postingRowCache;
+        ensurePostingsDateScope();
+        const cacheKey = postingDateKey();
+        if (postingRowCache && postingCacheKey === cacheKey) return postingRowCache;
         await ensureSapFromDisk({ silent: true });
-        if (diskHasLineFiles && loadedLineFiles.size < diskLineKeys().length) {
-          await ensureAllHistoryLoaded({
-            progress: true,
-            title: "Loading postings",
-          });
-        }
         if (!sapAudit || !sapAudit.rows.length) {
           postingRowCache = [];
+          postingCacheKey = cacheKey;
           return postingRowCache;
         }
         if (postingBusy) {
@@ -7502,8 +7529,10 @@
         }
       }
       function postingRows() {
-        if (postingRowCache) return postingRowCache;
-        if (postingBusy) return [];
+        ensurePostingsDateScope();
+        const cacheKey = postingDateKey();
+        if (postingRowCache && postingCacheKey === cacheKey) return postingRowCache;
+        if (postingBusy) return postingRowCache || [];
         return buildPostingRowsSync();
       }
       function plantRows(plant) {
@@ -16777,7 +16806,7 @@
         /* second HTML window — do not load data */
       } else {
       const saved = loadState();
-      if (PLANTS[saved.plant]) activePlant = saved.plant;
+      if (PLANTS[saved.plant] && saved.plant !== "postings") activePlant = saved.plant;
       document.documentElement.setAttribute("data-plant", activePlant);
       if (saved.TOTAL) TOTAL = saved.TOTAL;
       NUM_BOLTS = Math.max(4, saved.NUM_BOLTS || 4);
@@ -16841,7 +16870,9 @@
           showProgress("Loading saved results", 96, "Finishing");
           await yieldUi();
           if (!plantRows().length) {
-            const next = Object.keys(PLANTS).find((k) => plantRows(k).length);
+            const next = Object.keys(PLANTS).find(
+              (k) => k !== "postings" && plantRows(k).length,
+            );
             if (next) activePlant = next;
           }
           fillLineSelects();

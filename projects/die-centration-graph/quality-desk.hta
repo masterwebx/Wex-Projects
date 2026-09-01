@@ -423,6 +423,10 @@
         var lastChecksLoaded = false;
         var deskReady = false;
         var qdProf = { t0: 0, last: 0, flushed: 0, section: "", lines: [], io: { reads: 0, readMs: 0, writes: 0, writeMs: 0, remote: 0, slow: [] } };
+        var auditLoaded = false;
+        var auditSaveTimer = 0;
+        var htmlProfHarvestAt = 0;
+        var htmlProfSection = false;
         var lastResultsHtml = "";
         var specPaintTarget = null;
         var lastRadialKey = "";
@@ -724,6 +728,100 @@
                 qdProf.flushed = qdProf.lines.length;
                 return path;
             } catch (eP) {
+                return "";
+            }
+        }
+
+        function writeHtmlProfSink() {
+            var fso, path, html;
+            fso = new ActiveXObject("Scripting.FileSystemObject");
+            path = fso.BuildPath(profLocalDir(), "qd-html-sink.hta");
+            html = "<html><head><title>qd-html-prof</title>" +
+                "<HTA:APPLICATION ID='QdHtmlProf' APPLICATIONNAME='qd-html-prof' BORDER='none' CAPTION='no' SHOWINTASKBAR='no' SYSMENU='no' SCROLL='no' />" +
+                "<script language='JScript'>" +
+                "window.onload=function(){" +
+                "try{" +
+                "var t=decodeURIComponent(String(location.hash||'').replace(/^#/,''));" +
+                "if(!t){window.close();return;}" +
+                "var sh=new ActiveXObject('WScript.Shell');" +
+                "var fso=new ActiveXObject('Scripting.FileSystemObject');" +
+                "var dir=sh.ExpandEnvironmentStrings('%LOCALAPPDATA%\\\\QualityDesk');" +
+                "if(!fso.FolderExists(dir))fso.CreateFolder(dir);" +
+                "var p=fso.BuildPath(dir,'profile.txt');" +
+                "var ts=fso.OpenTextFile(p,8,true);" +
+                "ts.Write('\\r\\n--- history ---\\r\\n'+t+'\\r\\n');" +
+                "ts.Close();" +
+                "}catch(e){}" +
+                "window.close();" +
+                "};" +
+                "</script></head><body></body></html>";
+            writeUtf8(path, html, true);
+            return path;
+        }
+
+        function injectHtmlProfHook(html) {
+            var sink, prof, tag, s;
+            s = String(html || "");
+            if (s.indexOf("QD_HTML_SINK") >= 0) return s;
+            try { sink = writeHtmlProfSink(); } catch (eS) { sink = ""; }
+            try { prof = profPath(); } catch (eP) { prof = ""; }
+            tag = "<script>window.QD_HTML_SINK=\"" + String(sink).replace(/\\/g, "\\\\").replace(/\"/g, "") +
+                "\";window.QD_PROF_FILE=\"" + String(prof).replace(/\\/g, "\\\\").replace(/\"/g, "") + "\";</script>";
+            return s.replace(/<head\b[^>]*>/i, function (m) { return m + tag; });
+        }
+
+        function edgeConsoleLogPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(profLocalDir(), "edge-console.log");
+        }
+
+        function profHarvestHtml() {
+            var fso, path, raw, chunk, lines, i, line, mark, out, drop, ts;
+            try {
+                fso = new ActiveXObject("Scripting.FileSystemObject");
+                path = edgeConsoleLogPath();
+                out = "";
+                if (fso.FileExists(path)) {
+                    raw = fsoReadAll(path);
+                    if (raw && raw.length > htmlProfHarvestAt) {
+                        chunk = raw.substring(htmlProfHarvestAt);
+                        htmlProfHarvestAt = raw.length;
+                        lines = chunk.split(/\r?\n/);
+                        for (i = 0; i < lines.length; i++) {
+                            line = lines[i];
+                            mark = line.indexOf("QDPROF_LINE|");
+                            if (mark >= 0) out += line.substring(mark + 12) + "\r\n";
+                        }
+                    }
+                }
+                drop = fso.BuildPath(deskResultDest(), "html-profile.txt");
+                if (fso.FileExists(drop)) {
+                    try {
+                        raw = fsoReadAll(drop);
+                        if (raw) {
+                            if (out) out += raw;
+                            else out = raw;
+                            try { fso.DeleteFile(drop, true); } catch (eD) {}
+                        }
+                    } catch (eR) {}
+                }
+                if (!out) return "";
+                path = profPath();
+                if (!htmlProfSection) {
+                    out = "\r\n--- history ---\r\n" + out;
+                    htmlProfSection = true;
+                }
+                if (!fso.FileExists(path)) {
+                    ts = fso.CreateTextFile(path, true);
+                    ts.Write(profHeader() + "\r\n" + out);
+                    ts.Close();
+                } else {
+                    ts = fso.OpenTextFile(path, 8, true);
+                    ts.Write(out);
+                    ts.Close();
+                }
+                return path;
+            } catch (eH) {
                 return "";
             }
         }
@@ -1063,10 +1161,25 @@
             return fso.BuildPath(resultsDir(), "theme.txt");
         }
 
+        function themeCachePath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(profLocalDir(), "theme-cache.txt");
+        }
+
         function loadTheme() {
-            var t = "dark";
-            try { if (fileExists(themePath())) t = QD.trim(readUtf8(themePath())).toLowerCase(); } catch (e) {}
+            var t = "dark", g = "";
+            try { if (fileExists(themeCachePath())) t = QD.trim(readUtf8(themeCachePath())).toLowerCase(); } catch (e0) {}
             setTheme(t === "light" ? "light" : "dark", true);
+            window.setTimeout(function () {
+                try {
+                    if (!fileExists(themePath())) return;
+                    g = QD.trim(readUtf8(themePath())).toLowerCase();
+                    if (g === "light" || g === "dark") {
+                        try { writeUtf8(themeCachePath(), g, true); } catch (eW) {}
+                        if (g !== t) setTheme(g, true);
+                    }
+                } catch (e1) {}
+            }, 0);
         }
 
         function setTheme(mode, skipWrite) {
@@ -1076,6 +1189,7 @@
             if ($("themeToggle")) $("themeToggle").checked = themeMode === "light";
             if (!skipWrite) {
                 try { writeUtf8(themePath(), themeMode); } catch (e1) {}
+                try { writeUtf8(themeCachePath(), themeMode, true); } catch (e2) {}
             }
             lastRadialKey = "";
             if (currentScreen === "checkform") {
@@ -1147,6 +1261,7 @@
         }
 
         function addHistory(kind, key, why, before, after) {
+            loadSpecHistory();
             specHistory.push(QD.specHistoryEntry(kind, key, session.user, why, before, after));
             saveSpecHistory();
         }
@@ -1443,6 +1558,14 @@
             profAdd("boot.loginFieldsShown");
             try { dbg("profile: " + profFlush()); } catch (ePf) {}
             window.setTimeout(function () {
+                try { writeHtmlProfSink(); } catch (eSk) {}
+                try {
+                    if (sealStampFresh()) profAdd("idle.sealSkip", 0);
+                    else profRun("idle.sealLegacyPlainFiles", function () { sealLegacyPlainFiles(); });
+                } catch (eSeal) {}
+                try { profFlush(); } catch (ePf2) {}
+            }, 400);
+            window.setTimeout(function () {
                 try {
                     if (aio.loaded && aio.items && aio.items.length && !fileExists(cachePath())) saveAioCache();
                 } catch (eCache) {}
@@ -1516,6 +1639,7 @@
                 else profRun("login.goHome", function () { goHome(); });
                 window.setTimeout(function () {
                     try { importHandoffIfPresent(true); } catch (eHandoff) {}
+                    try { syncInboxBadge(); } catch (eInb) {}
                     fillLastChecksLazy();
                 }, 250);
                 try { profFlush("end"); } catch (ePe) {}
@@ -1606,7 +1730,7 @@
             var dir = resultsDir();
             return fileMtime(fso.BuildPath(getAppFolder(), QD.CORE_FILE)) + "|" +
                 fileMtime(fso.BuildPath(dir, "manifest.js")) + "|" +
-                fileMtime(fso.BuildPath(dir, "lookup.js"));
+                fileMtime(fso.BuildPath(dir, "lookup.js")) + "|htmlprof1";
         }
 
         function deskResultDest() {
@@ -1665,8 +1789,8 @@
             for (i = 0; i < names.length; i++) {
                 try { copyDeskResultFile(names[i]); } catch (eC) {}
             }
-            html = pack.web;
-            if (!fso.FileExists(fso.BuildPath(dest, "index.html"))) {
+            html = injectHtmlProfHook(pack.web);
+            if (!fso.FileExists(fso.BuildPath(dest, "index.html")) || html.indexOf("QD_HTML_SINK") >= 0) {
                 writeUtf8(fso.BuildPath(dest, "index.html"), html, true);
             }
             try { fsoWriteAll(stampPath, stamp); } catch (eW) {}
@@ -2112,7 +2236,8 @@
             } else {
                 profAdd("aio.warmSkipExtras", 0);
             }
-            profRun("aio.loadSpecHistory", function () { loadSpecHistory(); });
+            if (quiet) profAdd("aio.skipSpecHistory", 0);
+            else profRun("aio.loadSpecHistory", function () { loadSpecHistory(); });
             aio.loaded = aio.items.length > 0 || aio.mspecs.length > 0 || aio.bubble.length > 0 || aio.p1.length > 0 || aio.rts.length > 0;
             profRun("aio.rebuildItemIndex", function () { rebuildItemIndex(); });
             if (!aio.warm) {
@@ -2427,15 +2552,26 @@
         function loadAudit() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var path = auditPath();
+            if (auditLoaded) return;
             window.QD_AUDIT = [];
             if (fso.FileExists(path)) {
                 try { eval(readUtf8(path)); } catch (e) {}
             }
             auditLog = window.QD_AUDIT || [];
+            auditLoaded = true;
         }
 
         function saveAudit() {
             writeUtf8(auditPath(), "window.QD_AUDIT=" + JSON.stringify(auditLog) + ";");
+        }
+
+        function scheduleSaveAudit() {
+            if (auditSaveTimer) return;
+            auditSaveTimer = window.setTimeout(function () {
+                auditSaveTimer = 0;
+                try { profRun("audit.save", function () { saveAudit(); }); } catch (eS) {}
+                try { profFlush(); } catch (eF) {}
+            }, 400);
         }
 
         function auditAs(user, action, detail) {
@@ -2443,7 +2579,7 @@
                 loadAudit();
                 auditLog.push(QD.auditEntry(action, user, detail));
                 if (auditLog.length > 2500) auditLog = auditLog.slice(auditLog.length - 2500);
-                saveAudit();
+                scheduleSaveAudit();
             } catch (eAud) {}
         }
 
@@ -4647,6 +4783,7 @@
 
         function viewHistory(kind, key) {
             var row = findSpecRow(kind, key);
+            loadSpecHistory();
             var rows = QD.historyForSpec(specHistory, kind, key);
             var fields = specFields(kind);
             var html = "<h3>" + esc(kind) + " " + esc(key) + " · v" + esc((row && row.version) || "1.0.0") + "</h3>";
@@ -6140,6 +6277,7 @@
             try { publishSapCsv(); } catch (eSap) { dbg("SAP.csv: " + eSap.message, false); }
             if (deskIsOpen(htmlPath) || focusExistingDesk()) {
                 window.setTimeout(function () { warmDeskLineFiles(); }, 0);
+                window.setTimeout(function () { try { profHarvestHtml(); } catch (eH0) {} }, 1500);
                 if (!quietIfOpen) setStatus("Quality Desk is already open. Use Reload from disk on that window.");
                 focusExistingDesk();
                 return;
@@ -6148,12 +6286,16 @@
             var edge = findEdge();
             var profile = edgeProfileDir();
             var shell = new ActiveXObject("WScript.Shell");
-            try { shell.Run('"' + edge + '" --user-data-dir="' + profile + '" --app="' + url + '"', 3, false); }
+            var log = edgeConsoleLogPath();
+            try { writeHtmlProfSink(); } catch (eSk) {}
+            try { shell.Run('"' + edge + '" --user-data-dir="' + profile + '" --enable-logging --log-file="' + log + '" --log-level=0 --app="' + url + '"', 3, false); }
             catch (e1) {
                 try { shell.Run('cmd /c start "" "' + htmlPath + '"', 3, false); }
                 catch (e2) { setStatus("Could not open Quality Desk.\n" + htmlPath, true); }
             }
             window.setTimeout(function () { warmDeskLineFiles(); }, 0);
+            window.setTimeout(function () { try { profHarvestHtml(); } catch (eH1) {} }, 2000);
+            window.setTimeout(function () { try { profHarvestHtml(); } catch (eH2) {} }, 8000);
         }
 
         function findInboxReq(id) {
@@ -6953,6 +7095,7 @@ function openHistEdit(file, idx) {
         function viewProfileHistory() {
             var key = profileKey();
             var lp = lineProfile();
+            loadSpecHistory();
             var rows = QD.historyForSpec(specHistory, "profile", key);
             var html = "<h3>Profile " + esc(key) + " · v" + esc(lp.version || "1.0.0") + "</h3>";
             html += "<div class='card'><div><b>Current structures</b></div>" + profileSnapshotHtml(lp) + "</div>";
@@ -7036,9 +7179,41 @@ function openHistEdit(file, idx) {
         };
         window.onfocus = function () {
             try { importHandoffIfPresent(true); } catch (eF) {}
+            try { profHarvestHtml(); } catch (eH) {}
         };
+        function sealStampPath() {
+            var fso = new ActiveXObject("Scripting.FileSystemObject");
+            return fso.BuildPath(profLocalDir(), "seal-stamp.txt");
+        }
+
+        function sealStampFresh() {
+            try {
+                var p = sealStampPath();
+                if (!fileExists(p)) return false;
+                return (profNow() - fileMtime(p)) < (12 * 60 * 60 * 1000);
+            } catch (e) { return false; }
+        }
+
+        function writeSealStamp() {
+            try { writeUtf8(sealStampPath(), String(profNow()), true); } catch (e) {}
+        }
+
+        function sealPlainFileIfNeeded(path) {
+            var raw;
+            if (!path || !fileExists(path) || fileIsSealed(path)) return 0;
+            try { raw = readUtf8(path, true); } catch (eR) { raw = ""; }
+            if (!raw || QD.isSealed(raw)) return 0;
+            try {
+                writeUtf8(path, raw);
+                return 1;
+            } catch (eS) {
+                dbg("seal " + path + ": " + eS.message, false);
+                return 0;
+            }
+        }
+
         function sealPlainFilesInFolder(relDir) {
-            var fso, dir, e, f, path, name, raw, n = 0;
+            var fso, dir, e, f, path, name, n = 0;
             if (!window.QD_RELEASE_CRYPT || !QD || !QD.seal) return 0;
             fso = new ActiveXObject("Scripting.FileSystemObject");
             dir = fso.BuildPath(getAppFolder(), relDir);
@@ -7048,31 +7223,36 @@ function openHistEdit(file, idx) {
                 f = e.item();
                 name = String(f.Name || "");
                 if (!name || name.charAt(0) === ".") continue;
-                path = f.Path;
-                if (fileIsSealed(path)) continue;
-                try { raw = readUtf8(path, true); } catch (eR) { raw = ""; }
-                if (!raw || QD.isSealed(raw)) continue;
-                try {
-                    writeUtf8(path, raw);
-                    n += 1;
-                } catch (eS) {
-                    dbg("seal " + name + ": " + eS.message, false);
-                }
+                n += sealPlainFileIfNeeded(f.Path);
             }
             return n;
         }
 
+        function sealKnownResultFiles() {
+            var fso, dir, names, i, n = 0;
+            if (!window.QD_RELEASE_CRYPT || !QD || !QD.seal) return 0;
+            fso = new ActiveXObject("Scripting.FileSystemObject");
+            dir = resultsDir();
+            names = ["users.dat", "theme.txt", "lookup.js", "manifest.js", "sap.js", "last-check.js",
+                "spec-history.js", "inbox.js", "audit.js", "docs.js"];
+            for (i = 0; i < QD.LINE_FILES.length; i++) names.push(QD.LINE_FILES[i] + ".js");
+            for (i = 0; i < names.length; i++) n += sealPlainFileIfNeeded(fso.BuildPath(dir, names[i]));
+            return n;
+        }
+
         function sealLegacyPlainFiles() {
-            var n = sealPlainFilesInFolder("results") + sealPlainFilesInFolder("aio-csv");
+            var n;
+            if (sealStampFresh()) return 0;
+            n = sealKnownResultFiles() + sealPlainFilesInFolder("aio-csv");
             if (n) dbg("Sealed " + n + " plaintext file(s) in results/aio-csv");
+            writeSealStamp();
             return n;
         }
 
         function bootDesk() {
             var steps = [
                 function () {
-                    setBoot("Sealing local files…", 10);
-                    profRun("boot.sealLegacyPlainFiles", function () { sealLegacyPlainFiles(); });
+                    setBoot("Loading sign-in…", 10);
                     profRun("boot.loadAuthUsers", function () { loadAuthUsers(); });
                     profRun("boot.loadLastChecks", function () { loadLastChecks(); });
                 },
@@ -7083,8 +7263,6 @@ function openHistEdit(file, idx) {
                 function () {
                     setBoot("Loading desk files…", 58);
                     profRun("boot.loadProfiles", function () { loadProfiles(); });
-                    profRun("boot.loadInbox", function () { loadInbox(); });
-                    profRun("boot.loadAudit", function () { loadAudit(); });
                 },
                 function () {
                     setBoot("Preparing forms…", 78);
@@ -7143,7 +7321,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.80</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.81</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

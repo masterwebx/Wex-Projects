@@ -5122,6 +5122,126 @@
       const PACK_DB = "dieGraphPack.v2";
       const PACK_SCHEMA = 2;
       const PACK_STORE = "pack";
+      const qdHtmlProf = {
+        t0: 0,
+        last: 0,
+        flushed: 0,
+        section: "",
+        lines: [],
+      };
+      function profNow() {
+        return Date.now();
+      }
+      function profEnsure() {
+        if (!qdHtmlProf.t0) {
+          qdHtmlProf.t0 = profNow();
+          qdHtmlProf.last = qdHtmlProf.t0;
+        }
+      }
+      function profPad(n) {
+        let s = String(Math.round(n == null ? 0 : n)) + " ms";
+        while (s.length < 8) s = " " + s;
+        return s;
+      }
+      function profAdd(name, ms) {
+        const now = profNow();
+        profEnsure();
+        if (ms == null) ms = now - qdHtmlProf.last;
+        qdHtmlProf.last = now;
+        qdHtmlProf.lines.push({
+          name: String(name || ""),
+          step: ms,
+          total: now - qdHtmlProf.t0,
+          section: qdHtmlProf.section,
+        });
+        try {
+          console.log("QDPROF|" + Math.round(ms) + "|" + Math.round(now - qdHtmlProf.t0) + "|" + name);
+        } catch (eP) {}
+      }
+      function profRun(name, fn) {
+        const t = profNow();
+        let out;
+        try {
+          out = fn();
+        } finally {
+          profAdd(name, profNow() - t);
+        }
+        return out;
+      }
+      async function profRunAsync(name, fn) {
+        const t = profNow();
+        try {
+          return await fn();
+        } finally {
+          profAdd(name, profNow() - t);
+        }
+      }
+      function profSection(name) {
+        qdHtmlProf.section = name;
+        profEnsure();
+        qdHtmlProf.last = profNow();
+      }
+      function profFormatFrom(from) {
+        const out = [];
+        for (let i = from; i < qdHtmlProf.lines.length; i++) {
+          const r = qdHtmlProf.lines[i];
+          let name = r.name;
+          if (name.length > 46) name = name.substring(0, 46);
+          while (name.length < 46) name += " ";
+          out.push(profPad(r.step) + "  tot " + profPad(r.total) + "  " + name);
+        }
+        return out.join("\r\n");
+      }
+      function profSendToHta(text) {
+        const sink = window.QD_HTML_SINK;
+        if (!sink || !text) return;
+        try {
+          let url = String(sink);
+          if (url.indexOf("file:") !== 0) url = "file:///" + url.replace(/\\/g, "/");
+          window.open(url + "#" + encodeURIComponent(text.slice(0, 14000)), "qdhtmlprof");
+        } catch (eS) {}
+      }
+      function profFlush(kind) {
+        let start = qdHtmlProf.flushed || 0;
+        let text = "";
+        if (kind === "section" && qdHtmlProf.section)
+          text += "\r\n--- " + qdHtmlProf.section + " ---\r\n";
+        if (start < qdHtmlProf.lines.length) {
+          text += profFormatFrom(start);
+          if (text) text += "\r\n";
+        }
+        if (kind === "end") {
+          const slow = qdHtmlProf.lines
+            .filter((r) => r.step >= 50)
+            .sort((a, b) => b.step - a.step);
+          text += "\r\nSLOW STEPS (>=50ms):\r\n";
+          if (!slow.length) text += "  (none)\r\n";
+          for (let i = 0; i < slow.length && i < 25; i++)
+            text += "  " + profPad(slow[i].step) + "  " + slow[i].name + "\r\n";
+          text +=
+            "TOTAL " +
+            Math.round(profNow() - qdHtmlProf.t0) +
+            " ms from first History mark\r\n";
+          if (window.QD_PROF_FILE)
+            text += "Share this file: " + window.QD_PROF_FILE + "\r\n";
+        }
+        if (!text) return;
+        qdHtmlProf.flushed = qdHtmlProf.lines.length;
+        try {
+          localStorage.setItem("qdHtmlProfile", text);
+        } catch (eL) {}
+        try {
+          console.log("QDPROF_BEGIN");
+          String(text)
+            .split(/\r?\n/)
+            .forEach((line) => {
+              if (line) console.log("QDPROF_LINE|" + line);
+            });
+          console.log("QDPROF_END");
+        } catch (eC) {}
+        if (kind === "end" || kind === "section") profSendToHta(text);
+        return text;
+      }
       const FOAM_COLS = [
         "Date/Time",
         "Item #",
@@ -5916,11 +6036,16 @@
         return String(text || "").replace(/^\uFEFF/, "");
       }
       function loadHtaScript(rel, timeoutMs) {
+        const t0 = profNow();
         return new Promise((resolve) => {
           let done = false;
           const finish = (ok) => {
             if (done) return;
             done = true;
+            profAdd(
+              "html.script " + String(rel || "").replace(/\?t=\d+$/, ""),
+              profNow() - t0,
+            );
             resolve(!!ok);
           };
           const wait = timeoutMs || 20000;
@@ -6023,6 +6148,8 @@
         return !!(historyPack && (historyPack.lookupRows || []).length);
       }
       async function loadDiskMeta(opts) {
+        const tProf = profNow();
+        try {
         const force = !!(opts && opts.force);
         const wantLookup = !!(opts && opts.lookup);
         if (diskMetaReady && !force) {
@@ -6063,6 +6190,9 @@
         } finally {
           if (force) diskMetaPromise = null;
         }
+        } finally {
+          profAdd("html.loadDiskMeta", profNow() - tProf);
+        }
       }
       function rowsFromDiskLine(key) {
         const pack =
@@ -6082,6 +6212,8 @@
         return out;
       }
       async function loadDiskLineFile(key) {
+        const tProf = profNow();
+        try {
         if (!key || loadedLineFiles.has(key)) return 0;
         let ok = false;
         for (let attempt = 0; attempt < 8 && !ok; attempt++) {
@@ -6110,8 +6242,13 @@
         );
         historyPack.rows = kept.concat(rows);
         return rows.length;
+        } finally {
+          if (key) profAdd("html.line " + key, profNow() - tProf);
+        }
       }
       async function ensurePlantLoaded(plant, opts) {
+        const tProf = profNow();
+        try {
         const progress = !!(opts && opts.progress);
         const force = !!(opts && opts.force);
         const title =
@@ -6158,6 +6295,12 @@
             force ? 0 : fromIdx,
           );
           markHasHistory(true);
+        }
+        } finally {
+          profAdd(
+            plant === "postings" ? "html.ensurePostings" : "html.ensurePlant " + plant,
+            profNow() - tProf,
+          );
         }
       }
       async function ensureAllHistoryLoaded(opts) {
@@ -6217,6 +6360,8 @@
         };
       }
       async function applySapFromDisk(opts) {
+        const tProf = profNow();
+        try {
         const silent = !!(opts && opts.silent);
         window.QD_DISK_SAP = null;
         const t = Date.now();
@@ -6254,6 +6399,9 @@
           renderHistoryTable();
         }
         return rows.length;
+        } finally {
+          profAdd("html.applySapFromDisk", profNow() - tProf);
+        }
       }
       async function ensureSapFromDisk(opts) {
         if (diskSapLoaded) return sapAudit && sapAudit.rows ? sapAudit.rows.length : 0;
@@ -7468,6 +7616,7 @@
         return true;
       }
       function buildPostingRowsSync() {
+        const tProf = profNow();
         ensurePostingsDateScope();
         const cacheKey = postingDateKey();
         if (postingRowCache && postingCacheKey === cacheKey) return postingRowCache;
@@ -7504,9 +7653,12 @@
         });
         postingRowCache = out;
         postingCacheKey = cacheKey;
+        profAdd("html.buildPostingRows " + out.length, profNow() - tProf);
         return postingRowCache;
       }
       async function ensurePostingRows() {
+        const tProf = profNow();
+        try {
         ensurePostingsDateScope();
         const cacheKey = postingDateKey();
         if (postingRowCache && postingCacheKey === cacheKey) return postingRowCache;
@@ -7526,6 +7678,9 @@
           return postingRowCache;
         } finally {
           postingBusy = false;
+        }
+        } finally {
+          profAdd("html.ensurePostingRows", profNow() - tProf);
         }
       }
       function postingRows() {
@@ -7698,6 +7853,7 @@
         syncViewChrome();
       }
       async function setActivePlant(plant, opts) {
+        const tProf = profNow();
         const next = PLANTS[plant] ? plant : "foam";
         const keepFilters = opts && opts.keepFilters;
         if (next === activePlant && !(opts && opts.force)) {
@@ -7730,6 +7886,8 @@
         }
         if (screenName === "history") renderHistoryTable();
         if (screenName === "compliance") renderCompliance();
+        profAdd("html.setActivePlant " + next, profNow() - tProf);
+        profFlush("section");
       }
       function splitDieGraph2(text) {
         const lines = text.replace(/\r/g, "").split("\n");
@@ -9766,12 +9924,14 @@
         syncFilterBar();
       }
       function renderHistoryTable() {
+        const tProf = profNow();
         filteredDirty = true;
         histRangeKey = "";
         renderHistoryChrome();
         const wrap = document.getElementById("histWrap");
         wrap.scrollTop = 0;
         renderHistoryBody(true);
+        profAdd("html.renderHistoryTable", profNow() - tProf);
       }
       function closeFilterPop() {
         document.getElementById("filterPop").classList.remove("show");
@@ -10405,6 +10565,7 @@
         viewResult(last.idx);
       }
       async function openCompliance(from) {
+        profSection("compliance");
         if (!hasHistoryAvailable()) {
           toast("Paste results first");
           return;
@@ -10425,6 +10586,7 @@
         fillLineSelects();
         goTo("compliance", { mode: "centration" });
         renderCompliance();
+        profFlush("end");
       }
       function openDocs() {
         goTo("docs");
@@ -10444,6 +10606,7 @@
         if (main) main.scrollTop = 0;
       }
       async function openTrends() {
+        profSection("trends");
         if (!hasHistoryAvailable()) {
           toast("Paste results first");
           return;
@@ -10462,6 +10625,7 @@
         fillTrendFilters();
         goTo("trends", { mode: "centration" });
         renderTrends();
+        profFlush("end");
       }
       function ymdStamp(y, m, d) {
         return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
@@ -16311,6 +16475,7 @@
       document.getElementById("histReloadDisk").onclick = () =>
         applyDiskHandoff();
       document.getElementById("welcomeHistory").onclick = async () => {
+        profSection("history");
         await loadDiskMeta();
         if (!hasHistoryAvailable()) {
           toast("Paste results first");
@@ -16334,6 +16499,7 @@
           requestAnimationFrame(() => renderHistoryTable());
         } finally {
           hideProgress();
+          profFlush("end");
         }
       };
       document.getElementById("welcomeCompliance").onclick = () =>
@@ -16822,6 +16988,8 @@
       setViewMode("centration");
       setScreen("welcome");
       document.getElementById("appVersion").textContent = "v" + APP_VERSION;
+      profSection("html-boot");
+      profAdd("html.start");
       restorePack().then(async (data) => {
         if ((location.protocol || "").toLowerCase() === "file:") {
           if (data && (data.lookupRows || []).length) {
@@ -16837,6 +17005,7 @@
           await loadDiskMeta();
           syncWelcome();
           if (screenName !== "welcome") setScreen("welcome");
+          profFlush("end");
           return;
         }
         if (!data || !Array.isArray(data.rows) || !data.rows.length) {
@@ -16844,6 +17013,7 @@
           if (screenName !== "welcome") setScreen("welcome");
           await loadDiskMeta();
           syncWelcome();
+          profFlush("end");
           return;
         }
         showProgress("Loading saved results", 12, "");
@@ -16889,6 +17059,7 @@
           }, 400);
         } finally {
           hideProgress();
+          profFlush("end");
         }
       });
       }

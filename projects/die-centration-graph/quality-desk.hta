@@ -1278,6 +1278,7 @@
         function importHandoffIfPresent(quiet) {
             var path;
             if (!deskReady) return false;
+            if (!session.user) return false;
             if (handoffBusy) return false;
             try { path = handoffPath(); } catch (eP) { return false; }
             if (!path) return false;
@@ -1285,13 +1286,18 @@
             showWork("Copy for Graph", "Reading " + path + "…", 8);
             window.setTimeout(function () {
                 var text, pack;
-                try { text = readUtf8(path); } catch (eR) {
+                try { profRun("import.readHandoff", function () { text = readUtf8(path); }); } catch (eR) {
                     handoffBusy = false;
                     hideWork();
                     if (!quiet) setStatus("Could not read " + path + "\n" + eR.message, true);
                     return;
                 }
-                pack = QD.importLegacyChecks(text);
+                try { profRun("import.parseHandoff", function () { pack = QD.importLegacyChecks(text); }); } catch (eP) {
+                    handoffBusy = false;
+                    hideWork();
+                    if (!quiet) setStatus("Could not parse " + path + "\n" + eP.message, true);
+                    return;
+                }
                 if (!pack || !pack.count) {
                     deleteHandoff(path);
                     handoffBusy = false;
@@ -1437,7 +1443,6 @@
             profAdd("boot.loginFieldsShown");
             try { dbg("profile: " + profFlush()); } catch (ePf) {}
             window.setTimeout(function () {
-                try { importHandoffIfPresent(true); } catch (eH) {}
                 try {
                     if (aio.loaded && aio.items && aio.items.length && !fileExists(cachePath())) saveAioCache();
                 } catch (eCache) {}
@@ -1506,11 +1511,13 @@
                 try { profRun("login.fillUsers", function () { fillUsers(); }); } catch (eU) {}
                 try { profRun("login.renderLists", function () { renderLists(); }); } catch (e2) {}
                 try { profRun("login.setSite", function () { setSite(currentSite, true); }); } catch (e3) {}
-                try { profRun("login.importHandoff", function () { importHandoffIfPresent(true); }); } catch (eHandoff) {}
                 audit("login", rec.name);
                 if (pendingForUser().length) profRun("login.goDocs", function () { goDocs(true); });
                 else profRun("login.goHome", function () { goHome(); });
-                window.setTimeout(function () { fillLastChecksLazy(); }, 0);
+                window.setTimeout(function () {
+                    try { importHandoffIfPresent(true); } catch (eHandoff) {}
+                    fillLastChecksLazy();
+                }, 250);
                 try { profFlush("end"); } catch (ePe) {}
             }
             if (aio.loaded) {
@@ -1550,7 +1557,7 @@
             var names = ["index.html", "centration.html", "qualitydesk.html"];
             var i, p;
             if (window.QD_RELEASE_CRYPT) {
-                p = materializeDeskHtml();
+                try { p = materializeDeskHtml(); } catch (eM) { dbg("materialize: " + eM.message, false); p = ""; }
                 if (p) return p;
             }
             for (i = 0; i < names.length; i++) {
@@ -1594,7 +1601,7 @@
             return max;
         }
 
-        function deskHtmlStamp() {
+        function deskWebStamp() {
             var fso = new ActiveXObject("Scripting.FileSystemObject");
             var dir = resultsDir();
             return fileMtime(fso.BuildPath(getAppFolder(), QD.CORE_FILE)) + "|" +
@@ -1640,7 +1647,7 @@
             var pack, fso, dest, html, srcVendor, destVendor, stamp, stampPath, prev, names, i;
             fso = new ActiveXObject("Scripting.FileSystemObject");
             dest = deskResultDest();
-            stamp = deskHtmlStamp();
+            stamp = deskWebStamp();
             stampPath = fso.BuildPath(dest, "qd-stamp.txt");
             if (fso.FileExists(fso.BuildPath(dest, "index.html"))) {
                 try { prev = fsoReadAll(stampPath); } catch (eSt) { prev = ""; }
@@ -2329,7 +2336,7 @@
                     loadLastChecks();
                     r = incoming[incoming.length - 1];
                     k = lastCheckByFile[key];
-                    if (k && r && Number(k.n) >= incoming.length && legacyRowKey(k) === legacyRowKey(r)) {
+                    if (k && r && legacyRowKey(k) === legacyRowKey(r)) {
                         total += incoming.length;
                     } else {
                     existing = readLineRows(key).slice();
@@ -7136,7 +7143,7 @@ function openHistEdit(file, idx) {
     <div id="appRoot" style="display:none">
     <header class="app">
         <div class="brand">
-            <h1>Quality Desk Checks <span class="ver">v1.7.78</span></h1>
+            <h1>Quality Desk Checks <span class="ver">v1.7.79</span></h1>
         </div>
         <div class="tools">
             <span class="session">Welcome, <span class="who" id="sessionWho"></span></span>

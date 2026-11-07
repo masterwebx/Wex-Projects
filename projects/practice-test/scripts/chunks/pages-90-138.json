@@ -1,0 +1,590 @@
+[
+  {
+    "number": 90,
+    "question": "How are bottles for a blood culture test filled when collecting blood through a butterfly needle?",
+    "options": [
+      "Anaerobic bottle, then aerobic bottle.",
+      "Aerobic bottle, then anaerobic bottle.",
+      "Only fill the aerobic bottle.",
+      "Only fill the anaerobic bottle."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 91,
+    "question": "Arterial blood collected in a plastic syringe for arterial blood gas (ABG) testing that may be delayed in testing should be transported to the laboratory:",
+    "options": [
+      "At room temperature.",
+      "In a warm water bath.",
+      "In an ice slurry.",
+      "Fresh frozen."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 92,
+    "question": "Which of the following sections is found in the Anatomical Pathology section of the clinical laboratory?",
+    "options": [
+      "Microbiology",
+      "Immunology",
+      "Cytology",
+      "Immunohematology"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 93,
+    "question": "A quality fasting urine specimen is collected",
+    "options": [
+      "anytime.",
+      "Prior to any meal.",
+      "One hour after meals.",
+      "8 hours after eating."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 94,
+    "question": "Which fluid is usually obtained by a physician through a lumbar puncture and must be processed through the laboratory \"Stat\"?",
+    "options": [
+      "Cerebrospinal fluid",
+      "Gastric fluid",
+      "Seminal fluid",
+      "Synovial fluid"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 95,
+    "question": "A sweat sample collected by forearm stimulation with the use of pilocarpine nitrate is a process known as...",
+    "options": [
+      "Iontophoresis.",
+      "Electrophoresis.",
+      "Chlorophoresis.",
+      "Fibroesis."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 96,
+    "question": "Which of the following is the most common injury occurring during venipuncture if the procedure is NOT performed according to standards?",
+    "options": [
+      "Diaphoresis",
+      "Nerve injuries or hematoma",
+      "Loss of patient consciousness",
+      "Insertion of needle at a 15° -30° angle"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 97,
+    "question": "What is one of the first signs of liver disease?",
+    "options": [
+      "Glycosuria",
+      "Anuria",
+      "Bilirubinuria",
+      "Phenylketonuria"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 98,
+    "question": "Which of the following is the single, most important factor in collecting an uncontaminated blood culture?",
+    "options": [
+      "Proper collection site preparation",
+      "Use of a winged infusion device without a tube holder",
+      "Collection of the blood culture after the laboratory tests are drawn.",
+      "Not applying a safety transfer that pierces the stoppers of the blood culture bottles."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 99,
+    "question": "Which of the following is a point of care test (POCT) used in diagnosing problems with hemostatis?",
+    "options": [
+      "PT/INR",
+      "PTT",
+      "Arterial Blood Gases",
+      "Bleeding Time"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 100,
+    "question": "When instructing patients in the collection of a 24-hour urine specimen, which patient should be asked about possible leakage when laughing or coughing?",
+    "options": [
+      "A 5-year-old patient",
+      "A 30-year-old male patient",
+      "A 60-year-old female patient",
+      "An 18-year-old male patient"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 101,
+    "question": "The addition of which preservative allows urine to be stored at room temperature while still providing results comparable to refrigerated urine?",
+    "options": [
+      "Toluene",
+      "Formaldehyde",
+      "Acetic acid",
+      "Boric acid"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 102,
+    "question": "Leaving tubes filled with blood in a rack without mixing will cause...",
+    "options": [
+      "hemolysis.",
+      "hemoconcentration.",
+      "contamination.",
+      "clotting."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 103,
+    "question": "What amount of residual urine is considered abnormal?",
+    "options": [
+      "10 cc",
+      "25 cc",
+      "40 cc",
+      "70 cc"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 104,
+    "question": "Synovial fluid is also known as...",
+    "options": [
+      "semen",
+      "joint fluid.",
+      "fluid from around the heart.",
+      "spinal fluid."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 105,
+    "question": "A normal cerebrospinal fluid specimen should appear...",
+    "options": [
+      "cloudy and white.",
+      "hazy and pink.",
+      "clear and colorless.",
+      "dark yellow and clear."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 106,
+    "question": "Blood specimens that need to be shipped off-site by mail systems must be packaged in accordance with the...",
+    "options": [
+      "FAA and DOT.",
+      "FAA and FDA.",
+      "CDC and FDA.",
+      "CDC and FAA."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 107,
+    "question": "Which test requires the specimen to be protected from the sun?",
+    "options": [
+      "Bilirubin",
+      "Alcohol",
+      "CBC",
+      "Sodium"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 108,
+    "question": "What is the term used to describe a portion of a specimen used for testing, usually prepared by transferring some of the specimen into other tubes with the same identification information?",
+    "options": [
+      "Aliquot.",
+      "Aerosol",
+      "Analyte",
+      "Allotment"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 109,
+    "question": "Testing for human chorionic gonadotropin assesses the status of...",
+    "options": [
+      "pregnancy in women",
+      "male fertility.",
+      "streptococcus infection.",
+      "myostasis."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 110,
+    "question": "The preferred urine specimen used for urine pregnancy testing should be collected...",
+    "options": [
+      "immediately after a meal.",
+      "first thing in the morning.",
+      "after an 8-hour fast.",
+      "anytime."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 111,
+    "question": "When an outpatient reports a history of syncope the phlebotomy technician should...",
+    "options": [
+      "provide the patient with an emesis basin.",
+      "require the patient to lie down during the venipuncture.",
+      "inform the patient that syncope has no bearing on the collection of a blood specimen.",
+      "apply a cold compress to the patient's forehead and proceed with the venipuncture."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 112,
+    "question": "Forcing syringe -drawn specimens into evacuated tubes may cause...",
+    "options": [
+      "hemoconcentration.",
+      "hemolysis.",
+      "clotting.",
+      "inaccurate mixing of the specimen."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 113,
+    "question": "A specimen that requires chilling for transport to the lab should be placed in...",
+    "options": [
+      "an ice chest with cubes of ice.",
+      "a container with frozen ice packs.",
+      "a container immersed in a slurry of crushed ice and water.",
+      "an ice chest with crushed ice."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 114,
+    "question": "The most common venipuncture site is located in which one of the following areas?",
+    "options": [
+      "Middle finger",
+      "Middle forearm",
+      "Dorsal side of the wrist",
+      "Antecubital area of the arm"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 115,
+    "question": "Some drugs may cause changes to certain blood analytes. When a phlebotomist observes that medication was administered just prior to blood collection, the phlebotomist should...",
+    "options": [
+      "postpone the blood draw for several hours.",
+      "note the observation on the requisition.",
+      "not draw the blood.",
+      "do nothing with respect to the observation."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 116,
+    "question": "Which of the following use their eyes and hands to identify structural problems while supporting the body's natural tendency toward health and self-healing?",
+    "options": [
+      "Doctors of Osteopathy",
+      "Ophthalmologists",
+      "Dermatologists",
+      "Family practitioners"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 117,
+    "question": "When a patient with the flu describes how he has been unable to sleep, the empathic phlebotomist most appropriately responds with...",
+    "options": [
+      "\"I feel sorry for you.\"",
+      "\"It will get better soon.\"",
+      "\"I know how the flu can disrupt sleep.\"",
+      "\"You cannot expect to sleep when you are sick.\""
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 118,
+    "question": "How long does the College of American Pathologists (CAP) recommend discontinuing drugs that interfere with blood tests prior to a procedure?",
+    "options": [
+      "24-48 hours",
+      "4-24 hours",
+      "48-72 hours",
+      "No discontinuation is recommended"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 119,
+    "question": "Which of the following specialists reads electrocardiograms (ECGs) for hospital laboratories?",
+    "options": [
+      "Cardiologists",
+      "Gastroenterologists",
+      "Anesthetist",
+      "Phlebotomist"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 120,
+    "question": "The need for __ occurs when a physician's schedule changes to include evening and weekend hours.",
+    "options": [
+      "communication skills",
+      "empathy",
+      "proper judgment",
+      "flexibility"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 121,
+    "question": "Which of the following is the nation's largest network of institutional health-care providers?",
+    "options": [
+      "American Hospital Association",
+      "American Medical Association.",
+      "American Pharmaceutical Association",
+      "American College of Physicians"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 122,
+    "question": "The term used to describe when the body is still at rest, approximately 12 hours after the last intake of food, exercise, or activity is the...",
+    "options": [
+      "basal state",
+      "metro state '",
+      "state of equality",
+      "enzymatic state"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 123,
+    "question": "A physician must be consulted prior to performing a venipuncture or capillary puncture on",
+    "options": [
+      "a child",
+      "an outpatient",
+      "an unconscious patient",
+      "a prior mastectomy patient"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 124,
+    "question": "What is the term for the ability to identify with and understand another person's feelings?",
+    "options": [
+      "empathy",
+      "commiseration",
+      "c. sympathy",
+      "experience"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 125,
+    "question": "Which of the following situations should be reported to the supervisor?",
+    "options": [
+      "A patient is complaining that you are collecting too much blood in the evacuated tube.",
+      "A nurse asks you to transport an additional specimen to the lab.",
+      "A patient is being visited by a member of the clergy and a routine blood draw cannot be performed at that time.",
+      "A co-worker is not following proper blood draw technique."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 126,
+    "question": "If levels of blood components fluctuate according to circadian cycle, it means that fluctuations occur...",
+    "options": [
+      "every 12 hours.",
+      "in a 24 hour cycle.",
+      "during the day.",
+      "during darkness, at night."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 127,
+    "question": "Six months after beginning employment a healthcare worker is given a sample by the POCT supervisor and is asked to perform a screening test for group A Strep and return the results to the supervisor. The employee is performing",
+    "options": [
+      "QC.",
+      "compliance testing.",
+      "patient testing.",
+      "competency testing."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 128,
+    "question": "Which of the following is the most common type of urine sample that may be obtained at any time of the day?",
+    "options": [
+      "timed urine specimen",
+      "random urine specimen.",
+      "First morning urine specimen.",
+      "lean-catch midstream urine specimen."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 129,
+    "question": "Bilirubin concentration decreases by what amount following one hour of exposure to light?",
+    "options": [
+      "50%",
+      "65%",
+      "55%",
+      "40%"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 130,
+    "question": "A phlebotomist enters a patient's room to draw a routine blood specimen and a member of the clergy is visitingm the patient. What should the phlebotomist do?",
+    "options": [
+      "Ask the clergy member to leave for a few minutes and come back later.",
+      "Report to the nurses that the patient is busy and the blood cannot be drawn as ordered.",
+      "Ask the patient to call the laboratory when ready for the blood draw.",
+      "Draw another patient and check back with the patient to see if he or she is available"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 131,
+    "question": "The process of communication occurs in a loop. Which of the following is not included in the communication feedback loop?",
+    "options": [
+      "Message",
+      "Sender",
+      "Feedback",
+      "Trust."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 132,
+    "question": "When preparing to collect a blood specimen from a pediatric patient, the phlebotomist should...",
+    "options": [
+      "Acknowledge both the child and the parent.",
+      "Acknowledge only the child and ask the parent to step out of the room.",
+      "Acknowledge only the parent and ask them to comfort the child.",
+      "Ask the nurse to collect the specimen."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 133,
+    "question": "Which of the following is an example of a barrier to communication?",
+    "options": [
+      "Hearing loss.",
+      "Asking a patient to make a fist prior to a blood draw.",
+      "Using terms the patient can understand",
+      "Restating instructions to a patient"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 134,
+    "question": "When the phlebotomist identifies with their patient's feelings or thoughts, they are exhibiting...",
+    "options": [
+      "Empathy.",
+      "Sympathy.",
+      "Respect.",
+      "Trust."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 135,
+    "question": "A phlebotomy technician is obtaining a diagnostic blood specimen when a family member of the patient enters the isolated room without proper precautions. The technician should...",
+    "options": [
+      "Inform the charge nurse of the incident.",
+      "Instruct the family member to leave the room.",
+      "Ignore the situation and proceed with the task.",
+      "Instruct the family member regarding the proper isolation protocol that must be observed."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 136,
+    "question": "Which of the following is an example of body language?",
+    "options": [
+      "Informing a patient that he/she is going to have his/her blood drawn and that it may hurt.",
+      "Asking a patient to make a fist prior to a blood draw.",
+      "Calling the lab to confirm information on a blood draw.",
+      "Observing a patient's facial expressions during a blood draw."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 137,
+    "question": "Which of the following is an example of positive communication?",
+    "options": [
+      "Asking a patient to repeat your instructions.",
+      "Interrupting a patient when he/she does not understand.",
+      "Treating all the patients the same.",
+      "Informing patients when you cannot spend any more time with them."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 138,
+    "question": "What is the best action to take if you are trying to help a caller who is hostile?",
+    "options": [
+      "Tell the caller you cannot help them while they are upset and ask them to call back later.",
+      "Tell the caller that you will have to hang up on them if they don't settle down.",
+      "Tell the caller you will see what you can do to help them.",
+      "Immediately place the caller on hold and get your supervisor."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  }
+]

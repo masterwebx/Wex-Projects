@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goal Climber</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(to bottom, #f8f9fa, #e9ecef);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 5px 10px 20px;
+        }
+        .main-layout {
+            display: flex;
+            gap: 20px;
+            align-items: stretch;
+            margin: 0px 0;
+        }
+        .left-column {
+            flex: 0 1 550px;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        }
+        .right-column {
+            flex: 1;
+            min-width: 0;
+        }
+        .mountain-view {
+            height: 92vh;
+            background: linear-gradient(to top, #556B2F, #228B22, #87CEEB, #E0FFFF);
+            border-radius: 16px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.2);
+        }
+        .title-overlay {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2.8em;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 3px 3px 8px #000;
+            z-index: 20;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+        #inputs {
+            padding: 20px;
+            background: #f1f3f5;
+            border-radius: 12px;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+        input[type="text"] {
+            padding: 12px;
+            font-size: 1em;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            width: 100%;
+        }
+        input[type="text"]:disabled {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 1em;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button.primary {
+            background: #007bff;
+            color: white;
+        }
+        button.primary:hover {
+            background: #0056b3;
+            transform: translateY(-2px);
+        }
+        button.success {
+            background: #28a745;
+            color: white;
+        }
+        button.success:hover {
+            background: #218838;
+        }
+        button.danger {
+            background: #dc3545;
+            color: white;
+        }
+        button.danger:hover {
+            background: #c82333;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+        }
+        #mood-meter {
+            text-align: center;
+            padding: 30px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        #mood-meter input[type="range"] {
+            width: 100%;
+            height: 20px;
+            margin: 30px 0;
+        }
+        #mood-meter input[type="range"]:disabled {
+            opacity: 0.5;
+        }
+        #flowchart {
+            height: 100%;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 30px;
+            padding: 80px 80px 40px 160px;
+            box-sizing: border-box;
+            position: relative;
+        }
+        #flowchart::-webkit-scrollbar {
+            width: 12px;
+        }
+        #flowchart::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.2);
+            border-radius: 10px;
+        }
+        #flowchart::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.6);
+            border-radius: 10px;
+        }
+        .goal-box {
+            padding: 20px 40px;
+            min-width: 280px;
+            text-align: center;
+            border-radius: 12px;
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s;
+            font-size: 1.2em;
+            font-weight: 500;
+            z-index: 10;
+        }
+        .goal-box:hover {
+            transform: translateY(-8px) scale(1.05);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.25);
+        }
+        .completed-goal {
+            background: #d4edda;
+            color: #155724;
+            text-decoration: line-through;
+            opacity: 0.9;
+        }
+        .current-goal {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 4px solid #007bff;
+            animation: pulse 2s infinite;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .current-goal:hover {
+            opacity: 0.9;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(0, 123, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0); }
+        }
+        .spacer {
+            height: 250px;
+        }
+        .progress-track {
+            position: absolute;
+            left: 80px;
+            top: 0;
+            bottom: 0;
+            width: 16px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 8px;
+            border: 2px solid #fff;
+            z-index: 5;
+        }
+        .progress-fill {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0%;
+            background: linear-gradient(to top, #dc3545, #ffc107, #28a745);
+            border-radius: 8px;
+            transition: height 0.6s ease;
+        }
+        #climber {
+            position: absolute;
+            left: 55px;
+            font-size: 50px;
+            transition: bottom 0.6s ease;
+            pointer-events: none;
+            z-index: 15;
+        }
+        #mood-label {
+            position: absolute;
+            left: 120px;
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 2px 2px 6px #000;
+            z-index: 15;
+            pointer-events: none;
+            max-width: 300px;
+            text-align: left;
+            transition: bottom 0.6s ease;
+        }
+        @media (max-width: 1200px) {
+            .main-layout {
+                flex-direction: column;
+            }
+            .mountain-view {
+                height: 75vh;
+                margin-bottom: 20px;
+            }
+            .title-overlay {
+                font-size: 2.2em;
+            }
+            .left-column {
+                flex: none;
+            }
+            #mood-label {
+                font-size: 1.2em;
+                left: 110px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+
+        <div class="main-layout">
+            <div class="left-column">
+                <div id="inputs">
+                    <div>
+                        <label for="big-goal-input">Far-Reaching Goal (the peak — your ultimate dream)</label>
+                        <input type="text" id="big-goal-input" placeholder="e.g., Become a world-class novelist">
+                    </div>
+                    
+                    <div>
+                        <label for="next-goal-input">Next Goal (one realistic step at a time)</label>
+                        <input type="text" id="next-goal-input" placeholder="e.g., Write 5,000 words this week">
+                    </div>
+                    
+                    <div class="button-group">
+                        <button class="primary" onclick="setBigGoal()">Set/Update Peak Goal</button>
+                        <button class="success" onclick="addGoal()" id="add-btn">Add Goal</button>
+                        <button class="danger" onclick="resetAll()">Reset Everything</button>
+                    </div>
+                </div>
+
+                <div id="mood-meter">
+                    <h2>🧗 Mood Meter</h2>
+                    <p>How close do you <strong>feel</strong> to reaching your peak right now?<br>(Subjective — separate from your actual steps)</p>
+                    <input type="range" id="mood-slider" min="0" max="100" value="0">
+                    <div style="font-size: 2em; margin: 20px 0;">Feeling <strong id="mood-value">0%</strong> close</div>
+                </div>
+            </div>
+
+            <div class="right-column">
+                <div class="mountain-view">
+                    <div class="title-overlay">Goal Climber 🏔️</div>
+                    <div id="flowchart">
+                        <!-- Dynamic content -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let bigGoal = '';
+        let completed = [];
+        let currentGoal = null;
+        let mood = '0';
+        let moodLabel = null;
+
+        function updateButtons() {
+            const hasBig = bigGoal !== '';
+            const nextInput = document.getElementById('next-goal-input');
+            const addBtn = document.getElementById('add-btn');
+            const moodSlider = document.getElementById('mood-slider');
+
+            if (!hasBig) {
+                nextInput.disabled = true;
+                addBtn.disabled = true;
+                moodSlider.disabled = true;
+            } else {
+                nextInput.disabled = false;
+                addBtn.disabled = currentGoal !== null;
+                moodSlider.disabled = false;
+            }
+        }
+
+        function saveToStorage() {
+            localStorage.setItem('bigGoal', bigGoal);
+            localStorage.setItem('completed', JSON.stringify(completed));
+            localStorage.setItem('currentGoal', currentGoal || '');
+            localStorage.setItem('mood', mood);
+        }
+
+        function setBigGoal() {
+            const input = document.getElementById('big-goal-input');
+            const value = input.value.trim();
+            if (value) {
+                bigGoal = value;
+                renderFlow();
+                updateButtons();
+                saveToStorage();
+            }
+        }
+
+        function addGoal() {
+            const input = document.getElementById('next-goal-input');
+            const value = input.value.trim();
+            if (value && bigGoal && currentGoal === null) {
+                currentGoal = value;
+                input.value = '';
+                renderFlow();
+                updateButtons();
+                saveToStorage();
+            }
+        }
+
+        function completeCurrent() {
+            if (currentGoal !== null) {
+                completed.push(currentGoal);
+                currentGoal = null;
+                renderFlow();
+                updateButtons();
+                saveToStorage();
+            }
+        }
+
+        function resetAll() {
+            if (confirm('Are you sure you want to reset all progress? This cannot be undone.')) {
+                bigGoal = '';
+                completed = [];
+                currentGoal = null;
+                mood = '0';
+                moodLabel = null;
+                localStorage.clear();
+                document.getElementById('big-goal-input').value = '';
+                document.getElementById('next-goal-input').value = '';
+                renderFlow();
+                updateButtons();
+            }
+        }
+
+        function getMoodText(percent) {
+            if (percent == 0) return "At the trailhead... let's start! 😌";
+            if (percent < 25) return "Long way to go 😓";
+            if (percent < 50) return "Steady progress 🧗";
+            if (percent < 75) return "Feeling strong! 💪";
+            if (percent < 100) return "Peak in sight 🔥";
+            return "Summit vibes! 🏔️🎉";
+        }
+
+        function updateMood() {
+            const slider = document.getElementById('mood-slider');
+            mood = slider.value;
+            document.getElementById('mood-value').textContent = mood + '%';
+            saveToStorage();
+
+            const fill = document.querySelector('.progress-fill');
+            if (fill) {
+                fill.style.height = `${mood}%`;
+            }
+
+            const climber = document.getElementById('climber');
+            const label = document.getElementById('mood-label');
+            if (climber && label && bigGoal) {
+                const climberBottom = parseInt(mood) < 10 ? '30px' : `calc(${mood}% - 30px)`;
+                climber.style.bottom = climberBottom;
+                label.style.bottom = climberBottom;
+                label.textContent = getMoodText(parseInt(mood));
+                climber.style.display = 'block';
+                label.style.display = 'block';
+            } else if (climber && label) {
+                climber.style.display = 'none';
+                label.style.display = 'none';
+            }
+        }
+
+        function renderFlow() {
+            const flowchart = document.getElementById('flowchart');
+            flowchart.innerHTML = '';
+
+            if (!bigGoal) {
+                const msg = document.createElement('div');
+                msg.textContent = 'Set your far-reaching peak goal to begin the climb! 🏔️';
+                msg.style.fontSize = '1.8em';
+                msg.style.color = '#fff';
+                msg.style.textAlign = 'center';
+                msg.style.textShadow = '2px 2px 8px #000';
+                msg.style.position = 'absolute';
+                msg.style.top = '50%';
+                msg.style.left = '50%';
+                msg.style.transform = 'translate(-50%, -50%)';
+                msg.style.width = '80%';
+                msg.style.zIndex = '10';
+                flowchart.appendChild(msg);
+                return;
+            }
+
+            // Progress track
+            const track = document.createElement('div');
+            track.className = 'progress-track';
+            const fill = document.createElement('div');
+            fill.className = 'progress-fill';
+            track.appendChild(fill);
+            flowchart.appendChild(track);
+
+            // Climber
+            const climber = document.createElement('div');
+            climber.id = 'climber';
+            climber.textContent = '🧗';
+            flowchart.appendChild(climber);
+
+            // Dynamic mood label
+            if (!moodLabel) {
+                moodLabel = document.createElement('div');
+                moodLabel.id = 'mood-label';
+                flowchart.appendChild(moodLabel);
+            }
+
+            // Completed goals (oldest at bottom)
+            completed.forEach(goal => {
+                const box = document.createElement('div');
+                box.className = 'goal-box completed-goal';
+                box.textContent = goal;
+                flowchart.appendChild(box);
+            });
+
+            // Current goal (clickable to complete)
+            if (currentGoal !== null) {
+                const box = document.createElement('div');
+                box.className = 'goal-box current-goal';
+                box.textContent = currentGoal;
+                box.title = 'Click to mark as completed';
+                box.onclick = () => completeCurrent();
+                flowchart.appendChild(box);
+            }
+
+            // Empty space at the top (the "unreachable" peak is hidden)
+            const spacer = document.createElement('div');
+            spacer.className = 'spacer';
+            flowchart.appendChild(spacer);
+
+            // Update mood visuals
+            updateMood();
+        }
+
+        // Load saved data
+        window.addEventListener('load', () => {
+            bigGoal = localStorage.getItem('bigGoal') || '';
+            const savedCompleted = localStorage.getItem('completed');
+            completed = savedCompleted ? JSON.parse(savedCompleted) : [];
+            const savedCurrent = localStorage.getItem('currentGoal');
+            currentGoal = savedCurrent ? savedCurrent : null;
+            mood = localStorage.getItem('mood') || '0';
+
+            if (bigGoal) {
+                document.getElementById('big-goal-input').value = bigGoal;
+            }
+
+            document.getElementById('mood-slider').value = mood;
+            document.getElementById('mood-value').textContent = mood + '%';
+
+            renderFlow();
+            updateButtons();
+
+            document.getElementById('mood-slider').addEventListener('input', updateMood);
+
+            updateMood();
+        });
+    </script>
+</body>
+</html>

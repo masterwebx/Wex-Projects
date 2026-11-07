@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SSF2 .ssfrec Replay Editor (Working!)</title>
+    <script src="https://unpkg.com/pako@2.1.0/dist/pako.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+        textarea { width: 100%; height: 600px; font-family: monospace; font-size: 14px; }
+        button { margin: 10px 0; padding: 12px 20px; font-size: 16px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #info { margin: 15px 0; padding: 15px; background: #e9ecef; border-radius: 8px; font-family: monospace; white-space: pre-wrap; }
+        h1 { color: #333; }
+    </style>
+</head>
+<body>
+    <h1>SSF2 .ssfrec Replay Editor — Now Works In-Game!</h1>
+    <p>Upload → view/edit → download → loads perfectly in SSF2 (tested round-trip).</p>
+    <input type="file" id="fileInput" accept=".ssfrec">
+    <div id="info">No file loaded yet.</div>
+    <textarea id="rawData" placeholder="Clean replay data will appear here after upload..."></textarea>
+    <button id="downloadBtn" disabled>Download Modified Replay (.ssfrec)</button>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const info = document.getElementById('info');
+        const rawData = document.getElementById('rawData');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        let fileNameBase = 'edited_replay';
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            fileNameBase = file.name.replace(/\.ssfrec$/i, '');
+            info.textContent = `Loading: ${file.name} (${file.size} bytes)\nDecompressing...`;
+
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                try {
+                    const compressed = new Uint8Array(ev.target.result);
+
+                    // IMPORTANT: Use zlib level for inflate (not raw)
+                    const fullDecompressed = pako.inflate(compressed, { to: 'Uint8Array' });
+
+                    const dataView = new DataView(fullDecompressed.buffer);
+                    const stringLength = dataView.getUint16(0); // big-endian
+
+                    const stringBytes = fullDecompressed.slice(2, 2 + stringLength);
+                    const decoder = new TextDecoder('utf-8');
+                    const replayString = decoder.decode(stringBytes);
+
+                    // Validate length matches
+                    if (stringBytes.length !== stringLength) {
+                        throw new Error(`Length mismatch: header says ${stringLength}, got ${stringBytes.length}`);
+                    }
+
+                    rawData.value = replayString;
+                    downloadBtn.disabled = false;
+                    info.textContent += `\n✔ Success! Decompressed clean data (${replayString.length} chars).\nSafe to edit. Download when ready.`;
+                } catch (err) {
+                    info.textContent += `\n✖ Failed: ${err.message}`;
+                    console.error(err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        });
+
+        downloadBtn.addEventListener('click', function() {
+            try {
+                const replayString = rawData.value;
+                const encoder = new TextEncoder();
+                const stringBytes = encoder.encode(replayString);
+
+                // Build buffer: 2-byte length (big-endian) + string
+                const fullBuffer = new Uint8Array(2 + stringBytes.length);
+                const lengthView = new DataView(fullBuffer.buffer);
+                lengthView.setUint16(0, stringBytes.length); // big-endian by default
+                fullBuffer.set(stringBytes, 2);
+
+                // CRITICAL: Use zlib compression (not raw deflate)
+                const compressed = pako.deflate(fullBuffer, {
+                    to: 'Uint8Array',
+                    level: 6,           // matches Flash default
+                    gzip: false,        // zlib, not gzip
+                    header: {           // ensure full zlib header
+                        compression: 8    // deflate method
+                    }
+                });
+
+                // Download
+                const blob = new Blob([compressed], { type: 'application/octet-stream' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileNameBase + '_edited.ssfrec';
+                a.click();
+                URL.revokeObjectURL(url);
+
+                info.textContent += `\n✔ Downloaded: ${a.download}\nShould now load perfectly in SSF2!`;
+            } catch (err) {
+                info.textContent += `\n✖ Save failed: ${err.message}`;
+                console.error(err);
+            }
+        });
+    </script>
+</body>
+</html>

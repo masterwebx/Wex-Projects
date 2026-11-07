@@ -1,0 +1,362 @@
+[
+  {
+    "number": 20,
+    "question": "When performing a heel puncture on an infant, proper technique includes...",
+    "options": [
+      "Having the parent or guardian hold the infant's foot so the phlebotomist can perform the puncture.",
+      "Firmly holding the puncture device in place on the skin until blood appears.",
+      "Placing the lancet flat against the skin on the medial or lateral plantar surface of the heel.",
+      "Not discarding the puncture device until blood appears so the device could be used again to ensure a good puncture."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 21,
+    "question": "Color coding indicates a needle's...",
+    "options": [
+      "Gauge",
+      "Length",
+      "Manufacturer",
+      "Anticoagulant"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 22,
+    "question": "When is a phlebotomist allowed to perform a venipuncture on an ankle vein?",
+    "options": [
+      "Never.",
+      "When a patient has IV in both arms",
+      "During an emergency",
+      "When all other options have been exhausted and the physician has given approval"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 23,
+    "question": "When a patient states that he or she has a needle phobia, the phlebotomist should...",
+    "options": [
+      "Have the patient lie down during the procedure.",
+      "Let the patient chew on a piece of candy or gum.",
+      "Show the patient how small the needle is.",
+      "Let the patient handle the equipment prior to the procedure."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 24,
+    "question": "The phlebotomist has to prepare a blood smear for a leukocyte alkaline phosphatase (LAP). What is the correct procedure?",
+    "options": [
+      "Perform the skin puncture and touch the slide to first drop of blood",
+      "Perform the skin puncture and smear the slide with the first drop of blood.",
+      "Perform the skin puncture, wipe away the first drop of blood and then touch the slide to the next drop of blood.",
+      "Perform the skin puncture, wipe the first drop and then get a large drop and place in center of slide and place a cover slip over the drop"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 25,
+    "question": "A serum or plasma specimen containing abnormally increased fatty substances from animal or vegetable origin is described as...",
+    "options": [
+      "Lipemic",
+      "Anemic.",
+      "Icteric.",
+      "Hemolyzed"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 26,
+    "question": "A blood sample is needed from a dialysis patient. Which of the following is an acceptable procedure?",
+    "options": [
+      "Draw from the vein with a cannula.",
+      "Draw from the vein with a fistula.",
+      "Draw from a hand vein.",
+      "Either (a) or (b) would be acceptable."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 27,
+    "question": "Prior to bandaging the puncture site, the phlebotomist should...",
+    "options": [
+      "Thank the patient.",
+      "Instruct a fasting patient to eat.",
+      "Examine the site for bleeding.",
+      "Apply pressure for at least 5 minutes."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 28,
+    "question": "A skin puncture is preferred over a venipuncture when the patient...",
+    "options": [
+      "Is severely dehydrated.",
+      "Has chronic poor circulation",
+      "Is extremely cold.",
+      "Has severe burns."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 29,
+    "question": "Which of the following anticoagulants is found in a green-topped blood collection vacuum tube?",
+    "options": [
+      "EDTA",
+      "Sodium citrate",
+      "Sodium heparin",
+      "Ammonium oxalate"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 30,
+    "question": "When performing a capillary blood collection, the first blood drop is wiped away because...",
+    "options": [
+      "It helps to visualize the puncture site.",
+      "You can tell where to place the capillary tube.",
+      "The first drop may clot faster.",
+      "The first drop typically has more tissue fluid"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 31,
+    "question": "A postprandial specimen is collected ...",
+    "options": [
+      "Directly after a meal is consumed.",
+      "Two hours after a meal is consumed.",
+      "Directly before a meal is consumed.",
+      "While the patient is fasting."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 32,
+    "question": "Areas from which blood should not be collected include all the following with the exception of...",
+    "options": [
+      "A Basilic vein.",
+      "A hematoma.",
+      "An arm with an IV.",
+      "An arm with a fistula."
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 33,
+    "question": "Proper identification of a coherent adult inpatient includes...",
+    "options": [
+      "ask the patient their name.",
+      "Check the identification band that is physically attached to the patient.",
+      "Both (a) and (b).",
+      "None needed; the nurse will verify the identification for you."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 34,
+    "question": "Which of the following would be the very first step in performing a routine venipuncture on a patient?",
+    "options": [
+      "Identify the patient.",
+      "Identify yourself.",
+      "Explain the procedure.",
+      "Apply the tourniquet"
+    ],
+    "correctIndex": 0,
+    "category": ""
+  },
+  {
+    "number": 35,
+    "question": "What color evacuated tube would be commonly used for coagulation testing?",
+    "options": [
+      "Lavender",
+      "Light blue",
+      "Green",
+      "Yellow"
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 36,
+    "question": "You have to draw a 7 year old child for some blood work, what would be the best approach you should use when it is a child getting blood drawn?",
+    "options": [
+      "Have a colleague restrain the child while you collect the specimen.",
+      "Offer the child a toy if he or she lets you draw the sample.",
+      "Explain what you are going to do in simple terms and ask the child for his or her cooperation.",
+      "Let the child know that this won't hurt and will only take a few seconds."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 37,
+    "question": "A basal-state specimen, used to establish reference ranges for inpatients, is best collected",
+    "options": [
+      "Anytime, because the patient is confined to the hospital.",
+      "Early in the morning, after fasting for 12 hours.",
+      "In the morning, immediately following breakfast.",
+      "Anytime a patient is fasting."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 38,
+    "question": "Following venipuncture, which of the following should be applied to the venipuncture site?",
+    "options": [
+      "Cotton ball",
+      "Ace bandage",
+      "Alcohol wipe/pad",
+      "Clean, sterile gauze pad"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 39,
+    "question": "Which of the following is proper care of a patient following collection of an arterial blood specimen?",
+    "options": [
+      "Have the patient to apply pressure immediately to the puncture site.",
+      "Ask the patient to check the site after 3 minutes to see if there is any bleeding.",
+      "Apply firm pressure to the puncture site for a minimum of 3-5 minutes.",
+      "Request that the patient applies pressure on the site until a nurse comes to check the site for bleeding."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 40,
+    "question": "The color-coded tube that is most frequently associated with hematological tests is...",
+    "options": [
+      "Red",
+      "Green",
+      "Lavender",
+      "Light blue"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 41,
+    "question": "Which of the following is of primary importance in preventing rolling veins during venipuncture?",
+    "options": [
+      "Tightly apply tourniquet.",
+      "Selecting the median cubital vein.",
+      "Using 23-gauge needle.",
+      "Anchoring the vein while inserting the needle."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 42,
+    "question": "To avoid contamination when should the needle cap be removed?",
+    "options": [
+      "When setting up the equipment.",
+      "Upon finding the venipuncture site.",
+      "Just prior to performing the venipuncture.",
+      "When applying the tourniquet"
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 43,
+    "question": "A phlebotomist most likely not use a butterfly for which of the following patients?",
+    "options": [
+      "An elderly patient with thin skin.",
+      "A wiggling child.",
+      "A patient with resilient and bouncy veins.",
+      "A patient with small, thin veins."
+    ],
+    "correctIndex": 2,
+    "category": ""
+  },
+  {
+    "number": 44,
+    "question": "Swelling caused from blood leaking from a blood vessel is...",
+    "options": [
+      "Edema.",
+      "Sclerosis.",
+      "Thrombosis.",
+      "Hematoma."
+    ],
+    "correctIndex": 3,
+    "category": ""
+  },
+  {
+    "number": 45,
+    "question": "Alcohol should be allowed to dry completely prior to skin puncture to...",
+    "options": [
+      "Prevent stinging.",
+      "Prevent dilution of the sample.",
+      "Prevent lysis of red blood cells.",
+      "Allow formation of a round drop of blood."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 46,
+    "question": "Which of the following is the most appropriate procedure when preparing a patient for blood specimen collection?",
+    "options": [
+      "The phlebotomist should always ask the patient if they know why they are having blood drawn for testing.",
+      "If a patient asks the phlebotomist to explain the purpose of a blood test, the question should be referred to the doctor or nurse to answer.",
+      "If a patient asks why so many tubes of blood need to be drawn, the phlebotomist should reassure the patient that the lab needs extra blood in case they make a mistake running the test or if a tube should break.",
+      "Prior to the blood draw, the phlebotomist should ask each patient if he or she has a needle phobia."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 47,
+    "question": "A falsely decreased blood alcohol level may be obtained if...",
+    "options": [
+      "Blood is collected in a gray stopper tube.",
+      "The site is cleansed with Zephiran Chloride.",
+      "The tube is only partially filled.",
+      "The tube is overfilled."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 48,
+    "question": "By bracing the hand while holding the needle assembly against the patients arm you...",
+    "options": [
+      "Decrease patient discomfort.",
+      "Prevent excess needle movement.",
+      "Decreases the possibility of hemolysis.",
+      "Allows tubes to be filled quicker."
+    ],
+    "correctIndex": 1,
+    "category": ""
+  },
+  {
+    "number": 49,
+    "question": "A fully stocked phlebotomy tray readily accessible to the phlebotomy technician while performing venipuncture should include which of the following?",
+    "options": [
+      "Needles of various sizes.",
+      "Needle holder/adapter.",
+      "Evacuated blood collection tubes.",
+      "All of the above"
+    ],
+    "correctIndex": 3,
+    "category": ""
+  }
+]

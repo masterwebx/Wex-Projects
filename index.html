@@ -1,271 +1,173 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JustWex</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%23007bff'/><text x='16' y='22' text-anchor='middle' font-size='16' font-family='Arial' font-weight='700' fill='white'>W</text></svg>">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-    
-    <!-- THIS SCRIPT FIXES THE FLASH ON RELOAD -->
-    <script>
-        if (localStorage.getItem('dark') === 'true') {
-            document.documentElement.classList.add('dark'); // Use documentElement (<html>) for earliest application
-        }
-    </script>
-    
-    <style>
-        :root {
-            --bg-color: #f9f9f9;
-            --text-color: #333;
-            --accent-color: #007bff;
-            --accent-soft: #d4e0f4;
-            --card-bg: #fff;
-            --shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        html.dark, body.dark { /* Target both for safety */
-            --bg-color: #121212;
-            --text-color: #e0e0e0;
-            --card-bg: #1e1e1e;
-            --accent-color: #4da6ff;
-            --accent-soft: #2a3a5f;
-        }
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            line-height: 1.6;
-            transition: background-color 0.3s, color 0.3s;
-        }
-        /* ... rest of your styles unchanged ... */
-        header {
-            text-align: center;
-            padding: 100px 20px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.1), var(--bg-color));
-        }
-        h1 {
-            font-size: 3.5rem;
-            margin: 0;
-        }
-        p.tagline {
-            font-size: 1.2rem;
-            max-width: 600px;
-            margin: 20px auto;
-        }
-        .projects {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px 20px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 30px;
-        }
-        .project-card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-        .project-card:hover {
-            transform: translateY(-10px);
-            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
-        }
-        .project-card img {
-            width: 100%;
-            height: 200px;
-            object-fit: cover;
-        }
-        .coming-soon-svg {
-            width: 100%;
-            height: 200px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: var(--card-bg);
-            border-radius: 12px 12px 0 0;
-            overflow: hidden;
-        }
-        .coming-soon-svg svg {
-            width: 100%;
-            height: 100%;
-        }
-        .project-info {
-            padding: 20px;
-            text-align: center;
-        }
-        .project-info h3 {
-            margin: 0 0 10px;
-        }
-        .project-info p {
-            font-size: 0.95rem;
-            margin: 0 0 15px;
-        }
-        .btn {
-            display: inline-block;
-            padding: 10px 20px;
-            background: var(--accent-color);
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            transition: background 0.3s;
-        }
-        .btn:hover {
-            background: #0056b3;
-        }
-        footer {
-            text-align: center;
-            padding: 60px 20px 40px;
-            background: rgba(0,0,0,0.05);
-        }
-        .support-section {
-            margin-bottom: 30px;
-        }
-        .support-section p {
-            margin: 10px 0 20px;
-            font-size: 1rem;
-        }
-        .kofi-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 24px;
-            background: #ff5e5b;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-        .kofi-btn i {
-            font-size: 1.4rem;
-        }
-        .kofi-btn:hover {
-            background: #e54e4b;
-        }
-        .social-links a {
-            margin: 0 15px;
-            color: var(--text-color);
-            font-size: 1.5rem;
-            transition: color 0.3s;
-        }
-        .social-links a:hover {
-            color: var(--accent-color);
-        }
-        .theme-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--card-bg);
-            border: none;
-            padding: 10px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 1.2rem;
-            box-shadow: var(--shadow);
-            z-index: 100;
-        }
-        @media (max-width: 768px) {
-            h1 { font-size: 2.5rem; }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="JustWex — a personal tools portfolio of browser apps, creative utilities, and downloads.">
+  <title>JustWex</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%230b6e74'/><text x='16' y='22' text-anchor='middle' font-size='15' font-family='Arial' font-weight='700' fill='white'>W</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/site.css">
+  <script>
+    try {
+      if (localStorage.getItem("dark") === "true") {
+        document.documentElement.classList.add("dark");
+      }
+    } catch (e) { /* private mode */ }
+  </script>
 </head>
 <body>
-    <button class="theme-toggle">
-        <i class="fas fa-moon"></i>
-    </button>
+  <a class="skip-link" href="#projects">Skip to projects</a>
 
-    <!-- Your existing content unchanged -->
-    <header>
-        <h1>JustWex</h1>
-        <p class="tagline">Welcome to my projects hub – a collection of my experiments, tools, and creations.</p>
-    </header>
+  <header class="topbar">
+    <div class="topbar__inner">
+      <a class="brand" href="#top">JustWex</a>
+      <nav class="topbar__nav" aria-label="Primary">
+        <a href="#projects">Projects</a>
+        <a href="https://github.com/masterwebx" target="_blank" rel="noopener noreferrer">GitHub</a>
+        <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false" aria-label="Switch to dark theme">
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 14.3A8.5 8.5 0 0 1 9.7 3 7 7 0 1 0 21 14.3z"></path>
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+          </svg>
+        </button>
+      </nav>
+    </div>
+  </header>
 
-    <section class="projects">
-        <!-- Offline Journal Project -->
-        <div class="project-card">
-            <img src="projects/offline-journal/splash.png" alt="Offline Journal Preview">
-            <div class="project-info">
-                <h3>Offline Journal</h3>
-                <p>A private, fully offline journaling app that works entirely in your browser. No accounts, no data leaves your device.</p>
-                <a href="projects/offline-journal/index.html" class="btn">Open Journal</a>
-            </div>
+  <main id="top">
+    <section class="hero" aria-label="Introduction">
+      <div class="hero__fallback" aria-hidden="true"></div>
+      <canvas id="hero-canvas" class="hero__canvas" aria-hidden="true"></canvas>
+      <div class="hero__veil" aria-hidden="true"></div>
+      <div class="hero__content">
+        <h1 class="hero__brand">JustWex</h1>
+        <p class="hero__lead">Personal tools and experiments — browser apps, creative utilities, and downloads.</p>
+        <div class="hero__actions">
+          <a class="btn btn--primary" href="#projects">Browse projects</a>
+          <a class="btn btn--ghost" href="https://github.com/masterwebx" target="_blank" rel="noopener noreferrer">GitHub</a>
         </div>
-        <!-- Pixel Art Recolor Tool -->
-        <div class="project-card">
-            <img src="projects/pixelartrecoloronline.png" alt="Pixel Art Recolor Tool Preview">
-            <div class="project-info">
-                <h3>Pixel Art Recolor Tool</h3>
-                <p>A tool for recoloring pixel art images in your browser. Integrates with the Super Smash Flash 2 Color Vault discord server.</p>
-                <a href="https://color-vault.github.io/Color-Vault/dist/index.html" class="btn">Open Tool</a>
-            </div>
-        </div>
-
-        <!-- Pressor SSF2 Modding Tool -->
-        <div class="project-card">
-            <img src="projects/pressor.png" alt="Pressor SSF2 Modding Tool Preview">
-            <div class="project-info">
-                <h3>Pressor - SSF2 Modding Tool</h3>
-                <p>An application for modding Super Smash Flash 2 sprites and animations.</p>
-                <a href="https://github.com/masterwebx/Pressor/releases" class="btn">Download Latest Release</a>
-            </div>
-        </div>
-
-        <!-- SSF2 Replay Editor Tool -->
-        <div class="project-card">
-            <img src="projects/replayeditor.png" alt="SSF2 Replay Editor Tool Preview">
-            <div class="project-info">
-                <h3>SSF2 Replay Editor</h3>
-                <p>An application for editing Super Smash Flash 2 replay files.</p>
-                <a href="projects/ssf2-replay-editor/replay-editor.html" class="btn">Open Tool</a>
-            </div>
-        </div>
-
-        <!-- Goals Tool -->
-        <div class="project-card">
-            <img src="projects/goals.png" alt="Goals Tool Preview">
-            <div class="project-info">
-                <h3>Goals Tool</h3>
-                <p>A tool for setting and tracking personal goals.</p>
-                <a href="projects/goal-flowchart/goals.html" class="btn">Open Tool</a>
-            </div>
-        </div>
-
-        <!-- Practice Test -->
-        <div class="project-card">
-            <img src="projects/practicetest.png" alt="Practice Test Preview">
-            <div class="project-info">
-                <h3>Practice Test</h3>
-                <p>Spaced repetition study app with mock exams, readiness tracking, and offline practice — runs in your browser.</p>
-                <a href="projects/practice-test/index.html" class="btn">Open App</a>
-            </div>
-        </div>
+        <noscript>
+          <p class="noscript-note">Interactive backdrop needs JavaScript; all project links work without it.</p>
+        </noscript>
+      </div>
     </section>
 
-    <footer>
-        <div class="support-section">
-            <p>If you enjoy my projects and want to support future development:</p>
-            <a href="https://ko-fi.com/justwex" target="_blank" class="btn kofi-btn">
-                <i class="fas fa-mug-hot"></i> Buy me a coffee on Ko-fi
-            </a>
-        </div>
+    <section id="projects" class="section" aria-labelledby="projects-heading">
+      <div class="section__header">
+        <h2 id="projects-heading" class="section__title">Projects</h2>
+        <p class="section__desc">Tools you can open in the browser, plus downloads and external utilities.</p>
+      </div>
 
-        <div class="social-links">
-            <a href="https://github.com/masterwebx" target="_blank"><i class="fab fa-github"></i></a>
-        </div>
-        <p>&copy; 2025 JustWex. All rights reserved.</p>
-    </footer>
+      <div class="category">
+        <h3 class="category__label">Browser apps</h3>
+        <div class="project-grid">
+          <article class="project-card">
+            <div class="project-card__media">
+              <img src="projects/offline-journal/splash.png" alt="Offline Journal preview" width="640" height="400" loading="lazy" decoding="async">
+            </div>
+            <div class="project-card__body">
+              <h3>Offline Journal</h3>
+              <p>A private, fully offline journaling app that works entirely in your browser. No accounts, no data leaves your device.</p>
+              <a href="projects/offline-journal/index.html" class="btn btn--primary">Open Journal</a>
+            </div>
+          </article>
 
-    <script>
-        const toggleButton = document.querySelector('.theme-toggle i');
-        // Initial icon based on current state (after inline script)
-        if (document.documentElement.classList.contains('dark')) {
-            toggleButton.classList.replace('fa-moon', 'fa-sun');
-        }
-        document.querySelector('.theme-toggle').addEventListener('click', () => {
-            const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('dark', isDark);
-            toggleButton.classList.toggle('fa-moon');
-            toggleButton.classList.toggle('fa-sun');
-        });
-    </script>
+          <article class="project-card">
+            <div class="project-card__media">
+              <img src="projects/replayeditor.png" alt="SSF2 Replay Editor preview" width="640" height="400" loading="lazy" decoding="async">
+            </div>
+            <div class="project-card__body">
+              <h3>SSF2 Replay Editor</h3>
+              <p>An application for editing Super Smash Flash 2 replay files.</p>
+              <a href="projects/ssf2-replay-editor/replay-editor.html" class="btn btn--primary">Open Tool</a>
+            </div>
+          </article>
+
+          <article class="project-card">
+            <div class="project-card__media">
+              <img src="projects/goals.png" alt="Goals Tool preview" width="640" height="400" loading="lazy" decoding="async">
+            </div>
+            <div class="project-card__body">
+              <h3>Goals Tool</h3>
+              <p>A tool for setting and tracking personal goals.</p>
+              <a href="projects/goal-flowchart/goals.html" class="btn btn--primary">Open Tool</a>
+            </div>
+          </article>
+
+          <article class="project-card">
+            <div class="project-card__media">
+              <img src="projects/practicetest.png" alt="Practice Test preview" width="640" height="400" loading="lazy" decoding="async">
+            </div>
+            <div class="project-card__body">
+              <h3>Practice Test</h3>
+              <p>Spaced repetition study app with mock exams, readiness tracking, and offline practice — runs in your browser.</p>
+              <a href="projects/practice-test/index.html" class="btn btn--primary">Open App</a>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <div class="category">
+        <h3 class="category__label">Downloads &amp; external</h3>
+        <div class="project-grid">
+          <article class="project-card">
+            <div class="project-card__media">
+              <img src="projects/pixelartrecoloronline.png" alt="Pixel Art Recolor Tool preview" width="640" height="400" loading="lazy" decoding="async">
+            </div>
+            <div class="project-card__body">
+              <h3>Pixel Art Recolor Tool</h3>
+              <p>A tool for recoloring pixel art images in your browser. Integrates with the Super Smash Flash 2 Color Vault discord server.</p>
+              <a href="https://color-vault.github.io/Color-Vault/dist/index.html" class="btn btn--primary">Open Tool</a>
+            </div>
+          </article>
+
+          <article class="project-card">
+            <div class="project-card__media">
+              <img src="projects/pressor.png" alt="Pressor SSF2 Modding Tool preview" width="640" height="400" loading="lazy" decoding="async">
+            </div>
+            <div class="project-card__body">
+              <h3>Pressor - SSF2 Modding Tool</h3>
+              <p>An application for modding Super Smash Flash 2 sprites and animations.</p>
+              <a href="https://github.com/masterwebx/Pressor/releases" class="btn btn--primary">Download Latest Release</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="site-footer__inner">
+      <div class="support">
+        <p>If you enjoy these projects and want to support future development:</p>
+        <a class="btn btn--kofi" href="https://ko-fi.com/justwex" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 8h11v7a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V8z"></path>
+            <path d="M15 9h2.5a2.5 2.5 0 0 1 0 5H15"></path>
+            <path d="M8 3v3M12 3v3"></path>
+          </svg>
+          Buy me a coffee on Ko-fi
+        </a>
+      </div>
+      <div class="footer-meta">
+        <a href="https://github.com/masterwebx" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
+            <path d="M12 2a10 10 0 0 0-3.2 19.5c.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.2-3.4-1.2-.4-1-.9-1.3-.9-1.3-.8-.5.1-.5.1-.5.9.1 1.3.9 1.3.9.8 1.3 2.1.9 2.6.7.1-.5.3-.9.5-1.1-2.2-.3-4.6-1.1-4.6-5a3.9 3.9 0 0 1 1-2.7c-.1-.3-.4-1.3.1-2.7 0 0 .8-.3 2.8 1a9.7 9.7 0 0 1 5 0c2-1.3 2.8-1 2.8-1 .5 1.4.2 2.4.1 2.7a3.9 3.9 0 0 1 1 2.7c0 3.9-2.3 4.7-4.6 5 .3.3.6.8.6 1.6v2.4c0 .3.2.6.7.5A10 10 0 0 0 12 2z"></path>
+          </svg>
+          GitHub
+        </a>
+        <span>&copy; 2026 JustWex. All rights reserved.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/theme.js" defer></script>
+  <script type="module" src="assets/js/hero-three.js"></script>
 </body>
 </html>
